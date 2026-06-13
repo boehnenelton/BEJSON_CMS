@@ -1,0 +1,20 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "NavLink"
+  ],
+  "Fields": [
+    {
+      "name": "nav_label",
+      "type": "string"
+    },
+    {
+      "name": "nav_url",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

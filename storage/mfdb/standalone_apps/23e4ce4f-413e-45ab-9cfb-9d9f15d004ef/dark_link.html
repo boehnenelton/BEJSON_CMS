@@ -1,0 +1,1284 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dark Link: Sword Slasher Build 128</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #DE2626;
+            --primary-dim: #7f1d1d;
+            --bg-dark: #09090b;
+            --bg-surface: #18181b;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border: #27272a;
+            --font-base: 'Inter', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Roboto Mono', monospace;
+            --glow: rgba(222, 38, 38, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-base);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Handheld Portrait Shell wrapper */
+        #handheld-shell {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            background-color: #121214;
+            border-left: 4px solid #27272a;
+            border-right: 4px solid #27272a;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 40px rgba(0,0,0,0.85);
+        }
+
+        /* Viewport Canvas Wrapper (Upper 60%) */
+        #screen-area {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            background-color: #000;
+            border-bottom: 6px solid #27272a;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        /* Tactical Interactive Dialog Overlay */
+        #dialog-panel {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            right: 16px;
+            background: rgba(18, 18, 24, 0.95);
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 15px var(--glow);
+            padding: 12px;
+            border-radius: 4px;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 50;
+            font-family: var(--font-mono);
+        }
+
+        #dialog-speaker {
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+
+        #dialog-text {
+            font-size: 0.85rem;
+            color: #fff;
+            line-height: 1.4;
+        }
+
+        /* GameBoy Portrait Controls Area (Lower 40%) */
+        #control-panel {
+            flex: 1;
+            width: 100%;
+            background-color: #1a1a1e;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px 24px;
+            touch-action: none;
+        }
+
+        /* HUD Status Bar */
+        #hud-status {
+            width: 100%;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            border-radius: 4px;
+        }
+
+        .stat-value {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        /* Core Handheld Layout */
+        .handheld-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-grow: 1;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        /* Virtual Analog Joystick Container */
+        .joystick-container {
+            width: 130px;
+            height: 130px;
+            background: rgba(39, 39, 42, 0.4);
+            border: 3px solid #3f3f46;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
+        }
+
+        .joystick-handle {
+            width: 52px;
+            height: 52px;
+            background: linear-gradient(135deg, #52525b, #27272a);
+            border: 2px solid #a1a1aa;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+            pointer-events: none; /* Let touches pass through to the container */
+            transition: transform 0.05s ease;
+        }
+
+        .joystick-container:active .joystick-handle, .joystick-container.active .joystick-handle {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--glow);
+        }
+
+        /* Action Buttons Slant Layout */
+        .action-container {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .action-btn {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+            border: 3px solid;
+            cursor: pointer;
+            touch-action: none;
+            font-family: var(--font-mono);
+        }
+
+        #btn-b {
+            background: #27272a;
+            border-color: #3f3f46;
+            color: #d4d4d8;
+            transform: translateY(12px);
+        }
+        #btn-b:active, #btn-b.pressed {
+            background: #3f3f46;
+            color: #fff;
+        }
+
+        #btn-a {
+            background: var(--primary);
+            border-color: #ef4444;
+            color: #fff;
+        }
+        #btn-a:active, #btn-a.pressed {
+            background: var(--primary-dim);
+            transform: scale(0.95);
+        }
+
+        /* Sub System Utilities Row */
+        .system-utilities {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .utility-btn {
+            background: #27272a;
+            border: 1px solid #3f3f46;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 6px 14px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .utility-btn:active {
+            background: #3f3f46;
+            color: #fff;
+        }
+
+        /* Keyboard Help Panel */
+        #keyboard-legend {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(0,0,0,0.85);
+            border: 1px dashed var(--border);
+            padding: 6px 12px;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            pointer-events: none;
+            font-family: var(--font-mono);
+            z-index: 10;
+        }
+
+        @media (max-width: 600px) {
+            #keyboard-legend { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="keyboard-legend">
+        <div>MOVE: WASD / ARROWS</div>
+        <div>[A] SLASH: Z / J</div>
+        <div>[B] SHIFT GEAR: X / K</div>
+        <div>TALK: SPACE / C</div>
+    </div>
+
+    <!-- Handheld Container -->
+    <div id="handheld-shell">
+        <!-- Playable Viewport -->
+        <div id="screen-area">
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Dialogue System Box -->
+            <div id="dialog-panel">
+                <div id="dialog-speaker">CANNONDWARF</div>
+                <div id="dialog-text">« SENSING TRANSMISSION CORE... »</div>
+            </div>
+        </div>
+
+        <!-- Handheld Lower Control Deck -->
+        <div id="control-panel">
+            <!-- Mini HUD Display -->
+            <div id="hud-status">
+                <div>HP: <span id="v-hp" class="stat-value">5/5</span></div>
+                <div>LEVEL: <span id="v-lvl" class="stat-value">Village</span></div>
+                <div>SCORE: <span id="v-score" class="stat-value">000000</span></div>
+            </div>
+
+            <!-- Joypad & Action Deck -->
+            <div class="handheld-controls">
+                <!-- Virtual Joystick (Analog Movement) -->
+                <div class="joystick-container" id="joystick">
+                    <div class="joystick-handle" id="joystick-handle"></div>
+                </div>
+
+                <!-- Nintendo Slanted Buttons -->
+                <div class="action-container">
+                    <div class="action-btn" id="btn-b">B</div>
+                    <div class="action-btn" id="btn-a">A</div>
+                </div>
+            </div>
+
+            <!-- Utility controls -->
+            <div class="system-utilities">
+                <button class="utility-btn" id="btn-telepathy">Mindlink</button>
+                <button class="utility-btn" id="btn-reset" onclick="resetGame()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // =========================================================================
+    // SECTION 1: PROCEDURAL SOUND GENERATOR (Retro Synthesizer)
+    // =========================================================================
+    const SoundChip = {
+        ctx: null,
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        },
+        playSlash() {
+            this.init();
+            if (!this.ctx) return;
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(750, this.ctx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.15);
+        },
+        playHit() {
+            this.init();
+            if (!this.ctx) return;
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+            osc.frequency.setValueAtTime(80, this.ctx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.15);
+        },
+        playBreak() {
+            this.init();
+            if (!this.ctx) return;
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1800, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.18);
+            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.2);
+        },
+        playHurt() {
+            this.init();
+            if (!this.ctx) return;
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.35);
+        },
+        playBeep() {
+            this.init();
+            if (!this.ctx) return;
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.08);
+        }
+    };
+
+    // =========================================================================
+    // SECTION 2: HIGH-FIDELITY SPRITE ENCODING (UPLOADS EMBEDDED)
+    // =========================================================================
+    const SPRITE_FRONT_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABOklEQVR4AeyVUY7CMAxE7b3J7gfc/zjwsXuU7kyKqyLa2BNACInKxnGZ2C8pDV/24usDcM8OTHh6a0eq2yjA9Hs42NrRmjAImo0CaF066hGAttKf89nWfunRvruMS0EFmHBZz9FVglAA0DevDREYLBdSBVcAIJ/N3c3d5wSf7n6V41bZhgC4Snp04ZgeuRIVAMfVVppFADi8ZBUAPs/wUlGIQs+IdN8ygJs DZ334VMZo3YXIADB/tu/TySo+q205IyLfi2UAFvg7Hq3n1KguAajFK/oMwOO45cqzgtSEHlq+CeFIty0D4CwWYVS8PKcC0BrHyrLYxMJHGUCoKUlHALi9Wy41DvEIQMx9SPwAvMUOdP9Mdn4I5TnZDpQLbYCU5mYAG3UfeysDUN53RbusIgNYhM8aPB0gA/8HAAD//wwR5WQAAAAGSURBVAMAHnucQYIveGMAAAAASUVORK5CYII=";
+    const SPRITE_BACK_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABHUlEQVR4AeyTYQ7CIAyFqTfRH3r/47gfepT5nhlBEFo6thiTLX2B0kI/uu0UfvwcAEcH/rIDM34cTQj3m7cDM56gCaUJh6HPPACoa5+NJFa2E5kFeQCQnkxEgkhSivhmqwF400/5yqbs1QDpiLFZDwDfJ5W1XCS1XySfL0jcQy1ufbAA5sf1GkaEsiqEBYD9+5oG8L79aHl2D2c0u6ABYN+3ne/3QJURrlHluuW7AZ63W6DKg7lGleuW7wawDvTGWwCbvP8Io30HLYC4Vx0v0xQoNckIDgHwZpRRQw0PAagndwYPgKMDzQ7w99pSrW+yBSDYEIVp1WI8jtUkLMY4R7i5tQDyrB29HgCS11Ri1XK4VuZlfg9AtsHrWPkvAAAA///hcxfaAAAABklEQVQDAP3gjkHPV7F3AAAAAElFTkSuQmCC";
+
+    const spriteFrontImg = new Image();
+    spriteFrontImg.src = SPRITE_FRONT_URI;
+
+    const spriteBackImg = new Image();
+    spriteBackImg.src = SPRITE_BACK_URI;
+
+    // =========================================================================
+    // SECTION 3: IMMUTABLE BEJSON SPECIFICATIONS & SCRIPTS
+    // =========================================================================
+    const entities_bejson = {
+        "Format": "BEJSON",
+        "Format_Version": "104db",
+        "Format_Creator": "Elton Boehnen",
+        "Records_Type": ["Playable", "Minion", "ObjectiveGate"],
+        "Fields": [
+            { "name": "Record_Type_Parent", "type": "string" },
+            { "name": "id", "type": "string", "Record_Type_Parent": "Playable" },
+            { "name": "hp", "type": "integer", "Record_Type_Parent": "Playable" },
+            { "name": "max_hp", "type": "integer", "Record_Type_Parent": "Playable" },
+            { "name": "atk", "type": "integer", "Record_Type_Parent": "Playable" },
+            { "name": "speed", "type": "number", "Record_Type_Parent": "Playable" }
+        ],
+        "Values": [
+            ["Playable", "ent_dark_link", 5, 5, 12, 1.95]
+        ]
+    };
+
+    const TelepathyScript = [
+        { speaker: "CANNONDWARF", text: "« SHADOW. ARISE. The green pretender has crossed the northern seal. Pursue him now! »" },
+        { speaker: "DARK LINK", text: "\"...The green one again. I already know that face. I AM that face.\"" },
+        { speaker: "DARK LINK", text: "\"Every scar he earns, I wear. He hasn't fought himself yet.\"" },
+        { speaker: "CANNONDWARF", text: "« Do not speak, phantom! Slay the light-wisps to activate the gateway portal to Death Mountain! »" }
+    ];
+    let scriptIndex = 0;
+
+    // =========================================================================
+    // SECTION 4: STATE-MACHINE DRIVEN GAME ENGINE
+    // =========================================================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const GAME_W = 320;
+    const GAME_H = 320; 
+    canvas.width = GAME_W;
+    canvas.height = GAME_H;
+
+    let gameState = 'playing'; 
+    let currentLevel = 'shadow_realm'; 
+    let screenShake = 0;
+    let frameCount = 0;
+    let score = 0;
+
+    // Inputs
+    const joystickVector = { x: 0, y: 0 };
+    const keys = {
+        up: false, down: false, left: false, right: false,
+        btnA: false, btnB: false
+    };
+
+    // Particles Storage
+    let particles = [];
+    function spawnParticles(x, y, color, count = 8, speed = 2) {
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * speed * 2,
+                vy: (Math.random() - 0.5) * speed * 2 - 1,
+                size: Math.random() * 3 + 1,
+                color: color,
+                alpha: 1,
+                life: Math.random() * 20 + 15
+            });
+        }
+    }
+
+    // =========================================================================
+    // ENTITY IMPLEMENTATIONS
+    // =========================================================================
+    
+    // Player Model (Dark Link)
+    const player = {
+        x: GAME_W / 2 - 16,
+        y: GAME_H / 2 + 40,
+        w: 32,
+        h: 32,
+        hp: 5,
+        maxHp: 5,
+        speed: 1.95,
+        dirX: 0,
+        dirY: 1, // Facing Vector
+        isAttacking: false,
+        attackTimer: 0,
+        invulTimer: 0,
+
+        update() {
+            if (this.invulTimer > 0) this.invulTimer--;
+
+            if (this.isAttacking) {
+                this.attackTimer--;
+                if (this.attackTimer <= 0) {
+                    this.isAttacking = false;
+                }
+                return; // Lock movement during swing execution
+            }
+
+            // Direction processing (Combines Keys & Analog Joystick)
+            let moveX = 0;
+            let moveY = 0;
+
+            if (keys.left) moveX = -1;
+            if (keys.right) moveX = 1;
+            if (keys.up) moveY = -1;
+            if (keys.down) moveY = 1;
+
+            // Merge in joystick vectors if active
+            if (Math.abs(joystickVector.x) > 0.05 || Math.abs(joystickVector.y) > 0.05) {
+                moveX = joystickVector.x;
+                moveY = joystickVector.y;
+            }
+
+            if (Math.abs(moveX) > 0.05 || Math.abs(moveY) > 0.05) {
+                // Determine facing direction vector based on raw coordinates
+                this.dirX = moveX > 0.1 ? 1 : (moveX < -0.1 ? -1 : 0);
+                this.dirY = moveY > 0.1 ? 1 : (moveY < -0.1 ? -1 : 0);
+                
+                // Keep default facing tracking if resolving precisely near zero
+                if (this.dirX === 0 && this.dirY === 0) {
+                    this.dirY = 1;
+                }
+
+                // Normalize velocity
+                let length = Math.sqrt(moveX * moveX + moveY * moveY);
+                let dx = (moveX / length) * this.speed;
+                let dy = (moveY / length) * this.speed;
+
+                this.moveWithCollision(dx, dy);
+            }
+
+            // Attack triggering
+            if (keys.btnA && !this.isAttacking) {
+                this.isAttacking = true;
+                this.attackTimer = 14;
+                SoundChip.playSlash();
+                this.performSlash();
+                keys.btnA = false;
+            }
+        },
+
+        moveWithCollision(dx, dy) {
+            let nextX = this.x + dx;
+            let nextY = this.y + dy;
+
+            // Clamping inside walkable field constraints
+            if (nextX < 16) nextX = 16;
+            if (nextX + this.w > GAME_W - 16) nextX = GAME_W - 16 - this.w;
+            if (nextY < 16) nextY = 16;
+            if (nextY + this.h > GAME_H - 16) nextY = GAME_H - 16 - this.h;
+
+            let collided = false;
+            obstacles.forEach(obs => {
+                if (obs.active && checkAABB(nextX, nextY, this.w, this.h, obs.x, obs.y, obs.w, obs.h)) {
+                    collided = true;
+                }
+            });
+
+            if (!collided) {
+                this.x = nextX;
+                this.y = nextY;
+            }
+        },
+
+        performSlash() {
+            let slashW = 32;
+            let slashH = 32;
+            let slashX = this.x + this.w/2 - slashW/2 + (this.dirX * 24);
+            let slashY = this.y + this.h/2 - slashH/2 + (this.dirY * 24);
+
+            obstacles.forEach(obs => {
+                if (obs.active && checkAABB(slashX, slashY, slashW, slashH, obs.x, obs.y, obs.w, obs.h)) {
+                    obs.hit();
+                }
+            });
+
+            enemies.forEach(en => {
+                if (en.active && checkAABB(slashX, slashY, slashW, slashH, en.x, en.y, en.w, en.h)) {
+                    en.takeDamage(1);
+                }
+            });
+
+            if (currentLevel === 'shadow_realm' && portal.active && !portal.open) {
+                if (checkAABB(slashX, slashY, slashW, slashH, portal.x, portal.y, portal.w, portal.h)) {
+                    portal.hitPortal();
+                }
+            }
+        },
+
+        takeDamage(amt) {
+            if (this.invulTimer > 0) return;
+            this.hp -= amt;
+            this.invulTimer = 40;
+            screenShake = 10;
+            SoundChip.playHurt();
+            spawnParticles(this.x + this.w/2, this.y + this.h/2, '#ff3333', 10, 2);
+            updateHUD();
+
+            if (this.hp <= 0) {
+                gameState = 'gameover';
+            }
+        },
+
+        draw() {
+            if (this.invulTimer > 0 && Math.floor(frameCount / 4) % 2 === 0) return;
+
+            // Render Shadow Ellipse
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.ellipse(this.x + this.w/2, this.y + this.h - 1, 12, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Render High-Fidelity Sprite Art cleanly based on vertical direction
+            const activeSprite = (this.dirY < 0) ? spriteBackImg : spriteFrontImg;
+            
+            if (activeSprite.complete) {
+                ctx.save();
+                // Flip horizontally if facing left
+                if (this.dirX < 0) {
+                    ctx.translate(this.x + this.w, this.y);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(activeSprite, 0, 0, this.w, this.h);
+                } else {
+                    ctx.drawImage(activeSprite, this.x, this.y, this.w, this.h);
+                }
+                ctx.restore();
+            } else {
+                // Fallback rendering
+                ctx.fillStyle = '#181822';
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+            }
+
+            // Draw Sword Arc Visualizer
+            if (this.isAttacking) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                let arcX = this.x + this.w/2 + (this.dirX * 18);
+                let arcY = this.y + this.h/2 + (this.dirY * 18);
+                
+                ctx.beginPath();
+                ctx.arc(arcX, arcY, 16, 0, Math.PI * 2);
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+
+                ctx.fillStyle = 'var(--primary)';
+                ctx.fillRect(arcX - 4, arcY - 4, 8, 8);
+            }
+        }
+    };
+
+    // Obstacle Entities
+    class Obstacle {
+        constructor(x, y, type) {
+            this.x = x;
+            this.y = y;
+            this.w = 32;
+            this.h = 32;
+            this.type = type; // 'crystal', 'urn', 'brick'
+            this.active = true;
+            this.color = type === 'crystal' ? '#7c3aed' : '#5c4033';
+        }
+
+        hit() {
+            if (this.type === 'brick') return;
+            this.active = false;
+            SoundChip.playBreak();
+            screenShake = 3;
+            spawnParticles(this.x + this.w/2, this.y + this.h/2, this.color, 12, 2.5);
+
+            if (this.type === 'crystal') {
+                let remainingCrystals = obstacles.filter(o => o.type === 'crystal' && o.active).length;
+                if (remainingCrystals === 0) {
+                    portal.awaken();
+                }
+            }
+        }
+
+        draw() {
+            if (!this.active) return;
+            
+            if (this.type === 'crystal') {
+                ctx.fillStyle = '#6d28d9';
+                ctx.strokeStyle = '#c084fc';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x + 16, this.y);
+                ctx.lineTo(this.x + 32, this.y + 16);
+                ctx.lineTo(this.x + 16, this.y + 32);
+                ctx.lineTo(this.x, this.y + 16);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            } else if (this.type === 'urn') {
+                ctx.fillStyle = '#854d0e';
+                ctx.fillRect(this.x + 4, this.y + 8, 24, 24);
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(this.x + 8, this.y, 16, 8);
+            } else {
+                ctx.fillStyle = '#3f3f46';
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                ctx.strokeStyle = '#52525b';
+                ctx.strokeRect(this.x, this.y, this.w, this.h);
+            }
+        }
+    }
+
+    // Portal Switch Gateway
+    const portal = {
+        x: GAME_W / 2 - 32,
+        y: 32,
+        w: 64,
+        h: 32,
+        active: false,
+        open: false,
+
+        awaken() {
+            this.active = true;
+            SoundChip.playBeep();
+            triggerDialogue({
+                speaker: "SYSTEM TRANSMISSION",
+                text: "« COLD PRESENCE DETECTED. GATES AWAKENED. Strike the portal core to proceed. »"
+            });
+        },
+
+        hitPortal() {
+            if (this.open) return;
+            this.open = true;
+            SoundChip.playBreak();
+            spawnParticles(this.x + 32, this.y + 16, 'var(--primary)', 30, 4);
+            
+            triggerDialogue({
+                speaker: "CANNONDWARF",
+                text: "« STEP FORWARD INTO THE TEAR! HE IS WITHIN GRASP! »"
+            });
+        },
+
+        draw() {
+            if (!this.active) return;
+            ctx.fillStyle = this.open ? '#020205' : '#18181b';
+            ctx.strokeStyle = this.open ? 'var(--primary)' : '#3f3f46';
+            ctx.lineWidth = 2;
+            ctx.fillRect(this.x, this.y, this.w, this.h);
+            ctx.strokeRect(this.x, this.y, this.w, this.h);
+
+            if (this.open) {
+                ctx.fillStyle = `rgba(222, 27, 27, ${0.4 + Math.sin(frameCount / 4) * 0.3})`;
+                ctx.fillRect(this.x + 4, this.y + 4, this.w - 8, this.h - 8);
+            }
+        }
+    };
+
+    // Enemy / Green Hero Actors
+    class Enemy {
+        constructor(x, y, type) {
+            this.x = x;
+            this.y = y;
+            this.type = type;
+            this.w = type === 'hero' ? 32 : 24;
+            this.h = type === 'hero' ? 32 : 24;
+            this.hp = type === 'hero' ? 12 : 2;
+            this.active = true;
+            
+            // Speed scaled safely (cut in half per request)
+            this.speed = type === 'hero' ? 0.6 : 0.4;
+            
+            this.hitFlash = 0;
+            this.attackCooldown = 0;
+            this.dirX = 1;
+        }
+
+        update() {
+            if (this.hitFlash > 0) this.hitFlash--;
+
+            let dx = player.x - this.x;
+            let dy = player.y - this.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 180) {
+                if (this.type === 'hero') {
+                    if (this.attackCooldown > 0) this.attackCooldown--;
+                    
+                    if (dist < 48 && this.attackCooldown === 0) {
+                        this.attackCooldown = 90;
+                        SoundChip.playSlash();
+                        player.takeDamage(1);
+                        spawnParticles(player.x, player.y, '#2ecc71', 6, 2);
+                    }
+                }
+
+                if (dist > 8) {
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
+                    this.dirX = dx > 0 ? 1 : -1;
+                }
+            }
+
+            if (checkAABB(this.x, this.y, this.w, this.h, player.x, player.y, player.w, player.h)) {
+                player.takeDamage(1);
+            }
+        }
+
+        takeDamage(amt) {
+            this.hp -= amt;
+            this.hitFlash = 10;
+            screenShake = 6;
+            SoundChip.playHit();
+            spawnParticles(this.x + this.w/2, this.y + this.h/2, this.type === 'hero' ? '#2ecc71' : '#fff', 8, 2);
+
+            if (this.hp <= 0) {
+                this.active = false;
+                score += this.type === 'hero' ? 1000 : 100;
+                updateHUD();
+                spawnParticles(this.x + this.w/2, this.y + this.h/2, '#000', 25, 3);
+                
+                if (this.type === 'hero') {
+                    gameState = 'victory';
+                }
+            }
+        }
+
+        draw() {
+            if (this.hitFlash > 0) {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                return;
+            }
+
+            if (this.type === 'wisp') {
+                let bounceY = Math.sin(frameCount / 8) * 3;
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+                ctx.beginPath();
+                ctx.arc(this.x + 12, this.y + 12 + bounceY, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath();
+                ctx.arc(this.x + 12, this.y + 12 + bounceY, 5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (this.type === 'hero') {
+                // Green Link rendering
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(this.x + this.w/2, this.y + this.h - 1, 12, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#22c55e';
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+
+                ctx.fillStyle = '#fde047'; // Hair
+                ctx.fillRect(this.x + 4, this.y + 4, this.w - 8, 6);
+
+                ctx.fillStyle = '#3b82f6'; // Shield
+                if (this.dirX > 0) {
+                    ctx.fillRect(this.x + 24, this.y + 12, 8, 14);
+                } else {
+                    ctx.fillRect(this.x - 8, this.y + 12, 8, 14);
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // SECTION 5: DATA SHIFT AND SCENE LOAD CONTROLLERS
+    // =========================================================================
+    let obstacles = [];
+    let enemies = [];
+
+    function loadLevel(lvl) {
+        currentLevel = lvl;
+        obstacles = [];
+        enemies = [];
+
+        const hudLvl = document.getElementById('v-lvl');
+
+        if (lvl === 'shadow_realm') {
+            hudLvl.innerText = "Shadows";
+            player.x = GAME_W / 2 - 16;
+            player.y = GAME_H / 2 + 40;
+
+            // Spawn dynamic seals
+            obstacles.push(new Obstacle(40, 60, 'crystal'));
+            obstacles.push(new Obstacle(GAME_W - 72, 60, 'crystal'));
+            obstacles.push(new Obstacle(40, GAME_H - 100, 'crystal'));
+            obstacles.push(new Obstacle(GAME_W - 72, GAME_H - 100, 'crystal'));
+
+            obstacles.push(new Obstacle(GAME_W / 2 - 40, GAME_H / 2 - 40, 'urn'));
+            obstacles.push(new Obstacle(GAME_W / 2 + 8, GAME_H / 2 - 40, 'urn'));
+
+            enemies.push(new Enemy(80, 80, 'wisp'));
+            enemies.push(new Enemy(GAME_W - 100, 80, 'wisp'));
+
+            triggerDialogue(TelepathyScript[0]);
+        } else if (lvl === 'frozen_peaks') {
+            hudLvl.innerText = "Peaks";
+            player.x = GAME_W / 2 - 16;
+            player.y = GAME_H - 60;
+
+            obstacles.push(new Obstacle(80, 100, 'brick'));
+            obstacles.push(new Obstacle(GAME_W - 112, 100, 'brick'));
+
+            enemies.push(new Enemy(GAME_W / 2 - 16, 60, 'hero'));
+
+            triggerDialogue({
+                speaker: "DARK LINK",
+                text: "\"The desolate peaks of Death Mountain. He stands there... waiting to discover destiny doesn't stop a blade.\""
+            });
+        }
+    }
+
+    // Dialogue Panel trigger wrapper
+    const overlay = document.getElementById('dialog-panel');
+    const speakerEl = document.getElementById('dialog-speaker');
+    const textEl = document.getElementById('dialog-text');
+
+    function triggerDialogue(slide) {
+        gameState = 'dialogue';
+        overlay.style.display = 'flex';
+        speakerEl.innerText = slide.speaker;
+        textEl.innerText = slide.text;
+        SoundChip.playBeep();
+    }
+
+    function dismissDialogue() {
+        overlay.style.display = 'none';
+        gameState = 'playing';
+    }
+
+    document.getElementById('btn-telepathy').addEventListener('click', () => {
+        SoundChip.init();
+        if (gameState === 'dialogue') {
+            scriptIndex++;
+            if (scriptIndex < TelepathyScript.length) {
+                triggerDialogue(TelepathyScript[scriptIndex]);
+            } else {
+                dismissDialogue();
+            }
+        } else {
+            scriptIndex = 0;
+            triggerDialogue(TelepathyScript[scriptIndex]);
+        }
+    });
+
+    // =========================================================================
+    // SECTION 6: TICK ENGINE LOOP
+    // =========================================================================
+    
+    function resetGame() {
+        player.hp = player.maxHp;
+        score = 0;
+        updateHUD();
+        scriptIndex = 0;
+        gameState = 'playing';
+        portal.open = false;
+        portal.active = false;
+        loadLevel('shadow_realm');
+    }
+
+    function checkAABB(ax, ay, aw, ah, bx, by, bw, bh) {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    function updateHUD() {
+        document.getElementById('v-hp').innerText = `${player.hp}/${player.maxHp}`;
+        document.getElementById('v-score').innerText = String(score).padStart(6, '0');
+    }
+
+    function update() {
+        frameCount++;
+
+        if (screenShake > 0) screenShake--;
+
+        if (gameState === 'playing') {
+            player.update();
+
+            obstacles.forEach(obs => {
+                if (obs.active && obs.update) obs.update();
+            });
+
+            enemies.forEach(en => {
+                if (en.active) en.update();
+            });
+
+            // Handle transition checks
+            if (currentLevel === 'shadow_realm' && portal.open) {
+                if (checkAABB(player.x, player.y, player.w, player.h, portal.x, portal.y, portal.w, portal.h)) {
+                    loadLevel('frozen_peaks');
+                }
+            }
+
+            // Update particles
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha = p.life / 35;
+                p.life--;
+                if (p.life <= 0) {
+                    particles.splice(idx, 1);
+                }
+            });
+        }
+    }
+
+    function render() {
+        ctx.save();
+        
+        // Active Screenshake
+        if (screenShake > 0) {
+            let dx = (Math.random() - 0.5) * screenShake;
+            let dy = (Math.random() - 0.5) * screenShake;
+            ctx.translate(dx, dy);
+        }
+
+        // Render Map Backgrounds
+        if (currentLevel === 'shadow_realm') {
+            ctx.fillStyle = '#111116'; 
+            ctx.fillRect(0, 0, GAME_W, GAME_H);
+
+            // Matrix Grid overlay
+            ctx.strokeStyle = '#1d1d2b'; 
+            ctx.lineWidth = 1;
+            for (let i = 0; i < GAME_W; i += 32) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, GAME_H);
+                ctx.stroke();
+            }
+            for (let j = 0; j < GAME_H; j += 32) {
+                ctx.beginPath();
+                ctx.moveTo(0, j);
+                ctx.lineTo(GAME_W, j);
+                ctx.stroke();
+            }
+        } else {
+            // Brightened Frozen Peaks Soil
+            ctx.fillStyle = '#222d2d'; 
+            ctx.fillRect(0, 0, GAME_W, GAME_H);
+
+            // Light Snow wind traces
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+            for (let i = 0; i < 3; i++) {
+                let windX = (frameCount * 2.5 + i * 120) % (GAME_W + 50) - 50;
+                ctx.fillRect(windX, 50 + i * 80, 50, 2);
+            }
+        }
+
+        // Render Level borders
+        ctx.fillStyle = '#1e1e24'; 
+        ctx.fillRect(0, 0, GAME_W, 16); 
+        ctx.fillRect(0, GAME_H - 16, GAME_W, 16); 
+        ctx.fillRect(0, 0, 16, GAME_H); 
+        ctx.fillRect(GAME_W - 16, 0, 16, GAME_H); 
+
+        ctx.strokeStyle = '#ff3333';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(16, 16, GAME_W - 32, GAME_H - 32);
+
+        portal.draw();
+        obstacles.forEach(obs => obs.draw());
+        enemies.forEach(en => { if (en.active) en.draw(); });
+        player.draw();
+
+        // Draw active FX
+        particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.alpha;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+        });
+        ctx.globalAlpha = 1.0;
+
+        // End Game Overlays
+        if (gameState === 'victory') {
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillRect(0, 0, GAME_W, GAME_H);
+            ctx.fillStyle = '#2ecc71';
+            ctx.font = 'bold 20px Orbitron';
+            ctx.fillText("FATE EXTINGUISHED", 42, GAME_H / 2 - 10);
+            ctx.fillStyle = '#fff';
+            ctx.font = '11px monospace';
+            ctx.fillText("The shadow has conquered the light.", 46, GAME_H / 2 + 15);
+        } else if (gameState === 'gameover') {
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillRect(0, 0, GAME_W, GAME_H);
+            ctx.fillStyle = 'var(--primary)';
+            ctx.font = 'bold 22px Orbitron';
+            ctx.fillText("SHADOW FADED", 70, GAME_H / 2 - 10);
+            ctx.fillStyle = '#fff';
+            ctx.font = '11px monospace';
+            ctx.fillText("Press B Button / Reset to stir again.", 40, GAME_H / 2 + 15);
+        }
+
+        ctx.restore();
+    }
+
+    function gameLoop() {
+        update();
+        render();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // =========================================================================
+    // SECTION 7: TOUGHT CONTROLS & JOYSTICK MATHS
+    // =========================================================================
+    const joystick = document.getElementById('joystick');
+    const handle = document.getElementById('joystick-handle');
+    const maxLimit = 50; // Maximum boundary range to slide the joystick handle (px)
+
+    let joystickActive = false;
+    let startTouchX = 0;
+    let startTouchY = 0;
+
+    function handleJoystickMove(touchX, touchY) {
+        let dx = touchX - startTouchX;
+        let dy = touchY - startTouchY;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > maxLimit) {
+            dx = (dx / distance) * maxLimit;
+            dy = (dy / distance) * maxLimit;
+            distance = maxLimit;
+        }
+
+        // Apply visual transform shift to the thumb handle
+        handle.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+        // Normalize movement vector fields
+        joystickVector.x = dx / maxLimit;
+        joystickVector.y = dy / maxLimit;
+    }
+
+    function resetJoystick() {
+        joystickActive = false;
+        handle.style.transform = 'translate(-50%, -50%)';
+        joystickVector.x = 0;
+        joystickVector.y = 0;
+        joystick.classList.remove('active');
+    }
+
+    // Touch handlers for responsive drag
+    joystick.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        SoundChip.init();
+        joystickActive = true;
+        joystick.classList.add('active');
+        const touch = e.touches[0];
+        const rect = joystick.getBoundingClientRect();
+        startTouchX = rect.left + rect.width / 2;
+        startTouchY = rect.top + rect.height / 2;
+        handleJoystickMove(touch.clientX, touch.clientY);
+    });
+
+    joystick.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!joystickActive) return;
+        const touch = e.touches[0];
+        handleJoystickMove(touch.clientX, touch.clientY);
+    });
+
+    joystick.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        resetJoystick();
+    });
+
+    // Fallback mouse support
+    joystick.addEventListener('mousedown', (e) => {
+        SoundChip.init();
+        joystickActive = true;
+        joystick.classList.add('active');
+        const rect = joystick.getBoundingClientRect();
+        startTouchX = rect.left + rect.width / 2;
+        startTouchY = rect.top + rect.height / 2;
+        handleJoystickMove(e.clientX, e.clientY);
+        
+        const onMouseMove = (moveEvent) => {
+            if (joystickActive) handleJoystickMove(moveEvent.clientX, moveEvent.clientY);
+        };
+
+        const onMouseUp = () => {
+            resetJoystick();
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    });
+
+    // =========================================================================
+    // SECTION 8: KEYBOARD CONTROLS MAPPING
+    // =========================================================================
+
+    window.addEventListener('keydown', (e) => {
+        SoundChip.init();
+        const key = e.key.toLowerCase();
+        
+        if (key === 'arrowup' || key === 'w') keys.up = true;
+        if (key === 'arrowdown' || key === 's') keys.down = true;
+        if (key === 'arrowleft' || key === 'a') keys.left = true;
+        if (key === 'arrowright' || key === 'd') keys.right = true;
+
+        if (key === 'z' || key === 'j') keys.btnA = true;
+        if (key === 'x' || key === 'k') {
+            keys.btnB = true;
+            if (gameState === 'gameover') resetGame();
+        }
+
+        if (e.key === ' ' || key === 'c') {
+            e.preventDefault();
+            document.getElementById('btn-telepathy').click();
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === 'arrowup' || key === 'w') keys.up = false;
+        if (key === 'arrowdown' || key === 's') keys.down = false;
+        if (key === 'arrowleft' || key === 'a') keys.left = false;
+        if (key === 'arrowright' || key === 'd') keys.right = false;
+        if (key === 'z' || key === 'j') keys.btnA = false;
+        if (key === 'x' || key === 'k') keys.btnB = false;
+    });
+
+    // Action A & B Touch binding
+    function setupTouchButton(elId, action, keyRef) {
+        const el = document.getElementById(elId);
+        
+        const startHandler = (e) => {
+            e.preventDefault();
+            SoundChip.init();
+            el.classList.add('pressed');
+            if (keyRef) keys[keyRef] = true;
+            if (action) action();
+        };
+
+        const endHandler = (e) => {
+            e.preventDefault();
+            el.classList.remove('pressed');
+            if (keyRef) keys[keyRef] = false;
+        };
+
+        el.addEventListener('touchstart', startHandler);
+        el.addEventListener('touchend', endHandler);
+        el.addEventListener('mousedown', startHandler);
+        el.addEventListener('mouseup', endHandler);
+        el.addEventListener('mouseleave', endHandler);
+    }
+
+    setupTouchButton('btn-a', () => { keys.btnA = true; }, null);
+    setupTouchButton('btn-b', () => { 
+        keys.btnB = true; 
+        if (gameState === 'gameover') resetGame();
+    }, null);
+
+    window.onload = () => {
+        loadLevel('shadow_realm');
+        updateHUD();
+        gameLoop();
+    };
+</script>
+</body>
+</html>
+
+

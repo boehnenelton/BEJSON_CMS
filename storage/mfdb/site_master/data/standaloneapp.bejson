@@ -1,0 +1,53 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "StandaloneApp"
+  ],
+  "Fields": [
+    {
+      "name": "app_uuid",
+      "type": "string"
+    },
+    {
+      "name": "app_name",
+      "type": "string"
+    },
+    {
+      "name": "app_slug",
+      "type": "string"
+    },
+    {
+      "name": "app_desc",
+      "type": "string"
+    },
+    {
+      "name": "entry_file",
+      "type": "string"
+    },
+    {
+      "name": "app_image",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "23e4ce4f-413e-45ab-9cfb-9d9f15d004ef",
+      "Dark Link",
+      "dark-link",
+      "Testing the ability of the AI to use my game engine to generate games. ",
+      "dark_link.html",
+      ""
+    ],
+    [
+      "8a85578c-e2af-48c3-bb3d-a703c60a5938",
+      "BEJSPLON Vanilla v75",
+      "bejsplon-vanilla-v75",
+      "Table editor for the first three formats of BEJSON fully contained as a single HTML file.",
+      "bejson-editor.html",
+      "BEJSON_CMS_Remediation_Ledger_-_Slide_11.webp"
+    ]
+  ]
+}

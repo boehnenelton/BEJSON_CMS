@@ -1,0 +1,71 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "PageRecord"
+  ],
+  "Fields": [
+    {
+      "name": "page_uuid",
+      "type": "string"
+    },
+    {
+      "name": "page_title",
+      "type": "string"
+    },
+    {
+      "name": "page_slug",
+      "type": "string"
+    },
+    {
+      "name": "category_ref",
+      "type": "string"
+    },
+    {
+      "name": "item_type",
+      "type": "string"
+    },
+    {
+      "name": "created_at",
+      "type": "string"
+    },
+    {
+      "name": "external_url",
+      "type": "string"
+    },
+    {
+      "name": "author_ref",
+      "type": "string"
+    },
+    {
+      "name": "featured_img",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "05067569-d877-4791-b2ee-94854bd817e3",
+      "BEJSON_CMS",
+      "bejson-cms",
+      "Projects",
+      "page",
+      "2026-06-08",
+      "",
+      "Boehnenelton2024",
+      "BEJSON_CMS_Remediation_Ledger_-_Slide_1.webp"
+    ],
+    [
+      "07a5c5c9-35d2-463f-ac6e-d0787153bd74",
+      "BEJSON - The 3 Formats",
+      "bejson-crash-course",
+      "BEJSON",
+      "page",
+      "2026-06-08",
+      "",
+      "Boehnenelton2024",
+      "MFDBCMS.webp"
+    ]
+  ]
+}

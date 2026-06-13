@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{page_title}} | {{site_title}}</title>
+    <meta name="description" content="{{seo_description}}">
+    <meta name="author" content="{{seo_author}}">
+    <meta property="og:title" content="{{page_title}}">
+    <meta property="og:description" content="{{seo_description}}">
+    <meta property="og:image" content="{{seo_image}}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{current_url}}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Source+Code+Pro&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{rel_prefix}}style.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <div class="nav-wrap">
+                <a href="{{rel_prefix}}index.html" class="logo">{{site_title}}</a>
+                <nav>
+                    <ul class="nav-menu">
+                        <li><a href="{{rel_prefix}}index.html">Home</a></li>
+                        <li class="nav-dropdown">
+                            <a href="#">Categories <span class="chevron">▼</span></a>
+                            <ul class="dropdown-content">
+                                {{sidebar_categories}}
+                            </ul>
+                        </li>
+                        <li><a href="{{rel_prefix}}apps/index.html">Applications</a></li>
+                        {{custom_nav_links}}
+                    </ul>
+                </nav>
+                <button class="mobile-menu-toggle" onclick="document.querySelector('.nav-menu').classList.toggle('active')">&#9776;</button>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container main-layout">
+        <main class="main-content">
+            {{main_content_injection}}
+        </main>
+        <aside class="sidebar">
+            <div class="sidebar-collapsible active" id="collapse-explore">
+                <button class="collapse-trigger" onclick="toggleCollapse('collapse-explore')">
+                    Explore <span class="chevron">▼</span>
+                </button>
+                <div class="collapse-content">
+                    <ul class="category-list">
+                        {{sidebar_categories}}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-collapsible" id="collapse-social">
+                <button class="collapse-trigger" onclick="toggleCollapse('collapse-social')">
+                    Connect <span class="chevron">▼</span>
+                </button>
+                <div class="collapse-content" style="padding: 20px;">
+                    <div class="social-links-sidebar">
+                        {{social_media_links}}
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="copyright">&copy; {{current_year}} <strong>{{site_title}}</strong>. Version 15.4.1</div>
+                <div class="footer-links" style="display:flex; gap:20px;">
+                    <a href="{{rel_prefix}}index.html">Home</a>
+                    <a href="{{rel_prefix}}apps/index.html">Apps</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <div id="lightbox" class="lightbox">
+        <span class="lightbox-close">&times;</span>
+        <img class="lightbox-content" id="lightbox-img">
+    </div>
+    <script>
+        function toggleCollapse(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle('active');
+        }
+
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const closeBtn = document.querySelector('.lightbox-close');
+        document.querySelectorAll('.article-body img, .article-featured-image, .card-img').forEach(img => {
+            img.onclick = function(){
+                lightbox.style.display = "flex";
+                lightboxImg.src = this.src;
+            }
+        });
+        closeBtn.onclick = function() { lightbox.style.display = "none"; }
+        lightbox.onclick = function(e) { if(e.target !== lightboxImg) lightbox.style.display = "none"; }
+    </script>
+</body>
+</html>

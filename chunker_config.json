@@ -1,0 +1,30 @@
+{
+  "project_name": "BEJSON_CMS-v17.4",
+  "version": "v1.6.0",
+  "extensions": [
+    ".py",
+    ".js",
+    ".ts",
+    ".html",
+    ".css",
+    ".md",
+    ".json",
+    ".sh",
+    ".txt",
+    ".bejson",
+    ".tsx",
+    ".jsx"
+  ],
+  "exclude_dirs": [
+    ".git",
+    "__pycache__",
+    "node_modules",
+    "lib",
+    "output",
+    ".mfdb_lock",
+    "dist",
+    "build"
+  ],
+  "output_base": "/storage/emulated/0/Admin/tools/Cli_Chunker/output",
+  "evade_mime": true
+}

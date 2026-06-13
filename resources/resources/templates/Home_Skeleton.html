@@ -1,0 +1,18 @@
+<div class="home-hero">
+    <span class="hero-tag">Active Persona: Leethaxor69</span>
+    <h1 class="hero-title">{{site_title}}</h1>
+    <p class="hero-desc">{{site_description}}</p>
+</div>
+
+<div style="margin: 40px 0 20px; font-weight:900; font-size:0.8rem; text-transform:uppercase; color:var(--primary); letter-spacing:2px;">Latest Discoveries</div>
+
+<div class="grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 30px;">
+    {{content_grid}}
+</div>
+
+<style>
+.home-hero { padding: 80px 0 40px; border-bottom: 1px solid var(--border); margin-bottom: 40px; }
+.hero-tag { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; color: var(--primary); letter-spacing: 1px; display: block; margin-bottom: 15px; }
+.hero-title { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 900; line-height: 1; letter-spacing: -2px; margin-bottom: 20px; }
+.hero-desc { font-size: 1.2rem; color: var(--muted); max-width: 600px; }
+</style>

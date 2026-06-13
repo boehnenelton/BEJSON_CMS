@@ -1,0 +1,67 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "MFDB_Version": "1.3.1",
+  "Network_Role": "Master",
+  "DB_Name": "Test",
+  "DB_Description": "",
+  "Schema_Version": "1.0.0",
+  "Author": "Elton Boehnen",
+  "Created_At": "2026-06-07T00:16:13Z",
+  "Records_Type": [
+    "mfdb"
+  ],
+  "Fields": [
+    {
+      "name": "entity_name",
+      "type": "string"
+    },
+    {
+      "name": "file_path",
+      "type": "string"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    },
+    {
+      "name": "record_count",
+      "type": "integer"
+    },
+    {
+      "name": "schema_version",
+      "type": "string"
+    },
+    {
+      "name": "primary_key",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "Category",
+      "data/category.bejson",
+      null,
+      1,
+      "1.0",
+      "category_slug"
+    ],
+    [
+      "NavLink",
+      "data/navlink.bejson",
+      null,
+      0,
+      "1.0",
+      "nav_label"
+    ],
+    [
+      "ExternalMedia",
+      "data/externalmedia.bejson",
+      null,
+      0,
+      "1.0",
+      "media_uuid"
+    ]
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string"
+    },
+    {
+      "name": "html_body",
+      "type": "string"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string"
+    },
+    {
+      "name": "source_code",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "Test",
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "<h2>Test</h2><p>Start writing your content here...</p>",
+      "",
+      ""
+    ]
+  ]
+}

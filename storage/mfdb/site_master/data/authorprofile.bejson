@@ -1,0 +1,30 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "AuthorProfile"
+  ],
+  "Fields": [
+    {
+      "name": "auth_name",
+      "type": "string"
+    },
+    {
+      "name": "auth_bio",
+      "type": "string"
+    },
+    {
+      "name": "auth_img",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "Boehnenelton2024",
+      "",
+      "Scully_Avatar.webp"
+    ]
+  ]
+}

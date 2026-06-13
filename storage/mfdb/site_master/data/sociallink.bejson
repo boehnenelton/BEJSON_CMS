@@ -1,0 +1,25 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "SocialLink"
+  ],
+  "Fields": [
+    {
+      "name": "social_platform",
+      "type": "string"
+    },
+    {
+      "name": "social_url",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "Github",
+      "https://github.com/boehnenelton"
+    ]
+  ]
+}

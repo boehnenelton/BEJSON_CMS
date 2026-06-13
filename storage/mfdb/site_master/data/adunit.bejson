@@ -1,0 +1,36 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "AdUnit"
+  ],
+  "Fields": [
+    {
+      "name": "ad_uuid",
+      "type": "string"
+    },
+    {
+      "name": "ad_name",
+      "type": "string"
+    },
+    {
+      "name": "ad_image",
+      "type": "string"
+    },
+    {
+      "name": "ad_link",
+      "type": "string"
+    },
+    {
+      "name": "ad_zone",
+      "type": "string"
+    },
+    {
+      "name": "ad_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": []
+}

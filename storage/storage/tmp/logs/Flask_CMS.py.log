@@ -1,0 +1,31 @@
+
+    ============================================
+    BEJSON Web Manager v12.0.0 (Flask)
+    ============================================
+    Data Directory: /storage/emulated/0/Projects/Management/Dev/Bejson_Cms/storage/mfdb
+    Assets Directory: /storage/emulated/0/Projects/Management/Dev/Bejson_Cms/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Projects/Management/Dev/Bejson_Cms/storage/builds
+
+    NEW IN v9.3:
+    - HTML Import merged in at /import
+      Upload .html/.htm files, review titles,
+      import directly as CMS pages.
+      Word HTML artefacts and AI watermarks
+      are stripped automatically.
+    - Factory Reset merged in at /reset
+      (replaces standalone Cleanup_Tool.py)
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+ * Serving Flask app 'Flask_CMS'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.8.0.120:5001
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 134-666-715

@@ -1,0 +1,47 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string"
+    },
+    {
+      "name": "html_body",
+      "type": "string"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string"
+    },
+    {
+      "name": "source_code",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "BEJSON_CMS",
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "<h2>BEJSON_CMS</h2>\r\n\r\n\r\n<p>Start writing your content here...</p>\r\n\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_1.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_1.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_10.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_10.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_11.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_11.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_12.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_12.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_13.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_13.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_14.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_14.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_2.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_2.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_3.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_3.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_4.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_4.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_5.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_5.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_6.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_6.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_7.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_7.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_8.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_8.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n\r\n<img src=\"../../../assets/BEJSON_CMS_Remediation_Ledger_-_Slide_9.webp\" alt=\"BEJSON_CMS_Remediation_Ledger_-_Slide_9.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n\r\n\r\n\r\n\r\n\r\n<img src=\"../../../assets/CMS_Security_2026_Standards.webp\" alt=\"CMS_Security_2026_Standards.webp\" style=\"max-width:100%; border-radius:8px; margin: 20px 0;\">\r\n",
+      "",
+      ""
+    ]
+  ]
+}

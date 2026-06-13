@@ -1,0 +1,115 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "MFDB_Version": "1.31",
+  "Network_Role": "Master",
+  "DB_Name": "BEJSON CMS Site Master",
+  "DB_Description": "Primary CMS database \u2014 pages, categories, authors, ads, config.",
+  "Schema_Version": "1.0.0",
+  "Author": "Elton Boehnen",
+  "Created_At": "2026-06-08T08:08:03Z",
+  "Records_Type": [
+    "mfdb"
+  ],
+  "Fields": [
+    {
+      "name": "entity_name",
+      "type": "string"
+    },
+    {
+      "name": "file_path",
+      "type": "string"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    },
+    {
+      "name": "record_count",
+      "type": "integer"
+    },
+    {
+      "name": "schema_version",
+      "type": "string"
+    },
+    {
+      "name": "primary_key",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "Category",
+      "data/category.bejson",
+      null,
+      3,
+      "1.0",
+      "category_slug"
+    ],
+    [
+      "PageRecord",
+      "data/pagerecord.bejson",
+      null,
+      2,
+      "1.0",
+      "page_uuid"
+    ],
+    [
+      "StandaloneApp",
+      "data/standaloneapp.bejson",
+      null,
+      2,
+      "1.0",
+      "app_uuid"
+    ],
+    [
+      "AuthorProfile",
+      "data/authorprofile.bejson",
+      null,
+      1,
+      "1.0",
+      "auth_name"
+    ],
+    [
+      "AdUnit",
+      "data/adunit.bejson",
+      null,
+      0,
+      "1.0",
+      "ad_uuid"
+    ],
+    [
+      "SiteConfig",
+      "data/siteconfig.bejson",
+      null,
+      5,
+      "1.0",
+      "config_key"
+    ],
+    [
+      "SocialLink",
+      "data/sociallink.bejson",
+      null,
+      1,
+      "1.0",
+      "social_platform"
+    ],
+    [
+      "NavLink",
+      "data/navlink.bejson",
+      null,
+      0,
+      "1.0",
+      "nav_label"
+    ],
+    [
+      "ExternalMedia",
+      "data/externalmedia.bejson",
+      null,
+      0,
+      "1.0",
+      "media_uuid"
+    ]
+  ]
+}

@@ -1,3 +1,4 @@
+VERSION = "17.6.1"
 """
 Library:      lib_cms_orchestrator.py
 Family:       CMS

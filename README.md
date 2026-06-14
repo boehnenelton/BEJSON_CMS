@@ -1,35 +1,41 @@
-# BEJSON Content Management System (BEJSON_CMS)
-> High-Density Static Site & Application Engine powered by MFDB.
+# BEJSON_CMS [Agent-Ready] [llms.txt: Verified]
+> Authoritative administrative layer for the MFDB-federated ecosystem.
 
-![Agent-Ready](https://img.shields.io/badge/Agent-Ready-red) ![llms.txt](https://img.shields.io/badge/llms.txt-Verified-black) ![Status](https://img.shields.io/badge/Status-Authoritative-success)
+BEJSON_CMS is a high-density project management and content delivery platform built on the **MFDB v1.31** specification. It provides a unified interface for managing relational data across multiple BEJSON 104 files with atomic integrity and machine-readable precision.
 
-## Mission
-BEJSON_CMS is a high-performance content management system designed for the 2026 Agentic Web. It utilizes Multi-File Databases (MFDB) to decouple content from logic, enabling rapid deployment of mobile-responsive, BECSS-compliant interfaces.
-
-## Visual Architecture
-```mermaid
-graph LR
-    A[site_master] --> B[MFDB Engine]
-    B --> C[Flask Web Layer]
-    C --> D[BECSS HTML3 UI]
-    B --> E[CLI Management]
-    E --> F[Automated Backups]
-```
-
-## Quick Start
+## 🚀 One-Liner
 ```bash
-# Launch the CMS development server
-python3 src/web/Flask_CMS.py
+python3 src/cms-manage.py mount && python3 src/web/Flask_CMS.py
 ```
 
-## Core Components
-- **MFDB Site Master**: Authoritative registry of categories, authors, and pages.
-- **BECSS Rendering**: Auto-transformation of BEJSON records into OKLCH-styled HTML3 components.
-- **Agentic Publisher**: Integrated pipeline for AI-generated content synchronization.
+## 🏗️ Architecture
+```mermaid
+graph TD
+    A[Flask Web UI] --> B[MFDB Orchestrator]
+    C[CLI Toolkit] --> B
+    B --> D[(MFDB Master Registry)]
+    B --> E[(Entity Files 104)]
+    D --> F[Atomic Write Lib]
+    E --> F
+```
 
-## Documentation
-- [AGENTS.md](./AGENTS.md) — Operational constraints.
-- [SYSTEM_MANUAL.md](./SYSTEM_MANUAL.md) — Deep technical specification.
+## 🛠️ Tech Stack
+- **Backend**: Python 3.10+, Flask
+- **Database**: MFDB (BEJSON 104 / 104a)
+- **UI**: Standardized HTML3 / BECSS
+- **Dependencies**: BeautifulSoup4, Pillow, Werkzeug
+
+## 📂 Project Structure
+- `src/cli/`: Granular record manipulation tools.
+- `src/lib/`: Core BEJSON and MFDB logic engines.
+- `src/web/`: Flask application and web controllers.
+- `storage/`: Encrypted/Versioned data archives.
+
+## 📄 Documentation
+- [AGENTS.md](./AGENTS.MD): Strict constraints for autonomous agents.
+- [SYSTEM_MANUAL.md](./SYSTEM_MANUAL.md): Comprehensive technical reference.
+- [TODO.md](./docs/TODO.md): Roadmap and pending features.
 
 ---
-**Elton Boehnen** · eltonboehnen@gmail.com · [github.com/boehnenelton](https://github.com/boehnenelton)
+*Author: Elton Boehnen*
+*Contact: boehnenelton2024@gmail.com*

@@ -1,0 +1,44 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "ScriptConfig"
+  ],
+  "Fields": [
+    {
+      "name": "setting_name",
+      "type": "string"
+    },
+    {
+      "name": "setting_value",
+      "type": "any"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "project_name",
+      "BEJSON_CMS",
+      "Name of the project."
+    ],
+    [
+      "project_version",
+      "0.1.0",
+      "Current version."
+    ],
+    [
+      "project_path",
+      "/storage/emulated/0/Admin/dev/Python/BEJSON_CMS",
+      "Absolute path."
+    ],
+    [
+      "project_state",
+      "unzipped",
+      "State of the project (zipped/unzipped)."
+    ]
+  ]
+}

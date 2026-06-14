@@ -117,18 +117,25 @@ def bejson_core_atomic_write(path: str, data: dict) -> bool:
             os.unlink(tmp_path)
         return False
 
-def bejson_core_acquire_lock(file_path: str, timeout: int = 10, stale_age: int = 60) -> bool:
-    """
-    Acquire a lock for the given file_path.
-    REMEDIATED: Uses ResilientPIDLock (Policy Sec. 48).
-    """
-    lock = ResilientPIDLock(file_path, timeout_seconds=timeout)
-    return lock.acquire()
+def bejson_core_acquire_lock(file_path: str, timeout: int = 10) -> bool:
+    """Acquire a simple directory-based lock."""
+    lock_path = file_path + ".lock"
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            os.mkdir(lock_path)
+            return True
+        except FileExistsError:
+            time.sleep(0.1)
+    return False
 
 def bejson_core_release_lock(file_path: str) -> None:
-    """Release the lock for the given file_path."""
-    lock = ResilientPIDLock(file_path)
-    lock.release()
+    """Release the simple directory-based lock."""
+    lock_path = file_path + ".lock"
+    try:
+        os.rmdir(lock_path)
+    except OSError:
+        pass
 
 # Global Field Map Cache
 # Key: tuple of field names (sorted or as-is)

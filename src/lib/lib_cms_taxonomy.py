@@ -22,12 +22,7 @@ if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 
 import lib_bejson_core as BEJSONCore
-
-def _slugify(text: str) -> str:
-    """Helper to convert text to a URL-safe slug."""
-    text = text.lower()
-    text = re.sub(r'[^a-z0-9]+', '-', text)
-    return text.strip('-')
+from lib_bejson_utility import bejson_utility_slugify
 
 # ---------------------------------------------------------------------------
 # CATEGORY OPERATIONS
@@ -57,7 +52,7 @@ def cms_taxonomy_add_category(db_path: str, name: str, slug: Optional[str] = Non
     Add a new category to the database.
     """
     if not slug:
-        slug = _slugify(name)
+        slug = bejson_utility_slugify(name)
         
     doc = BEJSONCore.bejson_core_load_file(db_path)
     
@@ -112,18 +107,20 @@ def cms_taxonomy_get_authors(db_path: str) -> List[Dict]:
     """
     doc = BEJSONCore.bejson_core_load_file(db_path)
     if not doc: return []
-    records = BEJSONCore.bejson_core_filter_rows(doc, "Record_Type_Parent", "Author")
+    records = BEJSONCore.bejson_core_filter_rows(doc, "Record_Type_Parent", "AuthorProfile")
     
-    name_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_name")
-    bio_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_bio")
-    img_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_image")
+    uuid_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_uuid")
+    name_idx = BEJSONCore.bejson_core_get_field_index(doc, "name")
+    bio_idx = BEJSONCore.bejson_core_get_field_index(doc, "bio")
+    img_idx = BEJSONCore.bejson_core_get_field_index(doc, "image_url")
     
     authors = []
     for row in records:
         authors.append({
+            "author_uuid": row[uuid_idx],
             "name": row[name_idx],
             "bio": row[bio_idx],
-            "image": row[img_idx]
+            "image_url": row[img_idx]
         })
     return authors
 
@@ -131,16 +128,20 @@ def cms_taxonomy_add_author(db_path: str, name: str, bio: str = "", image: str =
     """
     Add a new author to the database.
     """
+    import uuid
+    auuid = str(uuid.uuid4())
     doc = BEJSONCore.bejson_core_load_file(db_path)
     
-    name_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_name")
-    bio_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_bio")
-    img_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_image")
+    uuid_idx = BEJSONCore.bejson_core_get_field_index(doc, "author_uuid")
+    name_idx = BEJSONCore.bejson_core_get_field_index(doc, "name")
+    bio_idx = BEJSONCore.bejson_core_get_field_index(doc, "bio")
+    img_idx = BEJSONCore.bejson_core_get_field_index(doc, "image_url")
     t_idx = 0
     
     field_count = len(doc["Fields"])
     new_row = [None] * field_count
-    new_row[t_idx] = "Author"
+    new_row[t_idx] = "AuthorProfile"
+    new_row[uuid_idx] = auuid
     new_row[name_idx] = name
     new_row[bio_idx] = bio
     new_row[img_idx] = image

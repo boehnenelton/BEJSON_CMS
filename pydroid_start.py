@@ -7,15 +7,20 @@ DESCRIPTION:    Pydroid/Termux launcher for BEJSON CMS.
                 Launches Flask_CMS.py from the correct src/web path.
 """
 
-VERSION = "17.0"
+VERSION = "17.1"
 import os
 import sys
 import socket
 import subprocess
 import time
+from pathlib import Path
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-FLASK_CMS_PATH = os.path.join(PROJECT_ROOT, "src", "web", "Flask_CMS.py")
+def get_script_path() -> Path:
+    return Path(__file__).resolve().parent
+SCRIPT_PATH = get_script_path()
+
+PROJECT_ROOT = SCRIPT_PATH
+FLASK_CMS_PATH = SCRIPT_PATH / "src" / "web" / "Flask_CMS.py"
 
 
 def get_ip():
@@ -34,7 +39,7 @@ def launch():
     print(f"    BEJSON CMS v{VERSION} LAUNCHER")
     print("====================================")
 
-    if not os.path.exists(FLASK_CMS_PATH):
+    if not FLASK_CMS_PATH.exists():
         print(f"[ERROR] Flask_CMS.py not found at: {FLASK_CMS_PATH}")
         sys.exit(1)
 
@@ -43,7 +48,7 @@ def launch():
     print(f"[*] Local IP: {ip}")
     print(f"[*] Starting CMS at {url}")
 
-    cmd = [sys.executable, FLASK_CMS_PATH]
+    cmd = [sys.executable, str(FLASK_CMS_PATH)]
     proc = subprocess.Popen(cmd)
 
     time.sleep(2)

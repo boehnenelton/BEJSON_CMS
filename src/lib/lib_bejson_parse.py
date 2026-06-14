@@ -67,20 +67,15 @@ def _atomic_write_text(file_path: str, content: str) -> None:
             os.unlink(tmp_path)
         raise
 
+from lib_bejson_utility import bejson_utility_parse_json, bejson_utility_slugify
+
 # ------------------------------------------------------------------
 # PARSER CORE (Best Practices - No Regex)
 # ------------------------------------------------------------------
 
 def parse_json(text):
-    """Extract and parse JSON using strictly string methods and json module."""
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            return json.loads(text[start:end+1])
-        raise
+    """Delegates to standardized utility parser (COMPLEX-6)."""
+    return bejson_utility_parse_json(text)
 
 def extract_data(data):
     fields = data.get("Fields", [])
@@ -88,12 +83,8 @@ def extract_data(data):
     if not values:
         return "My_Project", []
 
-    f_map = {}
-    for i, f in enumerate(fields):
-        # Non-regex sanitization: alphanumeric only
-        name = f["name"].lower()
-        key = "".join([c for c in name if c.isalnum()])
-        f_map[key] = i
+    # Map fields by exact name (COMPLEX-5)
+    f_map = {f["name"]: i for i, f in enumerate(fields)}
 
     def get_val(row, key):
         idx = f_map.get(key)
@@ -105,7 +96,8 @@ def extract_data(data):
 
     project_name = "My_Project"
     for row in values:
-        for key in ("projectname", "zipfilename", "containername"):
+        # Check standard project identifiers
+        for key in ("project_name", "zip_filename", "container_name"):
             v = get_val(row, key)
             if v:
                 project_name = v
@@ -113,16 +105,15 @@ def extract_data(data):
         if project_name != "My_Project":
             break
 
-    # Non-regex sanitization for filesystem safety
-    invalid_chars = '<>:"/\\|?*'
-    for char in invalid_chars:
-        project_name = project_name.replace(char, '_')
+    # Use utility slugify for consistency (REC-1)
+    project_name = bejson_utility_slugify(project_name).replace("-", "_")
 
     files = []
     for row in values:
+        # Standard range check for chunked files
         for i in range(1, 51):
-            fname = get_val(row, "file" + str(i) + "name")
-            fcont = get_val(row, "file" + str(i) + "content")
+            fname = get_val(row, f"file_{i}_name")
+            fcont = get_val(row, f"file_{i}_content")
             if fname and fcont:
                 files.append({"name": fname, "content": fcont})
 

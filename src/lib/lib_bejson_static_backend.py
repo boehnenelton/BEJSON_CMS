@@ -18,8 +18,9 @@ import datetime
 
 class BEJSONBackend:
     def __init__(self, root_path=None):
-        # REMEDIATED: Use {ADMIN_ROOT} standard (Phase 6.5)
-        self.root = root_path or "{ADMIN_ROOT}"
+        # REMEDIATED: Resolve {ADMIN_ROOT} at construction (REC-3)
+        from lib_bejson_env import resolve_path
+        self.root = root_path or resolve_path("{ADMIN_ROOT}")
 
     def _load_json(self, path):
         if not os.path.exists(path): return None

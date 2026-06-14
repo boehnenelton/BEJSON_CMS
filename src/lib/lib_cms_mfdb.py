@@ -31,6 +31,15 @@ if LIB_DIR not in sys.path:
 
 import lib_bejson_core as BEJSONCore
 import lib_mfdb_core as MFDBCore
+from lib_bejson_path_guard import bejson_safe_join
+from lib_bejson_utility import bejson_utility_slugify
+
+# Standard Entity Schemas (Policy Standard)
+SCHEMA_SITECONFIG = [
+    {"name": "config_key", "type": "string"},
+    {"name": "config_value", "type": "string"},
+    {"name": "description", "type": "string"}
+]
 
 class MFDB_CMS_Manager:
     def __init__(self, data_root: str):
@@ -153,9 +162,8 @@ class MFDB_CMS_Manager:
             self.add_category("Uncategorized", "uncategorized", "General posts", "blog")
 
     def add_global_config(self, key: str, value: str, desc: str = ""):
-        # Schema lookup for dynamic creation
-        schema = [{"name": "config_key", "type": "string"}, {"name": "config_value", "type": "string"}, {"name": "description", "type": "string"}]
-        row = self._create_record(schema, "SiteConfig", {"config_key": key, "config_value": value, "description": desc})
+        # Use module-level schema constant (REC-6)
+        row = self._create_record(SCHEMA_SITECONFIG, "SiteConfig", {"config_key": key, "config_value": value, "description": desc})
         MFDBCore.mfdb_core_add_entity_record(self.global_manifest, "SiteConfig", row)
         self.log_change("SiteConfig", "ADD", key)
 
@@ -185,9 +193,12 @@ class MFDB_CMS_Manager:
         recs = self.get_authors()
         for i, r in enumerate(recs):
             if r["author_uuid"] == author_uuid:
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AuthorProfile", i, "name", name)
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AuthorProfile", i, "bio", bio)
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AuthorProfile", i, "image_url", image_url)
+                updates = {
+                    "name": name,
+                    "bio": bio,
+                    "image_url": image_url
+                }
+                MFDBCore.mfdb_core_update_entity_record_bulk(self.global_manifest, "AuthorProfile", i, updates)
                 self.log_change("AuthorProfile", "UPDATE", author_uuid)
                 break
 
@@ -252,7 +263,7 @@ class MFDB_CMS_Manager:
 
     def create_page(self, title: str, category_slug: str, page_type: str, content_data: Dict[str, Any]) -> str:
         page_uuid = str(uuid.uuid4())
-        page_slug = title.lower().replace(" ", "-")
+        page_slug = bejson_utility_slugify(title)
         created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         MFDBCore.mfdb_core_add_entity_record(self.content_manifest, "Page", [page_uuid, title, page_slug, category_slug, content_data.get("author_fk", ""), page_type, content_data.get("featured_img"), created_at])
         content_values = [page_uuid, content_data.get("html_body", ""), content_data.get("markdown_body", ""), content_data.get("source_files", []), content_data.get("video_url", ""), content_data.get("pdf_url", ""), content_data.get("pros", []), content_data.get("cons", []), content_data.get("verdict_score", 0.0)]
@@ -295,7 +306,7 @@ class MFDB_CMS_Manager:
     def delete_category(self, slug: str):
         recs = MFDBCore.mfdb_core_load_entity(self.content_manifest, "Category")
         for i, r in enumerate(recs):
-            if r.get("slug") == slug:
+            if r.get("category_slug") == slug:
                 MFDBCore.mfdb_core_remove_entity_record(self.content_manifest, "Category", i)
                 break
         self.log_change("Category", "DELETE", slug)
@@ -312,11 +323,14 @@ class MFDB_CMS_Manager:
         recs = self.get_ads()
         for i, r in enumerate(recs):
             if r["ad_uuid"] == ad_uuid:
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AdUnit", i, "name", name)
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AdUnit", i, "image_url", img)
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AdUnit", i, "link_url", link)
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AdUnit", i, "zone", zone)
-                MFDBCore.mfdb_core_update_entity_record(self.global_manifest, "AdUnit", i, "active", active)
+                updates = {
+                    "name": name,
+                    "image_url": img,
+                    "link_url": link,
+                    "zone": zone,
+                    "active": active
+                }
+                MFDBCore.mfdb_core_update_entity_record_bulk(self.global_manifest, "AdUnit", i, updates)
                 self.log_change("AdUnit", "UPDATE", ad_uuid)
                 break
 
@@ -345,7 +359,6 @@ class MFDB_CMS_Manager:
         return next((a for a in self.get_assets() if a["file_hash"] == file_hash), None)
 
     def get_file_hash(self, data: bytes) -> str:
-        import hashlib
         return hashlib.sha256(data).hexdigest()
 
     def get_apps(self) -> List[Dict]:
@@ -375,11 +388,9 @@ class MFDB_CMS_Manager:
 
     def create_app(self, name: str, description: str, category: str,
                    featured_img: str, entry_file: str):
-        import uuid as _uuid
-        from datetime import datetime, timezone as _tz
-        app_uuid   = str(_uuid.uuid4())
-        slug       = name.lower().replace(" ", "-")
-        created_at = datetime.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        app_uuid   = str(uuid.uuid4())
+        slug       = bejson_utility_slugify(name)
+        created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         MFDBCore.mfdb_core_add_entity_record(
             self.content_manifest, "StandaloneApp",
             [app_uuid, name, slug, description, category, featured_img, entry_file, created_at]
@@ -518,21 +529,26 @@ class MFDB_CMS_Manager:
         # 2. Extract Archive
         with zipfile.ZipFile(backup_path, 'r') as zf:
             # Restore Databases
-            if "global_master.mfdb.zip" in zf.namelist():
-                zf.extract("global_master.mfdb.zip", self.data_root)
-            if "content_master.mfdb.zip" in zf.namelist():
-                zf.extract("content_master.mfdb.zip", self.data_root)
+            for db_zip in ["global_master.mfdb.zip", "content_master.mfdb.zip"]:
+                if db_zip in zf.namelist():
+                    # Boundary check via bejson_safe_join
+                    target = bejson_safe_join(self.data_root, db_zip)
+                    zf.extract(db_zip, self.data_root)
                 
             # Restore Assets
             if os.path.exists(self.assets_dir): shutil.rmtree(self.assets_dir)
             for item in zf.namelist():
                 if item.startswith("assets/"):
+                    # Boundary check via bejson_safe_join
+                    target = bejson_safe_join(self.data_root, item)
                     zf.extract(item, self.data_root)
                     
             # Restore Apps
             if os.path.exists(self.apps_dir): shutil.rmtree(self.apps_dir)
             for item in zf.namelist():
                 if item.startswith("standalone_apps/"):
+                    # Boundary check via bejson_safe_join
+                    target = bejson_safe_join(self.data_root, item)
                     zf.extract(item, self.data_root)
                     
         # 3. Re-mount

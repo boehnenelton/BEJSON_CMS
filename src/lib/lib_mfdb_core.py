@@ -735,6 +735,26 @@ def mfdb_core_update_entity_record(
     return doc
 
 
+def mfdb_core_update_entity_record_bulk(
+    manifest_path: str,
+    entity_name:   str,
+    record_index:  int,
+    updates:       Dict[str, Any],
+) -> dict:
+    """Update multiple named fields in a specific record of an entity file."""
+    doc = _load_entity_doc(manifest_path, entity_name)
+    if not isinstance(doc, dict):
+        raise BEJSONCoreError(f"Malformed entity doc for {entity_name}")
+
+    for field_name, new_value in updates.items():
+        if not bejson_core_update_field(doc, record_index, field_name, new_value):
+            raise BEJSONCoreError(f"Failed to update field '{field_name}' in {entity_name}")
+
+    entity_path = _get_entity_path(manifest_path, entity_name)
+    _write_entity_doc(doc, entity_path)
+    return doc
+
+
 # ---------------------------------------------------------------------------
 # Manifest sync
 # ---------------------------------------------------------------------------

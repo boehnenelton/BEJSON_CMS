@@ -71,9 +71,6 @@ class CMSCore:
             for field_name, val in record_dict.items():
                 idx = field_map.get(field_name, -1)
                 if idx != -1:
-                    # Data Integrity: Coerce None to "" for strings (BUG-11)
-                    if val is None and fields[idx].get("type") == "string":
-                        val = ""
                     row[idx] = val
             
             # Handle Record_Type_Parent discriminator (104db)

@@ -4,11 +4,13 @@ Family:       Utility
 Jurisdiction: ["BEJSON_LIBRARIES", "PY"]
 Status:       OFFICIAL
 Author:       Elton Boehnen
-Version:      2.3.3 OFFICIAL
-MFDB Version: 1.31
+Version:      2.3.2 OFFICIAL
+            MFDB Version: 1.31
 Format_Creator: Elton Boehnen
-Date:         2026-06-09
+Date:         2026-06-07
 Description:  Cross-compatible chunking utilities for CLI_CHUNKER and MFDB_V5.
+REMEDIATED:   Restored missing helpers (sanitize, encode, is_binary).
+REMEDIATED:   Fixed inconsistent BEJSONCore imports and name errors.
 """
 
 import os
@@ -19,22 +21,23 @@ import base64
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-# AUTHORITATIVE PATH RESOLUTION (Audit Finding PY1)
-# Ensures imports work in both nested (Core/Utility) and flat deployments.
-_OWN_DIR = os.path.dirname(os.path.abspath(__file__))
-_PARENT_DIR = os.path.dirname(_OWN_DIR)
-_CORE_DIR = os.path.join(_PARENT_DIR, "Core")
-
-# Prioritize current dir and Core sibling
-for d in [_OWN_DIR, _CORE_DIR, _PARENT_DIR]:
-    if os.path.exists(d) and d not in sys.path:
-        sys.path.insert(0, d)
+# Sibling Path Resolution
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_LIB_DIR = os.path.dirname(CURRENT_DIR)
+CORE_DIR = os.path.join(PARENT_LIB_DIR, "Core")
+if CORE_DIR not in sys.path:
+    sys.path.append(CORE_DIR)
 
 try:
     import lib_bejson_core as BEJSONCore
 except ImportError:
-    # Final fallback for unusual sys.path configurations
-    from Core import lib_bejson_core as BEJSONCore
+    # Fallback for environments where it's not in the same folder structure
+    print("Warning: lib_bejson_core not found via standard import, attempting fallback...")
+    try:
+        import lib_bejson_core as BEJSONCore
+    except ImportError:
+        print("CRITICAL: lib_bejson_core still not found.")
+        raise
 
 # ---------------------------------------------------------------------------
 # Constants & Official Schemas
@@ -82,14 +85,17 @@ def bejson_utility_sanitize_name(name: str) -> str:
     return sanitized
 
 def bejson_utility_slugify(text: str) -> str:
-    """Creates a simple lowercase alphanumeric slug without regex."""
+    """Creates a lowercase alphanumeric slug with hyphens."""
     slug = ""
     for char in text.lower():
         if char.isalnum():
             slug += char
         elif char in " -_":
-            slug += "_"
-    return slug
+            slug += "-"
+    # Clean up double hyphens and leading/trailing hyphens
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return slug.strip("-")
 
 # ---------------------------------------------------------------------------
 # Core Detection & Encoding

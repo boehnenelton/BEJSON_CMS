@@ -61,14 +61,21 @@ def require_auth(f):
     return decorated
 # ─────────────────────────────────────────────────────────────────────────────
 import html as _html_escape
+from pathlib import Path
+
+# --- SCRIPT_PATH Resolution (Mandate Sec 7.1) ---
+def get_script_path() -> Path:
+    return Path(__file__).resolve().parent
+SCRIPT_PATH = get_script_path()
 
 # Import BEJSON Libraries
 # Import New MFDB Orchestrator
-# (duplicate 'import sys' removed by patch_cms.py)
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
-if LIB_DIR not in sys.path:
-    sys.path.append(LIB_DIR)
+PROJECT_ROOT = SCRIPT_PATH.parent.parent
+LIB_DIR = PROJECT_ROOT / "src" / "lib"
+
+if str(LIB_DIR) not in sys.path:
+    sys.path.append(str(LIB_DIR))
+
 import lib_cms_core as CMSCore
 import lib_mfdb_core as MFDBCore
 
@@ -111,24 +118,24 @@ ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
 # (Duplicate PROJECT_ROOT removed by patch_cms.py)
 
 # Storage Domains
-STORAGE_ROOT = os.path.join(PROJECT_ROOT, "storage")
-MFDB_DIR = os.path.join(STORAGE_ROOT, "mfdb")
-MANIFEST_PATH = os.path.join(MFDB_DIR, "site_master", "104a.mfdb.bejson")
-PAGES_DB_DIR = os.path.join(MFDB_DIR, "pages_db")
+STORAGE_ROOT = PROJECT_ROOT / "storage"
+MFDB_DIR = STORAGE_ROOT / "mfdb"
+MANIFEST_PATH = MFDB_DIR / "site_master" / "104a.mfdb.bejson"
+PAGES_DB_DIR = MFDB_DIR / "pages_db"
 
-ASSETS_DIR = os.path.join(MFDB_DIR, "assets")
-THUMBS_DIR = os.path.join(ASSETS_DIR, "thumbs")
-APPS_STORAGE = os.path.join(MFDB_DIR, "standalone_apps")
-EXPORTS_DIR = os.path.join(STORAGE_ROOT, "exports")
-PUBLISH_DIR = os.path.join(STORAGE_ROOT, "builds")
-UPLOAD_TMP  = os.path.join(STORAGE_ROOT, "tmp", "html_imports")
+ASSETS_DIR = MFDB_DIR / "assets"
+THUMBS_DIR = ASSETS_DIR / "thumbs"
+APPS_STORAGE = MFDB_DIR / "standalone_apps"
+EXPORTS_DIR = STORAGE_ROOT / "exports"
+PUBLISH_DIR = STORAGE_ROOT / "builds"
+UPLOAD_TMP  = STORAGE_ROOT / "tmp" / "html_imports"
 
 # Resources Domain
-RESOURCES_ROOT = os.path.join(PROJECT_ROOT, "resources")
-TEMPLATE_DIR = os.path.join(RESOURCES_ROOT, "templates")
+RESOURCES_ROOT = PROJECT_ROOT / "resources"
+TEMPLATE_DIR = RESOURCES_ROOT / "templates"
 
 for d in [MFDB_DIR, PAGES_DB_DIR, ASSETS_DIR, THUMBS_DIR, APPS_STORAGE, EXPORTS_DIR, PUBLISH_DIR, UPLOAD_TMP, TEMPLATE_DIR]:
-    os.makedirs(d, exist_ok=True)
+    os.makedirs(str(d), exist_ok=True)
 
 
 def _make_thumbnail(filename):
@@ -137,9 +144,9 @@ def _make_thumbnail(filename):
     path references are valid. Returns True on success, False otherwise."""
     if not _PIL_OK:
         return False
-    src = os.path.join(ASSETS_DIR, filename)
-    dst = os.path.join(THUMBS_DIR, filename)
-    if not os.path.exists(src):
+    src = ASSETS_DIR / filename
+    dst = THUMBS_DIR / filename
+    if not src.exists():
         return False
     try:
         with _PilImage.open(src) as img:
@@ -162,13 +169,13 @@ def _make_thumbnail(filename):
 # =============================================================================
 
 # Helper functions have been moved to CMSCore
-db = CMSCore.CMSCore(MANIFEST_PATH)
+db = CMSCore.CMSCore(str(MANIFEST_PATH))
 
 def init_master_db():
-    if os.path.exists(MANIFEST_PATH):
+    if MANIFEST_PATH.exists():
         return
     print("[CMS] Master MFDB manifest not found — bootstrapping site_master database...")
-    site_master_dir = os.path.dirname(MANIFEST_PATH)
+    site_master_dir = MANIFEST_PATH.parent
     entities = [
         {
             "name": "Category",

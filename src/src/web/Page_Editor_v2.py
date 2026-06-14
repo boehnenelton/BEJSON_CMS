@@ -15,7 +15,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
 if LIB_DIR not in sys.path: sys.path.append(LIB_DIR)
 import lib_cms_core as CMSCore
-import lib_persona_writer
+import lib_cms_persona_writer
 from lib_bejson_env import resolve_path
 
 # --- Config ---
@@ -96,10 +96,7 @@ def get_context_content(filenames):
             try:
                 with open(path, "r") as f_in: 
                     text = f_in.read()
-                    content += f"
---- REFERENCE FILE: {f} ---
-{text}
-"
+                    content += f"\n--- REFERENCE FILE: {f} ---\n{text}\n"
             except: pass
     return content
 
@@ -118,7 +115,7 @@ def add_cors_headers(response):
 
 app.secret_key = 'editor-v2-ultimate-key'
 db = CMSCore.CMSCore(MANIFEST_PATH)
-writer = lib_persona_writer.PersonaWriter(MANIFEST_PATH)
+writer = lib_cms_persona_writer.PersonaWriter(MANIFEST_PATH)
 
 # --- Python API Logic ---
 

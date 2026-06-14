@@ -4,9 +4,18 @@
 # PURPOSE: Ensure only ONE service runs at a time for maximum RAM efficiency.
 # ==============================================================================
 
-CMS_DIR="$(dirname $(readlink -f "$0"))"
-WEB_DIR="$CMS_DIR/src/web"
-LOG_DIR="$CMS_DIR/storage/tmp/logs"
+get_script_path() {
+    local source="${BASH_SOURCE[0]}"
+    while [ -h "$source" ]; do
+        local dir="$( cd -P "$( dirname "$source" )" >/dev/null 2>&1 && pwd )"
+        source="$(readlink "$source")"
+        [[ $source != /* ]] && source="$dir/$source"
+    done
+    echo "$( cd -P "$( dirname "$source" )" >/dev/null 2>&1 && pwd )"
+}
+SCRIPT_PATH=$(get_script_path)
+WEB_DIR="$SCRIPT_PATH/src/web"
+LOG_DIR="$SCRIPT_PATH/storage/tmp/logs"
 mkdir -p "$LOG_DIR"
 
 # Colors

@@ -19,9 +19,7 @@ def bejson_safe_join(base_dir: str, *paths: str) -> str:
     Mitigates path traversal attacks (Phase 2).
     """
     base_path = Path(base_dir).resolve()
-    # Handle environment variables in paths if any
-    resolved_paths = [os.path.expandvars(p) for p in paths]
-    target_path = base_path.joinpath(*resolved_paths).resolve()
+    target_path = base_path.joinpath(*paths).resolve()
     
     if not str(target_path).startswith(str(base_path)):
         raise ValueError(f"Path traversal detected: {target_path} is outside of {base_path}")

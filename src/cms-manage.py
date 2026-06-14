@@ -10,6 +10,7 @@ Relational_ID: gcli-cms-cli-001
 ...
 VERSION = "1.1.0"
 
+import os
 import sys
 import argparse
 import json
@@ -40,8 +41,6 @@ except ImportError as e:
     sys.path.append(str(SCRIPT_PATH.parent / "lib")) # Try parent lib
     from lib_cms_mfdb import MFDB_CMS_Manager
 
-VERSION = "1.0.0"
-
 def get_manager():
     # Discover data root from env or default
     data_root = os.environ.get("CMS_DATA_ROOT", str(SCRIPT_PATH.parent / "storage"))
@@ -50,7 +49,7 @@ def get_manager():
 def cmd_status(args):
     mgr = get_manager()
     print(f"CMS Data Root: {mgr.data_root}")
-    print(f"Mounted: {os.path.exists(mgr.global_db_root)}")
+    print(f"Mounted: {Path(mgr.global_db_root).exists()}")
     print(f"Dirty Changes: {mgr.is_dirty()}")
 
 def cmd_mount(args):
@@ -228,7 +227,7 @@ def cmd_backup(args):
         print("Backup failed.")
 
 def cmd_restore(args):
-    if not os.path.exists(args.file):
+    if not Path(args.file).exists():
         print(f"Error: Backup file not found: {args.file}")
         return
     if input(f"Are you sure you want to RESTORE from {args.file}? This will overwrite current state. (y/N): ").lower() == 'y':

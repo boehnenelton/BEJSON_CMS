@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    pydroid_start.py
-SCRIPT_VERSION: 17.0
+SCRIPT_VERSION: 18.0
 AUTHOR:         Elton Boehnen
 DESCRIPTION:    Pydroid/Termux launcher for BEJSON CMS.
                 Launches Flask_CMS.py from the correct src/web path.
 """
 
-VERSION = "17.1"
+VERSION = "18.0"
 import os
 import sys
 import socket

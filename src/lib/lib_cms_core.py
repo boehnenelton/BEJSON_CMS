@@ -1,7 +1,7 @@
 # ==============================================================================
 # LIBRARY: lib_cms_core.py
 # PURPOSE: Extension library for BEJSON_CMS built on core MFDB libraries.
-# VERSION: 17.0 (CoreEvolution Integration)
+# VERSION: 18.0 (CoreEvolution Integration)
 # AUTHOR:  Elton Boehnen
 # DATE:    2026-06-06
 # CHANGES: - Integrated bejson_core_get_field_map() for O(1) field lookups.

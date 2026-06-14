@@ -1,7 +1,9 @@
 """
-BEJSON Web Manager v17.1 (Flask)
+BEJSON Web Manager v18.0 (Flask)
 ================================
 RELATION_ID: 67784357-1cf2-4917-a738-b0849106116d
+- v18.0: Finalized CMS update — bumped all versions to 18.0; synchronized
+  latest BEJSON libraries (v2.x) back to production mirror.
 - v17.1: Fixed Category entity read/write path — all write ops (add/remove/update)
   now use _load_entity_doc instead of bejson_core_load_file, matching the read
   path and avoiding resolve_path path-mangling on Android/Termux. Fixes:
@@ -2824,6 +2826,10 @@ if __name__ == '__main__':
     Data Directory: {MFDB_DIR}
     Assets Directory: {ASSETS_DIR}
     Publish Directory: {PUBLISH_DIR}
+
+    NEW IN v18.0:
+    - Finalized CMS update — bumped all versions to 18.0.
+    - Synchronized latest BEJSON libraries (v2.x) back to production mirror.
 
     NEW IN v17.1:
     - Fixed Category 'bool' subscript error — write ops now use _load_entity_doc

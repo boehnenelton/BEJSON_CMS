@@ -1,0 +1,47 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string"
+    },
+    {
+      "name": "html_body",
+      "type": "string"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string"
+    },
+    {
+      "name": "source_code",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "CMS ISSUES",
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "<h2>BEHSON_CMS ISSUES</h2>\r\n\r\n\r\n\r\n<H3>  STYLE ISSUES   </H3>\r\n<p>\r\n-The style shoot for the condens of the body could use some water. First of all when you have things like bold or even headers I think #DE2626 Good make the emphasis look much better.\r\n<br> \r\nJSON needs to be translated from Markdown into a nice code block if the JSON markdown tags are used Right now it just sits broad out on the page looking ugly as shit.\r\n<Br>\r\n\r\nCurrently the medial library only lets you upload one image at a time I believe it needs an overall, first are you in front multiple images it needs to display them on a collapsible expandable list telling what you're about to import and it should import them one at a time. \r\n<Br>\r\nBeing able to long press and even on your media. And alter it's like file name would be very nice as well or to even create hierarchical folders of groups of images in your media library.\r\n<Br>\r\nEither way important images need to pick improvement and you may as well just upgrade the overall experience while you're at it. \r\n\r\n<Br>\r\n\r\nWhen you're honored to go page in your importing and image on your page or selecting one I think you should use a button that pops up and actual dialog window and gives you a grid view from the page editor.\r\n\r\n</p>\r\n<p>\r\n\r\n</p>\r\n\r\n",
+      "",
+      ""
+    ]
+  ]
+}

@@ -43,7 +43,7 @@
       "Category",
       "data/category.bejson",
       null,
-      3,
+      4,
       "1.0",
       "category_slug"
     ],
@@ -51,7 +51,7 @@
       "PageRecord",
       "data/pagerecord.bejson",
       null,
-      2,
+      3,
       "1.0",
       "page_uuid"
     ],

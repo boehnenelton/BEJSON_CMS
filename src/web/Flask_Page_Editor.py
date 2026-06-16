@@ -111,6 +111,7 @@ def _get_pages():
 
 def _get_page_body(page_uuid):
     """Read html_body from pages_db/<uuid>.json — returns empty string if missing."""
+    import lib_bejson_core as Core
     pfile = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
     if not os.path.exists(pfile):
         return ""
@@ -119,9 +120,9 @@ def _get_page_body(page_uuid):
         with open(pfile, 'r') as f:
             data = json.load(f)
         recs    = data.get("Values", [])
-        fields  = data.get("Fields", [])
-        p_idx   = next((i for i, f in enumerate(fields) if f['name'] == "Record_Type_Parent"), -1)
-        hb_idx  = next((i for i, f in enumerate(fields) if f['name'] == "html_body"), -1)
+        field_map = Core.bejson_core_get_field_map(data)
+        p_idx   = field_map.get("Record_Type_Parent", -1)
+        hb_idx  = field_map.get("html_body", -1)
         
         for row in recs:
             if p_idx != -1 and hb_idx != -1 and row[p_idx] == "Content":
@@ -130,54 +131,19 @@ def _get_page_body(page_uuid):
     except Exception:
         return ""
 
-def _write_page_record(page_uuid, title, category, author, body_html, is_new=True, featured_img=None):
+def _write_page_record(page_uuid, title, category, author, body_html, is_new=True, featured_img=None, template_key='blank'):
     """
     Write a PageRecord to master DB and write/update the pages_db content file.
     Exactly mirrors how Flask_CMS.py creates pages.
     Now idempotent: checks for existing title to reuse UUID and preserve data.
     """
+    import lib_bejson_core as Core
     page_slug = _slug(title)
     today     = datetime.now().strftime("%Y-%m-%d")
 
     existing_pages = db.get_records("PageRecord")
-    existing_page = next((p for p in existing_pages if p.get('page_title') == title), None)
+    existing_page = next((p for p in existing_pages if p.get('page_uuid') == page_uuid), None)
     
-    if existing_page:
-        page_uuid = existing_page['page_uuid']
-        is_new = False
-        if not featured_img and existing_page.get('featured_img'):
-            featured_img = existing_page['featured_img']
-
-    # --- Auto Image Generation (new pages only) ---
-    if not featured_img and is_new:
-        import urllib.parse
-        import urllib.request
-        
-        # Generate filename from title
-        img_name = f"auto_{page_slug}.webp"
-        img_path = os.path.join(ASSETS_DIR, img_name)
-        
-        if not os.path.exists(img_path):
-            try:
-                # Encode title for the image text
-                display_text = urllib.parse.quote(title[:20].upper())
-                # Use system branded colors: Dark background (#171717), Red text (#DE2626)
-                api_url = f"https://placehold.co/1200x630/171717/DE2626?text={display_text}"
-                
-                # Fetch and save
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                req = urllib.request.Request(api_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    with open(img_path, 'wb') as out_file:
-                        out_file.write(response.read())
-                print(f"[AutoImage] Generated: {img_name}")
-            except Exception as e:
-                print(f"[AutoImage] Error generating image: {e}")
-                img_name = None
-        
-        if img_name:
-            featured_img = img_name
-
     if is_new:
         db.add_record("PageRecord", {
             "page_uuid":    page_uuid,
@@ -189,6 +155,7 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "external_url": None,
             "author_ref":   author,
             "featured_img": featured_img,
+            "template_key": template_key,
         })
     else:
         updates = {
@@ -196,6 +163,7 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_slug":    page_slug,
             "category_ref": category,
             "author_ref":   author,
+            "template_key": template_key,
         }
         if featured_img is not None:
             updates["featured_img"] = featured_img
@@ -229,10 +197,10 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
         try:
             with open(pfile, 'r') as f:
                 data = json.load(f)
-            fields  = data.get("Fields", [])
-            p_idx   = next((i for i, f in enumerate(fields) if f['name'] == "Record_Type_Parent"), -1)
-            hb_idx  = next((i for i, f in enumerate(fields) if f['name'] == "html_body"), -1)
-            mt_idx  = next((i for i, f in enumerate(fields) if f['name'] == "meta_title"), -1)
+            field_map = Core.bejson_core_get_field_map(data)
+            p_idx   = field_map.get("Record_Type_Parent", -1)
+            hb_idx  = field_map.get("html_body", -1)
+            mt_idx  = field_map.get("meta_title", -1)
             for row in data.get("Values", []):
                 if p_idx != -1 and hb_idx != -1 and row[p_idx] == "Content":
                     row[hb_idx] = body_html
@@ -568,62 +536,13 @@ python3 your_script.py
         "label": "Multi-Video Page",
         "icon":  "🎬",
         "desc":  "Grid of multiple YouTube embeds — playlist, series, or curated collection.",
-        "html":  """\
-<p>
-  Introduction to this video collection — what the series covers, who it is for, or why these videos are grouped together.
-</p>
-
-<!-- Video grid — add/remove bej-video-item blocks as needed -->
-<div class="bej-video-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:32px;margin:30px 0;">
-
-  <!-- Video 1 -->
-  <div class="bej-video-item">
-    <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:4px;">
-      <iframe src="https://www.youtube.com/embed/VIDEO_ID_1"
-              title="Video 1 Title"
-              frameborder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowfullscreen
-              style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
-    </div>
-    <h3 style="margin-top:14px;font-size:1.05rem;">Video 1 Title</h3>
-    <p style="font-size:.88rem;color:#666;margin-top:6px;">Short description of what this video covers.</p>
-  </div>
-
-  <!-- Video 2 -->
-  <div class="bej-video-item">
-    <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:4px;">
-      <iframe src="https://www.youtube.com/embed/VIDEO_ID_2"
-              title="Video 2 Title"
-              frameborder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowfullscreen
-              style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
-    </div>
-    <h3 style="margin-top:14px;font-size:1.05rem;">Video 2 Title</h3>
-    <p style="font-size:.88rem;color:#666;margin-top:6px;">Short description of what this video covers.</p>
-  </div>
-
-  <!-- Video 3 -->
-  <div class="bej-video-item">
-    <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:4px;">
-      <iframe src="https://www.youtube.com/embed/VIDEO_ID_3"
-              title="Video 3 Title"
-              frameborder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowfullscreen
-              style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
-    </div>
-    <h3 style="margin-top:14px;font-size:1.05rem;">Video 3 Title</h3>
-    <p style="font-size:.88rem;color:#666;margin-top:6px;">Short description of what this video covers.</p>
-  </div>
-
-</div>
-
-<h2>About This Series</h2>
-<p>
-  Add context about the collection — original source, playlist link, or additional notes.
-</p>""",
+        "html":  "",
+    },
+    "youtube_video": {
+        "label": "YouTube Video",
+        "icon":  "🎥",
+        "desc":  "Standalone YouTube video with title and description.",
+        "html":  "",
     },
 
     "github_project": {
@@ -714,7 +633,9 @@ _SHELL = """<!DOCTYPE html>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--fg);font-size:15px;overflow-x:hidden;}
-a{color:var(--acc);text-decoration:none;} a:hover{opacity:.8;}
+a{color:var(--acc);text-decoration:none;} a:hover{opacity:.8;text-decoration:underline;}
+strong, b{color:var(--acc);font-weight:700;}
+em, i{color:var(--acc);opacity:.9;}
 
 #sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;}
 #sb-overlay.show{display:block;}
@@ -820,11 +741,13 @@ td:last-child{white-space:nowrap;}
 <div id="sb-overlay" onclick="closeSb()"></div>
 <div class="sb" id="sidebar">
   <div class="sb-logo">BEJSON<span>.</span><small>Page Editor v16.0</small></div>
-  <nav>
+    <nav>
     <div class="sb-sect">Editor</div>
     <a href="/"      class="{{ 'on' if active=='list'   else '' }}">&#9783; All Pages</a>
     <a href="/new"   class="{{ 'on' if active=='new'    else '' }}">&#43; New Page</a>
     <a href="#" onclick="openAiModal()">&#129302; AI Multi-Page Builder</a>
+    <div class="sb-sect">Next Gen</div>
+    <a href="/v2" style="color:var(--green);">&#128640; Try Editor V2 (Beta)</a>
     <div class="sb-sect">Tools</div>
     <a href="http://localhost:5001" target="_blank">&#8599; Open CMS</a>
     <a href="http://localhost:5001/publish" target="_blank">&#9654; Open Publisher</a>
@@ -1200,74 +1123,134 @@ addCodeFileRow();
 """
 
 def _gallery_editor_html(existing_html=""):
-    """Gallery dynamic editor — shows asset browser + up to 10 image rows."""
+    """Gallery dynamic editor — upgraded with visual asset picker."""
     return """
 <div id="gallery-editor">
-  <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
-    Browse your <code>assets/</code> folder and pick images (max 10). 
-    Enter a caption for each. The gallery HTML is generated on save.
-  </p>
-  <div class="fg" style="max-width:480px;">
-    <label>Gallery Introduction (optional)</label>
-    <input type="text" name="gallery_intro" placeholder="A short description of this image collection.">
-  </div>
-  <div id="gallery-rows">
-    <!-- rows injected by JS -->
-  </div>
-  <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-    <button type="button" class="btn btn-grey btn-sm" onclick="addGalleryRow()">+ Add Image</button>
-    <button type="button" class="btn btn-grey btn-sm" onclick="loadAssets()">&#128194; Browse Assets</button>
-  </div>
-  <div id="asset-browser" style="display:none;margin-top:14px;background:#111;border:1px solid var(--border);border-radius:6px;padding:14px;">
-    <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">
-      Click a filename to insert it into the next empty slot:
+  <div class="card" style="padding:15px;border-style:dashed;margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="font-size:.9rem;margin:0;">Gallery Images</h3>
+      <button type="button" class="btn btn-primary btn-sm" onclick="openMediaPicker('gallery')">&#128194; Open Media Library</button>
     </div>
-    <div id="asset-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    <p style="font-size:.8rem;color:var(--muted);">Add images from your media library. Drag to reorder (coming soon).</p>
+    <div id="gallery-rows" style="margin-top:15px;">
+      <!-- rows injected by JS -->
+    </div>
+    <button type="button" class="btn btn-grey btn-sm" style="margin-top:10px;width:100%;" onclick="addGalleryRow()">+ Add Empty Slot</button>
+  </div>
+  <div class="fg" style="max-width:480px;">
+    <label>Gallery Introduction</label>
+    <input type="text" name="gallery_intro" placeholder="Optional context or description for this gallery...">
   </div>
 </div>
+
+<!-- Media Picker Modal -->
+<div id="media-picker-modal" class="modal-overlay" style="display:none;z-index:2000;" onclick="if(event.target===this)closeMediaPicker()">
+  <div class="modal" style="max-width:900px;width:90%;max-height:85vh;">
+    <div class="modal-header">
+      <h3 id="media-picker-title">Select Media</h3>
+      <button type="button" class="close-btn" onclick="closeMediaPicker()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="media-picker-grid" class="asset-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:15px;">
+        <!-- Assets loaded here -->
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 var _galleryCount = 0;
+var _activePickerTarget = null;
+
+function openMediaPicker(target){
+  _activePickerTarget = target;
+  document.getElementById('media-picker-modal').style.display = 'flex';
+  loadMediaPickerAssets();
+}
+
+function closeMediaPicker(){
+  document.getElementById('media-picker-modal').style.display = 'none';
+}
+
+function loadMediaPickerAssets(){
+  const grid = document.getElementById('media-picker-grid');
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;">Loading library...</div>';
+  
+  fetch('/list_assets').then(r=>r.json()).then(d=>{
+    grid.innerHTML = '';
+    if(!d.files || !d.files.length){
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted);">Media library is empty.</div>';
+      return;
+    }
+    d.files.forEach(f => {
+      const isImg = /\\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f);
+      const div = document.createElement('div');
+      div.className = 'asset-item';
+      div.style = 'cursor:pointer;position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--card);aspect-ratio:1;';
+      div.onclick = () => selectMediaFile(f);
+      
+      if(isImg){
+        div.innerHTML = '<img src="/assets/'+f+'" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
+      } else {
+        div.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2rem;">📄</div>';
+      }
+      div.innerHTML += '<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);color:#fff;font-size:0.65rem;padding:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+f+'</div>';
+      grid.appendChild(div);
+    });
+  });
+}
+
+function selectMediaFile(f){
+  if(_activePickerTarget === 'gallery'){
+    addGalleryRow(f);
+  } else if(_activePickerTarget === 'featured'){
+    document.querySelector('select[name="featured_img"]').value = f;
+  }
+  closeMediaPicker();
+}
+
 function addGalleryRow(fname){
-  if(_galleryCount >= 10){ alert('Maximum 10 images per gallery.'); return; }
   _galleryCount++;
   var n = _galleryCount;
   var row = document.createElement('div');
   row.id = 'grow-'+n;
-  row.style = 'display:flex;gap:10px;align-items:center;margin-bottom:10px;';
-  row.innerHTML = '<span style="color:var(--muted);font-size:.8rem;width:20px;flex-shrink:0;">'+n+'.</span>'
-    + '<input type="text" name="gallery_file_'+n+'" placeholder="filename.jpg" value="'+(fname||'')+'" style="flex:1;" required>'
-    + '<input type="text" name="gallery_caption_'+n+'" placeholder="Caption (optional)" style="flex:2;">'
-    + '<button type="button" onclick="removeGalleryRow('+n+')" style="background:#3a0a0a;color:#f87171;border:1px solid #7f1d1d;border-radius:4px;padding:5px 10px;cursor:pointer;font-size:.8rem;flex-shrink:0;">✕</button>';
+  row.className = 'card';
+  row.style = 'display:flex;gap:12px;align-items:center;margin-bottom:12px;padding:10px;background:var(--bg);';
+  row.innerHTML = '<div style="width:60px;height:60px;background:var(--card);border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">'
+    + (fname ? '<img src="/assets/'+fname+'" style="width:100%;height:100%;object-fit:cover;">' : '<span style="color:var(--muted);font-size:1.5rem;">?</span>')
+    + '</div>'
+    + '<div style="flex:1;">'
+    + '  <input type="text" name="gallery_file_'+n+'" placeholder="filename.jpg" value="'+(fname||'')+'" style="width:100%;margin-bottom:5px;font-family:monospace;font-size:.85rem;" required>'
+    + '  <input type="text" name="gallery_caption_'+n+'" placeholder="Add a caption..." style="width:100%;font-size:.85rem;">'
+    + '</div>'
+    + '<button type="button" onclick="removeGalleryRow('+n+')" style="background:#3a0a0a;color:#f87171;border:1px solid #7f1d1d;border-radius:4px;padding:8px 12px;cursor:pointer;font-size:1rem;flex-shrink:0;">✕</button>';
   document.getElementById('gallery-rows').appendChild(row);
 }
+
 function removeGalleryRow(n){
   var el = document.getElementById('grow-'+n);
   if(el) el.remove();
 }
-function loadAssets(){
-  var browser = document.getElementById('asset-browser');
-  browser.style.display = browser.style.display === 'none' ? 'block' : 'none';
-  if(browser.style.display === 'none') return;
-  fetch('/list_assets').then(r=>r.json()).then(d=>{
-    var list = document.getElementById('asset-list');
-    list.innerHTML = '';
-    if(!d.files || !d.files.length){
-      list.innerHTML = '<span style="color:var(--muted);font-size:.82rem;">No image files found in assets/</span>';
-      return;
-    }
-    d.files.forEach(function(f){
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = f;
-      btn.style = 'background:#1e1e1e;border:1px solid var(--border);color:#ccc;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:.78rem;';
-      btn.onclick = function(){ addGalleryRow(f); };
-      list.appendChild(btn);
-    });
-  });
-}
-// Seed one empty row
-addGalleryRow();
-</script>"""
+</script>
+"""
+
+
+def _youtube_editor_html(existing_html=""):
+    """Single YouTube video editor."""
+    return """
+<div id="youtube-editor">
+  <div class="card" style="padding:20px;background:var(--bg);border-style:dashed;">
+    <div class="fg">
+      <label>YouTube Video URL or ID *</label>
+      <input type="text" name="yt_url" placeholder="https://www.youtube.com/watch?v=... or VIDEO_ID" required>
+    </div>
+    <div class="fg" style="margin-top:15px;">
+      <label>Video Caption / Description</label>
+      <input type="text" name="yt_caption" placeholder="A short description for this video...">
+    </div>
+  </div>
+</div>
+"""
 
 
 def _multivideo_editor_html(existing_html=""):
@@ -1558,7 +1541,7 @@ def r_new():
         )
 
     # Build JSON map of template HTML for JS injection (non-dynamic templates only)
-    _dynamic_tpls = {'image_gallery', 'multi_youtube', 'code', 'multi_file_code'}
+    _dynamic_tpls = {'image_gallery', 'multi_youtube', 'youtube_video', 'code', 'multi_file_code'}
     tpl_json = json.dumps({k: v['html'] for k, v in TEMPLATES.items() if k not in _dynamic_tpls})
 
     cat_opts = "".join(
@@ -1572,6 +1555,7 @@ def r_new():
     )
 
     gallery_editor_html  = _gallery_editor_html()
+    youtube_editor_html  = _youtube_editor_html()
     multivideo_editor_html = _multivideo_editor_html()
     code_editor_html     = _code_editor_html()
     multi_code_editor_html = _multi_code_editor_html()
@@ -1630,6 +1614,11 @@ def r_new():
           {gallery_editor_html}
         </div>
 
+        <!-- YouTube dynamic editor -->
+        <div id="editor-youtube" style="display:none;">
+          {youtube_editor_html}
+        </div>
+
         <!-- Multi-video dynamic editor -->
         <div id="editor-multivideo" style="display:none;">
           {multivideo_editor_html}
@@ -1656,6 +1645,7 @@ def r_new():
     const TEMPLATES = {tpl_json};
     const DYNAMIC_EDITORS = {{
       'image_gallery':  'gallery',
+      'youtube_video':  'youtube',
       'multi_youtube':  'multivideo',
       'code':           'code',
       'multi_file_code': 'multi-code'
@@ -1669,7 +1659,7 @@ def r_new():
 
       // Switch editor panel
       var dynKey = DYNAMIC_EDITORS[key];
-      ['standard','gallery','multivideo','code','multi-code'].forEach(function(n){{
+      ['standard','gallery','youtube','multivideo','code','multi-code'].forEach(function(n){{
         var el = document.getElementById('editor-'+n);
         if(el) el.style.display = 'none';
       }});
@@ -1706,6 +1696,7 @@ def r_edit(page_uuid):
     assets  = _get_assets()
     content = _get_page_body(page_uuid)
     safe_c  = _html_mod.escape(content)
+    tpl_key = page.get('template_key', 'blank')
 
     cat_opts = "".join(
         f"<option value='{c['category_name']}' {'selected' if c['category_name'] == page.get('category_ref') else ''}>{c['category_name']}</option>"
@@ -1717,10 +1708,21 @@ def r_edit(page_uuid):
         for a in assets
     )
 
+    # Build JSON map of template HTML for JS injection (non-dynamic templates only)
+    _dynamic_tpls = {'image_gallery', 'multi_youtube', 'youtube_video', 'code', 'multi_file_code'}
+    tpl_json = json.dumps({k: v['html'] for k, v in TEMPLATES.items() if k not in _dynamic_tpls})
+
+    gallery_editor_html  = _gallery_editor_html()
+    youtube_editor_html  = _youtube_editor_html()
+    multivideo_editor_html = _multivideo_editor_html()
+    code_editor_html     = _code_editor_html()
+    multi_code_editor_html = _multi_code_editor_html()
+
     body = f"""
     <form method="POST" action="/save" id="pageForm">
       <input type="hidden" name="action"    value="update">
       <input type="hidden" name="page_uuid" value="{page_uuid}">
+      <input type="hidden" name="template_key" id="template_key" value="{tpl_key}">
 
       <!-- Page meta -->
       <div class="card">
@@ -1753,10 +1755,39 @@ def r_edit(page_uuid):
         </p>
       </div>
 
-      <!-- HTML Body Editor -->
+      <!-- Content editor — dynamic based on template type -->
       <div class="card">
         <div class="card-hd"><h3>Page Content</h3></div>
-        {_editor_html("html_body", safe_c, include_modals=True)}
+
+        <!-- Standard HTML editor (default / most templates) -->
+        <div id="editor-standard">
+          {_editor_html("html_body", safe_c, include_modals=True)}
+        </div>
+
+        <!-- Gallery dynamic editor -->
+        <div id="editor-gallery" style="display:none;">
+          {gallery_editor_html}
+        </div>
+
+        <!-- YouTube dynamic editor -->
+        <div id="editor-youtube" style="display:none;">
+          {youtube_editor_html}
+        </div>
+
+        <!-- Multi-video dynamic editor -->
+        <div id="editor-multivideo" style="display:none;">
+          {multivideo_editor_html}
+        </div>
+
+        <!-- Code showcase dynamic editor -->
+        <div id="editor-code" style="display:none;">
+          {code_editor_html}
+        </div>
+
+        <!-- Multi-file Code dynamic editor -->
+        <div id="editor-multi-code" style="display:none;">
+          {multi_code_editor_html}
+        </div>
       </div>
 
       <div class="btn-row">
@@ -1767,7 +1798,42 @@ def r_edit(page_uuid):
           <button class="btn btn-sm" style="background:#3a0a0a;color:#f87171;border:1px solid #7f1d1d;">&#128465; Delete Page</button>
         </form>
       </div>
-    </form>"""
+    </form>
+
+    <script>
+    const TEMPLATES = {tpl_json};
+    const DYNAMIC_EDITORS = {{
+      'image_gallery':  'gallery',
+      'youtube_video':  'youtube',
+      'multi_youtube':  'multivideo',
+      'code':           'code',
+      'multi_file_code': 'multi-code'
+    }};
+
+    function selectTemplate(key) {{
+      // Update hidden input
+      document.getElementById('template_key').value = key;
+
+      // Switch editor panel
+      var dynKey = DYNAMIC_EDITORS[key];
+      ['standard','gallery','youtube','multivideo','code','multi-code'].forEach(function(n){{
+        var el = document.getElementById('editor-'+n);
+        if(el) el.style.display = 'none';
+      }});
+      
+      if(dynKey){{
+        var el = document.getElementById('editor-'+dynKey);
+        if(el) el.style.display = 'block';
+      }} else {{
+        document.getElementById('editor-standard').style.display = 'block';
+      }}
+    }}
+
+    // Auto-select based on record on load
+    window.addEventListener('load', function() {{
+        selectTemplate('{tpl_key}');
+    }});
+    </script>"""
 
     return _page(
         f"Edit — {page.get('page_title','...')}",
@@ -1798,6 +1864,8 @@ def r_save():
     # --- Determine final html_body based on editor mode ---
     if tpl_type == 'image_gallery':
         body_html = _build_gallery_html(request.form)
+    elif tpl_type == 'youtube_video':
+        body_html = _build_youtube_html(request.form)
     elif tpl_type == 'multi_youtube':
         body_html = _build_multivideo_html(request.form)
     elif tpl_type == 'code':
@@ -1822,7 +1890,8 @@ def r_save():
             author       = author,
             body_html    = body_html,
             is_new       = (action == 'create'),
-            featured_img = featured_img
+            featured_img = featured_img,
+            template_key = tpl_type
         )
         verb = "created" if action == 'create' else "updated"
         flash(f'✅ Page "{title}" {verb} successfully.', 'success')
@@ -2075,28 +2144,63 @@ def _build_gallery_html(form):
     """Build gallery HTML from gallery_file_* and gallery_caption_* form fields."""
     intro = form.get('gallery_intro', '').strip()
     items_html = ""
-    for i in range(1, 11):
+    for i in range(1, 21): # Support up to 20 images
         fname   = form.get(f'gallery_file_{i}', '').strip()
         caption = form.get(f'gallery_caption_{i}', '').strip()
         if not fname:
             continue
-        cap_html = f'<figcaption style="font-size:.82rem;color:#666;padding:8px 0;text-align:center;">{_html_mod.escape(caption)}</figcaption>' if caption else ''
+        cap_html = f'<figcaption style="font-size:.85rem;color:var(--accent-color);font-weight:700;padding:10px 0;text-align:center;background:rgba(222,38,38,0.05);">{_html_mod.escape(caption)}</figcaption>' if caption else ''
         items_html += f"""
-  <figure class="bej-gallery-item" style="margin:0;cursor:zoom-in;">
+  <figure class="bej-gallery-item" style="margin:0;cursor:zoom-in;border:1px solid var(--border-color);border-radius:4px;overflow:hidden;transition:transform 0.3s ease;background:var(--bg-card);">
     <img src="../../../assets/{_html_mod.escape(fname)}"
          alt="{_html_mod.escape(caption or fname)}"
-         style="width:100%;height:200px;object-fit:cover;border-radius:4px;">
+         style="width:100%;height:220px;object-fit:cover;display:block;">
     {cap_html}
   </figure>"""
 
     if not items_html:
         return '<p>No images selected.</p>'
 
-    intro_html = f'<p>{_html_mod.escape(intro)}</p>\n\n' if intro else ''
-    return f"""{intro_html}<h2>Gallery</h2>
-<div class="bej-gallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;margin:30px 0;">{items_html}
+    intro_html = f'<div style="margin-bottom:30px;font-size:1.1rem;line-height:1.6;border-left:4px solid var(--accent-color);padding-left:20px;">{_html_mod.escape(intro)}</div>\n\n' if intro else ''
+    return f"""{intro_html}
+<div class="section-divider" style="margin-bottom:30px;"><h2 class="section-label">Gallery</h2><div class="label-line"></div></div>
+<div class="bej-gallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:30px;margin:30px 0;">{items_html}
 </div>
-<p style="font-size:.85rem;color:#888;margin-top:10px;">Click any image to view full size.</p>"""
+<p style="font-size:.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;text-align:center;">&mdash; Click any image to expand &mdash;</p>
+<style>.bej-gallery-item:hover {{ transform: translateY(-5px); border-color: var(--accent-color); box-shadow: var(--shadow-hover); }}</style>"""
+
+
+def _build_youtube_html(form):
+    """Build single YouTube embed HTML."""
+    url     = form.get('yt_url', '').strip()
+    caption = form.get('yt_caption', '').strip()
+    
+    if not url:
+        return '<p>No video selected.</p>'
+        
+    # Extract ID
+    vid_id = url
+    if 'v=' in url:
+        vid_id = url.split('v=')[1].split('&')[0]
+    elif 'youtu.be/' in url:
+        vid_id = url.split('youtu.be/')[1].split('?')[0]
+    elif '/embed/' in url:
+        vid_id = url.split('/embed/')[1].split('?')[0]
+
+    cap_html = f'<p style="font-size:.9rem;color:var(--text-muted);margin-top:15px;text-align:center;font-style:italic;">{_html_mod.escape(caption)}</p>' if caption else ''
+    
+    return f"""
+<div class="bej-video-wrap" style="max-width:800px;margin:40px auto;">
+  <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;border:1px solid var(--border-color);background:#000;">
+    <iframe src="https://www.youtube.com/embed/{vid_id}" 
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen
+            style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+  </div>
+  {cap_html}
+</div>
+"""
 
 
 def _build_multivideo_html(form):

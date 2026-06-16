@@ -8,23 +8,13 @@
   ],
   "Fields": [
     {
-      "name": "platform",
+      "name": "social_platform",
       "type": "string"
     },
     {
-      "name": "url",
-      "type": "string"
-    },
-    {
-      "name": "icon",
+      "name": "social_url",
       "type": "string"
     }
   ],
-  "Values": [
-    [
-      "GitHub",
-      "https://github.com/boehnenelton",
-      "github"
-    ]
-  ]
+  "Values": []
 }

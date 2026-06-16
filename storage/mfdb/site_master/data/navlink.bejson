@@ -8,16 +8,12 @@
   ],
   "Fields": [
     {
-      "name": "label",
+      "name": "nav_label",
       "type": "string"
     },
     {
-      "name": "url",
+      "name": "nav_url",
       "type": "string"
-    },
-    {
-      "name": "order",
-      "type": "integer"
     }
   ],
   "Values": []

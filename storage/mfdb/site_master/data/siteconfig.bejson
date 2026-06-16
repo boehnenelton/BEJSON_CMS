@@ -16,26 +16,5 @@
       "type": "string"
     }
   ],
-  "Values": [
-    [
-      "site_name",
-      "Boehnenelton2024 "
-    ],
-    [
-      "title",
-      "Boehnenelton2024 "
-    ],
-    [
-      "creator",
-      "Boehnenelton2024 "
-    ],
-    [
-      "description",
-      "Personal project blog"
-    ],
-    [
-      "base_url",
-      "https://boehnenelton2024.pages.dev"
-    ]
-  ]
+  "Values": []
 }

@@ -16,22 +16,5 @@
       "type": "string"
     }
   ],
-  "Values": [
-    [
-      "Uncategorized",
-      "uncategorized"
-    ],
-    [
-      "BEJSON",
-      "bejson"
-    ],
-    [
-      "Projects",
-      "projects"
-    ],
-    [
-      "ISSUES",
-      "issues"
-    ]
-  ]
+  "Values": []
 }

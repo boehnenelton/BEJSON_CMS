@@ -18,7 +18,7 @@
     <header class="site-header">
         <div class="container">
             <div class="nav-wrap">
-                <a href="{{rel_prefix}}index.html" class="logo">{{site_title}}</a>
+                <a href="{{rel_prefix}}index.html" class="logo"><span>{{site_title[:1]}}</span>{{site_title[1:]}}</a>
                 <nav>
                     <ul class="nav-menu">
                         <li><a href="{{rel_prefix}}index.html">Home</a></li>

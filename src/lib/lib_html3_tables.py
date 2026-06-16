@@ -207,14 +207,14 @@ COMPONENT_TEMPLATE = """
                 return !f.Record_Type_Parent || f.Record_Type_Parent === selectedType;
             }});
 
-            theadEl.innerHTML = '<tr><th>Field Name</th><th>Type</th><th>Scope</th></tr>';
+            theadEl.innerHTML = '<tr><th style="width:40%;">Field Name</th><th style="width:30%;">Type</th><th style="width:30%;">Scope</th></tr>';
             
             var bodyHtml = '';
             fields.forEach(function(f) {{
                 bodyHtml += '<tr>' +
-                    '<td><code class="u-font-mono u-fs-small">' + escapeHtml(f.name) + '</code></td>' +
-                    '<td><span class="c-badge">' + escapeHtml(f.type) + '</span></td>' +
-                    '<td>' + escapeHtml(f.Record_Type_Parent || 'GLOBAL') + '</td>' +
+                    '<td style="white-space:pre-wrap; word-break:break-all;"><code class="u-font-mono u-fs-small" style="color:var(--accent-color); font-weight:bold;">' + escapeHtml(f.name) + '</code></td>' +
+                    '<td><span class="c-badge" style="background:var(--accent-color); color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem;">' + escapeHtml(f.type) + '</span></td>' +
+                    '<td style="opacity:0.7; font-size:0.8rem;">' + escapeHtml(f.Record_Type_Parent || 'GLOBAL') + '</td>' +
                 '</tr>';
             }});
             tbodyEl.innerHTML = bodyHtml;

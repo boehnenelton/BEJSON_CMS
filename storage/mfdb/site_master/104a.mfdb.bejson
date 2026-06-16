@@ -8,7 +8,7 @@
   "DB_Description": "Primary CMS database \u2014 pages, categories, authors, ads, config.",
   "Schema_Version": "1.0.0",
   "Author": "Elton Boehnen",
-  "Created_At": "2026-06-08T08:08:03Z",
+  "Created_At": "2026-06-15T07:42:53Z",
   "Records_Type": [
     "mfdb"
   ],
@@ -43,7 +43,7 @@
       "Category",
       "data/category.bejson",
       null,
-      4,
+      0,
       "1.0",
       "category_slug"
     ],
@@ -51,7 +51,7 @@
       "PageRecord",
       "data/pagerecord.bejson",
       null,
-      3,
+      1,
       "1.0",
       "page_uuid"
     ],
@@ -59,7 +59,7 @@
       "StandaloneApp",
       "data/standaloneapp.bejson",
       null,
-      2,
+      0,
       "1.0",
       "app_uuid"
     ],
@@ -67,9 +67,9 @@
       "AuthorProfile",
       "data/authorprofile.bejson",
       null,
-      1,
+      2,
       "1.0",
-      "author_uuid"
+      "auth_name"
     ],
     [
       "AdUnit",
@@ -83,7 +83,7 @@
       "SiteConfig",
       "data/siteconfig.bejson",
       null,
-      5,
+      0,
       "1.0",
       "config_key"
     ],
@@ -91,9 +91,9 @@
       "SocialLink",
       "data/sociallink.bejson",
       null,
-      1,
+      0,
       "1.0",
-      "platform"
+      "social_platform"
     ],
     [
       "NavLink",
@@ -101,7 +101,7 @@
       null,
       0,
       "1.0",
-      "label"
+      "nav_label"
     ],
     [
       "ExternalMedia",

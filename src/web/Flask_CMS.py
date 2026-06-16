@@ -200,6 +200,7 @@ def init_master_db():
                 {"name": "external_url", "type": "string"},
                 {"name": "author_ref",   "type": "string"},
                 {"name": "featured_img", "type": "string"},
+                {"name": "template_key", "type": "string"},
             ],
         },
         {
@@ -1066,11 +1067,13 @@ def page_new():
 
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
-        category = request.form.get('category', 'Uncategorized')
+        category = request.form.get('category', '').strip()
         featured_img = request.form.get('featured_img', '')
         author = request.form.get('author', '')
         if not title:
             return "Title required", 400
+        if not category:
+            return "Category required", 400
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
         db.mount()
@@ -1107,7 +1110,7 @@ def page_new():
     <form method="POST" class="card">
         <div class="form-group"><label class="form-label">Page Title *</label><input type="text" name="title" class="form-control" required autofocus></div>
         <div class="grid grid-2">
-            <div class="form-group"><label class="form-label">Category</label><select name="category" class="form-control">{% for c in categories %}<option value="{{ c.category_name }}">{{ c.category_name }}</option>{% endfor %}</select></div>
+            <div class="form-group"><label class="form-label">Category *</label><select name="category" class="form-control" required><option value="" disabled selected>-- Select Category --</option>{% for c in categories %}<option value="{{ c.category_name }}">{{ c.category_name }}</option>{% endfor %}</select></div>
             <div class="form-group"><label class="form-label">Author</label><input type="text" name="author" class="form-control" placeholder="Author name"></div>
         </div>
         <div class="form-group"><label class="form-label">Featured Image</label><select name="featured_img" class="form-control"><option value="">-- No image --</option>{% for a in assets %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select></div>
@@ -1137,11 +1140,12 @@ def edit_content(page_uuid):
         # Update content file
         try:
             import json
+            import lib_bejson_core as Core
             with open(pfile, "r") as f: data = json.load(f)
-            fields = data.get("Fields", [])
-            p_idx = next((i for i, f in enumerate(fields) if f["name"] == "Record_Type_Parent"), -1)
-            h_idx = next((i for i, f in enumerate(fields) if f["name"] == "html_body"), -1)
-            m_idx = next((i for i, f in enumerate(fields) if f["name"] == "meta_title"), -1)
+            field_map = Core.bejson_core_get_field_map(data)
+            p_idx = field_map.get("Record_Type_Parent", -1)
+            h_idx = field_map.get("html_body", -1)
+            m_idx = field_map.get("meta_title", -1)
             for row in data.get("Values", []):
                 if p_idx != -1:
                     if row[p_idx] == "Content" and h_idx != -1: row[h_idx] = html_content
@@ -1160,10 +1164,11 @@ def edit_content(page_uuid):
     html_content = ""
     try:
         import json
+        import lib_bejson_core as Core
         with open(pfile, "r") as f: data = json.load(f)
-        fields = data.get("Fields", [])
-        p_idx = next((i for i, f in enumerate(fields) if f["name"] == "Record_Type_Parent"), -1)
-        h_idx = next((i for i, f in enumerate(fields) if f["name"] == "html_body"), -1)
+        field_map = Core.bejson_core_get_field_map(data)
+        p_idx = field_map.get("Record_Type_Parent", -1)
+        h_idx = field_map.get("html_body", -1)
         for row in data.get("Values", []):
             if p_idx != -1 and row[p_idx] == "Content" and h_idx != -1:
                 html_content = row[h_idx] or ""
@@ -2559,8 +2564,9 @@ def import_index():
         <div class="card-header"><span class="card-title">⚙️ Import Settings</span></div>
         <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
           <div class="form-group">
-            <label class="form-label">Target Category</label>
-            <select name="category" class="form-control">
+            <label class="form-label">Target Category *</label>
+            <select name="category" class="form-control" required>
+              <option value="" disabled selected>-- Select Target Category --</option>
               {"".join(f'<option value="{c["category_name"]}">{c["category_name"]}</option>' for c in cats)}
             </select>
           </div>
@@ -2597,8 +2603,12 @@ def import_index():
 @app.route('/import/preview', methods=['POST'])
 def import_preview():
     files    = request.files.getlist('html_files')
-    category = request.form.get('category', 'Uncategorized')
+    category = request.form.get('category', '').strip()
     author   = request.form.get('author', '').strip()
+
+    if not category:
+        flash('Target category is required for import.', 'error')
+        return redirect('/import')
 
     if not files or not files[0].filename:
         flash('Please select at least one HTML file.', 'error')
@@ -2686,50 +2696,142 @@ def import_confirm():
     author   = request.form.get('author', '').strip()
     fnames   = request.form.getlist('fnames')
 
-    imported = []
-    errors   = []
-
+    import_queue = []
     for fname in fnames:
         if not request.form.get(f'include_{fname}'):
             continue
-        title    = request.form.get(f'title_{fname}', '').strip() or fname
-        tmp_path = os.path.join(UPLOAD_TMP, fname)
-        if not os.path.exists(tmp_path):
-            errors.append(f'{fname} — temp file missing, please re-upload')
-            continue
-        try:
-            with open(tmp_path, 'rb') as fh:
-                raw = fh.read()
-            _, body_html, _ = extract_from_html(raw)
-            new_uuid = _create_import_page(title, category, body_html, author)
-            imported.append({'title': title, 'uuid': new_uuid, 'file': fname})
-            os.remove(tmp_path)
-        except Exception as e:
-            errors.append(f'{fname} — {e}')
+        title = request.form.get(f'title_{fname}', '').strip() or fname
+        import_queue.append({'fname': fname, 'title': title})
 
-    for err in errors:
-        flash(f'⚠ {err}', 'error')
-
-    imported_rows = ''.join(
-        f'<li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.9rem;">'
-        f'<strong>{p["title"]}</strong>'
-        f'<span style="color:var(--text-secondary);font-size:.8rem;margin-left:8px;">from {p["file"]}</span>'
-        f'<a href="/edit/{p["uuid"]}" style="color:var(--accent);font-size:.8rem;margin-left:12px;">Edit in CMS ↗</a>'
-        f'</li>'
-        for p in imported
-    )
+    if not import_queue:
+        flash('No files selected for import.', 'error')
+        return redirect('/import')
 
     html = f'''
-    <div class="page-header"><h1>Import Complete</h1></div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">✅ {len(imported)} Page(s) Imported</span></div>
-      {"<ul style='list-style:none;padding:0;'>" + imported_rows + "</ul>" if imported else "<p style='color:var(--text-secondary);'>No files were imported.</p>"}
+    <div class="page-header"><h1>Processing Import Queue</h1>
+    <p>Please wait while your files are being imported into the CMS.</p></div>
+    
+    <div class="card" style="padding:30px;">
+        <div id="import-progress-container">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                <span id="progress-status" style="font-weight:700;color:var(--accent);">Initializing...</span>
+                <span id="progress-percent">0%</span>
+            </div>
+            <div style="height:10px;background:var(--bg-secondary);border-radius:5px;overflow:hidden;margin-bottom:25px;border:1px solid var(--border);">
+                <div id="progress-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.3s ease;"></div>
+            </div>
+        </div>
+        
+        <div id="import-log" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:15px;max-height:300px;overflow-y:auto;font-family:monospace;font-size:.85rem;line-height:1.6;">
+            <!-- Process logs will appear here -->
+        </div>
+        
+        <div id="completion-actions" style="display:none;margin-top:30px;gap:10px;">
+            <a href="/pages" class="btn btn-primary">View All Pages ↗</a>
+            <a href="/import" class="btn btn-secondary">Import More</a>
+        </div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
-      <a href="/import"  class="btn btn-primary">Import More Files</a>
-      <a href="/pages"   class="btn btn-secondary">View All Pages ↗</a>
-    </div>'''
+
+    <script>
+    const queue = {json.dumps(import_queue)};
+    const category = "{_html_escape.escape(category)}";
+    const author = "{_html_escape.escape(author)}";
+    const log = document.getElementById('import-log');
+    const bar = document.getElementById('progress-bar');
+    const pct = document.getElementById('progress-percent');
+    const status = document.getElementById('progress-status');
+    const actions = document.getElementById('completion-actions');
+
+    async function processQueue() {{
+        let successCount = 0;
+        let failCount = 0;
+        
+        for(let i=0; i < queue.length; i++) {{
+            const item = queue[i];
+            const p = Math.round(((i) / queue.length) * 100);
+            bar.style.width = p + "%";
+            pct.textContent = p + "%";
+            status.textContent = "Importing: " + item.title + "...";
+            
+            const entry = document.createElement('div');
+            entry.style.marginBottom = "5px";
+            entry.innerHTML = `<span style="color:var(--accent)">[PROCESS]</span> Attempting to import "${{item.title}}"...`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+
+            try {{
+                const res = await fetch('/api/import/process_item', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        fname: item.fname,
+                        title: item.title,
+                        category: category,
+                        author: author
+                    }})
+                }});
+                const data = await res.json();
+                
+                if(data.success) {{
+                    successCount++;
+                    entry.innerHTML = `<span style="color:#10b981">[SUCCESS]</span> Imported "${{item.title}}" successfully.`;
+                }} else {{
+                    failCount++;
+                    entry.innerHTML = `<span style="color:#ef4444">[ERROR]</span> Failed to import "${{item.title}}": ${{data.error}}`;
+                }}
+            }} catch(e) {{
+                failCount++;
+                entry.innerHTML = `<span style="color:#ef4444">[CRITICAL]</span> Connection error importing "${{item.title}}": ${{e}}`;
+            }}
+        }}
+        
+        bar.style.width = "100%";
+        pct.textContent = "100%";
+        status.textContent = "Import Complete!";
+        status.style.color = "#10b981";
+        
+        const finalEntry = document.createElement('div');
+        finalEntry.style.marginTop = "15px";
+        finalEntry.style.fontWeight = "bold";
+        finalEntry.style.borderTop = "1px solid var(--border)";
+        finalEntry.style.paddingTop = "10px";
+        finalEntry.innerHTML = `FINISHED: ${{successCount}} successful, ${{failCount}} failed.`;
+        log.appendChild(finalEntry);
+        log.scrollTop = log.scrollHeight;
+        
+        actions.style.display = "flex";
+    }}
+
+    document.addEventListener('DOMContentLoaded', processQueue);
+    </script>
+    '''
     return R(html, breadcrumbs=get_breadcrumbs(request.path), active_section='content')
+
+
+@app.route('/api/import/process_item', methods=['POST'])
+@require_auth
+def api_import_process_item():
+    data = request.json
+    fname = data.get('fname')
+    title = data.get('title')
+    category = data.get('category')
+    author = data.get('author')
+
+    tmp_path = os.path.join(UPLOAD_TMP, fname)
+    if not category:
+        return jsonify({"success": False, "error": "Category is missing"})
+    if not os.path.exists(tmp_path):
+        return jsonify({"success": False, "error": "Temporary file missing"})
+
+    try:
+        with open(tmp_path, 'rb') as fh:
+            raw = fh.read()
+        _, body_html, _ = extract_from_html(raw)
+        new_uuid = _create_import_page(title, category, body_html, author)
+        os.remove(tmp_path)
+        return jsonify({"success": True, "uuid": new_uuid})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 # =============================================================================

@@ -754,11 +754,12 @@ def _execute():
         if not os.path.exists(src_file): continue
 
         try:
+            import lib_bejson_core as Core
             with open(src_file, "r", encoding="utf-8") as f: js = json.load(f)
-            fields = js.get("Fields", [])
-            idx_html = next((i for i, f in enumerate(fields) if f["name"] == "html_body"), -1)
-            idx_parent = next((i for i, f in enumerate(fields) if f["name"] == "Record_Type_Parent"), 0)
-            idx_desc = next((i for i, f in enumerate(fields) if f["name"] == "meta_description"), -1)
+            field_map = Core.bejson_core_get_field_map(js)
+            idx_html = field_map.get("html_body", -1)
+            idx_parent = field_map.get("Record_Type_Parent", 0)
+            idx_desc = field_map.get("meta_description", -1)
             
             content_row = next((r for r in js["Values"] if r[idx_parent] == "Content"), None)
             html_body = content_row[idx_html] if content_row and idx_html != -1 else ""

@@ -2,13 +2,14 @@
 """
 Script:        cms-manage.py
 Description:   Unified CLI Toolkit for BEJSON_CMS management.
-Version:       1.1.0
+Version:       18.2
 Author:        Elton Boehnen
-Date:          2026-06-11
-Relational_ID: gcli-cms-cli-001
+Date:          2026-06-15
+Relational_ID: gcli-cms-cli-v182
 """
-...
-VERSION = "1.1.0"
+
+VERSION = "18.2"
+
 
 import os
 import sys

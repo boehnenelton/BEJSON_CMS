@@ -8,28 +8,28 @@
   ],
   "Fields": [
     {
-      "name": "author_uuid",
+      "name": "auth_name",
       "type": "string"
     },
     {
-      "name": "name",
+      "name": "auth_bio",
       "type": "string"
     },
     {
-      "name": "bio",
-      "type": "string"
-    },
-    {
-      "name": "image_url",
+      "name": "auth_img",
       "type": "string"
     }
   ],
   "Values": [
     [
-      "00000000-0000-0000-0000-000000000001",
       "Boehnenelton2024",
-      "",
-      "Scully_Avatar.webp"
+      "me",
+      ""
+    ],
+    [
+      "Publicist",
+      "Spokesperson",
+      ""
     ]
   ]
 }

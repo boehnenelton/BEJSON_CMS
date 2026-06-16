@@ -42,41 +42,24 @@
     {
       "name": "featured_img",
       "type": "string"
+    },
+    {
+      "name": "template_key",
+      "type": "string"
     }
   ],
   "Values": [
     [
-      "05067569-d877-4791-b2ee-94854bd817e3",
-      "BEJSON_CMS",
-      "bejson-cms",
-      "Projects",
+      "b09f98d8-18d4-4969-8bd7-a1864fe87f1c",
+      "BEM & CSS Architecture Mastery Guide",
+      "bem-css-architecture-mastery-guide",
+      "Uncategorized",
       "page",
-      "2026-06-08",
-      "",
-      "Boehnenelton2024",
-      "BEJSON_CMS_Remediation_Ledger_-_Slide_1.webp"
-    ],
-    [
-      "07a5c5c9-35d2-463f-ac6e-d0787153bd74",
-      "BEJSON - The 3 Formats",
-      "bejson-crash-course",
-      "BEJSON",
-      "page",
-      "2026-06-08",
-      "",
-      "Boehnenelton2024",
-      "MFDBCMS.webp"
-    ],
-    [
-      "82357db6-22d8-4014-ae29-55950e68ca26",
-      "CMS ISSUES",
-      "cms-issues",
-      "ISSUES",
-      "page",
-      "2026-06-14",
+      "2026-06-15",
       null,
-      "Boehnenelton2024 ",
-      "32-Bit_Adventure_Engine_Infographic.png"
+      "Boehnenelton2024",
+      null,
+      "blank"
     ]
   ]
 }

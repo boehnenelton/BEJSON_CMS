@@ -1,0 +1,49 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "ScriptConfig"
+  ],
+  "Fields": [
+    {
+      "name": "setting_name",
+      "type": "string"
+    },
+    {
+      "name": "setting_value",
+      "type": "any"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "admin_port",
+      5001,
+      "Port for BEJSON_CMS_Admin.py (dashboard)."
+    ],
+    [
+      "pageeditor_port",
+      5003,
+      "Port for BEJSON_CMS_PageEditor.py (V1)."
+    ],
+    [
+      "pageeditorv2_port",
+      5010,
+      "Port for BEJSON_CMS_PageEditorV2.py (V2)."
+    ],
+    [
+      "publisher_port",
+      5001,
+      "Port for BEJSON_CMS_Publisher.py. Same default as admin_port -- the advanced launcher auto-bumps this by +10 if both are started at once, to avoid a collision."
+    ],
+    [
+      "profiles_port",
+      5004,
+      "Port for BEJSON_CMS_ProfileManager.py (Persona Hub)."
+    ]
+  ]
+}

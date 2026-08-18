@@ -1,0 +1,29 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "Category"
+  ],
+  "Fields": [
+    {
+      "name": "cat_name",
+      "type": "string"
+    },
+    {
+      "name": "cat_slug",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "Uncategorized",
+      "uncategorized"
+    ],
+    [
+      "BEJSON",
+      "bejson"
+    ]
+  ]
+}

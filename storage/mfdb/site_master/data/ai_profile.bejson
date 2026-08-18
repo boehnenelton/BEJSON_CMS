@@ -1,0 +1,112 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "AI_Profile"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "Name",
+      "type": "string"
+    },
+    {
+      "name": "Archetype",
+      "type": "string"
+    },
+    {
+      "name": "Persona",
+      "type": "string"
+    },
+    {
+      "name": "SystemInstruction",
+      "type": "string"
+    },
+    {
+      "name": "Active",
+      "type": "boolean"
+    },
+    {
+      "name": "MaxResponseTokens",
+      "type": "integer"
+    },
+    {
+      "name": "Creativity",
+      "type": "number"
+    },
+    {
+      "name": "Tone",
+      "type": "array"
+    },
+    {
+      "name": "Formality",
+      "type": "string"
+    },
+    {
+      "name": "Verbosity",
+      "type": "string"
+    },
+    {
+      "name": "EmotionalExpression_Enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "EmotionalExpression_Intensity",
+      "type": "number"
+    },
+    {
+      "name": "GoogleSearch_Enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "CodeInterpreter_Enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "EphemeralMemory",
+      "type": "boolean"
+    },
+    {
+      "name": "CodeParsing_Mode",
+      "type": "string"
+    },
+    {
+      "name": "CodeParsing_Languages",
+      "type": "array"
+    },
+    {
+      "name": "CodeParsing_StructureValidation",
+      "type": "boolean"
+    },
+    {
+      "name": "CodeParsing_VersionControl",
+      "type": "boolean"
+    },
+    {
+      "name": "Thinking_Supported",
+      "type": "boolean"
+    },
+    {
+      "name": "ForbiddenTopics",
+      "type": "array"
+    },
+    {
+      "name": "Avatar_Type",
+      "type": "string"
+    },
+    {
+      "name": "Avatar_sourceUrl",
+      "type": "string"
+    },
+    {
+      "name": "Avatar_Data",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

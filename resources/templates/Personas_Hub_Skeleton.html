@@ -1,0 +1,18 @@
+<section class="personas-hub">
+    <div class="personas-hub__header">
+        <span class="personas-hub__tag">System Architecture</span>
+        <h1 class="personas-hub__title">The Persona Collective</h1>
+        <p class="personas-hub__desc">Explore the high-fidelity AI personas powering the BEJSON Ecosystem. Each persona possesses unique technical expertise and philosophical constraints.</p>
+    </div>
+
+    <div class="author-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 30px;">
+        {{author_feed}}
+    </div>
+</section>
+
+<style>
+.personas-hub__header { margin-bottom: 60px; padding-bottom: 40px; border-bottom: 1px solid var(--border); }
+.personas-hub__tag { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; color: var(--primary); letter-spacing: 2px; margin-bottom: 15px; display: block; }
+.personas-hub__title { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 900; letter-spacing: -2px; line-height: 1; margin-bottom: 20px; }
+.personas-hub__desc { font-size: 1.2rem; color: var(--muted); max-width: 700px; }
+</style>

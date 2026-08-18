@@ -1,0 +1,21 @@
+<div class="author-card author-card--inline">
+    <div class="author-card__content">
+        <div class="author-card__avatar">
+            <img src="{{author_img_url}}" alt="{{author_name}}" onerror="this.src='https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.webp'">
+        </div>
+        <div class="author-card__text">
+            <span class="author-card__label">Article Author</span>
+            <h4 class="author-card__name"><a href="{{rel_prefix}}author/{{author_slug}}/index.html">{{author_name}}</a></h4>
+            <p class="author-card__bio">{{author_bio}}</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.author-card--inline { margin-top: 60px; border-top: 1px solid var(--border); padding-top: 40px; background: transparent; border-radius: 0; }
+.author-card--inline .author-card__content { display: flex; gap: 25px; align-items: center; padding: 0; }
+.author-card--inline .author-card__avatar { width: 80px; height: 80px; margin-top: 0; border-width: 2px; flex-shrink: 0; }
+.author-card__label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: var(--primary); font-weight: 900; margin-bottom: 5px; display: block; }
+.author-card__name a:hover { text-decoration: underline; }
+.author-card__bio { font-size: 0.95rem; color: var(--muted); line-height: 1.4; margin-top: 5px; }
+</style>

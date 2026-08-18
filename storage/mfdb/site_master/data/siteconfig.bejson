@@ -1,0 +1,37 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "SiteConfig"
+  ],
+  "Fields": [
+    {
+      "name": "sys_key",
+      "type": "string"
+    },
+    {
+      "name": "sys_value",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "title",
+      "My BEJSON Site"
+    ],
+    [
+      "description",
+      "A BEJSON CMS powered site"
+    ],
+    [
+      "creator",
+      "Admin"
+    ],
+    [
+      "base_url",
+      "https://example.com"
+    ]
+  ]
+}

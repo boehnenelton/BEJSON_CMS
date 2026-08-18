@@ -1,0 +1,36 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "PageDocumentMetadata"
+  ],
+  "Fields": [
+    {
+      "name": "doc_meta_uuid",
+      "type": "string"
+    },
+    {
+      "name": "page_uuid",
+      "type": "string"
+    },
+    {
+      "name": "doc_asset_uuid",
+      "type": "string"
+    },
+    {
+      "name": "doc_version",
+      "type": "string"
+    },
+    {
+      "name": "doc_file_size",
+      "type": "integer"
+    },
+    {
+      "name": "doc_download_rules",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

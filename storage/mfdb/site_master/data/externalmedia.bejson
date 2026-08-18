@@ -1,0 +1,32 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "ExternalMedia"
+  ],
+  "Fields": [
+    {
+      "name": "extmedia_uuid",
+      "type": "string"
+    },
+    {
+      "name": "extmedia_name",
+      "type": "string"
+    },
+    {
+      "name": "extmedia_type",
+      "type": "string"
+    },
+    {
+      "name": "extmedia_url",
+      "type": "string"
+    },
+    {
+      "name": "extmedia_created_at",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

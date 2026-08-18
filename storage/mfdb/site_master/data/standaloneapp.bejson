@@ -1,0 +1,36 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "StandaloneApp"
+  ],
+  "Fields": [
+    {
+      "name": "app_uuid",
+      "type": "string"
+    },
+    {
+      "name": "app_name",
+      "type": "string"
+    },
+    {
+      "name": "app_slug",
+      "type": "string"
+    },
+    {
+      "name": "app_description",
+      "type": "string"
+    },
+    {
+      "name": "app_entry_file",
+      "type": "string"
+    },
+    {
+      "name": "app_featured_img",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

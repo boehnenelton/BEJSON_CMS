@@ -2,12 +2,29 @@
 Library:        lib_bejson_Core_bejson_path_guard.py
 Family:         Core
 Description:    Secure path resolver and boundary protection logic.
-Version:        1.0.0
-Date:           2026-06-02
-Author:         Elton Boehnen
-Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
-Format_Creator: Elton Boehnen
-RELATIONAL_ID:  8d1b4d5d-97bf-4b8f-aa48-0af3386b503f
+Version:        1.2.0
+Date:           2026-08-07
+CHANGE (2026-08-07): Fixed a sibling-directory bypass in bejson_safe_join()
+(found while fixing LIB-CH-H1, which delegates to this same helper). The
+`str(target_path).startswith(str(base_path))` check is a raw string
+prefix test: base_dir="/x/out" is a startswith-match for a resolved
+target of "/x/out_evil/secret" -- no traversal needed, just a
+similarly-named sibling. Replaced with Path.is_relative_to() (falls
+back to a manual parents walk on Python <3.9, though policy floors at
+3.10 so that branch is defensive only), which requires an exact
+directory-boundary match, not a string prefix.
+RELATIONAL_ID:  31305b9a-7172-4600-b45e-50355ec0b1c5
+Release_Version: 300
+
+CMS-PROJECT MERGE NOTE (2026-08-22): the upstream version of this file no
+longer includes safe_extract_zip() -- it was removed there. This CMS
+project (BEJSON_CMS-V18_28) has 4 real call sites depending on it
+(BEJSON_CMS_Content.py x2, cms-manage.py x2 including the live restore
+path, lib_mfdb_chunker_v6.py), so it's been preserved below rather than
+dropped. It delegates to bejson_safe_join(), so it automatically inherits
+this version's sibling-directory-bypass fix. If a future upstream sync
+re-adds safe_extract_zip() with its own changes, reconcile rather than
+overwrite -- don't lose this note.
 """
 
 import os
@@ -16,17 +33,26 @@ from pathlib import Path
 def bejson_safe_join(base_dir: str, *paths: str) -> str:
     """
     Safely join paths and ensure the result is within the base_dir.
-    Mitigates path traversal attacks (Phase 2).
+    Mitigates path traversal attacks (Phase 2), including sibling-directory
+    prefix bypasses (Phase 3, LIB-CH-H1 follow-up).
     """
     base_path = Path(base_dir).resolve()
     # Handle environment variables in paths if any
     resolved_paths = [os.path.expandvars(p) for p in paths]
     target_path = base_path.joinpath(*resolved_paths).resolve()
-    
-    if not str(target_path).startswith(str(base_path)):
+
+    is_inside = target_path == base_path
+    if not is_inside:
+        try:
+            is_inside = target_path.is_relative_to(base_path)
+        except AttributeError:
+            is_inside = base_path in target_path.parents
+
+    if not is_inside:
         raise ValueError(f"Path traversal detected: {target_path} is outside of {base_path}")
-    
+
     return str(target_path)
+
 
 def resolve_storage_path(path: str) -> str:
     """
@@ -88,6 +114,10 @@ def safe_extract_zip(zf, dest_dir: str) -> None:
     Raises ValueError on the first unsafe member found, before extracting
     anything, so a malicious zip is rejected atomically rather than
     partially extracted.
+
+    Preserved from the pre-upstream-sync version of this file (see module
+    docstring merge note) -- now benefits from the sibling-directory-bypass
+    fix in bejson_safe_join() above, since it delegates to it.
     """
     dest_path = Path(dest_dir).resolve()
     for member in zf.infolist():

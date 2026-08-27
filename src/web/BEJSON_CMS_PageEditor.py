@@ -46,7 +46,6 @@ from werkzeug.utils import secure_filename
 
 # Import BEJSON Libraries
 # Import New MFDB Orchestrator
-import sys
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
 if LIB_DIR not in sys.path:
@@ -55,13 +54,16 @@ import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PAGEEDITOR_PORT = CMSPorts.get_port(CONFIG_PATH, "pageeditor_port", "CMS_PAGEEDITOR_PORT")
+PAGEEDITORV2_PORT = CMSPorts.get_port(CONFIG_PATH, "pageeditorv2_port", "CMS_PAGEEDITORV2_PORT")
+ADMIN_PORT = CMSPorts.get_port(CONFIG_PATH, "admin_port", "CMS_ADMIN_PORT")
+PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER_PORT")
 
 # =============================================================================
 # APP
 # =============================================================================
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'CHANGE-THIS-TO-A-SECURE-RANDOM-STRING'  # TODO: Replace with a strong secret key before deploying
+app.config['SECRET_KEY'] = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 
 from BEJSON_CMS_Shared import _check_auth, _unauthorized
@@ -76,15 +78,6 @@ def _enforce_auth_everywhere():
     if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
         return _unauthorized()
 
-
-# =============================================================================
-# AI CONFIG & POLICY (Gemini-Usage-Policy.md)
-# =============================================================================
-
-AI_MODELS = [
-    "gemini-3-flash-preview", "gemini-flash-lite-latest", "gemini-flash-latest",
-    "gemini-2.5", "gemini-2.5-pro", "gemini-3-pro-preview", "gemini-3.1-pro-preview"
-]
 
 # =============================================================================
 # PATH CONFIGURATION (Clean Root Architecture)
@@ -103,14 +96,12 @@ APPS_STORAGE = os.path.join(MFDB_DIR, "standalone_apps")
 EXPORTS_DIR = os.path.join(STORAGE_ROOT, "exports")
 PUBLISH_DIR = os.path.join(STORAGE_ROOT, "builds")
 UPLOAD_TMP  = os.path.join(STORAGE_ROOT, "tmp", "html_imports")
-CONTEXT_DIR = os.path.join(STORAGE_ROOT, "tmp", "Context")
-PROFILES_DIR = os.path.join(PROJECT_ROOT, "resources", "profiles")
 
 # Resources Domain
 RESOURCES_ROOT = os.path.join(PROJECT_ROOT, "resources")
 TEMPLATE_DIR = os.path.join(RESOURCES_ROOT, "templates")
 
-for d in [MFDB_DIR, PAGES_DB_DIR, ASSETS_DIR, APPS_STORAGE, EXPORTS_DIR, PUBLISH_DIR, UPLOAD_TMP, TEMPLATE_DIR, CONTEXT_DIR, PROFILES_DIR]:
+for d in [MFDB_DIR, PAGES_DB_DIR, ASSETS_DIR, APPS_STORAGE, EXPORTS_DIR, PUBLISH_DIR, UPLOAD_TMP, TEMPLATE_DIR]:
     os.makedirs(d, exist_ok=True)
 
 db = CMSCore.CMSCore(MANIFEST_PATH)
@@ -784,12 +775,11 @@ td:last-child{white-space:nowrap;}
     <div class="sb-sect">Editor</div>
     <a href="/"      class="{{ 'on' if active=='list'   else '' }}">&#9783; All Pages</a>
     <a href="/new"   class="{{ 'on' if active=='new'    else '' }}">&#43; New Page</a>
-    <a href="#" onclick="openAiModal()">&#129302; AI Multi-Page Builder</a>
     <div class="sb-sect">Next Gen</div>
-    <a href="/v2" style="color:var(--green);">&#128640; Try Editor V2 (Beta)</a>
+    <a href="{{ editorv2_url }}" target="_blank" style="color:var(--green);">&#128640; Try Editor V2 (Beta)</a>
     <div class="sb-sect">Tools</div>
-    <a href="http://localhost:5001" target="_blank">&#8599; Open CMS</a>
-    <a href="http://localhost:5001/publish" target="_blank">&#9654; Open Publisher</a>
+    <a href="{{ admin_url }}" target="_blank">&#8599; Open CMS</a>
+    <a href="{{ publisher_url }}" target="_blank">&#9654; Open Publisher</a>
   </nav>
   <div class="sb-foot">port 5003 &mdash; same Data/ dir as CMS</div>
 </div>
@@ -808,270 +798,9 @@ td:last-child{white-space:nowrap;}
     {{ body | safe }}
   </div>
 </div>
-<!-- ── AI MULTI-PAGE MODAL ── -->
-<div class="modal-bg" id="aiModal">
-  <div class="modal" style="max-width: 600px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-      <h3 style="margin:0;">&#129302; AI Multi-Page Builder</h3>
-      <div id="ai-status-pill" style="font-family:'Source Code Pro'; font-size:.65rem; padding:3px 8px; border-radius:4px; background:var(--border); color:var(--muted);">IDLE</div>
-    </div>
-
-    <div id="ai-step-1">
-      <div class="fg">
-        <label>What would you like to build? (e.g. "A 4-page tutorial on Python decorators")</label>
-        <textarea id="ai-prompt" placeholder="Describe the document or project..." style="min-height:100px;"></textarea>
-      </div>
-      
-      <div class="grid2">
-        <div class="fg">
-          <label>Model</label>
-          <select id="ai-model">
-            {% for m in ai_models %}
-            <option value="{{ m }}">{{ m }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="fg">
-          <label>AI Profile (optional)</label>
-          <select id="ai-profile">
-            <option value="">Default CMS Writer</option>
-            <!-- Loaded via JS -->
-          </select>
-        </div>
-      </div>
-
-      <div class="grid2">
-        <div class="fg">
-          <label>Category</label>
-          <input type="text" id="ai-category" value="AI Generated">
-        </div>
-        <div class="fg">
-          <label>Author</label>
-          <input type="text" id="ai-author" value="Gemini Builder">
-        </div>
-      </div>
-
-      <div class="fg">
-        <label>Context Files ({{ context_dir }})</label>
-        <div id="ai-context-list" style="max-height:120px; overflow-y:auto; background:#111; border:1px solid var(--border); border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:5px;">
-          <!-- Loaded via JS -->
-          <span style="font-size:.75rem; color:var(--muted);">Loading context...</span>
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button type="button" class="btn btn-red" id="btn-gen-plan" onclick="generateAiPlan()">Generate Plan</button>
-        <button type="button" class="btn btn-grey" onclick="closeModal('aiModal')">Cancel</button>
-      </div>
-    </div>
-
-    <div id="ai-step-2" style="display:none;">
-      <div class="card" style="background:#111; margin-bottom:15px;">
-        <div class="card-hd" style="border:none; margin-bottom:5px;"><h3>Proposed Plan</h3></div>
-        <div id="ai-plan-list" style="font-size:.85rem; max-height:250px; overflow-y:auto;">
-          <!-- Plan steps here -->
-        </div>
-      </div>
-      <div class="btn-row">
-        <button type="button" class="btn btn-red" id="btn-build-pages" onclick="buildAiPages()">Build All Pages</button>
-        <button type="button" class="btn btn-grey" onclick="resetAiModal()">Back</button>
-      </div>
-    </div>
-
-    <div id="ai-step-3" style="display:none;">
-      <div class="card" style="background:#111; margin-bottom:15px;">
-        <div class="card-hd" style="border:none; margin-bottom:5px;"><h3>Building Pages...</h3></div>
-        <div id="ai-progress-list" style="font-size:.85rem; max-height:250px; overflow-y:auto;">
-          <!-- Progress here -->
-        </div>
-      </div>
-      <div id="ai-final-actions" style="display:none;">
-        <div class="alert a-ok">✅ All pages created successfully!</div>
-        <div class="btn-row">
-          <button type="button" class="btn btn-red" onclick="location.reload()">Refresh Page List</button>
-          <button type="button" class="btn btn-grey" onclick="closeModal('aiModal')">Close</button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
 
 <script>
 function closeSb(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-overlay').classList.remove('show');}
-
-// AI Multi-Page Builder Logic
-var _currentAiPlan = null;
-
-function openAiModal() {
-  openModal('aiModal');
-  loadAiContext();
-  loadAiProfiles();
-}
-
-function resetAiModal() {
-  document.getElementById('ai-step-1').style.display = 'block';
-  document.getElementById('ai-step-2').style.display = 'none';
-  document.getElementById('ai-step-3').style.display = 'none';
-  setAiStatus('IDLE', 'muted');
-}
-
-function setAiStatus(msg, colorClass) {
-  const pill = document.getElementById('ai-status-pill');
-  pill.textContent = msg;
-  pill.style.background = colorClass === 'red' ? 'var(--acc)' : 'var(--border)';
-  pill.style.color = colorClass === 'red' ? '#fff' : 'var(--muted)';
-}
-
-function loadAiProfiles() {
-  const sel = document.getElementById('ai-profile');
-  fetch('/api/ai/profiles').then(r => r.json()).then(d => {
-    // Keep the default option
-    const def = sel.options[0];
-    sel.innerHTML = '';
-    sel.appendChild(def);
-    if(d.profiles) {
-      d.profiles.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.filename;
-        opt.textContent = p.name;
-        sel.appendChild(opt);
-      });
-    }
-  });
-}
-
-function loadAiContext() {
-  const list = document.getElementById('ai-context-list');
-  fetch('/api/ai/context').then(r => r.json()).then(d => {
-    list.innerHTML = '';
-    if(!d.files || !d.files.length) {
-      list.innerHTML = '<span style="font-size:.75rem; color:var(--muted);">No files in Context/</span>';
-      return;
-    }
-    d.files.forEach(f => {
-      const row = document.createElement('div');
-      row.style = 'display:flex; align-items:center; gap:8px; font-size:.75rem;';
-      row.innerHTML = `<input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleAiContext('${f.filename}')"> <span>${f.filename}</span>`;
-      list.appendChild(row);
-    });
-  });
-}
-
-function toggleAiContext(filename) {
-  fetch('/api/ai/context/toggle', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({filename: filename})
-  });
-}
-
-function generateAiPlan() {
-  const prompt = document.getElementById('ai-prompt').value.trim();
-  const model = document.getElementById('ai-model').value;
-  const profile = document.getElementById('ai-profile').value;
-  if(!prompt) { alert('Please enter a prompt.'); return; }
-
-  setAiStatus('SENDING', 'red');
-  document.getElementById('btn-gen-plan').disabled = true;
-
-  fetch('/api/ai/generate_plan', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({prompt: prompt, model: model, profile: profile})
-  }).then(r => r.json()).then(d => {
-    if(d.ok) {
-      listenToAiStream(d.job_id, (ev) => {
-        if(ev.type === 'plan_ready') {
-          _currentAiPlan = ev.plan;
-          renderAiPlan(ev.plan);
-          document.getElementById('ai-step-1').style.display = 'none';
-          document.getElementById('ai-step-2').style.display = 'block';
-        }
-        if(ev.type === 'status') setAiStatus(ev.code, 'red');
-        if(ev.type === 'complete') {
-          document.getElementById('btn-gen-plan').disabled = false;
-          setAiStatus('IDLE', 'muted');
-        }
-        if(ev.type === 'error') {
-          alert('Error: ' + ev.message);
-          document.getElementById('btn-gen-plan').disabled = false;
-        }
-      });
-    }
-  });
-}
-
-function renderAiPlan(plan) {
-  const list = document.getElementById('ai-plan-list');
-  list.innerHTML = '';
-  plan.forEach(s => {
-    const item = document.createElement('div');
-    item.style = 'padding:10px; border-bottom:1px solid var(--border);';
-    item.innerHTML = `<div style="font-weight:700; color:var(--acc);">Step ${s.step}: ${s.title}</div><div style="font-size:.75rem; color:var(--muted);">${s.description}</div>`;
-    list.appendChild(item);
-  });
-}
-
-function buildAiPages() {
-  if(!_currentAiPlan) return;
-  const model = document.getElementById('ai-model').value;
-  const profile = document.getElementById('ai-profile').value;
-  const category = document.getElementById('ai-category').value;
-  const author = document.getElementById('ai-author').value;
-
-  document.getElementById('ai-step-2').style.display = 'none';
-  document.getElementById('ai-step-3').style.display = 'block';
-  document.getElementById('ai-progress-list').innerHTML = '';
-  document.getElementById('ai-final-actions').style.display = 'none';
-
-  fetch('/api/ai/generate_pages', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({plan: _currentAiPlan, model: model, profile: profile, category: category, author: author})
-  }).then(r => r.json()).then(d => {
-    if(d.ok) {
-      listenToAiStream(d.job_id, (ev) => {
-        if(ev.type === 'status') {
-          setAiStatus(ev.code, 'red');
-          if(ev.message) {
-            const p = document.createElement('div');
-            p.style = 'font-size:.7rem; color:var(--muted); margin-top:5px;';
-            p.textContent = '> ' + ev.message;
-            document.getElementById('ai-progress-list').appendChild(p);
-          }
-        }
-        if(ev.type === 'page_created') {
-          const p = document.createElement('div');
-          p.style = 'font-weight:700; color:var(--green); margin-top:5px;';
-          p.textContent = `✓ Created: ${ev.title}`;
-          document.getElementById('ai-progress-list').appendChild(p);
-        }
-        if(ev.type === 'complete') {
-          setAiStatus('IDLE', 'muted');
-          document.getElementById('ai-final-actions').style.display = 'block';
-        }
-        if(ev.type === 'error') {
-          const p = document.createElement('div');
-          p.style = 'font-weight:700; color:var(--acc); margin-top:5px;';
-          p.textContent = `✗ Error: ${ev.message}`;
-          document.getElementById('ai-progress-list').appendChild(p);
-        }
-      });
-    }
-  });
-}
-
-function listenToAiStream(jobId, onEvent) {
-  const es = new EventSource('/api/ai/stream/' + jobId);
-  es.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    if(data.type === 'ping') return;
-    onEvent(data);
-    if(data.type === 'complete' || data.type === 'error') es.close();
-  };
-  es.onerror = () => es.close();
-}
 </script>
 </body>
 </html>"""
@@ -1082,8 +811,9 @@ def _page(title, active, body, extra_buttons=""):
         _SHELL,
         page_title=title, active=active, body=body,
         extra_buttons=extra_buttons,
-        ai_models=AI_MODELS,
-        context_dir=CONTEXT_DIR
+        editorv2_url=f"http://localhost:{PAGEEDITORV2_PORT}/",
+        admin_url=f"http://localhost:{ADMIN_PORT}/",
+        publisher_url=f"http://localhost:{PUBLISHER_PORT}/publish"
     )
 
 
@@ -1454,61 +1184,6 @@ function loadMdFile(){{
 
 
 # =============================================================================
-# AI JOB QUEUE & CONTEXT HELPERS
-# =============================================================================
-
-AI_JOB_QUEUES = {}
-
-def _ai_push(job_id, event):
-    if job_id in AI_JOB_QUEUES:
-        AI_JOB_QUEUES[job_id].put(event)
-
-def _get_context_files():
-    if not os.path.exists(CONTEXT_DIR):
-        os.makedirs(CONTEXT_DIR, exist_ok=True)
-    files = []
-    for f in sorted(os.listdir(CONTEXT_DIR)):
-        if os.path.isfile(os.path.join(CONTEXT_DIR, f)):
-            files.append(f)
-    return files
-
-def _get_ai_profiles():
-    profiles = []
-    if not os.path.exists(PROFILES_DIR): return []
-    for f in sorted(os.listdir(PROFILES_DIR)):
-        if f.endswith('.bejson'):
-            try:
-                with open(os.path.join(PROFILES_DIR, f), 'r', encoding='utf-8') as fh:
-                    data = json.load(fh)
-                if data.get('Values') and len(data['Values']) > 0:
-                    fields = {fi['name']: i for i, fi in enumerate(data['Fields'])}
-                    row = data['Values'][0]
-                    profiles.append({
-                        "filename": f,
-                        "name": row[fields['Name']],
-                        "persona": row[fields['Persona']],
-                        "system": row[fields['SystemInstruction']]
-                    })
-            except: pass
-    return profiles
-
-# In-memory context toggle state
-AI_CONTEXT_STATE = {}
-
-def _load_context_parts():
-    parts = []
-    for f, enabled in AI_CONTEXT_STATE.items():
-        if enabled:
-            fpath = os.path.join(CONTEXT_DIR, f)
-            if os.path.exists(fpath):
-                try:
-                    with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
-                        content = fh.read()
-                    parts.append({"text": f"[CONTEXT FILE: {f}]\n{content}"})
-                except: pass
-    return parts
-
-# =============================================================================
 # ROUTE — PAGE LIST
 # =============================================================================
 
@@ -1554,14 +1229,19 @@ def r_list():
 # =============================================================================
 
 def _get_assets():
-    if not os.path.exists(ASSETS_DIR):
-        return []
-    try:
-        files = [f for f in os.listdir(ASSETS_DIR) if not f.startswith(".")]
-        files.sort()
-        return files
-    except:
-        return []
+    """Same fix as get_image_assets() in BEJSON_CMS_Shared.py (this file has
+    its own separate copy of the same os.listdir(ASSETS_DIR) bug, not
+    flagged by the original audit report but confirmed live the same way --
+    a raw directory listing shows every file physically on disk whether or
+    not it's a tracked, current MediaAsset, so deleted/orphaned files stay
+    visible in this picker forever). Reads the real MediaAsset MFDB table,
+    filtered to image MIME types. Returns a flat filename list, matching
+    the old function's return shape, since both call sites render each
+    entry directly as both the <option> value and label."""
+    db.mount()
+    assets = db.get_records("MediaAsset")
+    assets.sort(key=lambda a: a.get('asset_uploaded_at') or '', reverse=True)
+    return [a['asset_filename'] for a in assets if (a.get('asset_mime_type') or '').startswith('image/')]
 
 @app.route('/new')
 def r_new():
@@ -1951,138 +1631,6 @@ def r_save():
 
     return redirect(f'/edit/{page_uuid}')
 
-
-# =============================================================================
-# ROUTE — AI API
-# =============================================================================
-
-@app.route('/api/ai/profiles')
-def api_ai_profiles():
-    return jsonify({"profiles": _get_ai_profiles()})
-
-@app.route('/api/ai/context')
-def api_ai_context():
-    files = _get_context_files()
-    data = []
-    for f in files:
-        data.append({"filename": f, "enabled": AI_CONTEXT_STATE.get(f, False)})
-    return jsonify({"files": data})
-
-@app.route('/api/ai/context/toggle', methods=['POST'])
-def api_ai_context_toggle():
-    data = request.json or {}
-    filename = data.get('filename')
-    if filename:
-        AI_CONTEXT_STATE[filename] = not AI_CONTEXT_STATE.get(filename, False)
-    return jsonify({"ok": True, "filename": filename, "enabled": AI_CONTEXT_STATE.get(filename)})
-
-@app.route('/api/ai/generate_plan', methods=['POST'])
-def api_ai_generate_plan():
-    data = request.json or {}
-    prompt = data.get('prompt', '').strip()
-    model = data.get('model', AI_MODELS[0])
-    profile_f = data.get('profile')
-    
-    if not prompt: return jsonify({"ok": False, "error": "Prompt required"}), 400
-    
-    job_id = str(uuid.uuid4())
-    AI_JOB_QUEUES[job_id] = Queue()
-    
-    def _run():
-        try:
-            builder = ExtLib.CMSAIBuilder.setup_gemini(model=model)
-            if not builder:
-                _ai_push(job_id, {"type": "error", "message": "Failed to initialize Gemini Builder."})
-                return
-
-            sys_inst = None
-            if profile_f:
-                profs = _get_ai_profiles()
-                p = next((x for x in profs if x['filename'] == profile_f), None)
-                if p: sys_inst = p['system']
-
-            plan = builder.generate_plan(prompt, profile_system=sys_inst, emit=lambda ev: _ai_push(job_id, ev))
-            if plan:
-                _ai_push(job_id, {"type": "plan_ready", "plan": plan})
-            else:
-                _ai_push(job_id, {"type": "error", "message": "Failed to generate plan."})
-        except Exception as e:
-            _ai_push(job_id, {"type": "error", "message": str(e)})
-        finally:
-            _ai_push(job_id, {"type": "complete"})
-            
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "job_id": job_id})
-
-@app.route('/api/ai/generate_pages', methods=['POST'])
-def api_ai_generate_pages():
-    data = request.json or {}
-    plan = data.get('plan', [])
-    model = data.get('model', AI_MODELS[0])
-    profile_f = data.get('profile')
-    category = data.get('category', 'AI Generated')
-    author = data.get('author', 'Gemini')
-    
-    if not plan: return jsonify({"ok": False, "error": "Plan required"}), 400
-    
-    job_id = str(uuid.uuid4())
-    AI_JOB_QUEUES[job_id] = Queue()
-    
-    def _run():
-        try:
-            builder = ExtLib.CMSAIBuilder.setup_gemini(model=model)
-            if not builder:
-                _ai_push(job_id, {"type": "error", "message": "Failed to initialize Gemini Builder."})
-                return
-
-            ctx_parts = _load_context_parts()
-            sys_inst = None
-            if profile_f:
-                profs = _get_ai_profiles()
-                p = next((x for x in profs if x['filename'] == profile_f), None)
-                if p: sys_inst = p['system']
-
-            def writer_cb(step, content):
-                page_uuid = str(uuid.uuid4())
-                _write_page_record(
-                    page_uuid=page_uuid,
-                    title=step['title'],
-                    category=category,
-                    author=author,
-                    body_html=content,
-                    is_new=True
-                )
-
-            builder.build_pages(
-                plan, category, author, 
-                profile_system=sys_inst, 
-                context_parts=ctx_parts, 
-                emit=lambda ev: _ai_push(job_id, ev),
-                page_writer_callback=writer_cb
-            )
-        except Exception as e:
-            _ai_push(job_id, {"type": "error", "message": str(e)})
-        finally:
-            _ai_push(job_id, {"type": "complete"})
-            
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "job_id": job_id})
-
-@app.route('/api/ai/stream/<job_id>')
-def api_ai_stream(job_id):
-    def generate():
-        q = AI_JOB_QUEUES.get(job_id)
-        if not q: return
-        while True:
-            try:
-                ev = q.get(timeout=30)
-                yield f"data: {json.dumps(ev)}\n\n"
-                if ev.get('type') in ['complete', 'error']:
-                    break
-            except Empty:
-                yield f"data: {json.dumps({'type': 'ping'})}\n\n"
-        AI_JOB_QUEUES.pop(job_id, None)
-    return Response(generate(), mimetype='text/event-stream', headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 # =============================================================================
 # ROUTE — DELETE
@@ -2719,19 +2267,21 @@ function insertYouTube(){
     return;
   }
   const captionHtml = caption
-    ? '\\n<p style="font-size:.9rem;color:#666;margin-top:10px;text-align:center;">'+caption+'</p>'
+    ? '\\n<p style="font-size:.9rem;color:#666;margin-top:10px;text-align:center;font-style:italic;">'+caption+'</p>'
     : '';
   const snippet = `
-<div class="bej-video-wrap" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;max-width:100%;margin:30px 0;">
-  <iframe
-    src="https://www.youtube.com/embed/${vid}"
-    title="${caption || 'YouTube Video'}"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    allowfullscreen
-    style="position:absolute;top:0;left:0;width:100%;height:100%;">
-  </iframe>
-</div>${captionHtml}
+<div class="bej-video-wrap" style="max-width:800px;margin:40px auto;">
+  <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;border:1px solid #333;background:#000;">
+    <iframe
+      src="https://www.youtube.com/embed/${vid}"
+      title="${caption || 'YouTube Video'}"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+      style="position:absolute;top:0;left:0;width:100%;height:100%;">
+    </iframe>
+  </div>${captionHtml}
+</div>
 `;
   const ta=getTA(), pos=ta.selectionStart;
   ta.setRangeText(snippet, pos, pos, 'end');
@@ -2906,7 +2456,7 @@ if __name__ == '__main__':
                if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), f))]
     if _legacy:
         print(f"\n    !! WARNING: old pre-rename file(s) still present: {', '.join(_legacy)} -- delete them, they are unmaintained leftovers from before the Blueprint split.\n")
-    print("""
+    print(f"""
 ============================================================
   BEJSON Page Editor
 ------------------------------------------------------------
@@ -2932,11 +2482,9 @@ if __name__ == '__main__':
     - Category + author assignment
     - Full create / edit / delete
 
-  Shares Data/ directory with:
-    Flask_CMS.py        (port 5001)
-    Flask_CMS_Publisher (port 5001 publisher)
+  Shares data with BEJSON_CMS_Admin.py (Category/AuthorProfile/PageRecord)
 
-  http://localhost:5003
+  http://localhost:{PAGEEDITOR_PORT}
 ============================================================""")
     # Port resolved via config.json (pageeditor_port) / CMS_PAGEEDITOR_PORT env.
     app.run(host='0.0.0.0', port=PAGEEDITOR_PORT, debug=False)

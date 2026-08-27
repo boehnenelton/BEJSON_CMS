@@ -12,6 +12,7 @@ Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
 RELATIONAL_ID:  7a6bf3eb-fc08-401d-9088-b7fca2644d92
+Release_Version: 300
 """
 
 import json
@@ -23,6 +24,11 @@ import tempfile
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+# Universal library release line (Policy 2026-08-14). Only this file --
+# the Core BEJSON file -- defines Release_Version as a real code variable;
+# all other library files declare it in the header comment only.
+RELEASE_VERSION: int = 300
 
 class BEJSONCoreError(Exception):
     """Raised when a BEJSON core operation fails."""

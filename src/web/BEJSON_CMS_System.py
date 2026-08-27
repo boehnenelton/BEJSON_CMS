@@ -9,6 +9,7 @@ RELATIONAL_ID:   d9d9ce8f-ab86-4ea4-8f20-bfc4d35bd956
 """
 
 import os
+import mimetypes
 import json
 import shutil
 import zipfile
@@ -55,6 +56,7 @@ def init_master_db():
                 {"name": "page_author_name",   "type": "string"},
                 {"name": "page_featured_img", "type": "string"},
                 {"name": "page_template_key", "type": "string"},
+                {"name": "page_featured_video_url", "type": "string"},
             ],
         },
         {
@@ -287,7 +289,7 @@ def _seed_default_brand_and_author():
                     "asset_original_name": src.name,
                     "asset_file_hash": file_hash,
                     "asset_file_size": Brand_Asset_Copy_Destination.stat().st_size,
-                    "asset_mime_type": "image/webp" if src.suffix.lower() == ".webp" else "image/jpeg",
+                    "asset_mime_type": mimetypes.guess_type(src.name)[0] or "application/octet-stream",
                     "asset_uploaded_at": datetime.utcnow().isoformat(),
                 }, sync_count=False)
                 existing_hashes.add(file_hash)
@@ -326,6 +328,23 @@ def _migrate_db():
     # Full canonical schema — every entity the CMS needs.
     # Extend this list whenever a new entity is added.
     REQUIRED = [
+        {
+            "name": "PageRecord",
+            "primary_key": "page_uuid",
+            "fields": [
+                {"name": "page_uuid",    "type": "string"},
+                {"name": "page_title",   "type": "string"},
+                {"name": "page_slug",    "type": "string"},
+                {"name": "page_cat_name", "type": "string"},
+                {"name": "page_type",    "type": "string"},
+                {"name": "page_created_at",   "type": "string"},
+                {"name": "page_external_url", "type": "string"},
+                {"name": "page_author_name",   "type": "string"},
+                {"name": "page_featured_img", "type": "string"},
+                {"name": "page_template_key", "type": "string"},
+                {"name": "page_featured_video_url", "type": "string"},
+            ],
+        },
         {
             "name": "NavLink",
             "primary_key": "nav_display_label",
@@ -386,6 +405,30 @@ def _migrate_db():
                 {"name": "Avatar_Type",                     "type": "string"},
                 {"name": "Avatar_sourceUrl",                "type": "string"},
                 {"name": "Avatar_Data",                     "type": "string"},
+            ],
+        },
+        {
+            "name": "PageVideoMetadata",
+            "primary_key": "video_meta_uuid",
+            "fields": [
+                {"name": "video_meta_uuid",      "type": "string"},
+                {"name": "page_uuid",            "type": "string"},
+                {"name": "video_embed_url",      "type": "string"},
+                {"name": "video_duration",       "type": "string"},
+                {"name": "video_provider",       "type": "string"},
+                {"name": "video_transcript_uuid","type": "string"},
+            ],
+        },
+        {
+            "name": "PageDocumentMetadata",
+            "primary_key": "doc_meta_uuid",
+            "fields": [
+                {"name": "doc_meta_uuid",        "type": "string"},
+                {"name": "page_uuid",            "type": "string"},
+                {"name": "doc_asset_uuid",       "type": "string"},
+                {"name": "doc_version",          "type": "string"},
+                {"name": "doc_file_size",        "type": "integer"},
+                {"name": "doc_download_rules",   "type": "string"},
             ],
         },
     ]

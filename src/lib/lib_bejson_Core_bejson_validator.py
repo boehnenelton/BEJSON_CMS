@@ -2,12 +2,26 @@
 Library:        lib_bejson_Core_bejson_validator.py
 Family:         Core
 Description:    Structural integrity checker for positional values and mandatory keys.
-Version:        2.0.2
-Date:           2026-05-18
+Version:        2.1.0
+Date:           2026-08-19
 Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  c17b7ee0-186e-427a-aa89-3cea8877e176
+RELATIONAL_ID:  3e7a9c1f-5b8d-4e2a-9c6f-1d4a7b9e3f52
+Release_Version: 300
+
+CHANGELOG:
+- 2.1.0 (2026-08-19): bejson_validator_check_fields_structure now rejects
+  any Field whose "type" isn't exactly one of the 6 canonical values
+  (string/integer/number/boolean/array/object). Previously an unrecognized
+  type string (seen in practice: "any", "Number" capitalized) passed
+  structural validation cleanly, because bejson_validator_check_values'
+  type-check chain is an if/elif ladder that just silently skips value
+  checking for any type it doesn't recognize -- it was never actually
+  rejecting the bad declaration itself, just failing to police it. A file
+  with an invalid field type now fails validate_bejson with a clear error
+  naming the bad type and the exact allowed set, instead of reporting
+  valid=True. New VALID_FIELD_TYPES constant added and exported for reuse.
 """
 
 import json
@@ -35,6 +49,7 @@ except ImportError as e:
     raise SystemExit(1)
 
 VALID_VERSIONS = {"104", "104a", "104db"}
+VALID_FIELD_TYPES = {"string", "integer", "number", "boolean", "array", "object"}
 MANDATORY_KEYS = ("Format", "Format_Version", "Format_Creator", "Records_Type", "Fields", "Values")
 
 @dataclass
@@ -50,6 +65,16 @@ class ValidationResult:
 
     def add_warning(self, message: str):
         self.warnings.append(message)
+
+    @property
+    def is_valid(self) -> bool:
+        """Alias for .valid. A caller reaching for result.is_valid instead
+        of result.valid is a reasonable, common guess at this class's own
+        API -- cheap to make both spellings work rather than requiring
+        every consumer to know the exact attribute name. (Synced from the
+        same fix applied in NewAgent's local copy of this file, 2026-08-13,
+        after an AttributeError surfaced in a PROFILER-style caller.)"""
+        return self.valid
 
 class BEJSONValidationError(Exception):
     def __init__(self, message: str, code: int):
@@ -109,6 +134,12 @@ def bejson_validator_check_fields_structure(doc, version):
         ftype = f.get("type")
         if not fname or not ftype:
             raise BEJSONValidationError(f"Field {i} missing name or type", E_INVALID_FIELDS)
+        if ftype not in VALID_FIELD_TYPES:
+            raise BEJSONValidationError(
+                f"Field '{fname}' (index {i}) has invalid type '{ftype}'. "
+                f"Must be exactly one of {sorted(VALID_FIELD_TYPES)} (lowercase).",
+                E_INVALID_FIELDS,
+            )
         if version == "104a" and ftype in ("array", "object"):
             raise BEJSONValidationError(f"104a forbids complex type: {ftype}", E_INVALID_FIELDS)
         if version == "104db" and fname != "Record_Type_Parent" and "Record_Type_Parent" not in f:

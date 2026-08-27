@@ -2,13 +2,13 @@
 """
 Script:        cms-manage.py
 Description:   Unified CLI Toolkit for BEJSON_CMS management.
-Version:       18.5
+Version:       18.7
 Author:        Elton Boehnen
-Date:          2026-08-10
-Relational_ID: 4e8b1a7c-3f2d-4c9e-b0a5-7d6e3f1c9b2a
+Date:          2026-08-21
+Relational_ID: 4e8b1a7c-3f2d-4c9e-b0a5-7d6e3f1c9b2c
 """
 
-VERSION = "18.5"
+VERSION = "18.7"
 
 
 import os
@@ -158,7 +158,8 @@ def cmd_page_add(args):
         "page_cat_name": args.category, "page_type": args.type,
         "page_created_at": datetime.now().strftime("%Y-%m-%d"),
         "page_external_url": None, "page_author_name": args.author or "",
-        "page_featured_img": DEFAULT_FEATURED_IMAGE
+        "page_featured_img": DEFAULT_FEATURED_IMAGE,
+        "page_featured_video_url": args.featured_video or ""
     }):
         _write_page_content_file(new_uuid, args.title, html_body)
         print(f"Page created: {args.title} (UUID: {new_uuid})")
@@ -175,6 +176,7 @@ def cmd_page_update(args):
     updates = {"page_title": args.title}
     if args.category: updates["page_cat_name"] = args.category
     if args.author: updates["page_author_name"] = args.author
+    if args.featured_video is not None: updates["page_featured_video_url"] = args.featured_video
     db.update_record("PageRecord", "page_uuid", args.uuid, updates)
     if args.body is not None:
         pfile = os.path.join(get_pages_db_dir(), f"{args.uuid}.json")
@@ -795,6 +797,13 @@ def cmd_config_list(args):
     recs = db.get_records("SiteConfig")
     print(json.dumps({r["sys_key"]: r["sys_value"] for r in recs}, indent=2))
 
+def cmd_config_delete(args):
+    db = get_db()
+    if db.delete_record("SiteConfig", "sys_key", args.key):
+        print(f"Config deleted: {args.key}")
+    else:
+        print(f"Config key not found: {args.key}")
+
 def cmd_serve(args):
     scripts = {
         "cms": "BEJSON_CMS_Admin.py",
@@ -871,18 +880,20 @@ def main():
     
     p_padd = page_sub.add_parser("add", help="Add a new page")
     p_padd.add_argument("title", help="Page title")
-    p_padd.add_argument("--category", default="uncategorized", help="Category slug")
+    p_padd.add_argument("--category", default="Uncategorized", help="Category NAME (not slug) -- must match a live Category's cat_name exactly, e.g. 'Uncategorized' or 'BEJSON'. Run 'category list' to see valid names.")
     p_padd.add_argument("--type", default="blog", help="Page type")
     p_padd.add_argument("--body", help="HTML body content")
-    p_padd.add_argument("--author", help="Author UUID")
+    p_padd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
+    p_padd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Rendered above the article body on publish.")
 
     p_pupd = page_sub.add_parser("update", help="Update a page")
     p_pupd.add_argument("uuid", help="Page UUID")
     p_pupd.add_argument("title", help="Page title")
-    p_pupd.add_argument("--category", help="Category slug")
+    p_pupd.add_argument("--category", help="Category NAME (not slug) -- must match a live Category's cat_name exactly. Run 'category list' to see valid names.")
     p_pupd.add_argument("--type", help="Page type")
     p_pupd.add_argument("--body", help="HTML body content")
-    p_pupd.add_argument("--author", help="Author UUID")
+    p_pupd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
+    p_pupd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Pass an empty string to clear it.")
 
     p_pdel = page_sub.add_parser("delete", help="Delete a page")
     p_pdel.add_argument("uuid", help="Page UUID")
@@ -891,8 +902,8 @@ def main():
     p_pimp.add_argument("--html", help="HTML file path")
     p_pimp.add_argument("--app", help="App UUID")
     p_pimp.add_argument("--title", help="Page title (for HTML import)")
-    p_pimp.add_argument("--category", default="uncategorized", help="Category slug")
-    p_pimp.add_argument("--author", help="Author UUID")
+    p_pimp.add_argument("--category", default="Uncategorized", help="Category NAME (not slug) -- must match a live Category's cat_name exactly, e.g. 'Uncategorized' or 'BEJSON'. Run 'category list' to see valid names.")
+    p_pimp.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
 
     page_sub.add_parser("list", help="List pages")
 
@@ -1006,7 +1017,7 @@ def main():
     p_apadd = app_sub.add_parser("add", help="Create a standalone app")
     p_apadd.add_argument("name", help="App name")
     p_apadd.add_argument("--desc", help="Description")
-    p_apadd.add_argument("--category", help="Category slug")
+    p_apadd.add_argument("--category", help="Not supported by the live StandaloneApp schema -- accepted for backward compatibility but ignored (a warning is printed).")
     p_apadd.add_argument("--image", help="Featured image URL")
     p_apadd.add_argument("--entry", help="Entry file path")
 
@@ -1026,6 +1037,9 @@ def main():
     
     config_sub.add_parser("list", help="List configs")
 
+    p_cdel = config_sub.add_parser("delete", help="Delete a config value")
+    p_cdel.add_argument("key", help="Config key")
+
     # Service Management
     p_serve = subparsers.add_parser("serve", help="Start a single CMS service in the foreground (blocks until Ctrl+C -- for multiple services at once or persistent background operation, use advanced_launcher.py instead)")
     p_serve.add_argument("service", choices=["cms", "editor", "editorv2", "profiles", "publisher"], default="cms", help="Service to start")
@@ -1036,7 +1050,7 @@ def main():
     
     p_list = db_sub.add_parser("list", help="List records")
     p_list.add_argument("entity", choices=["authors", "pages", "categories", "assets", "apps", "ads", "navlinks"], help="Entity type")
-    p_list.add_argument("--filter", help="Filter (e.g. category slug)")
+    p_list.add_argument("--filter", help="Filter value (only supported for 'pages', matched against page_cat_name -- a category NAME like 'Uncategorized', not a slug)")
 
     args = parser.parse_args()
 
@@ -1059,7 +1073,7 @@ def main():
         "ad": lambda a: {"add": cmd_ad_add, "update": cmd_ad_update, "delete": cmd_ad_delete, "list": cmd_ad_list}.get(a.op)(a) if a.op else None,
         "asset": lambda a: {"add": cmd_asset_add, "delete": cmd_asset_delete, "optimize": cmd_asset_optimize, "list": lambda _: cmd_db_list(argparse.Namespace(entity="assets", filter=None)), "add-external": cmd_asset_add_external, "delete-external": cmd_asset_delete_external, "list-external": cmd_asset_list_external}.get(a.op)(a) if a.op else None,
         "app": lambda a: {"add": cmd_app_add, "delete": cmd_app_delete, "list": cmd_app_list}.get(a.op)(a) if a.op else None,
-        "config": lambda a: {"set": cmd_config_set, "list": cmd_config_list}.get(a.op)(a) if a.op else None,
+        "config": lambda a: {"set": cmd_config_set, "list": cmd_config_list, "delete": cmd_config_delete}.get(a.op)(a) if a.op else None,
         "serve": cmd_serve,
         "db": lambda a: cmd_db_list(a) if a.op == "list" else None
     }

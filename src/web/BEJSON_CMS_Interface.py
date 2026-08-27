@@ -13,7 +13,7 @@ import uuid
 from flask import Blueprint, request, redirect, flash
 
 from BEJSON_CMS_Shared import (
-    db, R, get_breadcrumbs, get_assets, require_auth,
+    db, R, get_breadcrumbs, get_image_assets, require_auth,
     ASSETS_DIR, PUBLISH_DIR, _USING_DEFAULT_PASSWORD, PUBLISHER_PORT,
 )
 
@@ -234,7 +234,7 @@ def manage_ads():
         return redirect('/site/ads')
 
     ads = db.get_records("AdUnit")
-    assets = get_assets()
+    assets = get_image_assets()
     
 
     html = '''
@@ -312,7 +312,7 @@ def publish_interface():
     built = os.path.exists(PUBLISH_DIR) and len(os.listdir(PUBLISH_DIR)) > 0
     publisher_url = f"http://localhost:{PUBLISHER_PORT}/"
     html = '''
-    <div class="page-header"><h1>Publish</h1><p>Export your data for use with BEJSON_Web_Publisher.py</p></div>
+    <div class="page-header"><h1>Publish</h1><p>Build and publish your site with the standalone Publisher app</p></div>
     <div class="grid grid-2">
         <div class="card">
             <div class="card-header"><span class="card-title">Publisher App</span></div>
@@ -336,7 +336,7 @@ def publish_interface():
         <div class="card-header"><span class="card-title">Publish Directory</span></div>
         <p style="color:var(--text-secondary);margin-bottom:10px;">Your web publisher writes output here:</p>
         <code style="display:block;padding:15px;background:var(--bg-secondary);border-radius:6px;word-break:break-all;">{{ publish_dir }}</code>
-        {% if built %}<p style="margin-top:10px;color:var(--success);">&#9989; Published site detected</p>{% else %}<p style="margin-top:10px;color:var(--text-secondary);">No published site yet — run BEJSON_Web_Publisher.py</p>{% endif %}
+        {% if built %}<p style="margin-top:10px;color:var(--success);">&#9989; Published site detected</p>{% else %}<p style="margin-top:10px;color:var(--text-secondary);">No published site yet — open the Publisher app above and run a build</p>{% endif %}
     </div>'''
     return R(html, built=built, publish_dir=PUBLISH_DIR, publisher_url=publisher_url, publisher_port=PUBLISHER_PORT,
              breadcrumbs=get_breadcrumbs(request.path), active_section='publish')

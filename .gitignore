@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+config.json
+storage/exports/*.zip
+storage/tmp/logs/*
+storage/tmp/html_imports/*
+storage/builds/*
+storage/logs/*
+launcher_registry.json

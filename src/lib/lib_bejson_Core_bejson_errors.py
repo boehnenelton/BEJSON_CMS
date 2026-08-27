@@ -8,6 +8,7 @@ Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
 RELATIONAL_ID:  9f2e6a1c-4b8d-4e3f-a7c5-1d6b3e8f2a90
+Release_Version: 300
 
 Changelog:
   2.4.0 - Removed Core_Nesting range (130-159) and Cognition range

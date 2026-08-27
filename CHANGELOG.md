@@ -4,6 +4,234 @@ Full, unabridged change history (every verification step, every file touched)
 lives in `.bejson_project.json` at the project root — this file is a
 readable summary. Newest at top, oldest at bottom.
 
+## pkg128 — Two audit reports: real security fixes, plus a data-loss incident during testing
+
+**Incident, disclosed in full:** while verifying an audit finding, a test
+believed to be isolated (via a `CMS_DATA_ROOT` override) actually deleted
+the real project's entire live `storage/mfdb/` directory — that env var
+turns out not to be respected anywhere in the web layer, only by the CLI.
+Caught and fully restored within the same turn from the already-delivered
+`pkg127.zip`; verified byte-identical against the restored data. All
+further destructive testing this pass used a full project copy in `/tmp`
+instead.
+
+- **M-4** (found via that incident): `app_delete()` had no validation on
+  `app_uuid` — a single authenticated POST with `app_uuid=".."` recursively
+  deletes the *entire* `mfdb/` tree, not just one app's folder. Far more
+  severe than either audit rated it. Fixed with the same UUID validation
+  `serve_app_static()` already used correctly; re-verified the exact same
+  attack now fails safely.
+- **H-1**: 3 picker onclick sites in `Content.py` (one more than either
+  audit found) rebuilt as `data-*` + delegation.
+- **H-2**: a gap in my own earlier delegation fix (the YouTube card
+  thumbnail) — added to the existing selector.
+- **H-3 + M-1**: `Shared.py`'s `insertYt()`/`insertPdf()` — shared by every
+  editor's picker — now HTML-escape both label and URL before attribute
+  interpolation, and `insertYt()` is now width-capped to match the
+  pattern already used elsewhere.
+
+## pkg127 — YouTube embed width capping + Featured Video (radio toggle)
+
+- **Width capping**: both editors' YouTube insert functions now use the
+  same capped, centered, rounded-corner style already established by the
+  Multi-Video Page template (`max-width:800px`), instead of stretching to
+  fill the full ~1100-1200px article container.
+- **Featured Video**: new `page_featured_video_url` field on `PageRecord`
+  (properly migrated for existing installs, not just new ones — caught
+  that `PageRecord` wasn't even in the migration list before adding the
+  field). New "Featured Video" section in Editor V2's page panel — a
+  radio list of your saved YouTube links, collapsed by default. Actually
+  renders on the published site (above the article body, same capped
+  style), not just stored and forgotten. Full CLI support via
+  `page add/update --featured-video`.
+- Verified end-to-end with real data throughout: a real migration test, a
+  real editor save/load round trip, a real Publisher build with the
+  actual generated HTML inspected on disk, and all 4 CLI scenarios
+  (add, update, clear, and "don't touch if the flag's omitted").
+
+## pkg126 — Library sync (10 files, 2 with real functional changes)
+
+- **`bejson_path_guard.py`**: real security fix — a sibling-directory
+  path-traversal bypass in `bejson_safe_join()`. The upstream version had
+  dropped `safe_extract_zip()`, which this project has 4 real dependents
+  on; merged rather than overwrote, so the fix landed without losing
+  anything. Verified with 4 live tests.
+- **`bejson_validator.py`**: field-type validation now actually rejects
+  non-canonical types instead of silently ignoring them. Checked every
+  live schema in this project first — nothing would have broken either
+  way, but confirmed before adopting.
+- 8 other files: single added `Release_Version: 300` header line each
+  (one also got the real code constant) — policy-compliance only, no
+  functional change.
+- Full verification: all 5 apps booted live, a real CRUD cycle through
+  the CLI, a real Publisher build, all clean.
+
+## pkg125 — Fifth external audit: schema-migration gap, atomic writes, dead ports, real fixes throughout
+
+- **M-1**: `PageVideoMetadata`/`PageDocumentMetadata` were missing from
+  `_migrate_db()` — a database bootstrapped before these entities existed
+  would never gain them without a full factory reset. Fixed and proved with
+  a real migration test against a simulated old database.
+- **M-3**: Cloudflare publish fallback read a `SiteConfig` key that only
+  exists after someone manually resaves the config form once. Switched to
+  the key that's always present from first boot.
+- **M-4**: two page-content-file writes weren't atomic. Fixed both to match
+  the CLI's already-correct temp+`os.replace` pattern.
+- **M-5**: a missing `requests` package would crash two AI-task routes with
+  a raw 500 instead of a useful error. Fixed with a module-level
+  availability check.
+- **M-6**: three hardcoded `localhost:5001` links, despite working port
+  resolution sitting right next to them in the same files. Fixed all three
+  — proved it wasn't cosmetic by overriding the real port env vars and
+  confirming the rendered links actually changed.
+- **M-7**: brand-asset MIME detection would mis-tag any future `.png` as
+  `image/jpeg`. Fixed with real MIME detection, verified with a real PNG.
+- **L-3, L-4**: removed a dead field fallback; fixed a real color-palette
+  policy violation (ProfileManager was using Twitter blue, not the
+  mandated `#DE2626`).
+- **L-2** (partial, prioritized by real impact): fixed two startup banners
+  that had a stale hardcoded port literally two lines above the correct
+  one, and fixed the live Publish page's user-facing text, which told
+  users to run a file that hasn't existed since the Flask conversion.
+- **M-2** confirmed real but left as an open design decision (adding a
+  field to a live schema); **L-1** left alone pending your call on whether
+  those templates are planned or dead.
+
+## pkg124 — Media Library: dedicated YouTube tab + audit H-1 fixed
+
+- **Feature**: Media Library now has a third tab, "YouTube" — a thumbnail
+  grid (real YouTube thumbnails) with its own Add form, separated out from
+  the generic Links table. YouTube embedding itself already worked
+  (Editor V2's picker); this gives it a clear home instead of being
+  buried in a mixed links list. No schema change — existing links show up
+  automatically.
+- **H-1 (fifth external audit)**: the same class of bug fixed in pkg123
+  #7 (raw names in inline `onclick` JS, breakable via HTML-entity
+  decoding) was still present in 3 spots in the Media Library — plus a
+  4th I introduced myself while building the new tab, copied from the
+  vulnerable pattern without noticing. All 4 fixed with `data-*` attributes
+  + delegated `addEventListener`. Caught a real regression before shipping:
+  the fix needed the event-capture phase, not the default bubble phase, to
+  preserve an existing "don't also toggle the row" behavior.
+
+## pkg123 — Fourth external audit: real category-save bug, XSS-adjacent escaping, dead link/code
+
+- **HIGH**: PageEditorV2's Save button was reading the category *filter*
+  dropdown (default `"all"`) instead of an actual category field — every
+  page saved via V2 while unfiltered got an unresolvable category
+  reference. Added a real, separate Category field to the edit panel.
+- **MED**: import-queue data embedded raw into a `<script>` block —
+  a page title containing `</script>` could break the import UI. Fixed
+  with the standard escape.
+- **LOW × 4**: dead `/v2` link (now resolves a real cross-service URL via
+  the existing ports library), unescaped external-media URL in
+  `href`/`onclick`, one genuinely dead variable removed, and author names
+  interpolated raw into inline `onclick` handlers — verified exploitable
+  live with a real `O'Brien` test author, fixed by moving to `data-`
+  attributes read via `.dataset` instead of string-building JS source.
+- Confirmed real but deferred (low impact): CLI's non-chunked file hashing,
+  untracked ZIP exports, static page `<title>`.
+
+## pkg122 — CLI: `config` now has full CRUD
+
+Added `config delete <key>` — the one gap flagged in pkg121's
+verification pass. Confirmed first that no live app code depends on
+specific `SiteConfig` keys always existing (`Publisher.py` reads them all
+via `.get(key, default)`, never direct indexing), so unrestricted deletion
+is safe. Tested a full set → list → delete → list cycle against real live
+data; real bootstrap config keys confirmed untouched throughout.
+`cms-manage.py` bumped 18.6 → 18.7.
+
+## pkg121 — Full CLI functionality verification (requested directly)
+
+Reviewed `src/cms-manage.py` (v18.5 → v18.6) field-by-field against the
+live taxonomy schema — all data writes are in sync. Found and fixed one
+real bug this pass surfaced:
+
+- **`page add`/`page import --category` defaulted to `'uncategorized'`**
+  (lowercase) but `page_cat_name` stores the category's real NAME
+  (`'Uncategorized'`, capitalized) — confirmed live: any page created via
+  the CLI without an explicit `--category` got a category reference that
+  resolved to nothing at publish time, breaking that page's category
+  listing and breadcrumb. Fixed the default; reproduced the bug live
+  before the fix and confirmed it was gone after, including a full
+  Publisher build with the affected page present.
+- Corrected 8 instances of stale argparse help text (said "Category slug"
+  / "Author UUID" throughout — the live schema actually needs the
+  category's and author's NAME; AuthorProfile has no UUID field at all).
+- Flagged, not fixed: `config` has no `delete` subcommand, unlike every
+  other entity.
+
+Full functional pass beyond the bug fix: real CRUD cycles against live
+data for every entity (author, category, navlink, ad, asset,
+external-media, app, page — including both `import --html` and
+`import --app`), a real PNG→WebP `asset optimize` conversion, a real
+`backup`, and a `restore` tested in an isolated copy so live data was
+never at risk.
+
+## pkg120 — Third external audit, Phase 3: real orphan-picker fix (2 independent copies), ISSUES.txt resolved for real
+
+- **H-1**: fixed all 4 callers the report named (app_new, app_edit,
+  manage_authors, manage_ads) — replaced raw `os.listdir()` pickers with
+  real `MediaAsset` DB reads via a new `get_image_assets()`. Also found and
+  fixed a **second, independent copy of the same bug the report never
+  named**: `PageEditor.py` had its own separate, even-less-precise
+  `_get_assets()`. Verified with a real orphan file copied straight onto
+  disk (not registered in the DB) — confirmed it disappeared from every
+  picker after the fix, while real assets stayed visible. Old dead
+  functions removed, logged in `docs/dead_code.md`.
+- **H-2**: already resolved as a side effect of pkg119's AI-builder removal
+  — the file-based half of the "two disconnected AI profile systems" no
+  longer exists. No code change needed; confirmed via grep.
+- **L-4**: `ISSUES.txt` (deferred in pkg118) removed — re-read its content
+  this pass and confirmed it describes exactly the orphan-picker bug just
+  fixed. Deferring it until the real fix landed, instead of deleting it
+  alongside a report that only claimed the fix, was the right call.
+
+## pkg119 — Third external audit, Phase 2: taxonomy doc correction + dead AI builder removed
+
+- **C-1**: `docs/taxonomy_remediation_plan.md`'s own "ground truth" table
+  was independently wrong in the same way as `taxonomy_audit.json` — both
+  claimed 6 entities (Category, AuthorProfile, MediaAsset, NavLink,
+  SiteConfig, SocialLink) have UUID fields that don't exist live. Corrected
+  the doc, re-ran `tools/audit_taxonomy.py` to regenerate an accurate audit
+  file. Whether to actually inject those 6 UUIDs is left as an open
+  decision — flagged, not resolved. MediaAsset is the one worth deciding
+  deliberately given the video/document page-type idea discussed.
+- **C-2**: removed the AI Multi-Page Builder entirely (sidebar link, modal,
+  all JS, all 6 routes, every supporting helper/constant) rather than
+  building the missing `CMSAIBuilder` integration — that's a separately-
+  scoped feature build, not a remediation fix. Logged in the new
+  `docs/dead_code.md`.
+
+## pkg118 — Third external audit, Phase 1: secrets, imports, ZIP guard, packaging hygiene
+
+A fresh third-party audit report was submitted and independently verified
+against real live files before anything was fixed (its severity IDs — C-1,
+C-2, C-3, H-1 — are a new numbering, unrelated to pkg117's own C-2/C-3/H-1
+labels above). See `.bejson_project.json` for the full verification
+narrative.
+
+- **Secrets**: replaced hardcoded Flask `secret_key` values in
+  `PageEditor.py`, `ProfileManager.py`, and `PageEditorV2.py` with the same
+  random-key pattern `Admin.py` already used correctly.
+- **Dead imports**: removed a redundant `import uuid as _uuid_mod` alias
+  and 5 redundant nested `import json` calls in `Content.py`, a duplicate
+  `import sys` in `PageEditor.py`, and a duplicate local `import random` in
+  `Publisher.py`.
+- **Security**: added the existing 300MB uncompressed-size guard (already
+  used in `app_new()`/`app_edit()`) to `/api/apps/scan_zip`, which was
+  missing it.
+- **Packaging**: `config.json` (a runtime artifact, auto-created on first
+  read) removed from the package; added `.gitignore`.
+- Confirmed but deliberately **not yet acted on**: taxonomy UUID mismatch
+  (worse than reported — `taxonomy_audit.json` actively asserts UUIDs exist
+  on 6 entities that don't) and the dead `ExtLib.CMSAIBuilder` AI builder —
+  both need a design decision, not a mechanical fix. Also confirmed but
+  deliberately not deleted: `ISSUES.txt` — its symptoms overlap with the
+  still-open `get_assets()` raw-listing issue; removing the bug report
+  before the real fix would misrepresent it as resolved.
+
 ## pkg117 — Second external audit: path-traversal fix, reset parity, tracker repair (properly, this time)
 
 - **H-1, security**: `Media.py` and `PageEditorV2.py`'s asset/thumbnail

@@ -21,7 +21,7 @@ PROFILES_PORT = CMSPorts.get_port(CONFIG_PATH, "profiles_port", "CMS_PROFILES_PO
 
 MANIFEST_PATH = os.path.join(PROJECT_ROOT, 'storage', 'mfdb', 'site_master', '104a.mfdb.bejson')
 app = Flask(__name__)
-app.secret_key = 'profile-key'
+app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 db = CMSCore.CMSCore(MANIFEST_PATH)
 
 from BEJSON_CMS_Shared import _check_auth, _unauthorized
@@ -41,7 +41,7 @@ _T = """
 <!DOCTYPE html><html><head><title>Persona Hub</title>
 <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap' rel='stylesheet'>
 <style>
-    :root{ --bg:#000; --c:#161616; --acc:#1DA1F2; --f:#fff; --m:#71767B; --b:#2F3336; }
+    :root{ --bg:#000; --c:#161616; --acc:#DE2626; --f:#fff; --m:#71767B; --b:#2F3336; }
     *{box-sizing:border-box; margin:0; padding:0;}
     body{background:var(--bg); color:var(--f); font-family:'Inter',sans-serif;}
     .nav{border-bottom:1px solid var(--b); padding:15px; display:flex; justify-content:space-between; position:sticky; top:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px);}

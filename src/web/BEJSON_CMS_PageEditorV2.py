@@ -35,6 +35,15 @@ from flask import Flask, render_template_string, request, redirect, flash, jsoni
 import os, re, uuid, json, sys, html as _html, io
 from datetime import datetime
 
+try:
+    import requests
+    _REQUESTS_AVAILABLE = True
+except ImportError:
+    _REQUESTS_AVAILABLE = False
+    # api_generate_plan()/api_execute_task() check this flag and return a
+    # clean JSON error instead of letting a bare `import requests` inside
+    # the function body raise an unhandled ModuleNotFoundError -> 500.
+
 # --- BEJSON Core Pathing ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
@@ -43,6 +52,7 @@ import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PAGEEDITORV2_PORT = CMSPorts.get_port(CONFIG_PATH, "pageeditorv2_port", "CMS_PAGEEDITORV2_PORT")
+ADMIN_PORT = CMSPorts.get_port(CONFIG_PATH, "admin_port", "CMS_ADMIN_PORT")
 import lib_cms_persona_writer
 from lib_bejson_Core_bejson_env import resolve_path
 
@@ -64,7 +74,7 @@ STORAGE_CONFIG_PATH = resolve_path("{INTERNAL_STORAGE}/Admin/resources/Flask_Com
 # =============================================================================
 
 app = Flask(__name__)
-app.secret_key = 'editor-v2-ultimate-key'
+app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 
 from BEJSON_CMS_Shared import _check_auth, _unauthorized
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
@@ -204,10 +214,11 @@ def api_generate_plan():
         plan_sys_inst = plan_format_inst
         temperature = 0.7
 
+    if not _REQUESTS_AVAILABLE:
+        return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
     key = writer._get_key()
     if not key: return jsonify({"ok": False, "error": "No API keys found"})
 
-    import requests
     payload = {
         "contents": [{"parts": [{"text": f"Build a plan for: {prompt}"}]}],
         "system_instruction": {"parts": [{"text": plan_sys_inst}]},
@@ -245,10 +256,11 @@ def api_execute_task():
         exec_sys_inst = format_inst
         gen_config = {}
 
+    if not _REQUESTS_AVAILABLE:
+        return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
     key = writer._get_key()
     if not key: return jsonify({"ok": False, "error": "No API keys found"})
 
-    import requests
     payload = {"contents": [{"parts": [{"text": task_prompt}]}], "system_instruction": {"parts": [{"text": exec_sys_inst}]}}
     if gen_config:
         payload["generationConfig"] = gen_config
@@ -298,6 +310,7 @@ def api_save():
     cat      = data.get('category', 'Uncategorized')
     content  = data.get('content', '')
     tpl_key  = data.get('template_key', 'blank')
+    featured_video = (data.get('featured_video_url') or '').strip() or None
     
     db.mount()
     existing = next((x for x in db.get_records("PageRecord") if x['page_uuid'] == uuid_val), None)
@@ -315,6 +328,7 @@ def api_save():
             "page_cat_name": cat,
             "page_author_name": author,
             "page_template_key": tpl_key,
+            "page_featured_video_url": featured_video,
         }
         db.update_record("PageRecord", "page_uuid", uuid_val, rec)
     else:
@@ -328,7 +342,8 @@ def api_save():
             "page_external_url": None,
             "page_author_name": author,
             "page_featured_img": None,
-            "page_template_key": tpl_key
+            "page_template_key": tpl_key,
+            "page_featured_video_url": featured_video,
         }
         db.add_record("PageRecord", rec)
     
@@ -651,7 +666,7 @@ _SHELL = """
     <a href="#" onclick="showTab('tasking')" class="tab-link" id="l-tasking">Tasking Hub</a>
     <a href="#" onclick="showTab('context')" class="tab-link" id="l-context">Context & Attachments</a>
     <a href="#" onclick="showTab('settings')" class="tab-link" id="l-settings">System Config</a>
-    <a href="http://localhost:5001" style="margin-top:auto; border-top:1px solid var(--border);">Back to CMS</a>
+    <a href="{{ admin_url }}" style="margin-top:auto; border-top:1px solid var(--border);">Back to CMS</a>
 </div>
 
 <div class="container">
@@ -697,11 +712,34 @@ _SHELL = """
                     </select>
                 </div>
             </div>
+            <div class="grid2" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                <div class="fg">
+                    <label>Author</label>
+                    <select id="edit_author">
+                        {% for a in authors %}<option value="{{a.author_display_name}}">{{a.author_display_name}}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Category</label>
+                    <select id="edit_category">
+                        {% for c in categories %}<option value="{{c.cat_name}}">{{c.cat_name}}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
             <div class="fg">
-                <label>Author</label>
-                <select id="edit_author">
-                    {% for a in authors %}<option value="{{a.author_display_name}}">{{a.author_display_name}}</option>{% endfor %}
-                </select>
+                <div class="flex-row toolbar-row" style="justify-content:space-between; margin-bottom:8px;">
+                    <label style="margin:0;">Featured Video</label>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFeaturedVideoPanel()">Choose...</button>
+                </div>
+                <div id="featured-video-current" style="font-size:.8rem; color:var(--muted); margin-bottom:6px;">None selected</div>
+                <div id="featured-video-panel" style="display:none; max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:10px; background:var(--bg-secondary);">
+                    <label style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;">
+                        <input type="radio" name="featured_video_radio" value="" checked onchange="setFeaturedVideo('', 'None')">
+                        <span>None</span>
+                    </label>
+                    <div id="featured-video-list"><span style="font-size:.8rem; color:var(--muted);">Loading saved videos...</span></div>
+                </div>
+                <input type="hidden" id="edit_featured_video_url" value="">
             </div>
             <div class="fg">
                 <div class="flex-row toolbar-row" style="justify-content:space-between; margin-bottom:8px;">
@@ -816,7 +854,13 @@ async function loadPageData(uuid) {
         document.getElementById('hidden_uuid').value = uuid;
         document.getElementById('edit_title').value = data.page.page_title;
         document.getElementById('edit_author').value = data.page.page_author_name || '';
+        document.getElementById('edit_category').value = data.page.page_cat_name || 'Uncategorized';
         document.getElementById('edit_template').value = data.page.page_template_key || 'blank';
+        document.getElementById('edit_featured_video_url').value = data.page.page_featured_video_url || '';
+        document.getElementById('featured-video-current').textContent = data.page.page_featured_video_url
+            ? ('Selected: ' + data.page.page_featured_video_url) : 'None selected';
+        _featuredVideoLoaded = false;
+        document.getElementById('featured-video-panel').style.display = 'none';
         document.getElementById('html_body').value = data.content;
         document.getElementById('status_msg').innerText = 'LOADED';
     }
@@ -831,16 +875,17 @@ async function savePage() {
     const uuid = document.getElementById('hidden_uuid').value;
     const title = document.getElementById('edit_title').value;
     const author = document.getElementById('edit_author').value;
-    const cat = document.getElementById('catSelect').value;
+    const cat = document.getElementById('edit_category').value;
     const content = document.getElementById('html_body').value;
     const template_key = document.getElementById('edit_template').value;
+    const featured_video_url = document.getElementById('edit_featured_video_url').value;
     
     if(!title) { alert('Title required'); return; }
 
     const res = await fetch('/api/save', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({page_uuid: uuid, title, author, category: cat, content, template_key})
+        body: JSON.stringify({page_uuid: uuid, title, author, category: cat, content, template_key, featured_video_url})
     });
     if((await res.json()).ok) { alert('Saved!'); location.reload(); }
 }
@@ -852,6 +897,11 @@ function createNewDraft() {
     if(!title) return;
     document.getElementById('hidden_uuid').value = '';
     document.getElementById('edit_title').value = title;
+    document.getElementById('edit_category').value = 'Uncategorized';
+    document.getElementById('edit_featured_video_url').value = '';
+    document.getElementById('featured-video-current').textContent = 'None selected';
+    document.getElementById('featured-video-panel').style.display = 'none';
+    _featuredVideoLoaded = false;
     document.getElementById('html_body').value = DEFAULT_HTML;
     closeModal();
 }
@@ -1241,18 +1291,20 @@ function insertYtV2() {
     const vid = ytIdFromUrlV2(raw);
     if (!vid) { alert('Could not extract a YouTube video ID from that URL. Try pasting the full watch URL or just the 11-character ID.'); return; }
     const captionHtml = caption
-        ? '\\n<p style="font-size:.9rem;color:#666;margin-top:10px;text-align:center;">' + caption + '</p>'
+        ? '\\n<p style="font-size:.9rem;color:#666;margin-top:10px;text-align:center;font-style:italic;">' + caption + '</p>'
         : '';
-    const snippet = '\\n<div class="bej-video-wrap" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;max-width:100%;margin:30px 0;">\\n'
-        + '  <iframe\\n'
-        + '    src="https://www.youtube.com/embed/' + vid + '"\\n'
-        + '    title="' + (caption || 'YouTube Video') + '"\\n'
-        + '    frameborder="0"\\n'
-        + '    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"\\n'
-        + '    allowfullscreen\\n'
-        + '    style="position:absolute;top:0;left:0;width:100%;height:100%;">\\n'
-        + '  </iframe>\\n'
-        + '</div>' + captionHtml + '\\n';
+    const snippet = '\\n<div class="bej-video-wrap" style="max-width:800px;margin:40px auto;">\\n'
+        + '  <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;border:1px solid #333;background:#000;">\\n'
+        + '    <iframe\\n'
+        + '      src="https://www.youtube.com/embed/' + vid + '"\\n'
+        + '      title="' + (caption || 'YouTube Video') + '"\\n'
+        + '      frameborder="0"\\n'
+        + '      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"\\n'
+        + '      allowfullscreen\\n'
+        + '      style="position:absolute;top:0;left:0;width:100%;height:100%;">\\n'
+        + '    </iframe>\\n'
+        + '  </div>' + captionHtml + '\\n'
+        + '</div>\\n';
     const ta = document.getElementById('html_body');
     const pos = ta.selectionStart;
     ta.setRangeText(snippet, pos, pos, 'end');
@@ -1261,6 +1313,43 @@ function insertYtV2() {
     document.getElementById('ytExternalUrlV2').value = '';
     document.getElementById('ytCaptionV2').value = '';
     _ytSelectedV2 = null;
+}
+
+// ── Featured Video (radio-select, separate from in-body Insert) ──
+let _featuredVideoLoaded = false;
+function toggleFeaturedVideoPanel() {
+    const panel = document.getElementById('featured-video-panel');
+    const showing = panel.style.display !== 'none';
+    panel.style.display = showing ? 'none' : '';
+    if (!showing && !_featuredVideoLoaded) loadFeaturedVideoOptions();
+}
+function loadFeaturedVideoOptions() {
+    _featuredVideoLoaded = true;
+    fetch('/api/media/list_video').then(r => r.json()).then(items => {
+        const list = document.getElementById('featured-video-list');
+        if (!items || !items.length) {
+            list.innerHTML = '<span style="font-size:.8rem; color:var(--muted);">No saved YouTube videos yet -- add one via the Media Library\\'s YouTube tab.</span>';
+            return;
+        }
+        const currentUrl = document.getElementById('edit_featured_video_url').value;
+        list.innerHTML = '';
+        items.forEach(function(item, i) {
+            const id = 'fv-radio-' + i;
+            const row = document.createElement('label');
+            row.style = 'display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;';
+            const checked = (item.url === currentUrl) ? 'checked' : '';
+            row.innerHTML = '<input type="radio" name="featured_video_radio" id="' + id + '" ' + checked + '>'
+                + '<span>' + item.label.replace(/</g, '&lt;') + '</span>';
+            row.querySelector('input').addEventListener('change', function() { setFeaturedVideo(item.url, item.label); });
+            list.appendChild(row);
+        });
+    }).catch(() => {
+        document.getElementById('featured-video-list').innerHTML = '<span style="font-size:.8rem; color:#f87171;">Failed to load saved videos.</span>';
+    });
+}
+function setFeaturedVideo(url, label) {
+    document.getElementById('edit_featured_video_url').value = url;
+    document.getElementById('featured-video-current').textContent = url ? ('Selected: ' + label) : 'None selected';
 }
 </script>
 
@@ -1348,7 +1437,8 @@ def main_v2():
                                    categories=cats, 
                                    authors=authors, 
                                    pages=pages,
-                                   default_html=DEFAULT_HTML)
+                                   default_html=DEFAULT_HTML,
+                                   admin_url=f"http://localhost:{ADMIN_PORT}/")
 
 if __name__ == "__main__":
     _legacy = [f for f in ["Flask_CMS.py", "Flask_CMS_Publisher.py", "Flask_Page_Editor.py",

@@ -17,6 +17,7 @@ Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
 RELATIONAL_ID:  04a92a24-dda1-4e4f-b5a1-191623441ea3
+Release_Version: 300
 CHANGE (2026-07-07): Fixed a verified bug - imported bejson_utility_slugify
 from lib_bejson_Utility_bejson_utility, a module that doesn't exist
 anywhere in the project (confirmed pre-existing, predates this session -

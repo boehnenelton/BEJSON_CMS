@@ -46,6 +46,10 @@
     {
       "name": "page_template_key",
       "type": "string"
+    },
+    {
+      "name": "page_featured_video_url",
+      "type": "string"
     }
   ],
   "Values": []

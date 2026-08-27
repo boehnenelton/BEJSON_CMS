@@ -16,18 +16,44 @@ changelog entries.
 
 **Ground truth: canonical live schema (verified against `storage/mfdb/site_master/data/*.bejson` directly, not from any doc):**
 
-| Entity | Canonical Fields |
+**CORRECTION (pkg119):** the table below was wrong about UUIDs on 6 entities.
+Re-verified directly against live `.bejson` Fields arrays: `Category`,
+`AuthorProfile`, `MediaAsset`, `NavLink`, `SiteConfig`, and `SocialLink` have
+**no UUID field on disk**, despite this table (and
+`storage/tmp/taxonomy_audit.json`, separately) claiming they do. The field
+**renames** in this table (prefix normalization) ARE real and confirmed live
+— only the UUID-injection column is false. `_migrate_db()` in
+`BEJSON_CMS_System.py` was never updated to include these UUID fields in its
+REQUIRED entity schemas, so a factory reset/re-bootstrap would silently
+produce entities without them even if a prior ad-hoc migration had added
+them.
+
+| Entity | Canonical Fields (UUID status verified live) |
 |---|---|
-| Category | `cat_uuid, cat_name, cat_slug` |
-| AuthorProfile | `author_uuid, author_display_name, author_bio, author_avatar_url` |
-| PageRecord | `page_uuid, page_title, page_slug, page_cat_name, page_type, page_created_at, page_external_url, page_author_name, page_featured_img, page_template_key` |
-| MediaAsset | `asset_uuid, asset_filename, asset_original_name, asset_file_hash, asset_file_size, asset_mime_type, asset_uploaded_at` |
-| ExternalMedia | `extmedia_uuid, extmedia_name, extmedia_type, extmedia_url, extmedia_created_at` |
-| AdUnit | `ad_uuid, ad_name, ad_banner_url, ad_target_url, ad_zone, ad_active` |
-| StandaloneApp | `app_uuid, app_name, app_slug, app_description, app_entry_file, app_featured_img` |
-| NavLink | `nav_uuid, nav_display_label, nav_target_url` |
-| SiteConfig | `sys_uuid, sys_key, sys_value` |
-| SocialLink | `social_uuid, social_platform_name, social_target_url` |
+| Category | `cat_name, cat_slug` — **no UUID field** |
+| AuthorProfile | `author_display_name, author_bio, author_avatar_url` — **no UUID field** |
+| PageRecord | `page_uuid, page_title, page_slug, page_cat_name, page_type, page_created_at, page_external_url, page_author_name, page_featured_img, page_template_key` — has `page_uuid` |
+| MediaAsset | `asset_filename, asset_original_name, asset_file_hash, asset_file_size, asset_mime_type, asset_uploaded_at` — **no UUID field** |
+| ExternalMedia | `extmedia_uuid, extmedia_name, extmedia_type, extmedia_url, extmedia_created_at` — has `extmedia_uuid` (re-verified live) |
+| AdUnit | `ad_uuid, ad_name, ad_banner_url, ad_target_url, ad_zone, ad_active` — has `ad_uuid` (re-verified live) |
+| StandaloneApp | `app_uuid, app_name, app_slug, app_description, app_entry_file, app_featured_img` — has `app_uuid` (re-verified live) |
+| NavLink | `nav_display_label, nav_target_url` — **no UUID field** |
+| SiteConfig | `sys_key, sys_value` — **no UUID field** |
+| SocialLink | `social_platform_name, social_target_url` — **no UUID field** |
+
+**Open decision, not yet made:** whether to actually inject
+`cat_uuid`/`author_uuid`/`asset_uuid`/`nav_uuid`/`sys_uuid`/`social_uuid`
+into live data + `_migrate_db()`'s REQUIRED list (real schema migration +
+backfill + every FK reference across the codebase), or drop the UUID
+mandate for the entities that will never need cross-entity referencing
+(NavLink, SiteConfig, SocialLink are pure config/label records — no code
+anywhere points *at* one of their rows). MediaAsset is the one open
+question worth resolving deliberately rather than by default: a future
+video/document page-type feature would want to reference a specific
+MediaAsset by a stable ID rather than its mutable filename. Flagged for
+Elton; not resolved in this pass. `storage/tmp/taxonomy_audit.json` has been
+regenerated to reflect this correction (see pkg119 changelog entry) —
+it previously asserted the same false claim independently.
 
 Any code reading/writing a record with a field name NOT in this table is a bug.
 

@@ -8,6 +8,7 @@ Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
 RELATIONAL_ID:  6e1a9c47-4d2f-4b83-a5c0-8f3b7e2d1a96
+Release_Version: 300
 
 FEATURE (2026-07-31): Meta-GUID debug entity system. Every MFDB optionally
 carries a meta-{uuid4} entity that logs every write operation with entity,

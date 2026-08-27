@@ -18,6 +18,7 @@ non-thumbable file falls back to serving the raw original bytes as an
 """
 
 import os
+import re
 import gc
 import time
 import uuid
@@ -32,7 +33,7 @@ from flask import Blueprint, request, redirect, flash, send_file, jsonify
 from werkzeug.utils import secure_filename
 
 from BEJSON_CMS_Shared import (
-    db, R, get_breadcrumbs, get_assets, require_auth,
+    db, R, get_breadcrumbs, require_auth,
     ASSETS_DIR, THUMBS_DIR,
 )
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
@@ -73,6 +74,17 @@ media_cube = Blueprint('media', __name__)
 THUMB_SIZE = 320
 _THUMB_MAX_SOURCE_PIXELS = 40_000_000  # ~40MP header-check cap; skip thumbnailing anything larger rather than risk a big decode
 _THUMBABLE_EXT = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+
+def _yt_id_from_url(raw: str) -> str | None:
+    """Same extraction rule as ytIdFromUrlV2() in BEJSON_CMS_PageEditorV2.py's
+    JS -- kept identical on purpose so a link that embeds correctly there
+    also gets a correct thumbnail here, and vice versa. Accepts either a
+    bare 11-char video ID or a full watch/share/embed URL."""
+    raw = (raw or "").strip()
+    if re.match(r'^[A-Za-z0-9_-]{11}$', raw):
+        return raw
+    m = re.search(r'(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{11})', raw)
+    return m.group(1) if m else None
 
 def _get_file_hash(filepath) -> str:
     """Chunked SHA-256 — never loads the whole file into memory."""
@@ -226,6 +238,14 @@ def assets_gallery():
     page_assets = all_assets[start:start + ASSETS_PER_PAGE]
 
     externals = db.get_records("ExternalMedia")
+    # Split out YouTube links into their own tab -- this codebase's
+    # ExternalMedia 'video' type has only ever meant YouTube (see
+    # api_media_list_video() in BEJSON_CMS_PageEditorV2.py: "YouTube videos
+    # are never uploaded files, only saved external links"), but they were
+    # previously mixed into the same flat Links table as PDFs and everything
+    # else, making them hard to find and manage separately.
+    youtube_links = [e for e in externals if (e.get('extmedia_type') or '').lower() == 'video']
+    other_externals = [e for e in externals if (e.get('extmedia_type') or '').lower() != 'video']
     pending_count = _asset_process_queue.qsize()
 
     rows = ''
@@ -235,7 +255,7 @@ def assets_gallery():
         size_kb = f"{(a.get('asset_file_size') or 0) / 1024:.1f} KB"
         ext = Path(fname).suffix.lower()
         if ext in _THUMBABLE_EXT:
-            thumb_html = f'<img src="/assets/thumb/{fname}" loading="lazy" class="media-row-thumb" onclick="event.stopPropagation(); openLightbox(\'/assets/{fname}\', \'{display_name}\');">'
+            thumb_html = f'<img src="/assets/thumb/{fname}" loading="lazy" class="media-row-thumb lightbox-trigger" data-src="/assets/{fname}" data-caption="{display_name}">'
         else:
             # Non-thumbable asset (PDF, video, audio, etc.) - the thumb route
             # would otherwise fall back to serving the raw original as an
@@ -254,7 +274,7 @@ def assets_gallery():
           </div>
           <div class="media-row-details">
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('/assets/{fname}')">Copy Path</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="renameAsset('{fname}', '{display_name}')">Rename</button>
+            <button type="button" class="btn btn-secondary btn-sm rename-asset-btn" data-fname="{fname}" data-name="{display_name}">Rename</button>
             <form method="post" action="/assets/replace/{fname}" enctype="multipart/form-data" class="media-replace-form">
               <input type="file" name="file" required>
               <button type="submit" class="btn btn-secondary btn-sm">Replace</button>
@@ -266,21 +286,46 @@ def assets_gallery():
         </div>'''
 
     ext_rows = ''
-    for e in externals:
+    for e in other_externals:
         e_name = _html_escape.escape(e.get('extmedia_name') or '')
         ext_rows += f'''
         <tr>
           <td>{e_name}</td>
-          <td><a href="{e.get('extmedia_url','')}" target="_blank" style="color:var(--accent);">{_html_escape.escape((e.get('extmedia_url') or '')[:60])}</a></td>
+          <td><a href="{_html_escape.escape(e.get('extmedia_url','') or '')}" target="_blank" style="color:var(--accent);">{_html_escape.escape((e.get('extmedia_url') or '')[:60])}</a></td>
           <td>{_html_escape.escape(e.get('extmedia_type') or '')}</td>
           <td>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{e.get('extmedia_url','')}')">Copy URL</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="renameExternalLink('{e.get('extmedia_uuid','')}', '{e_name}')">Rename</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{_html_escape.escape(e.get('extmedia_url','') or '')}')">Copy URL</button>
+            <button type="button" class="btn btn-secondary btn-sm rename-ext-btn" data-uuid="{e.get('extmedia_uuid','')}" data-name="{e_name}">Rename</button>
             <form method="post" action="/assets/external/delete/{e.get('extmedia_uuid','')}" style="display:inline;" onsubmit="return confirm('Delete this link?')">
               <button type="submit" class="btn btn-danger btn-sm">Delete</button>
             </form>
           </td>
         </tr>'''
+
+    yt_cards = ''
+    for e in youtube_links:
+        e_name = _html_escape.escape(e.get('extmedia_name') or '')
+        vid = _yt_id_from_url(e.get('extmedia_url', ''))
+        thumb = f'https://img.youtube.com/vi/{vid}/hqdefault.jpg' if vid else ''
+        thumb_html = (
+            f'<img src="{thumb}" loading="lazy" class="yt-card-thumb yt-thumb-link" data-url="{_html_escape.escape(e.get("extmedia_url","") or "")}">'
+            if vid else
+            '<div class="yt-card-thumb yt-card-thumb-badge" title="Could not extract a video ID from this URL">&#9654;</div>'
+        )
+        yt_cards += f'''
+        <div class="yt-card">
+          {thumb_html}
+          <div class="yt-card-body">
+            <span class="yt-card-name">{e_name}</span>
+            <div class="yt-card-actions">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{_html_escape.escape(e.get('extmedia_url','') or '')}')">Copy URL</button>
+              <button type="button" class="btn btn-secondary btn-sm rename-ext-btn" data-uuid="{e.get('extmedia_uuid','')}" data-name="{e_name}">Rename</button>
+              <form method="post" action="/assets/external/delete/{e.get('extmedia_uuid','')}" style="display:inline;" onsubmit="return confirm('Delete this video link?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </div>
+          </div>
+        </div>'''
 
     pagination = ''
     if total_pages > 1:
@@ -306,7 +351,8 @@ def assets_gallery():
 
     <div class="media-tabs">
       <button type="button" class="media-tab active" id="tab-btn-files" onclick="switchMediaTab('files')">Files</button>
-      <button type="button" class="media-tab" id="tab-btn-links" onclick="switchMediaTab('links')">Links{(' (' + str(len(externals)) + ')') if externals else ''}</button>
+      <button type="button" class="media-tab" id="tab-btn-youtube" onclick="switchMediaTab('youtube')">YouTube{(' (' + str(len(youtube_links)) + ')') if youtube_links else ''}</button>
+      <button type="button" class="media-tab" id="tab-btn-links" onclick="switchMediaTab('links')">Links{(' (' + str(len(other_externals)) + ')') if other_externals else ''}</button>
     </div>
 
     <div id="tab-panel-files" class="media-tab-panel">
@@ -335,6 +381,21 @@ def assets_gallery():
         {rows if rows else '<div class="card empty-state"><p>No files uploaded yet.</p></div>'}
       </div>
       <div style="margin-bottom:30px;">{pagination}</div>
+    </div>
+
+    <div id="tab-panel-youtube" class="media-tab-panel" style="display:none;">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Add YouTube Video</span></div>
+        <form method="post" action="/assets/external/add" onsubmit="return prepYtSubmit(this)">
+          <div class="form-group"><label class="form-label">Name / Title</label><input type="text" name="extmedia_name" class="form-control" required></div>
+          <div class="form-group"><label class="form-label">YouTube URL or Video ID</label><input type="text" name="extmedia_url" id="yt-add-url" class="form-control" placeholder="https://www.youtube.com/watch?v=... or the 11-character ID" required></div>
+          <input type="hidden" name="extmedia_type" value="video">
+          <button type="submit" class="btn btn-primary">Add Video</button>
+        </form>
+      </div>
+      <div class="yt-card-grid">
+        {yt_cards if yt_cards else '<div class="card empty-state"><p>No YouTube videos added yet.</p></div>'}
+      </div>
     </div>
 
     <div id="tab-panel-links" class="media-tab-panel" style="display:none;">
@@ -370,6 +431,13 @@ def assets_gallery():
     .media-tabs {{ display:flex; gap:4px; margin:20px 0 16px; border-bottom:1px solid var(--border); }}
     .media-tab {{ background:none; border:none; padding:10px 18px; font-size:.9rem; font-weight:600; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; }}
     .media-tab.active {{ color:var(--accent); border-bottom-color:var(--accent); }}
+    .yt-card-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-top:20px; }}
+    .yt-card {{ background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; overflow:hidden; }}
+    .yt-card-thumb {{ width:100%; aspect-ratio:16/9; object-fit:cover; display:block; cursor:pointer; background:#000; }}
+    .yt-card-thumb-badge {{ display:flex; align-items:center; justify-content:center; font-size:2rem; color:var(--muted); cursor:default; }}
+    .yt-card-body {{ padding:10px 12px; }}
+    .yt-card-name {{ display:block; font-size:.85rem; font-weight:600; margin-bottom:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+    .yt-card-actions {{ display:flex; gap:6px; flex-wrap:wrap; }}
     .media-toolbar {{ display:flex; align-items:center; gap:16px; margin:20px 0 12px; padding:10px 14px; background:var(--bg-secondary); border-radius:8px; border:1px solid var(--border); }}
     .media-select-all-label {{ display:flex; align-items:center; gap:6px; font-size:.85rem; cursor:pointer; }}
     #bulk-selected-count {{ font-size:.8rem; color:var(--text-secondary); }}
@@ -396,9 +464,27 @@ def assets_gallery():
     <script>
     function switchMediaTab(name) {{
         document.getElementById('tab-panel-files').style.display = (name === 'files') ? '' : 'none';
+        document.getElementById('tab-panel-youtube').style.display = (name === 'youtube') ? '' : 'none';
         document.getElementById('tab-panel-links').style.display = (name === 'links') ? '' : 'none';
         document.getElementById('tab-btn-files').classList.toggle('active', name === 'files');
+        document.getElementById('tab-btn-youtube').classList.toggle('active', name === 'youtube');
         document.getElementById('tab-btn-links').classList.toggle('active', name === 'links');
+    }}
+    function ytIdFromUrl(raw) {{
+        // Same rule as BEJSON_CMS_PageEditorV2.py's ytIdFromUrlV2() and
+        // this file's own _yt_id_from_url() -- kept identical on purpose.
+        raw = raw.trim();
+        if (/^[A-Za-z0-9_-]{{11}}$/.test(raw)) return raw;
+        const m = raw.match(/(?:v=|youtu\\.be\\/|embed\\/)([A-Za-z0-9_-]{{11}})/);
+        return m ? m[1] : null;
+    }}
+    function prepYtSubmit(form) {{
+        const raw = document.getElementById('yt-add-url').value;
+        if (!ytIdFromUrl(raw)) {{
+            alert('Could not find a YouTube video ID in that URL. Paste the full watch URL or just the 11-character ID.');
+            return false;
+        }}
+        return true;
     }}
     function toggleMediaRow(headerEl) {{
         headerEl.parentElement.classList.toggle('expanded');
@@ -454,6 +540,27 @@ def assets_gallery():
         document.getElementById('media-lightbox-caption').textContent = caption || '';
         document.getElementById('media-lightbox').classList.add('open');
     }}
+    // Event delegation via data-* attributes, not inline onclick string
+    // interpolation -- same fix as pkg123's manage_authors() author-name
+    // bug: HTML-escaping a name is not enough to make it safe inside inline
+    // event-handler JS source, since the browser decodes entities in
+    // attribute values before running the onclick as JS. Delegated once
+    // here rather than per-row, so it also covers rows added later without
+    // re-binding.
+    document.body.addEventListener('click', function(ev) {{
+        var t = ev.target.closest('.lightbox-trigger, .rename-asset-btn, .rename-ext-btn, .yt-thumb-link');
+        if (!t) return;
+        if (t.classList.contains('lightbox-trigger')) {{
+            ev.stopPropagation();
+            openLightbox(t.dataset.src, t.dataset.caption);
+        }} else if (t.classList.contains('rename-asset-btn')) {{
+            renameAsset(t.dataset.fname, t.dataset.name);
+        }} else if (t.classList.contains('rename-ext-btn')) {{
+            renameExternalLink(t.dataset.uuid, t.dataset.name);
+        }} else if (t.classList.contains('yt-thumb-link')) {{
+            window.open(t.dataset.url, '_blank');
+        }}
+    }}, true);
     function closeLightbox() {{
         document.getElementById('media-lightbox').classList.remove('open');
         document.getElementById('media-lightbox-img').src = '';

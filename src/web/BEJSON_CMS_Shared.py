@@ -627,10 +627,16 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
         // their own local copies of this same bej-pdf-wrap markup) -- keep the
         // embed HTML identical across all three so a PDF looks/behaves the same
         // regardless of which editor inserted it.
+        function escapeHtml(str) {
+            const div = document.createElement(\'div\');
+            div.textContent = str == null ? \'\' : String(str);
+            return div.innerHTML;
+        }
         function insertPdf(src, label) {
             const editor = document.getElementById(\'html-editor\');
             if (!editor) return;
-            const tag = \'\\n<div class="bej-pdf-wrap" style="width:100%;margin:30px 0;border:1px solid #e5e5e5;border-radius:4px;overflow:hidden;">\\n  <object data="\' + src + \'" type="application/pdf" style="width:100%;height:820px;display:block;">\\n    <div style="padding:40px;text-align:center;background:#f8f8f8;">\\n      <p style="font-size:1.1rem;margin-bottom:16px;">Your browser cannot display this PDF inline.</p>\\n      <a href="\' + src + \'" download style="display:inline-block;padding:12px 28px;background:#DE2626;color:#fff;font-weight:700;text-decoration:none;border-radius:4px;">&#11015; Download PDF</a>\\n    </div>\\n  </object>\\n</div>\\n\';
+            const safeSrc = escapeHtml(src);
+            const tag = \'\\n<div class="bej-pdf-wrap" style="width:100%;margin:30px 0;border:1px solid #e5e5e5;border-radius:4px;overflow:hidden;">\\n  <object data="\' + safeSrc + \'" type="application/pdf" style="width:100%;height:820px;display:block;">\\n    <div style="padding:40px;text-align:center;background:#f8f8f8;">\\n      <p style="font-size:1.1rem;margin-bottom:16px;">Your browser cannot display this PDF inline.</p>\\n      <a href="\' + safeSrc + \'" download style="display:inline-block;padding:12px 28px;background:#DE2626;color:#fff;font-weight:700;text-decoration:none;border-radius:4px;">&#11015; Download PDF</a>\\n    </div>\\n  </object>\\n</div>\\n\';
             const pos = editor.selectionStart;
             editor.value = editor.value.substring(0, pos) + tag + editor.value.substring(pos);
             editor.selectionStart = editor.selectionEnd = pos + tag.length;
@@ -674,7 +680,8 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             if (!editor) return;
             const vid = ytIdFromUrlCC(raw);
             if (!vid) { alert(\'Could not extract a YouTube video ID from that URL. Try pasting the full watch URL or just the 11-character ID.\'); return; }
-            const tag = \'\\n<div class="bej-video-wrap" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;max-width:100%;margin:30px 0;">\\n  <iframe src="https://www.youtube.com/embed/\' + vid + \'" title="\' + label + \'" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>\\n</div>\\n\';
+            const safeLabel = escapeHtml(label || \'YouTube Video\');
+            const tag = \'\\n<div class="bej-video-wrap" style="max-width:800px;margin:40px auto;">\\n  <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;border:1px solid #333;background:#000;">\\n    <iframe src="https://www.youtube.com/embed/\' + vid + \'" title="\' + safeLabel + \'" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>\\n  </div>\\n</div>\\n\';
             const pos = editor.selectionStart;
             editor.value = editor.value.substring(0, pos) + tag + editor.value.substring(pos);
             editor.selectionStart = editor.selectionEnd = pos + tag.length;
@@ -688,6 +695,19 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             insertYt(url, url);
             input.value = \'\';
         }
+        // Delegated click handler for the PDF/YouTube "Insert" picker grids
+        // (Content.py's pdf-insert-modal/yt-insert-modal) -- data-* read via
+        // .dataset instead of building onclick="insertX(\'...\')" from raw
+        // interpolated values, same fix class as pkg123/pkg124.
+        document.body.addEventListener(\'click\', function(ev) {
+            var t = ev.target.closest(\'.picker-insert-item\');
+            if (!t) return;
+            if (t.dataset.action === \'pdf\') {
+                insertPdf(t.dataset.url, t.dataset.label);
+            } else if (t.dataset.action === \'yt\') {
+                insertYt(t.dataset.url, t.dataset.label);
+            }
+        });
         function filterTable(input, tableId) {
             const filter = input.value.toLowerCase();
             const table = document.getElementById(tableId);
@@ -743,8 +763,22 @@ def get_breadcrumbs(path):
     return breadcrumbs
 
 
-def get_assets():
-    return [f for f in sorted(os.listdir(ASSETS_DIR)) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')) and not f.startswith('_')]
+def get_image_assets():
+    """Replaces get_assets() for picker UIs. get_assets() lists whatever
+    files are physically sitting in ASSETS_DIR -- so an orphaned file left
+    on disk (failed upload, manual copy, restored backup, anything not
+    cleanly deleted through the real Delete button) stays visible in every
+    picker forever, in a pool that doesn't shrink even after Delete or
+    Factory Reset touch the database. This reads the same MediaAsset MFDB
+    table the Media Library page and edit_content()'s picker already use
+    (pkg68 fix), filtered to image MIME types, so every picker shows only
+    what the database says exists. Returns a flat list of filenames,
+    matching get_assets()'s return shape exactly, since existing templates
+    render each entry directly as both the <option> value and label."""
+    db.mount()
+    assets = db.get_records("MediaAsset")
+    assets.sort(key=lambda a: a.get('asset_uploaded_at') or '', reverse=True)
+    return [a['asset_filename'] for a in assets if (a.get('asset_mime_type') or '').startswith('image/')]
 
 
 _LEGACY_WEB_FILES = [

@@ -712,7 +712,6 @@ def _generate_related_block(items, current_item, default_author, categories):
     related = [i for i in items if i.get('page_cat_name') == rel_cat and i.get('page_uuid') != current_item.get('page_uuid')]
     if not related: return ""
     
-    import random
     random.shuffle(related)
     selected = related[:3]
     
@@ -858,7 +857,7 @@ def _execute():
 
             # Render page content via strategy renderer dispatch
             from BEJSON_CMS_Renderers import render_page
-            rendered_article_content = render_page(itype, {"page_title": item.get("page_title", ""), "html_body": html_body, "page_external_url": item.get("page_external_url"), "page_featured_img": f_img})
+            rendered_article_content = render_page(itype, {"page_title": item.get("page_title", ""), "html_body": html_body, "page_external_url": item.get("page_external_url"), "page_featured_img": f_img, "page_featured_video_url": item.get("page_featured_video_url")})
 
             # Build Page Tags
             page_tags = base_tags.copy()
@@ -960,7 +959,7 @@ def _execute():
         if not c_name: continue
         c_slug = cat.get("cat_slug") or cat.get("category_slug") or "uncategorized"
         _log(f"Generating Category: {c_name}")
-        c_items = [x for x in feed_items if x["type"] in ("page", "external_link") and (x["item"].get("page_cat_name") == c_name or x["item"].get("category_ref") == c_name)]
+        c_items = [x for x in feed_items if x["type"] in ("page", "external_link") and x["item"].get("page_cat_name") == c_name]
         c_grid = "".join([_generate_card_html(x["item"], x["link"] if x["type"] == "external_link" else f"../../{x['link']}", x.get("target_attr", ""), x["type"].upper(), x["date"], default_author, "../../", x.get("desc", "")) for x in c_items])
         
         cat_tags = base_tags.copy()
@@ -1523,7 +1522,7 @@ def r_publish_cloudflare():
         # Fallback to site name
         try:
             site_conf = {r["sys_key"]: r["sys_value"] for r in db.get_records("SiteConfig") if "sys_key" in r}
-            project_name = site_conf.get("site_name", "bejson-site")
+            project_name = site_conf.get("title", "bejson-site")
         except Exception:
             project_name = "bejson-site"
 
@@ -1570,27 +1569,16 @@ def r_publish_cloudflare():
     return redirect("/publish")
 
 if __name__ == "__main__":
-    print("""
+    print(f"""
 ============================================================
   BEJSON Web Publisher Flask
-------------------------------------------------------------
-  Merges:
-    BEJSON_Web_Publisher.py  (Tkinter removed)
-    Cleanup_Tool.py          (Tkinter removed)
-    BEJSON_Skeleton_Builder  (class kept, no __main__)
-
-  Required in same directory:
-    BEJSON_Standard_Lib.py
-    BEJSON_Extended_Lib.py
-    HTML_Skeletons/    (auto-created with defaults if missing)
-    Stylesheets/       (auto-created with light.css + dark.css)
 
   Routes:
     /          Dashboard
     /publish   Build + preview server
     /reset     Factory reset
 
-  http://localhost:5001
+  http://localhost:{PUBLISHER_PORT}
 ============================================================""")
     # Write skeleton defaults only if files don't already exist
     SkeletonBuilder().build_all_skeletons()

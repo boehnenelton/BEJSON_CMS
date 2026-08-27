@@ -23,7 +23,7 @@ from flask import Blueprint, request, redirect, flash, send_file, jsonify
 from werkzeug.utils import secure_filename
 
 from BEJSON_CMS_Shared import (
-    db, R, get_breadcrumbs, get_assets, require_auth,
+    db, R, get_breadcrumbs, get_image_assets, require_auth,
     PAGES_DB_DIR, ASSETS_DIR, APPS_STORAGE, DEFAULT_FEATURED_IMAGE, SCRIPT_PATH,
     UPLOAD_TMP,
 )
@@ -118,7 +118,6 @@ def page_new():
             "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE})
         
         pfile = os.path.join(PAGES_DB_DIR, f"{new_uuid}.json")
-        import json
         New_Page_Content_Doc = {
             "Format": "BEJSON",
             "Format_Version": "104db",
@@ -136,8 +135,10 @@ def page_new():
                 ["Content", None, f"<h2>{title}</h2><p>Start writing your content here...</p>", "", ""]
             ]
         }
-        with open(pfile, 'w') as f:
+        tmp = pfile + '.tmp'
+        with open(tmp, 'w') as f:
             json.dump(New_Page_Content_Doc, f, indent=2)
+        os.replace(tmp, pfile)  # atomic write, matching cms-manage.py's pattern -- a crash mid-write must never leave a partial/corrupt content file
         
         return redirect(f'/edit/{new_uuid}')
 
@@ -175,7 +176,6 @@ def edit_content(page_uuid):
         category = request.form.get('page_cat_name', page.get('page_cat_name', ''))
         # Update content file
         try:
-            import json
             import lib_bejson_Core_bejson_core as Core
             with open(pfile, "r") as f: data = json.load(f)
             field_map = Core.bejson_core_get_field_map(data)
@@ -199,7 +199,6 @@ def edit_content(page_uuid):
     # GET - Load content
     html_content = ""
     try:
-        import json
         import lib_bejson_Core_bejson_core as Core
         with open(pfile, "r") as f: data = json.load(f)
         field_map = Core.bejson_core_get_field_map(data)
@@ -334,8 +333,8 @@ def edit_content(page_uuid):
           <div id="pdfPaneLibraryCC">
             {% if pdf_assets or pdf_links %}
             <div class="asset-grid">
-              {% for a in pdf_assets %}<div class="asset-item" onclick="insertPdf('../../../assets/{{ a.asset_filename }}', '{{ (a.asset_original_name or a.asset_filename) | replace("'", "") }}')" style="cursor:pointer;padding:14px;text-align:center;"><div style="font-size:2rem;">&#128196;</div><div class="asset-name">{{ a.asset_original_name or a.asset_filename }}</div></div>{% endfor %}
-              {% for e in pdf_links %}<div class="asset-item" onclick="insertPdf(\'{{ e.extmedia_url }}\', \'{{ (e.extmedia_name or e.extmedia_url) | replace("'", "") }}\')" style="cursor:pointer;padding:14px;text-align:center;"><div style="font-size:2rem;">&#128279;</div><div class="asset-name">{{ e.extmedia_name or e.extmedia_url }}</div></div>{% endfor %}
+              {% for a in pdf_assets %}<div class="asset-item picker-insert-item" data-action="pdf" data-url="../../../assets/{{ a.asset_filename }}" data-label="{{ a.asset_original_name or a.asset_filename }}" style="cursor:pointer;padding:14px;text-align:center;"><div style="font-size:2rem;">&#128196;</div><div class="asset-name">{{ a.asset_original_name or a.asset_filename }}</div></div>{% endfor %}
+              {% for e in pdf_links %}<div class="asset-item picker-insert-item" data-action="pdf" data-url="{{ e.extmedia_url }}" data-label="{{ e.extmedia_name or e.extmedia_url }}" style="cursor:pointer;padding:14px;text-align:center;"><div style="font-size:2rem;">&#128279;</div><div class="asset-name">{{ e.extmedia_name or e.extmedia_url }}</div></div>{% endfor %}
             </div>
             {% else %}
             <div style="padding:20px;text-align:center;color:var(--text-secondary);font-size:.85rem;">No PDFs yet — upload one under Media Library, or use the External URL tab.</div>
@@ -359,7 +358,7 @@ def edit_content(page_uuid):
           <div id="ytPaneLibraryCC">
             {% if video_links %}
             <div class="asset-grid">
-              {% for e in video_links %}<div class="asset-item" onclick="insertYt('{{ e.extmedia_url }}', '{{ (e.extmedia_name or e.extmedia_url) | replace("'", "") }}')" style="cursor:pointer;padding:14px;text-align:center;"><div style="font-size:2rem;">&#9654;</div><div class="asset-name">{{ e.extmedia_name or e.extmedia_url }}</div></div>{% endfor %}
+              {% for e in video_links %}<div class="asset-item picker-insert-item" data-action="yt" data-url="{{ e.extmedia_url }}" data-label="{{ e.extmedia_name or e.extmedia_url }}" style="cursor:pointer;padding:14px;text-align:center;"><div style="font-size:2rem;">&#9654;</div><div class="asset-name">{{ e.extmedia_name or e.extmedia_url }}</div></div>{% endfor %}
             </div>
             {% else %}
             <div style="padding:20px;text-align:center;color:var(--text-secondary);font-size:.85rem;">No saved video links yet — add one under Media Library, or use the Paste URL/ID tab.</div>
@@ -429,7 +428,6 @@ def duplicate_page(page_uuid):
     src_file = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
     new_file = os.path.join(PAGES_DB_DIR, f"{new_uuid}.json")
     if os.path.exists(src_file):
-        import json
         with open(src_file, 'r') as f:
             content_data = json.load(f)
         # Update the copy's own PageMeta title to match; leave the actual
@@ -570,7 +568,7 @@ def apps_list():
 
 @content_cube.route('/apps/new', methods=['GET', 'POST'])
 def app_new():
-    assets = get_assets()
+    assets = get_image_assets()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         Submitted_App_Description = request.form.get('desc', '')
@@ -737,7 +735,7 @@ def app_edit(app_uuid):
         flash('App not found.', 'error')
         return redirect('/apps')
 
-    assets = get_assets()
+    assets = get_image_assets()
     app_dir = os.path.join(APPS_STORAGE, app_uuid)
 
     if request.method == 'POST':
@@ -784,7 +782,6 @@ def app_edit(app_uuid):
         flash(f'App "{name}" updated.', 'success')
         return redirect('/apps')
 
-    entry_options = f'<option value="{app_data.get("app_entry_file","index.html")}" selected>{app_data.get("app_entry_file","index.html")}</option>'
     image_options = '<option value="">-- No image --</option>' + "".join(
         f'<option value="{a}" {"selected" if a == app_data.get("app_featured_img") else ""}>{a}</option>' for a in assets
     )
@@ -818,6 +815,13 @@ def api_apps_scan_zip():
     html_files = []
     try:
         with zipfile.ZipFile(file, 'r') as z:
+            # Same 300MB uncompressed-size guard as app_new()/app_edit() —
+            # this endpoint was missing it, letting a crafted ZIP enumerate
+            # an unbounded number of entries before any size check ran.
+            _MAX_EXTRACTED_BYTES = 300 * 1024 * 1024
+            _total_uncompressed = sum(i.file_size for i in z.infolist())
+            if _total_uncompressed > _MAX_EXTRACTED_BYTES:
+                return jsonify({"success": False, "error": f"ZIP rejected — {_total_uncompressed // (1024*1024)}MB uncompressed exceeds the {_MAX_EXTRACTED_BYTES // (1024*1024)}MB safety cap."})
             for info in z.infolist():
                 if info.filename.lower().endswith(('.html', '.htm')):
                     html_files.append(info.filename)
@@ -828,6 +832,19 @@ def api_apps_scan_zip():
 
 @content_cube.route('/apps/delete/<app_uuid>', methods=['POST'])
 def app_delete(app_uuid):
+    # Confirmed live (2026-08-25): app_uuid was used unvalidated in
+    # os.path.join() then shutil.rmtree() -- a request with app_uuid=".."
+    # resolves app_dir to APPS_STORAGE's own parent and recursively
+    # deletes everything inside it (the entire mfdb/ tree: site_master,
+    # pages_db, assets, standalone_apps), not just one app's folder.
+    # Reproduced and confirmed destructive in an isolated test copy before
+    # this fix -- validate before any path use, same as serve_app_static().
+    try:
+        uuid.UUID(app_uuid)
+    except ValueError:
+        flash('Invalid app ID.', 'error')
+        return redirect('/apps')
+
     db.mount()
     db.delete_record("StandaloneApp", "app_uuid", app_uuid)
     
@@ -840,6 +857,16 @@ def app_delete(app_uuid):
 
 @content_cube.route('/apps/view/<app_uuid>')
 def serve_app(app_uuid):
+    # Same class of issue as app_delete() above: app_uuid reached
+    # os.path.join()/os.path.exists() with no validation. Lower severity
+    # here (no delete), but a crafted app_uuid could still probe file
+    # existence outside APPS_STORAGE. Validate for consistency with
+    # serve_app_static(), which already does this correctly.
+    try:
+        uuid.UUID(app_uuid)
+    except ValueError:
+        return "Invalid app ID", 400
+
     app_dir = os.path.join(APPS_STORAGE, app_uuid)
     if not os.path.exists(app_dir):
         return "App not found", 404
@@ -856,14 +883,11 @@ def serve_app(app_uuid):
     return send_file(entry_path)
 
 
-import uuid as _uuid_mod
-
-
 @content_cube.route('/apps/view/<app_uuid>/<path:filename>')
 def serve_app_static(app_uuid, filename):
     # Validate app_uuid is a proper UUID to prevent path traversal
     try:
-        _uuid_mod.UUID(app_uuid)
+        uuid.UUID(app_uuid)
     except ValueError:
         return 'Invalid app ID', 400
     safe_root = os.path.realpath(APPS_STORAGE)
@@ -912,7 +936,7 @@ def manage_authors():
         return redirect('/site/authors')
 
     authors = db.get_records("AuthorProfile")
-    assets  = get_assets()
+    assets  = get_image_assets()
 
     html = '''
     <style>
@@ -962,7 +986,7 @@ def manage_authors():
                         </div>
                     </div>
                     <div class="author-row-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="toggleEdit(\'{{ aid }}\')" type="button">Edit</button>
+                        <button class="btn btn-secondary btn-sm toggle-edit-btn" data-aid="{{ aid }}" type="button">Edit</button>
                         <form method="POST" style="display:inline;">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="author_display_name" value="{{ auth.author_display_name }}">
@@ -985,7 +1009,7 @@ def manage_authors():
                         </div>
                         <div style="display:flex;gap:8px;">
                             <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEdit(\'{{ aid }}\')" >Cancel</button>
+                            <button type="button" class="btn btn-secondary btn-sm toggle-edit-btn" data-aid="{{ aid }}">Cancel</button>
                         </div>
                     </form>
                 </div>
@@ -994,6 +1018,15 @@ def manage_authors():
         </div>
     </div>
     <script>
+        // Event delegation via data-aid, not inline onclick string interpolation --
+        // an author name containing a raw quote (e.g. O'Brien) previously broke
+        // out of the onclick JS-string context once the browser HTML-decoded the
+        // attribute value (HTML-escaping a name is not enough to make it safe
+        // inside inline event-handler JS source; a data attribute read via
+        // .dataset never has this problem, since it's never parsed as JS source).
+        document.querySelectorAll(\'.toggle-edit-btn\').forEach(function(btn) {
+            btn.addEventListener(\'click\', function() { toggleEdit(btn.dataset.aid); });
+        });
         function toggleEdit(aid) {
             var el = document.getElementById(\'edit-\' + aid);
             if (el) el.style.display = el.style.display === \'block\' ? \'none\' : \'block\';
@@ -1149,9 +1182,11 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
             ["Content", None, body_html, "", ""]
         ]
     }
-    import json
     _t_file0 = time.perf_counter()
-    with open(pfile, "w") as f: json.dump(content_doc, f, indent=2)
+    tmp = pfile + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(content_doc, f, indent=2)
+    os.replace(tmp, pfile)  # atomic write, matching cms-manage.py's pattern
     _t_file1 = time.perf_counter()
     logging.debug(
         f"[IMPORT] _create_import_page title={title!r} sync_count={sync_count} "
@@ -1410,7 +1445,7 @@ def import_confirm():
     </div>
 
     <script>
-    const queue = {json.dumps(import_queue)};
+    const queue = {json.dumps(import_queue).replace('</', '<\\/')};
     const category = "{_html_escape.escape(category)}";
     const author = "{_html_escape.escape(author)}";
     const log = document.getElementById('import-log');

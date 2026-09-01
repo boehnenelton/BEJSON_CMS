@@ -19,7 +19,7 @@
   "Values": [
     [
       "title",
-      "My BEJSON Site"
+      "Boehnenelton2024"
     ],
     [
       "description",
@@ -31,7 +31,11 @@
     ],
     [
       "base_url",
-      "https://example.com"
+      "boehnenelton2024@.pages.dev"
+    ],
+    [
+      "site_name",
+      "Boehnenelton2024"
     ]
   ]
 }

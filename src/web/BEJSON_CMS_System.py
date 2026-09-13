@@ -2,10 +2,18 @@
 Library:         BEJSON_CMS_System
 Family:          BEJSON_CMS
 Description:     System Cube (Foundation): self-heal/seed lifecycle (init_master_db, _ensure_uncategorized_category, _migrate_db, _seed_default_brand_and_author), Site Config, DB/asset export, Factory Reset. Imports _make_thumbnail from BEJSON_CMS_Media to regenerate the default brand thumbnail during seeding/reset.
-Version:         18.23
+Version:         18.24
 Library_Version: 57
-Date:            2026-08-05
-RELATIONAL_ID:   d9d9ce8f-ab86-4ea4-8f20-bfc4d35bd956
+Date:            2026-09-12
+RELATIONAL_ID:   5ad9364f-6c0d-4fa0-8f92-479172756e25
+CHANGE (2026-09-12): PKG133 -- external audit remediation (M-5). site_config()'s
+POST handler wrote a "site_name" SiteConfig row on every save, byte-identical
+to "title" -- no code path anywhere read "site_name" (Publisher reads "title",
+per pkg125 M-3), so it was dead data silently accumulating on every save.
+Removed. (H-1, the AI_Profile manifest primary_key drift, was a one-cell fix
+in storage/mfdb/site_master/104a.mfdb.bejson itself -- this file's own
+init_master_db()/_migrate_db() REQUIRED specs already correctly declared
+"primary_key": "persona_name"; only the manifest's live Values row was stale.)
 """
 
 import os
@@ -138,33 +146,33 @@ def init_master_db():
             # defaults for every field it doesn't have its own UI control
             # for yet, so nothing reading the full schema breaks.
             "name": "AI_Profile",
-            "primary_key": "Name",
+            "primary_key": "persona_name",
             "fields": [
-                {"name": "Record_Type_Parent",              "type": "string"},
-                {"name": "Name",                            "type": "string"},
-                {"name": "Archetype",                       "type": "string"},
-                {"name": "Persona",                         "type": "string"},
-                {"name": "SystemInstruction",               "type": "string"},
-                {"name": "Active",                          "type": "boolean"},
-                {"name": "MaxResponseTokens",               "type": "integer"},
-                {"name": "Creativity",                      "type": "number"},
-                {"name": "Tone",                            "type": "array"},
-                {"name": "Formality",                       "type": "string"},
-                {"name": "Verbosity",                       "type": "string"},
-                {"name": "EmotionalExpression_Enabled",     "type": "boolean"},
-                {"name": "EmotionalExpression_Intensity",   "type": "number"},
-                {"name": "GoogleSearch_Enabled",            "type": "boolean"},
-                {"name": "CodeInterpreter_Enabled",         "type": "boolean"},
-                {"name": "EphemeralMemory",                 "type": "boolean"},
-                {"name": "CodeParsing_Mode",                "type": "string"},
-                {"name": "CodeParsing_Languages",           "type": "array"},
-                {"name": "CodeParsing_StructureValidation", "type": "boolean"},
-                {"name": "CodeParsing_VersionControl",      "type": "boolean"},
-                {"name": "Thinking_Supported",              "type": "boolean"},
-                {"name": "ForbiddenTopics",                 "type": "array"},
-                {"name": "Avatar_Type",                     "type": "string"},
-                {"name": "Avatar_sourceUrl",                "type": "string"},
-                {"name": "Avatar_Data",                     "type": "string"},
+                {"name": "persona_record_type",           "type": "string"},
+                {"name": "persona_name",                  "type": "string"},
+                {"name": "persona_archetype",              "type": "string"},
+                {"name": "persona_bio",                    "type": "string"},
+                {"name": "persona_system_instruction",     "type": "string"},
+                {"name": "persona_active",                 "type": "boolean"},
+                {"name": "persona_max_tokens",             "type": "integer"},
+                {"name": "persona_creativity",             "type": "number"},
+                {"name": "persona_tone",                   "type": "array"},
+                {"name": "persona_formality",              "type": "string"},
+                {"name": "persona_verbosity",               "type": "string"},
+                {"name": "persona_emotion_enabled",         "type": "boolean"},
+                {"name": "persona_emotion_intensity",       "type": "number"},
+                {"name": "persona_google_search_enabled",   "type": "boolean"},
+                {"name": "persona_code_interpreter_enabled","type": "boolean"},
+                {"name": "persona_ephemeral_memory",        "type": "boolean"},
+                {"name": "persona_code_parsing_mode",       "type": "string"},
+                {"name": "persona_code_parsing_languages",  "type": "array"},
+                {"name": "persona_code_structure_validation","type": "boolean"},
+                {"name": "persona_code_version_control",    "type": "boolean"},
+                {"name": "persona_thinking_supported",      "type": "boolean"},
+                {"name": "persona_forbidden_topics",        "type": "array"},
+                {"name": "persona_avatar_type",             "type": "string"},
+                {"name": "persona_avatar_source_url",       "type": "string"},
+                {"name": "persona_avatar_data",             "type": "string"},
             ],
         },
         {
@@ -189,6 +197,29 @@ def init_master_db():
                 {"name": "doc_version",          "type": "string"},
                 {"name": "doc_file_size",        "type": "integer"},
                 {"name": "doc_download_rules",   "type": "string"},
+            ],
+        },
+        {
+            "name": "MediaAsset",
+            "primary_key": "asset_filename",
+            "fields": [
+                {"name": "asset_filename",      "type": "string"},
+                {"name": "asset_original_name", "type": "string"},
+                {"name": "asset_file_hash",     "type": "string"},
+                {"name": "asset_file_size",     "type": "integer"},
+                {"name": "asset_mime_type",     "type": "string"},
+                {"name": "asset_uploaded_at",   "type": "string"},
+            ],
+        },
+        {
+            "name": "ExternalMedia",
+            "primary_key": "extmedia_uuid",
+            "fields": [
+                {"name": "extmedia_uuid", "type": "string"},
+                {"name": "extmedia_name", "type": "string"},
+                {"name": "extmedia_type", "type": "string"},
+                {"name": "extmedia_url",  "type": "string"},
+                {"name": "extmedia_created_at", "type": "string"},
             ],
         },
     ]
@@ -378,33 +409,33 @@ def _migrate_db():
         },
         {
             "name": "AI_Profile",
-            "primary_key": "Name",
+            "primary_key": "persona_name",
             "fields": [
-                {"name": "Record_Type_Parent",              "type": "string"},
-                {"name": "Name",                            "type": "string"},
-                {"name": "Archetype",                       "type": "string"},
-                {"name": "Persona",                         "type": "string"},
-                {"name": "SystemInstruction",               "type": "string"},
-                {"name": "Active",                          "type": "boolean"},
-                {"name": "MaxResponseTokens",               "type": "integer"},
-                {"name": "Creativity",                      "type": "number"},
-                {"name": "Tone",                            "type": "array"},
-                {"name": "Formality",                       "type": "string"},
-                {"name": "Verbosity",                       "type": "string"},
-                {"name": "EmotionalExpression_Enabled",     "type": "boolean"},
-                {"name": "EmotionalExpression_Intensity",   "type": "number"},
-                {"name": "GoogleSearch_Enabled",            "type": "boolean"},
-                {"name": "CodeInterpreter_Enabled",         "type": "boolean"},
-                {"name": "EphemeralMemory",                 "type": "boolean"},
-                {"name": "CodeParsing_Mode",                "type": "string"},
-                {"name": "CodeParsing_Languages",           "type": "array"},
-                {"name": "CodeParsing_StructureValidation", "type": "boolean"},
-                {"name": "CodeParsing_VersionControl",      "type": "boolean"},
-                {"name": "Thinking_Supported",              "type": "boolean"},
-                {"name": "ForbiddenTopics",                 "type": "array"},
-                {"name": "Avatar_Type",                     "type": "string"},
-                {"name": "Avatar_sourceUrl",                "type": "string"},
-                {"name": "Avatar_Data",                     "type": "string"},
+                {"name": "persona_record_type",           "type": "string"},
+                {"name": "persona_name",                  "type": "string"},
+                {"name": "persona_archetype",              "type": "string"},
+                {"name": "persona_bio",                    "type": "string"},
+                {"name": "persona_system_instruction",     "type": "string"},
+                {"name": "persona_active",                 "type": "boolean"},
+                {"name": "persona_max_tokens",             "type": "integer"},
+                {"name": "persona_creativity",             "type": "number"},
+                {"name": "persona_tone",                   "type": "array"},
+                {"name": "persona_formality",              "type": "string"},
+                {"name": "persona_verbosity",               "type": "string"},
+                {"name": "persona_emotion_enabled",         "type": "boolean"},
+                {"name": "persona_emotion_intensity",       "type": "number"},
+                {"name": "persona_google_search_enabled",   "type": "boolean"},
+                {"name": "persona_code_interpreter_enabled","type": "boolean"},
+                {"name": "persona_ephemeral_memory",        "type": "boolean"},
+                {"name": "persona_code_parsing_mode",       "type": "string"},
+                {"name": "persona_code_parsing_languages",  "type": "array"},
+                {"name": "persona_code_structure_validation","type": "boolean"},
+                {"name": "persona_code_version_control",    "type": "boolean"},
+                {"name": "persona_thinking_supported",      "type": "boolean"},
+                {"name": "persona_forbidden_topics",        "type": "array"},
+                {"name": "persona_avatar_type",             "type": "string"},
+                {"name": "persona_avatar_source_url",       "type": "string"},
+                {"name": "persona_avatar_data",             "type": "string"},
             ],
         },
         {
@@ -529,7 +560,10 @@ def _migrate_db():
 def site_config():
     if request.method == "POST":
         configs = {
-            "site_name": request.form.get("site_title", ""),
+            # "site_name" removed (audit M-5): duplicate of "title", written
+            # with the same value on every save but never read by the
+            # Publisher (which reads "title", per pkg125 M-3) or anywhere
+            # else -- was dead accumulating data.
             "title": request.form.get("site_title", ""),
             "creator": request.form.get("site_creator", ""),
             "description": request.form.get("site_desc", ""),

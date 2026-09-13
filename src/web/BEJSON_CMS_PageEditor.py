@@ -781,7 +781,7 @@ td:last-child{white-space:nowrap;}
     <a href="{{ admin_url }}" target="_blank">&#8599; Open CMS</a>
     <a href="{{ publisher_url }}" target="_blank">&#9654; Open Publisher</a>
   </nav>
-  <div class="sb-foot">port 5003 &mdash; same Data/ dir as CMS</div>
+  <div class="sb-foot">port {{ pageeditor_port }} &mdash; same Data/ dir as CMS</div>
 </div>
 <div class="topbar">
   <button class="hamburger" onclick="toggleSb()">&#9776;</button>
@@ -813,7 +813,8 @@ def _page(title, active, body, extra_buttons=""):
         extra_buttons=extra_buttons,
         editorv2_url=f"http://localhost:{PAGEEDITORV2_PORT}/",
         admin_url=f"http://localhost:{ADMIN_PORT}/",
-        publisher_url=f"http://localhost:{PUBLISHER_PORT}/publish"
+        publisher_url=f"http://localhost:{PUBLISHER_PORT}/publish",
+        pageeditor_port=PAGEEDITOR_PORT
     )
 
 

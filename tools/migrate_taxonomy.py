@@ -5,10 +5,14 @@ Description:   Renames entity fields in live BEJSON data files to canonical
                that lack a UUID primary key.
                All writes are atomic (temp + os.replace). Backup BEFORE running live.
                See docs/taxonomy_migration_tasks.md Steps 4.1-4.3
-Version:       1.0.0
+Version:       1.0.1
 Author:        Elton Boehnen
-Date:          2026-08-10
-RELATIONAL_ID: 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d
+Date:          2026-09-12
+RELATIONAL_ID: 028eae73-d175-4f38-b2d5-df51e62523d6
+CHANGE (2026-09-12): PKG133 -- external audit remediation (M-4). ENTITY_FILE_MAP
+was missing "AI_Profile": "ai_profile.bejson", present in audit_taxonomy.py's
+copy since pkg132 -- a future migration run would silently skip AI_Profile
+while the audit tool already checks it. Added, matching audit_taxonomy.py.
 
 Usage:
   python3 tools/migrate_taxonomy.py --dry-run   # reports changes, no writes
@@ -41,6 +45,7 @@ ENTITY_FILE_MAP = {
     "NavLink":       "navlink.bejson",
     "SiteConfig":    "siteconfig.bejson",
     "SocialLink":    "sociallink.bejson",
+    "AI_Profile":    "ai_profile.bejson",
 }
 
 def _rename_fields_in_bejson(data: dict, entity: str, dry_run: bool) -> dict:

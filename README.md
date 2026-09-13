@@ -1,529 +1,612 @@
-# BEJSON CMS
+# BEJSON_CMS — High-Performance Multi-File Database & Content Management System
 
-**Author:** Elton Boehnen  
-**Contact:** boehnenelton2024@gmail.com | [boehnenelton2024.pages.dev](https://boehnenelton2024.pages.dev) | [github.com/boehnenelton](https://github.com/boehnenelton)  
-**License:** PolyForm Noncommercial 1.0.0  
-**Version:** V18.28  
+![Release Version](https://img.shields.io/badge/Release-18.28-brightgreen)
+![Package Version](https://img.shields.io/badge/Package-133-blue)
+![Python Version](https://img.shields.io/badge/Python-3.10%2B-informational)
+![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-red)
+![Architecture](https://img.shields.io/badge/Architecture-BEJSON%20%7C%20MFDB-black)
 
----
-
-![SQL-Free Personal Publishing Ecosystem Architecture](images/SQL-Free_Personal_Publishing_Ecosystem.png)
-
-## Executive Summary
-
-**BEJSON CMS** is a lightweight, high-performance, self-hosted Content Management System and Static Site Generator engineered to operate entirely without traditional SQL or NoSQL database servers. Every piece of site data—articles, categories, author profiles, media asset metadata, external media embeds, advertisement zones, navigation hierarchies, site settings, social links, and embedded web applications—is persisted as positional matrix records inside **BEJSON** (Binary/Structured JSON) entity files governed by a master **MFDB** (Multi-File Database) manifest (`storage/mfdb/site_master/104a.mfdb.bejson`).
-
-Designed with resource-constrained Android devices (Termux, Pydroid 3) and modern Linux/Unix servers in mind, BEJSON CMS provides a complete publishing pipeline:
-- A modular Blueprint-driven Administration Web Suite (`BEJSON_CMS_Admin.py`).
-- Dual Content Editors (Classic V1 Code Editor & Next-Gen V2 API-Driven Editor).
-- An AI Persona Hub (`BEJSON_CMS_ProfileManager.py`) and Gemini AI Integration (`lib_cms_persona_writer.py`).
-- A Headless CLI Management Toolkit (`src/cms-manage.py`).
-- A Media Library featuring hash-deduplicated uploads, serial background thumbnailing, and YouTube/PDF embedding.
-- A Static Site Publisher (`BEJSON_CMS_Publisher.py`) utilizing polymorphic strategy renderers to output fast, zero-dependency, static websites ready for Cloudflare Pages or traditional web hosts.
+> **BEJSON_CMS** is an enterprise-grade, lightweight, zero-database-daemon Content Management System (CMS) and Static Site Generator built on **Boehnen Elton JSON (BEJSON 104a/104db)** and **Multi-File Database (MFDB 131/132)** technology. Engineered for high resilience, low peak memory footprints, offline execution, and mobile deployment (Android/Termux), BEJSON_CMS provides complete publishing capabilities without relying on external SQL database servers or third-party ORMs.
 
 ---
 
-## Key Features & Highlights
+## Table of Contents
 
-- **Zero-SQL Matrix Storage Architecture**: Data is stored in human-readable, deterministic positional JSON files formatted according to the BEJSON 104, 104a, and 104db specifications.
-- **Micro-Memory Footprint & Single-Service Isolation**: Native single-process launcher scripts (`cms_launcher.sh`) ensure low RAM utilization on mobile environments by terminating inactive CMS components before spawning new ones.
-- **Canonical Taxonomy & Schema Safeguards**: Standardized entity prefixes (`page_`, `cat_`, `author_`, `asset_`, `extmedia_`, `ad_`, `app_`, `nav_`, `sys_`, `social_`) with automated structural validation and strict path traversal protection (`lib_bejson_Core_bejson_path_guard.py`).
-- **Polymorphic Page Rendering Engine**: Extensible rendering architecture (`BEJSON_CMS_Renderers.py`) supporting Standard HTML pages, Video-centric posts with automatic YouTube responsive embedding, and Document/PDF viewports.
-- **Hash-Deduplicated Media Pipeline**: File upload pipeline utilizing chunked SHA-256 hashing to eliminate duplicate asset storage, paired with an asynchronous background worker queue (`_asset_process_queue`) for low-peak-memory thumbnail generation.
-- **Standalone Web Application Container**: Capability to ingest, extract, and serve self-contained HTML/JS applications directly within the CMS structure.
-- **Integrated Security & Authentication**: HTTP Basic Authentication across all Flask applications (`CMS_PASSWORD`), input escaping, and atomic JSON file replacement patterns.
+- [Intro and Use Cases](#intro-and-use-cases)
+  - [What is BEJSON_CMS?](#what-is-bejson_cms)
+  - [Core Philosophy & Architectural Directives](#core-philosophy--architectural-directives)
+  - [Primary Use Cases & Real-World Deployments](#primary-use-cases--real-world-deployments)
+  - [Unorthodox & Specialized Edge Use Cases](#unorthodox--specialized-edge-use-cases)
+  - [Untapped Potential & Future Engineering Roadmap](#untapped-potential--future-engineering-roadmap)
+- [Usage Guide](#usage-guide)
+  - [Prerequisites & System Requirements](#prerequisites--system-requirements)
+  - [Installation & Workspace Bootstrap](#installation--workspace-bootstrap)
+  - [Service Ecosystem & Multi-Port Execution Map](#service-ecosystem--multi-port-execution-map)
+  - [Admin Web Control Panel (Port 5001)](#admin-web-control-panel-port-5001)
+  - [Content Management & Authoring Workflows](#content-management--authoring-workflows)
+  - [Standalone Page Editors (V1 & V2)](#standalone-page-editors-v1--v2)
+  - [AI Persona Hub & ProfileManager (Port 5003)](#ai-persona-hub--profilemanager-port-5003)
+  - [Media Asset Pipeline & Memory-Efficient Processing](#media-asset-pipeline--memory-efficient-processing)
+  - [Standalone App Bundle Packaging & Embedding](#standalone-app-bundle-packaging--embedding)
+  - [HTML Batch Import & Conversion Pipeline](#html-batch-import--conversion-pipeline)
+  - [Headless CLI Toolkit (cms-manage.py)](#headless-cli-toolkit-cms-managepy)
 
----
+![BEJSON Monolith Slide 1](images/The_BEJSON_Monolith_-_Slide_1.png)
+*Figure 1: Architectural & Monolith Overview — Slide 1*
 
-## Architectural Paradigm
-
-### BEJSON Data Matrix Specifications
-
-Traditional JSON structures rely on repeated key-value pairs per object, generating significant overhead when scaling. BEJSON decouples schema field declarations from record rows, presenting data as a field definition list followed by positional value arrays:
-
-1. **BEJSON 104 (Flat Table Spec)**: Used for single entity lists where each record is a simple flat array corresponding index-by-index to the declared `Fields` array.
-2. **BEJSON 104a (Manifest & Config Spec)**: Restricts field types to scalar primitives (`string`, `integer`, `number`, `boolean`), utilized for the core site manifest (`104a.mfdb.bejson`).
-3. **BEJSON 104db (Hierarchical Document Spec)**: Extends matrix storage with relational and parent-child record attributes (`Record_Type`, `Record_Type_Parent`, `Record_UUID`), used for rich page content documents (`storage/mfdb/pages_db/{page_uuid}.json`).
-
-#### Sample Flat Table (`category.bejson`)
-```json
-{
-  "Format": "BEJSON",
-  "Format_Version": "104a",
-  "Format_Creator": "Elton Boehnen",
-  "Records_Type": "Category",
-  "Fields": [
-    {"name": "cat_name", "type": "string"},
-    {"name": "cat_slug", "type": "string"}
-  ],
-  "Values": [
-    ["BEJSON", "bejson"],
-    ["Uncategorized", "uncategorized"]
-  ]
-}
-```
-
-### Multi-File Database (MFDB) Engine
-
-The MFDB system (`lib_bejson_Core_mfdb_core.py`) links independent entity BEJSON files through a central manifest document. The manifest tracks entity schemas, relative file paths, primary key field declarations, record counts, and optional audit logs via a Meta-GUID event logger.
-
-```
-storage/mfdb/site_master/
-├── 104a.mfdb.bejson                  # Central Manifest
-└── data/                             # Live Data Matrix Entity Files
-    ├── adunit.bejson                 # Advertisement units
-    ├── authorprofile.bejson           # Live site authors
-    ├── category.bejson               # Content categories
-    ├── externalmedia.bejson          # External links & YouTube videos
-    ├── mediaasset.bejson             # Local file metadata
-    ├── navlink.bejson                # Site navigation links
-    ├── pagerecord.bejson             # Master index of page metadata
-    ├── siteconfig.bejson             # Key-value site settings
-    ├── sociallink.bejson             # Social network links
-    └── standaloneapp.bejson          # Standalone web applications
-```
+  - [Backup, Disaster Recovery & Live Factory Reset](#backup-disaster-recovery--live-factory-reset)
+  - [Static Site Publishing & Cloudflare Pages Deployment](#static-site-publishing--cloudflare-pages-deployment)
+- [Technical Details](#technical-details)
+  - [System Architecture Topology](#system-architecture-topology)
+  - [Directory Structure & Relative Path Architecture](#directory-structure--relative-path-architecture)
+  - [BEJSON 104a & 104db Data Standards](#bejson-104a--104db-data-standards)
+  - [MFDB Multi-File Database Engine Specifications](#mfdb-multi-file-database-engine-specifications)
+  - [Canonical Naming Taxonomy & Entity Schemas](#canonical-naming-taxonomy--entity-schemas)
+  - [Data Flow & Core Persistence Lifecycle](#data-flow--core-persistence-lifecycle)
+  - [System Security, Boundary Controls & Input Escaping](#system-security-boundary-controls--input-escaping)
+  - [Asynchronous Serial Media Worker Architecture](#asynchronous-serial-media-worker-architecture)
+  - [Polymorphic Page Renderers & Build Engine](#polymorphic-page-renderers--build-engine)
+  - [Automated Verification & Pytest Suite Specifications](#automated-verification--pytest-suite-specifications)
+- [Summary](#summary)
+  - [Architectural Takeaways & Engineering Design Summary](#architectural-takeaways--engineering-design-summary)
+  - [Visual Identity, Branding & CSS Token System](#visual-identity-branding--css-token-system)
+  - [Author Credit & Legal Governance](#author-credit--legal-governance)
+  - [License Information](#license-information)
 
 ---
 
-## Canonical Entity Taxonomy
+## Intro and Use Cases
 
-BEJSON CMS strictly enforces canonical taxonomy field names across all database tables, CLI commands, web apps, and static site renderers.
+### What is BEJSON_CMS?
 
-| Entity | Primary Key | Canonical Fields | Description |
-| :--- | :--- | :--- | :--- |
-| **PageRecord** | `page_uuid` | `page_uuid`, `page_title`, `page_slug`, `page_cat_name`, `page_type`, `page_created_at`, `page_external_url`, `page_author_name`, `page_featured_img`, `page_template_key`, `page_featured_video_url` | Master registry of all published articles, posts, and external links. |
-| **Category** | `cat_name` | `cat_name`, `cat_slug` | Content categorization and menu grouping. |
-| **AuthorProfile** | `author_display_name` | `author_display_name`, `author_bio`, `author_avatar_url` | Public author biographic information displayed on articles. |
-| **MediaAsset** | `asset_filename` | `asset_filename`, `asset_original_name`, `asset_file_hash`, `asset_file_size`, `asset_mime_type`, `asset_uploaded_at` | Physical local files uploaded to `storage/mfdb/assets/`. |
-| **ExternalMedia** | `extmedia_uuid` | `extmedia_uuid`, `extmedia_name`, `extmedia_type`, `extmedia_url`, `extmedia_created_at` | External media embeds, YouTube video links, and remote PDFs. |
-| **AdUnit** | `ad_uuid` | `ad_uuid`, `ad_name`, `ad_banner_url`, `ad_target_url`, `ad_zone`, `ad_active` | Banner advertisements rendered in sidebar or inline ad zones. |
-| **StandaloneApp** | `app_uuid` | `app_uuid`, `app_name`, `app_slug`, `app_description`, `app_entry_file`, `app_featured_img` | Hosted HTML/JS web applications extracted to `storage/mfdb/standalone_apps/`. |
-| **NavLink** | `nav_display_label` | `nav_display_label`, `nav_target_url` | Primary header menu links. |
-| **SiteConfig** | `sys_key` | `sys_key`, `sys_value` | Global site configuration (e.g. `title`, `base_url`, `author`, `theme`). |
-| **SocialLink** | `social_platform_name` | `social_platform_name`, `social_target_url` | Live site header/footer social channel links. |
+**BEJSON_CMS** is a full-featured, modular content management platform and static site generator powered by **Boehnen Elton JSON (BEJSON)** data formats and **Multi-File Database (MFDB)** container technology. Designed to eliminate the overhead, operational complexity, and memory demands of traditional database daemons (such as MySQL, PostgreSQL, or MongoDB), BEJSON_CMS uses local, structured JSON flat-file storage backed by explicit positional integrity schemas and atomic filesystem operations.
 
----
+The system features a multi-process micro-service architecture comprising five dedicated Flask web services, a headless command-line interface (`cms-manage.py`), an AI Persona Hub (`BEJSON_CMS_ProfileManager.py`), two distinct content authoring suites (`V1` and `V2` Page Editors), an asynchronous media asset processing pipeline, and a static site publishing engine capable of outputting zero-dependency web artifacts ready for host distribution or Cloudflare Pages deployment.
 
-## System Architecture & Web Applications
+BEJSON_CMS bridges the gap between static site generators (like Hugo or Jekyll) and dynamic web platforms (like WordPress or Ghost). It provides a full administrative GUI, rich media library, category hierarchy, ad unit manager, and AI page generation while retaining the raw speed, portability, security, and low resource overhead of static site builds.
 
-BEJSON CMS comprises five modular Flask services operating on configurable dedicated ports, communicating via the shared MFDB database and file storage directory.
+### Core Philosophy & Architectural Directives
 
-```
-                             ┌────────────────────────┐
-                             │   Admin Suite (:5001)  │
-                             │ (Blueprints: Content,  │
-                             │  Media, Interface, Sys)│
-                             └───────────┬────────────┘
-                                         │
- ┌────────────────────────┐              │              ┌────────────────────────┐
- │   Editor V1 (:5003)    ├──────────────┼──────────────┤   Editor V2 (:5004)    │
- │  (Classic Code View)   │              │              │ (API-Driven Modern UI) │
- └────────────────────────┘              │              └────────────────────────┘
-                                         │
- ┌────────────────────────┐              │              ┌────────────────────────┐
- │  Persona Hub (:5005)   ├──────────────┼──────────────┤  Publisher App (:5002) │
- │ (AI Profile Management)│              │              │ (Static HTML Exporter) │
- └────────────────────────┘              │              └────────────────────────┘
-                                         │
-                                 ┌───────▼────────┐
-                                 │ Live MFDB Data │
-                                 │ & Page Content │
-                                 └────────────────┘
-```
+![BEJSON Monolith Slide 2](images/The_BEJSON_Monolith_-_Slide_2.png)
+*Figure 2: Architectural & Monolith Overview — Slide 2*
 
-### 1. Admin Suite (`src/web/BEJSON_CMS_Admin.py`) — Port 5001
-The core administrative interface registered via four specialized Flask Blueprints:
-- **System Blueprint** (`BEJSON_CMS_System.py`): Database initialization, schema migrations, brand assets seeding, and system factory reset.
-- **Content Blueprint** (`BEJSON_CMS_Content.py`): Page management, HTML/ZIP bulk content import wizard, standalone application deployment, and author profile maintenance.
-- **Media Blueprint** (`BEJSON_CMS_Media.py`): Paginated gallery view, YouTube video/link manager, bulk asset operations, image lightbox, asset replacement, and hash deduplication.
-- **Interface Blueprint** (`BEJSON_CMS_Interface.py`): Navigation menu configuration, social link management, ad unit placements, site settings editor, and static publish triggers.
 
-### 2. Page Editor V1 (`src/web/BEJSON_CMS_PageEditor.py`) — Port 5003
-A focused, single-page code editor designed for rapid HTML content editing. Features live side-by-side previewing, direct snippet insertion for YouTube embeds and PDF viewports, category/author selection, and atomic page JSON serialization.
+BEJSON_CMS was constructed around five core architectural tenets:
 
-### 3. Page Editor V2 (`src/web/BEJSON_CMS_PageEditorV2.py`) — Port 5004
-An advanced, API-driven editor providing a modern workspace interface. Integrates an AI Tasking Hub, persona-guided content generation, structured template selection, responsive preview modes, and a dedicated featured video selector.
+1. **Zero External Database Daemons**: The entire CMS storage layer relies strictly on local JSON files managed by the `CMSCore` unified database abstraction layer (`lib_bejson_CMS_cms_core.py`) and the `MFDB` engine (`lib_bejson_Core_mfdb_core.py`). No SQL database daemons, ORMs, or native C compilation steps are required.
+2. **Positional Integrity & Field Map Cache Mandate**: All database queries resolve attributes dynamically through O(1) Field Map Caches (`BEJSONCore.bejson_core_get_field_map()`). Hardcoded field offset indices (such as `row[3]`) are strictly prohibited in application logic. This guarantees backward compatibility and structural safety when new fields are appended to table schemas.
+3. **Resilience & Atomic Persistence**: All filesystem writes enforce atomic state transitions using a write-to-temporary-file, flush, and replace sequence (`.tmp` buffer → `fsync()` → `os.replace()`). Multi-process file access is safeguarded by PID lock files (`ResilientPIDLock`), preventing database corruption in the event of unexpected process termination or power loss.
+4. **Constrained Hardware Optimization**: Engineered specifically for high performance on resource-constrained platforms, including mobile Android Termux environments and low-power Linux single-board computers (SBCs). Peak memory consumption is strictly bounded using draft decoding, header-only image inspection, and single-worker serial media processing.
+5. **Decoupled AI Integration**: Provides deep AI content generation capabilities through customizable system instruction personas (`AI_Profile`), while strictly maintaining boundary separation between internal AI persona instructions and public author display bios on live web pages.
 
-### 4. AI Persona Hub (`src/web/BEJSON_CMS_ProfileManager.py`) — Port 5005
-Maintains `AI_Profile` records stored as BEJSON entities (`resources/profiles/`). These records encapsulate system instructions, personas, and style guides that dictate AI generation behavior in Page Editor V2, cleanly isolated from public site author profiles.
+### Primary Use Cases & Real-World Deployments
 
-### 5. Static Publisher (`src/web/BEJSON_CMS_Publisher.py`) — Port 5002
-Compiles the complete MFDB database and page content files into clean, static HTML, CSS, and JS output stored in `storage/builds/`. Utilizes strategy renderers (`BEJSON_CMS_Renderers.py`) to generate:
-- Homepage and category feeds.
-- Article pages with dark/light theme support.
-- Standalone application card listings.
-- Ad placement integration.
-- `sitemap.xml` for search engine indexing.
-- Direct Cloudflare Pages deployment integration.
+BEJSON_CMS is designed for a broad spectrum of production web publishing scenarios:
+
+- **Mobile & Offline Content Management**: Running an entire enterprise content management platform directly on an Android smartphone or tablet via Termux or PyDroid3 without requiring an internet connection.
+- **Edge Static Site Generation**: Creating, editing, and previewing web content locally, then rendering lightweight, high-speed static HTML/CSS/JS bundles for instant deployment to Cloudflare Pages, Nginx, or GitHub Pages.
+- **AI-Augmented Publishing Hubs**: Managing AI writing personas with granular control over domain expertise, creativity settings, and formatting rules to streamline high-volume technical blogging, news syndication, and documentation.
+- **Micro-App Directory Hosting**: Packaging and serving standalone web applications (e.g., single-page apps, calculators, interactive widgets) embedded seamlessly into CMS page containers via responsive iframe views.
+- **Privacy-First Personal Publishing**: Operating a personal website or technical blog where all raw database content remains stored locally under full user ownership.
+
+### Unorthodox & Specialized Edge Use Cases
+
+Beyond standard web publishing, BEJSON_CMS excels in unorthodox operating environments:
+
+- **Air-Gapped Documentation Vault**: Maintaining secure, version-controlled technical documentation sites on completely disconnected or air-gapped field hardware.
+- **Embedded Kiosk Backend**: Serving local interactive web interfaces for industrial, museum, or educational kiosks using simple Python process execution without web server installation.
+- **Automated Data Processing Pipeline**: Utilizing the headless CLI tool (`cms-manage.py`) within automated shell scripts and cron jobs to ingest raw HTML documents, cleanse layout structure, and convert them into structured site pages automatically.
+- **Portable USB Memory Publishing**: Carrying an entire CMS, raw content database, media assets, and static build outputs on a portable USB drive capable of running on any desktop or mobile system equipped with Python.
+
+### Untapped Potential & Future Engineering Roadmap
+
+The underlying BEJSON 104a and MFDB 131/132 storage layers unlock exciting future expansion vectors:
+
+
+![BEJSON Monolith Slide 3](images/The_BEJSON_Monolith_-_Slide_3.png)
+*Figure 3: Architectural & Monolith Overview — Slide 3*
+
+- **Multi-Node Peer-to-Peer Synchronization**: Expanding MFDB container chunking (`lib_mfdb_chunker_v6.py`) to enable seamless peer-to-peer database synchronization across distributed mobile devices without centralized servers.
+- **Real-Time Collaborative Editing**: Integrating WebSockets into the V2 API editor (`BEJSON_CMS_PageEditorV2.py`) for concurrent multi-user live editing with Operational Transformation (OT).
+- **Multi-Tenant Site Hosting**: Leveraging process-isolated Flask blueprints to host and build multiple independent static web sites from a single master administrative control panel.
+- **Automated AI Translation Pipeline**: Expanding persona workflows to automatically translate published pages into multi-lingual static site branches upon build execution.
 
 ---
 
-## Core Libraries Directory (`src/lib/`)
+## Usage Guide
 
-All underlying business logic and database drivers reside in `src/lib/`:
+### Prerequisites & System Requirements
 
-- **`lib_bejson_Core_bejson_core.py`**: Fundamental BEJSON reader/writer engine, handling field map resolution, positional record access, and value type verification. Exports `RELEASE_VERSION = 300`.
-- **`lib_bejson_Core_bejson_path_guard.py`**: Safe path resolution and directory boundary validation (`bejson_safe_join()`, `safe_extract_zip()`). Prevents path traversal vulnerabilities and sibling-directory bypass exploits.
-- **`lib_bejson_Core_bejson_validator.py`**: Structural and value-level integrity checker verifying compliance against 104, 104a, and 104db specifications. Enforces canonical type checking (`VALID_FIELD_TYPES`).
-- **`lib_bejson_Core_bejson_env.py`**: Resolves system environment variables and path place-holders (`{INTERNAL_STORAGE}`).
-- **`lib_bejson_Core_bejson_errors.py`**: Standardized system error codes and exception definitions.
-- **`lib_bejson_Core_mfdb_core.py`**: Master MFDB orchestrator class (`MFDBCore`) managing entity creation, manifest synchronization, and operation logging.
-- **`lib_bejson_Core_mfdb_validator.py`**: Dataset and manifest validation suite checking cross-entity integrity and field consistency.
-- **`lib_bejson_CMS_cms_core.py`**: High-level `CMSCore` interface encapsulating high-frequency database operations with file locking (`ResilientPIDLock`).
-- **`lib_bejson_CMS_cms_config.py`**: Global CMS settings and default parameters.
-- **`lib_bejson_CMS_cms_mfdb.py`**: Database management helper routines and string slugification (`bejson_utility_slugify`).
-- **`lib_bejson_CMS_cms_ports.py`**: Dynamic port resolution helper reading `config.json` and environment variable overrides.
-- **`lib_cms_persona_writer.py`**: AI content generation pipeline interacting with Google Gemini models.
+- **Operating System**: Linux (Ubuntu, Debian, Termux on Android), macOS, or Windows (via WSL or Git Bash).
+- **Python Version**: Python 3.10 or higher (Python 3.14 fully tested and supported).
+- **Dependencies**:
+  - `Flask` (Lightweight web framework for service blueprints)
+  - `Pillow` (PIL image processing library for thumbnail generation and WebP conversion)
+  - `pytest` (Optional, required for executing automated test suites)
 
----
+### Installation & Workspace Bootstrap
 
-## Command-Line Management Toolkit (`src/cms-manage.py`)
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/boehnenelton/BEJSON_CMS.git
+   cd BEJSON_CMS
+   ```
 
-BEJSON CMS includes a headless command-line toolkit (`src/cms-manage.py`) enabling total administrative control without launching a Flask server.
+2. **Install Python Dependencies**:
+   ```bash
+   pip install flask pillow
+   ```
 
-### Available Command Categories
+3. **Verify Environment Setup**:
+
+![BEJSON Monolith Slide 4](images/The_BEJSON_Monolith_-_Slide_4.png)
+*Figure 4: Architectural & Monolith Overview — Slide 4*
+
+   Check the operational status of the live site manifest and storage directories using the headless CLI toolkit:
+   ```bash
+   python3 src/cms-manage.py status
+   ```
+
+### Service Ecosystem & Multi-Port Execution Map
+
+BEJSON_CMS operates as a micro-service ecosystem consisting of five dedicated web applications assigned to specific port allocations:
+
+| Service Module | Functional Component | Port | Default URL | Primary Responsibility |
+|---|---|---|---|---|
+| `BEJSON_CMS_Admin.py` | Admin Control Panel | `5001` | `http://localhost:5001` | Main administrative dashboard, site configuration, category CRUD, media gallery, app uploader, and publish trigger. |
+| `BEJSON_CMS_PageEditor.py` | V1 Page Editor | `5002` | `http://localhost:5002` | Standalone server-rendered page editor with visual form layout, HTML file uploader, Markdown conversion, and AI planning. |
+| `BEJSON_CMS_PageEditorV2.py` | V2 Page Editor | `5005` | `http://localhost:5005` | Modern API-driven page authoring environment with interactive context uploads, real-time media integration, and JSON APIs. |
+| `BEJSON_CMS_ProfileManager.py` | AI Persona Hub | `5003` | `http://localhost:5003` | Management suite for 25-field `AI_Profile` persona definitions shaping AI page generation. |
+| `BEJSON_CMS_Publisher.py` | Static Publisher | `5004` | `http://localhost:5004` | Static site build generator, rendering engine dispatcher, and deployment status monitor. |
+
+#### Service Launcher Methods
+
+- **Method A: Launch Main Admin Service**:
+  ```bash
+  python3 src/web/BEJSON_CMS_Admin.py
+  ```
+- **Method B: Universal Multi-Port Launcher**:
+  ```bash
+  python3 advanced_launcher.py
+  ```
+  Launches all five services concurrently in background threads with port verification and automatic browser opening.
+- **Method C: Termux Shell Script**:
+  ```bash
+  ./cms_launcher.sh
+  ```
+
+![BEJSON Monolith Slide 5](images/The_BEJSON_Monolith_-_Slide_5.png)
+*Figure 5: Architectural & Monolith Overview — Slide 5*
+
+- **Method D: PyDroid3 Android Launcher**:
+  ```bash
+  python3 pydroid_start.py
+  ```
+
+### Admin Web Control Panel (Port 5001)
+
+The Admin Control Panel (`BEJSON_CMS_Admin.py`) serves as the operational center. All admin routes are protected by HTTP Basic Authentication (Default password: `changeme`; configurable via the `CMS_PASSWORD` environment variable).
+
+- **System Dashboard**: Displays real-time counts across all database entities (Pages, Categories, Media Assets, Apps, Nav Links, Social Links, and Ad Units).
+- **Global Navigation Bar**: Features top-level navigation links connecting Content management, Media gallery, Interface settings, and System administration.
+- **Self-Healing Infrastructure**: Runs automatic self-heal routines (`_ensure_uncategorized_category()` and `_seed_default_brand_and_author()`) on startup, ensuring essential categories and default author profiles survive accidental database resets.
+
+### Content Management & Authoring Workflows
+
+Content in BEJSON_CMS is organized logically into categories, authored by specific display profiles, and rendered dynamically into static HTML.
+
+1. **Managing Categories**: Navigate to `/categories` in the Admin UI or run:
+   ```bash
+   python3 src/cms-manage.py category add "Technical Tutorials" --slug "tutorials"
+   ```
+2. **Managing Author Profiles**: Navigate to `/site/authors` or run:
+   ```bash
+   python3 src/cms-manage.py author add "Elton Boehnen" --bio "Founder & Lead Architect"
+   ```
+3. **Creating Pages**: Pages can be created via the Admin UI at `/pages/new` or via the CLI:
+   ```bash
+   python3 src/cms-manage.py page add "Getting Started with BEJSON" --category "tutorials" --author "Elton Boehnen"
+   ```
+
+### Standalone Page Editors (V1 & V2)
+
+
+![BEJSON Monolith Slide 6](images/The_BEJSON_Monolith_-_Slide_6.png)
+*Figure 6: Architectural & Monolith Overview — Slide 6*
+
+BEJSON_CMS includes two standalone page authoring applications designed for different editorial workflows:
+
+- **V1 Page Editor (`BEJSON_CMS_PageEditor.py`, Port 5002)**: Form-rendered editor supporting direct HTML code file uploads, Markdown file conversion, inline asset selection, and step-by-step AI outline planning.
+- **V2 Page Editor (`BEJSON_CMS_PageEditorV2.py`, Port 5005)**: API-driven single-page application built on JSON endpoints (`/api/*`). V2 provides real-time state synchronization, live category creation, inline media asset renaming, context document uploading, and granular task execution.
+
+Both page editors read and write the exact same two-part page persistence contract (`PageRecord` row in manifest + standalone 104db content file at `storage/mfdb/pages_db/<uuid>.json`) and are 100% cross-compatible.
+
+### AI Persona Hub & ProfileManager (Port 5003)
+
+The AI Persona Hub (`BEJSON_CMS_ProfileManager.py`) manages `AI_Profile` records. Each persona configuration controls 25 fields defining system instructions for AI page generation:
+
+- **Identity & Voice**: Name, Archetype, Core Mandate, Tone, Primary Domain, Expertise Level.
+- **Style & Formatting**: Code Parsing Languages, Writing Style, Formatting Rules, Structural Layout preferences.
+- **Generative Parameters**: Creativity Level, Hallucination Threshold, Context Window bounds.
+
+When creating content in V1 or V2, selecting an author persona injects its system prompt into `lib_cms_persona_writer.py` to guide AI generation while keeping the internal persona description decoupled from public author bios.
+
+### Media Asset Pipeline & Memory-Efficient Processing
+
+The Media Library (`BEJSON_CMS_Media.py`) handles all file uploads, external link media, and thumbnail generation:
+
+- **Asynchronous Upload Queue**: Uploaded files stream directly to disk without loading entirely into memory. An asynchronous serial background worker (`_asset_worker`) processes hashing, SHA-256 deduplication, mime detection, thumbnail generation, and database registration.
+- **Low Peak Memory Footprint**: Thumbnail generation uses Pillow's `draft()` mode for JPEG decoding and enforces header-only pixel count caps before decoding image data, eliminating out-of-memory crashes on mobile Android hardware.
+- **WebP Image Optimization Tool**: Automatically convert PNG media assets to WebP and update all internal page body references across the content database using the CLI:
+  ```bash
+  python3 src/cms-manage.py asset optimize
+  ```
+
+### Standalone App Bundle Packaging & Embedding
+
+BEJSON_CMS allows hosting full standalone web applications inside page layouts:
+
+
+![BEJSON Monolith Slide 7](images/The_BEJSON_Monolith_-_Slide_7.png)
+*Figure 7: Architectural & Monolith Overview — Slide 7*
+
+1. **Upload App Bundle**: Upload a ZIP archive containing your web app files (HTML/CSS/JS) via `/apps/new` or the CLI:
+   ```bash
+   python3 src/cms-manage.py app add "Data Calculator" --entry "index.html"
+   ```
+2. **ZIP Decompression Protection**: App bundles are extracted using `safe_extract_zip()`, enforcing a 300MB uncompressed size threshold checked directly from the ZIP central directory header.
+3. **Responsive Page Embed**: Standalone apps are automatically embedded into native CMS page containers via responsive `<iframe>` elements accessible at `/apps/<slug>/`.
+
+### HTML Batch Import & Conversion Pipeline
+
+Convert legacy HTML articles or documentation exports into native BEJSON pages seamlessly:
+
+1. **Upload HTML Files**: Submit single or batch `.html` files at `/import`.
+2. **Preview & Extract**: Inspect extracted page metadata (title, headings, cleaned HTML body).
+3. **Confirm & Ingest**: Process items into `PageRecord` database entries and write corresponding 104db content files to `storage/mfdb/pages_db/<uuid>.json`.
+
+### Headless CLI Toolkit (cms-manage.py)
+
+`src/cms-manage.py` provides complete management capabilities without needing a web browser or running Flask servers:
 
 ```bash
-python3 src/cms-manage.py <command> [options]
-```
-
-#### Status & Diagnostics
-```bash
-# Check database connection, mount status, and manifest state
+# Check database status and live manifest mounting
 python3 src/cms-manage.py status
-```
 
-#### Content & Page Management
-```bash
-# List all pages
+# Content Management Commands
+python3 src/cms-manage.py page add "New Page" --category "tutorials" --author "Elton Boehnen"
 python3 src/cms-manage.py page list
+python3 src/cms-manage.py page delete <page_uuid>
 
-# Add a new page
-python3 src/cms-manage.py page add "Getting Started with BEJSON" \
-    --category "BEJSON" \
-    --author "Elton Boehnen" \
-    --type "blog" \
-    --body "<h1>Hello World</h1><p>Welcome to BEJSON CMS.</p>" \
-    --featured-video "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+# Category & Author Commands
+python3 src/cms-manage.py category add "News" --slug "news"
+python3 src/cms-manage.py author add "Jane Doe" --bio "Technical Writer"
 
-# Update an existing page by UUID
-python3 src/cms-manage.py page update <PAGE_UUID> "Updated Title" \
-    --category "Tutorials" \
-    --body "<p>Updated body content.</p>"
 
-# Delete a page by UUID
-python3 src/cms-manage.py page delete <PAGE_UUID>
+![BEJSON Monolith Slide 8](images/The_BEJSON_Monolith_-_Slide_7(1).png)
+*Figure 8: Architectural & Monolith Overview — Slide 8*
 
-# Import an HTML file as a new page
-python3 src/cms-manage.py page import --html body.html \
-    --title "Imported Page" \
-    --category "BEJSON" \
-    --author "Elton Boehnen"
-```
+# Interface & Banner Ad Commands
+python3 src/cms-manage.py nav add "Documentation" --url "/page/tutorials/docs"
+python3 src/cms-manage.py social add "GitHub" --url "https://github.com/boehnenelton"
+python3 src/cms-manage.py ad add "Top Banner" --img "/assets/banner.png" --link "https://example.com" --zone "header"
 
-#### Categories & Authors
-```bash
-# Category operations
-python3 src/cms-manage.py category list
-python3 src/cms-manage.py category add "Tutorials" --slug "tutorials"
-python3 src/cms-manage.py category delete "Tutorials"
-
-# Author Profile operations
-python3 src/cms-manage.py author list
-python3 src/cms-manage.py author add "Elton Boehnen" \
-    --bio "System Developer" \
-    --avatar "/assets/elton.jpg"
-python3 src/cms-manage.py author delete "Elton Boehnen"
-```
-
-#### Media & External Links
-```bash
-# Media Asset operations
-python3 src/cms-manage.py asset list
+# Asset & App Commands
 python3 src/cms-manage.py asset add /path/to/image.png
-python3 src/cms-manage.py asset delete image.png
-
-# External Media & YouTube links
-python3 src/cms-manage.py asset list-external
-python3 src/cms-manage.py asset add-external "Intro Video" "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --type "video"
-python3 src/cms-manage.py asset delete-external <EXTMEDIA_UUID>
+python3 src/cms-manage.py app add "Interactive Widget" --entry "index.html"
 ```
 
-#### Site Configuration & Navigation
-```bash
-# Site Config management
-python3 src/cms-manage.py config list
-python3 src/cms-manage.py config set title "BEJSON Official Site"
-python3 src/cms-manage.py config set base_url "https://bejson.org"
-python3 src/cms-manage.py config delete title
+### Backup, Disaster Recovery & Live Factory Reset
 
-# Navigation links
-python3 src/cms-manage.py navlink list
-python3 src/cms-manage.py navlink add "Home" "/"
-python3 src/cms-manage.py navlink delete "Home"
-```
+- **Create Live Backup**:
+  ```bash
+  python3 src/cms-manage.py backup
+  ```
+  Generates a timestamped ZIP archive in `storage/exports/` containing `site_master`, `pages_db`, `assets`, and `standalone_apps`.
 
-#### Standalone Applications & Ads
-```bash
-# Standalone App management
-python3 src/cms-manage.py app list
-python3 src/cms-manage.py app add "Widget App" --desc "A custom widget" --entry "index.html"
-python3 src/cms-manage.py app delete <APP_UUID>
+- **Restore Live Data**:
+  ```bash
+  python3 src/cms-manage.py restore --file storage/exports/BEJSON_CMS_live_backup_20260912_230000.zip
+  ```
 
-# Advertisement Units
-python3 src/cms-manage.py ad list
-python3 src/cms-manage.py ad add "Sidebar Ad" "https://example.com/banner.jpg" "https://example.com" --zone "sidebar"
-python3 src/cms-manage.py ad delete <AD_UUID>
-```
+- **Live Factory Reset**:
+  ```bash
+  python3 src/cms-manage.py reset
+  ```
+  Executes a full wipe of live site data after enforcing a mandatory pre-reset safety backup, then self-heals default site configurations and required categories.
 
-#### Headless Foreground Service Launcher
-```bash
-# Launch individual service directly from CLI
-python3 src/cms-manage.py serve admin
-```
+### Static Site Publishing & Cloudflare Pages Deployment
+
+Publishing renders the live database into static web assets:
+
+![BEJSON Monolith Slide 9](images/The_BEJSON_Monolith_-_Slide_8.png)
+*Figure 9: Architectural & Monolith Overview — Slide 9*
+
+
+1. **Trigger Publish**: Click **Publish** in the Admin UI or issue an HTTP request:
+   ```bash
+   curl -X GET http://localhost:5001/publish
+   ```
+2. **Build Output**: Static HTML pages, category feeds, apps, media assets, and compiled CSS stylesheets are generated inside `storage/builds/`.
+3. **Deploy to Cloudflare Pages**:
+   ```bash
+   npx wrangler pages deploy storage/builds --project-name my-bejson-site
+   ```
 
 ---
 
-## Installation & Environment Setup
+## Technical Details
 
-### System Prerequisites
-- **Python**: Version 3.10 or higher.
-- **Dependencies**: Minimal footprint requiring only `flask` (and optionally `requests` for AI generation feature sets).
+### System Architecture Topology
 
-```bash
-# Installation on Linux / Android Termux / Pydroid 3
-pip install flask --break-system-packages
+```
++-----------------------------------------------------------------------------------+
+|                                   BEJSON_CMS                                      |
++-----------------------------------------------------------------------------------+
+|                                                                                   |
+|  +--------------------+  +--------------------+  +-----------------------------+  |
+|  |  Admin Blueprint   |  |   Content Cube     |  |         Media Cube          |  |
+|  | (BEJSON_CMS_Admin) |  | (BEJSON_CMS_Cont.) |  |     (BEJSON_CMS_Media)      |  |
+|  +---------+----------+  +---------+----------+  +--------------+--------------+  |
+|            |                       |                            |                 |
+|            +-----------------------+----------------------------+                 |
+|                                    |                                              |
+|                                    v                                              |
+|                    +-------------------------------+                              |
+|                    |     CMSCore Database API      |                              |
 
-# Optional: Install requests for AI features and pytest for test suite execution
-pip install requests pytest --break-system-packages
+![BEJSON Monolith Slide 10](images/The_BEJSON_Monolith_-_Slide_9.png)
+*Figure 10: Architectural & Monolith Overview — Slide 10*
+
+|                    | (lib_bejson_CMS_cms_core.py)  |                              |
+|                    +---------------+---------------+                              |
+|                                    |                                              |
+|                                    v                                              |
+|                    +-------------------------------+                              |
+|                    |      MFDB Engine Layer        |                              |
+|                    | (lib_bejson_Core_mfdb_core.py)|                              |
+|                    +---------------+---------------+                              |
+|                                    |                                              |
+|            +-----------------------+-----------------------+                      |
+|            |                                               |                      |
+|            v                                               v                      |
+|  +---------------------------+               +-----------------------------+      |
+|  |   Master Site Manifest    |               |    Page Content Database    |      |
+|  | (104a.mfdb.bejson)        |               |   (pages_db/<uuid>.json)    |      |
+|  +---------------------------+               +-----------------------------+      |
+|                                                                                   |
++-----------------------------------------------------------------------------------+
 ```
 
-### Environment Variables & Configuration
-
-Configuration settings can be defined in `config.json` at the project root or overridden using system environment variables:
-
-| Environment Variable | Default | Description |
-| :--- | :--- | :--- |
-| `CMS_PASSWORD` | `changeme` | Authentication password for all CMS administrative web apps. |
-| `CMS_SECRET_KEY` | *Random Generated* | Flask session signing key. Set fixed string in production. |
-| `CMS_ADMIN_PORT` | `5001` | Port allocated for `BEJSON_CMS_Admin.py`. |
-| `CMS_PUBLISHER_PORT` | `5002` | Port allocated for `BEJSON_CMS_Publisher.py`. |
-| `CMS_PAGEEDITOR_PORT` | `5003` | Port allocated for `BEJSON_CMS_PageEditor.py` (V1). |
-| `CMS_PAGEEDITORV2_PORT` | `5004` | Port allocated for `BEJSON_CMS_PageEditorV2.py` (V2). |
-| `CMS_PROFILES_PORT` | `5005` | Port allocated for `BEJSON_CMS_ProfileManager.py`. |
-
----
-
-## Service Management & Process Launchers
-
-BEJSON CMS provides three distinct service launching mechanisms tailored to different operating environments:
-
-### 1. Pydroid 3 / Mobile Quick Start (`pydroid_start.py`)
-Optimized for one-tap execution in mobile Python environments on Android devices:
-```bash
-python3 pydroid_start.py
-```
-Launches the main Admin Suite on `http://127.0.0.1:5001`.
-
-### 2. Single-Service Isolated Launcher (`cms_launcher.sh`)
-Designed for low-memory Android Termux environments. Automatically terminates any previously running CMS process before starting the selected target service:
-```bash
-./cms_launcher.sh admin       # BEJSON_CMS_Admin.py          :5001
-./cms_launcher.sh publisher   # BEJSON_CMS_Publisher.py      :5002
-./cms_launcher.sh editor      # BEJSON_CMS_PageEditor.py     :5003
-./cms_launcher.sh editorv2    # BEJSON_CMS_PageEditorV2.py   :5004
-./cms_launcher.sh profiles    # BEJSON_CMS_ProfileManager.py :5005
-```
-
-### 3. Advanced Multi-Service Supervisor (`advanced_launcher.py`)
-A process supervisor for desktop/server platforms capable of running and monitoring all web services concurrently:
-```bash
-python3 advanced_launcher.py
-```
-
----
-
-## Directory Structure & Complete File Map
+### Directory Structure & Relative Path Architecture
 
 ```
 BEJSON_CMS/
-├── .bejson_project.json             # Project registration & changelog history tracker
-├── .gitignore                        # Git exclusion rules
-├── AGENTS.md                        # Developer AI agent policy & operating guidelines
-├── CHANGELOG.md                     # Comprehensive revision history log
-├── LICENSE                          # PolyForm Noncommercial 1.0.0 license terms
-├── README.md                        # Master project documentation (this file)
-├── SECURITY.md                      # Security model & vulnerability reporting policy
-├── advanced_launcher.py             # Multi-service process supervisor
-├── cms_launcher.sh                  # Single-service process isolation shell script
-├── generate_taxonomy_report.py      # Database taxonomy audit script
-├── pydroid_start.py                 # Pydroid 3 Android start script
-│
-├── docs/                            # Technical Documentation Set
-│   ├── architecture.md              # System architecture deep-dive
-│   ├── cleanup-log.md               # Maintenance & code cleanup history
-│   ├── taxonomy_remediation_plan.md # Authoritative schema & taxonomy checklist
-│   └── usage-guide.md               # Detailed end-user manual
-│
-├── images/                          # Brand assets & screenshots
-├── resources/                       # Static System Resources & Skeletons
-│   ├── default_avatar.png           # Default author avatar image
-│   ├── default_brand.png            # Default site logo image
-│   ├── profiles/                    # AI System Persona BEJSON profiles
-│   ├── stylesheets/                 # Static Publisher CSS themes
-│   │   ├── dark.css                 # Dark theme stylesheet
-│   │   └── light.css                # Light theme stylesheet
-│   └── templates/                   # HTML skeleton templates
-│       ├── app_card_skeleton.html   # App card UI template
-│       ├── article_skeleton.html    # Article post layout template
-│       ├── category_skeleton.html   # Category feed layout template
-│       └── home_skeleton.html       # Static site homepage template
-│
-├── src/                             # Application Source Code Root
-│   ├── cms-manage.py                # Unified Headless CLI Toolkit
-│   ├── lib/                         # Core Libraries Suite
-│   │   ├── lib_bejson_CMS_cms_config.py # CMS settings & defaults
-│   │   ├── lib_bejson_CMS_cms_core.py   # High-level CMSCore database wrapper
-│   │   ├── lib_bejson_CMS_cms_mfdb.py   # MFDB database helper routines
-│   │   ├── lib_bejson_CMS_cms_ports.py  # Port allocation & resolution driver
-│   │   ├── lib_bejson_Core_bejson_core.py # Low-level BEJSON matrix driver
-│   │   ├── lib_bejson_Core_bejson_env.py  # Path & environment resolver
-│   │   ├── lib_bejson_Core_bejson_errors.py # System error definitions
-│   │   ├── lib_bejson_Core_bejson_path_guard.py # Boundary & traversal protection
-│   │   ├── lib_bejson_Core_bejson_validator.py # Structural matrix validator
-│   │   ├── lib_bejson_Core_mfdb_core.py   # Master MFDBCore manifest driver
-│   │   ├── lib_bejson_Core_mfdb_validator.py # MFDB dataset validator
-│   │   └── lib_cms_persona_writer.py    # Gemini AI generation driver
-│   │
-│   └── web/                         # Flask Web Applications
-│       ├── BEJSON_CMS_Admin.py      # Main Admin Suite launcher (:5001)
-│       ├── BEJSON_CMS_Content.py    # Content Blueprint (Pages, Apps, Authors)
-│       ├── BEJSON_CMS_Interface.py  # Interface Blueprint (Nav, Ads, Config)
-│       ├── BEJSON_CMS_Media.py      # Media Blueprint (Gallery, Links, Uploads)
-│       ├── BEJSON_CMS_PageEditor.py # V1 Classic Code Page Editor (:5003)
-│       ├── BEJSON_CMS_PageEditorV2.py # V2 Modern API-Driven Page Editor (:5004)
-│       ├── BEJSON_CMS_ProfileManager.py # AI Persona Profile Hub (:5005)
-│       ├── BEJSON_CMS_Publisher.py  # Static Site Exporter & Publisher (:5002)
-│       ├── BEJSON_CMS_Renderers.py  # Polymorphic Page Strategy Renderers
-│       ├── BEJSON_CMS_Shared.py     # Shared UI shells, Auth & Helpers
-│       └── BEJSON_CMS_System.py     # System Blueprint (DB Init, Reset, Seed)
-│
-├── storage/                         # Persistent Database & Storage Directory
-│   ├── builds/                      # Output directory for generated static site
-│   ├── exports/                     # Database export archives
-│   ├── logs/                        # System runtime logs
-│   ├── mfdb/                        # Database Manifest & Entity Storage
-│   │   ├── assets/                  # Uploaded physical media files
-│   │   │   └── thumbs/              # Generated thumbnail images
-│   │   ├── pages_db/                # BEJSON 104db page content files
-│   │   ├── site_master/             # Master Manifest & Data Tables
-│   │   │   ├── 104a.mfdb.bejson     # Core Database Manifest File
-│   │   │   └── data/                # Entity Table BEJSON Files
-│   │   └── standalone_apps/         # Extracted standalone HTML/JS web apps
-│   └── tmp/                         # Staging & temporary operational files
-│
-└── tests/                           # System Test Suite
-    ├── README.md                    # Test suite documentation
-    ├── test_lib_bejson_Core_bejson_path_guard.py # Path guard test cases
-    └── test_lib_bejson_Core_mfdb_validator.py   # MFDB validation test cases
+├── src/
+│   ├── cms-manage.py                 # Unified Headless Management CLI Toolkit
+│   ├── web/
+│   │   ├── BEJSON_CMS_Admin.py       # Admin Flask Entry Point & Auth Blueprint Registrar
+│   │   ├── BEJSON_CMS_Shared.py      # Shared Constants, Path Resolution & Renderer Helpers
+│   │   ├── BEJSON_CMS_System.py      # System Cube (Dashboard, Config, Factory Reset)
+│   │   ├── BEJSON_CMS_Content.py     # Content Cube (Pages, Categories, Apps, Authors)
+│   │   ├── BEJSON_CMS_Media.py       # Media Cube (Upload Gallery, Serial Asset Worker)
+
+![BEJSON Monolith Slide 11](images/The_BEJSON_Monolith_-_Slide_10.png)
+*Figure 11: Architectural & Monolith Overview — Slide 11*
+
+│   │   ├── BEJSON_CMS_Interface.py   # Interface Cube (Nav, Social, Ads, Publish Trigger)
+│   │   ├── BEJSON_CMS_PageEditor.py  # V1 Standalone Form Page Editor
+│   │   ├── BEJSON_CMS_PageEditorV2.py# V2 Standalone API-Driven Page Editor
+│   │   ├── BEJSON_CMS_ProfileManager.py # AI Persona Hub (AI_Profile Management)
+│   │   ├── BEJSON_CMS_Publisher.py   # Polymorphic Static Site Publishing Engine
+│   │   └── BEJSON_CMS_Renderers.py   # Polymorphic Page Body Rendering Strategies
+│   └── lib/
+│       ├── lib_bejson_CMS_cms_core.py # CMSCore Unified Application Database API
+│       ├── lib_bejson_CMS_taxonomy.py # Canonical Field Prefixes & Schema Definitions
+│       ├── lib_bejson_Core_bejson_core.py # Core BEJSON Parser & Field Map Cache Engine
+│       ├── lib_bejson_Core_mfdb_core.py   # MFDB Container Engine, PID Locks & Atomic IO
+│       ├── lib_bejson_Core_bejson_path_guard.py # Traversal Protection & Safe ZIP Extractor
+│       └── lib_cms_persona_writer.py # AI Persona System Prompt Assembly Engine
+├── storage/
+│   ├── mfdb/
+│   │   ├── site_master/              # Site Master Manifest & Entity Flat Files
+│   │   │   ├── 104a.mfdb.bejson      # Master Database Container Manifest
+│   │   │   └── data/                 # Individual Entity Table Files (.bejson)
+│   │   ├── pages_db/                 # Standalone 104db Page Content JSON Files
+│   │   ├── assets/                   # Stored Media Files & Generated Thumbnails
+│   │   └── standalone_apps/          # Extracted Web Application Bundle Directories
+│   ├── builds/                       # Compiled Static Site Artifact Output Directory
+│   └── exports/                      # System Safety Backup ZIP Archives
+├── resources/
+│   ├── templates/                    # Jinja2 HTML Skeleton Templates
+│   └── styles/                       # CSS Style Declarations (dark.css & light.css)
+├── images/                           # Visual Documentation Diagrams & Architecture Slides
+├── tests/                            # Pytest Automated Test Suite Directory
+├── .bejson_project.json              # Canonical Project Tracker & Release Metadata
+├── cms_launcher.sh                   # Termux Multi-Port Background Launcher
+└── advanced_launcher.py              # Universal Python Multi-Port Launcher
 ```
 
----
+![BEJSON Monolith Slide 12](images/The_BEJSON_Monolith_-_Slide_11.png)
+*Figure 12: Architectural & Monolith Overview — Slide 12*
 
-## Static Publishing & Deployment Workflow
 
-BEJSON CMS decouples content management from website rendering. The static publishing pipeline transforms raw BEJSON database records into optimized, production-ready static web pages.
+### BEJSON 104a & 104db Data Standards
 
-### Publishing Lifecycle
+BEJSON (Boehnen Elton JSON) is a structured flat-file specification designed for deterministic performance and zero positional index ambiguity.
 
-1. **Content Compilation**: The publisher queries `PageRecord`, `Category`, `AuthorProfile`, `MediaAsset`, `ExternalMedia`, `AdUnit`, `NavLink`, `SiteConfig`, and `SocialLink` tables.
-2. **Strategy Rendering**: Each page record is evaluated by `BEJSON_CMS_Renderers.py` based on its `page_type`:
-   - **Standard Pages**: Render raw HTML content with optional featured video headers.
-   - **Video Pages**: Wrap embedded YouTube links in responsive HTML5 containers.
-   - **Document Pages**: Construct embedded inline PDF viewports with fallback download buttons.
-3. **Template Tag Replacement**: Global tags (`{{ site_title }}`, `{{ nav_links }}`, `{{ theme_css }}`, `{{ ad_zones }}`) are substituted into HTML skeleton structures (`resources/templates/`).
-4. **Feed & Sitemap Generation**: Category feeds, standalone app indexes, and an XML `sitemap.xml` are built automatically.
-5. **Static Artifact Output**: Completed static files are written to `storage/builds/`.
+- **BEJSON 104a (Manifest & Entity Master Tables)**: Utilizes top-level structural declarations containing metadata headers (`Format`, `Format_Version`, `Format_Creator`, `Project_Name`), entity field definitions (`Fields`), and ordered values (`Values`).
+  ```json
+  {
+    "Format": "BEJSON",
+    "Format_Version": "104a",
+    "Format_Creator": "Elton Boehnen",
+    "Project_Name": "BEJSON_CMS",
+    "Records_Type": ["Category"],
+    "Fields": [
+      {"name": "cat_uuid", "type": "string"},
+      {"name": "cat_name", "type": "string"},
+      {"name": "cat_slug", "type": "string"}
+    ],
+    "Values": [
+      ["c1a2b3c4-0000-4000-8000-000000000001", "Tutorials", "tutorials"],
+      ["c1a2b3c4-0000-4000-8000-000000000002", "Uncategorized", "uncategorized"]
+    ]
+  }
+  ```
 
-### Triggering a Publish Build
+- **BEJSON 104db (Page Content Storage)**: Stores page document content in multi-record format:
+  ```json
+  {
+    "Format": "BEJSON",
+    "Format_Version": "104db",
+    "Format_Creator": "Elton Boehnen",
+    "Records_Type": ["PageMeta", "Content"],
 
-#### Via Admin UI
-Navigate to `Interface > Publish` (`http://localhost:5001/publish`) and click **Build Site**.
+![BEJSON Monolith Slide 13](images/The_BEJSON_Monolith_-_Slide_12.png)
+*Figure 13: Architectural & Monolith Overview — Slide 13*
 
-#### Via Direct HTTP API
+    "Fields": [
+      {"name": "Record_Type_Parent", "type": "string"},
+      {"name": "meta_title", "type": "string"},
+      {"name": "html_body", "type": "string"},
+      {"name": "markdown_body", "type": "string"},
+      {"name": "source_code", "type": "string"}
+    ],
+    "Values": [
+      ["PageMeta", "Getting Started", null, null, null],
+      ["Content", null, "<h2>Welcome</h2><p>Article body text...</p>", "", ""]
+    ]
+  }
+  ```
+
+### MFDB Multi-File Database Engine Specifications
+
+The Multi-File Database (MFDB) engine distributes data storage across atomic JSON container files managed through a single master manifest (`104a.mfdb.bejson`).
+
+- **Field Map Cache Mandate**: Positional indexing (e.g., `row[2]`) is strictly prohibited in application logic. All record operations call `BEJSONCore.bejson_core_get_field_map(doc)`, deriving an O(1) attribute lookup dictionary.
+- **Atomic Operations**: All file mutations write to temporary `.tmp` buffers before issuing `fsync()` and performing atomic filesystem replacements (`os.replace()`).
+
+### Canonical Naming Taxonomy & Entity Schemas
+
+Every database entity adheres to a strict canonical prefix convention defined in `src/lib/lib_bejson_CMS_taxonomy.py`:
+
+| Entity Name | Primary Key Column | Required Field Prefixes | Schema Field List |
+|---|---|---|---|
+| `PageRecord` | `page_uuid` | `page_` | `page_uuid`, `page_title`, `page_slug`, `page_cat_name`, `page_type`, `page_created_at`, `page_external_url`, `page_author_name`, `page_featured_img`, `page_template_key`, `page_featured_video_url` |
+| `AuthorProfile` | `author_display_name` | `author_` | `author_display_name`, `author_bio`, `author_avatar_url` |
+| `MediaAsset` | `asset_filename` | `asset_` | `asset_filename`, `asset_original_name`, `asset_file_hash`, `asset_file_size`, `asset_mime_type`, `asset_uploaded_at` |
+| `ExternalMedia` | `extmedia_uuid` | `extmedia_` | `extmedia_uuid`, `extmedia_name`, `extmedia_type`, `extmedia_url`, `extmedia_created_at` |
+| `Category` | `cat_slug` | `cat_` | `cat_name`, `cat_slug` |
+
+![BEJSON Monolith Slide 14](images/The_BEJSON_Monolith_-_Slide_12(1).png)
+*Figure 14: Architectural & Monolith Overview — Slide 14*
+
+| `AdUnit` | `ad_uuid` | `ad_` | `ad_uuid`, `ad_name`, `ad_banner_url`, `ad_target_url`, `ad_zone`, `ad_active` |
+| `NavLink` | `nav_display_label` | `nav_` | `nav_display_label`, `nav_target_url` |
+| `SiteConfig` | `sys_key` | `sys_` | `sys_key`, `sys_value` |
+| `SocialLink` | `social_platform_name` | `social_` | `social_platform_name`, `social_target_url` |
+| `StandaloneApp` | `app_uuid` | `app_` | `app_uuid`, `app_name`, `app_slug`, `app_description`, `app_entry_file`, `app_featured_img` |
+| `AI_Profile` | `persona_uuid` | `persona_` | 25-field persona schema controlling identity, expertise, code parsing, and AI generative parameters. |
+
+### Data Flow & Core Persistence Lifecycle
+
+```
+   [ Admin Interface / CLI ]
+               │
+               ▼
+   [ CMSCore Unified API ] ──(Field Map Lookup)──► [ O(1) Field Map Cache ]
+               │
+               ▼
+   [ MFDB Engine Layer ]
+               │
+   ┌───────────┴───────────┐
+   ▼                       ▼
+[ Master Manifest ]    [ Entity Tables ] ──(Atomic Write)──► [ .tmp Buffer ]
+(104a.mfdb.bejson)      (*.bejson)                                │
+                                                                  ▼
+                                                          [ os.replace() ]
+```
+
+### System Security, Boundary Controls & Input Escaping
+
+1. **Path Traversal Guards (`bejson_safe_join()`)**: Prevents relative path manipulation (`../`) by normalizing target paths and verifying parent containment via `Path.is_relative_to()`. Protects against sibling prefix bypasses (e.g., matching `/storage/build_evil` against `/storage/build`).
+2. **ZIP Decompression Thresholds (`safe_extract_zip()`)**: Mitigates ZIP bomb attacks by reading uncompressed file sizes directly from the ZIP central directory header prior to extraction, rejecting archives exceeding 300MB.
+3. **Basic Authentication**: Global `before_request` auth hook enforces HTTP Basic Authentication across all administrative blueprints.
+4. **HTML Escaping & Sanitization**: Dynamic user values in templates are sanitized using `html.escape()` and safe `data-*` attribute bindings.
+
+![BEJSON Monolith Slide 15](images/The_BEJSON_Monolith_-_Slide_13.png)
+*Figure 15: Architectural & Monolith Overview — Slide 15*
+
+
+### Asynchronous Serial Media Worker Architecture
+
+To prevent high-resolution image uploads from causing memory exhaustion on mobile hardware:
+
+- **Single Serial Worker (`_asset_worker`)**: Upload requests stream raw bytes directly to disk and enqueue a light job reference. A single background worker processes jobs sequentially, calling `gc.collect()` after each operation.
+- **Pillow Draft Decoding**: JPEG thumbnail generation leverages Pillow's low-overhead `draft()` mode to downsample image data during stream decoding.
+
+### Polymorphic Page Renderers & Build Engine
+
+`BEJSON_CMS_Renderers.py` dispatches page body rendering using specialized strategy classes:
+
+- `StandardPageRenderer`: Renders rich text articles, headings, embedded media, and author bio cards.
+- `VideoPageRenderer`: Extracts video embeds (YouTube, Vimeo) and renders high-priority video player containers.
+- `DocumentPageRenderer`: Formats long-form technical documentation with automatic table-of-contents sidebar navigation.
+
+### Automated Verification & Pytest Suite Specifications
+
+BEJSON_CMS includes 39 automated tests verifying path isolation, authentication hooks, and MFDB database integrity:
+
 ```bash
-curl -X POST http://localhost:5002/publish
+cd tests && python3 -m pytest -v
 ```
 
-#### Deploying to Cloudflare Pages
-The Publisher includes direct support for exporting static builds to Cloudflare Pages or traditional web hosts:
-```bash
-# Output files in storage/builds/ are zero-dependency static HTML/CSS/JS files
-# Upload storage/builds/ directly via wrangler or Cloudflare dashboard
-npx wrangler pages deploy storage/builds --project-name my-bejson-site
-```
+- `test_bejson_cms_admin_auth.py`: Verifies route protection and challenge headers.
+- `test_bejson_cms_app_uuid_validation.py`: Tests path traversal prevention on app bundles.
+- `test_lib_bejson_CMS_cms_core.py`: Validates CRUD operations and Field Map Cache updates.
+- `test_lib_bejson_Core_bejson_path_guard.py`: Enforces path safety boundaries.
+- `test_lib_bejson_Core_mfdb_validator.py`: Audits manifest syntax and entity conformance.
 
 ---
 
-## System Security & Integrity Architecture
+## Summary
 
-### 1. Path Traversal Boundary Controls
-All file path operations utilize `bejson_safe_join()` (`src/lib/lib_bejson_Core_bejson_path_guard.py`). Paths are resolved to absolute representations and verified against boundary roots using `Path.is_relative_to()`. This eliminates path traversal (`../`) and sibling-directory prefix bypass vulnerabilities (`/storage/build_evil/` matching `/storage/build/`).
+### Architectural Takeaways & Engineering Design Summary
 
-### 2. File Concurrency & Process Synchronization
-Multi-process database access is safeguarded by `ResilientPIDLock` inside `CMSCore`. Atomic JSON writes follow a write-to-temporary-file and replace pattern (`os.replace(tmp_file, target_file)`), preventing database corruption in the event of unexpected process termination or power loss.
+BEJSON_CMS proves that high-performance, resilient, and rich content management platforms can be engineered entirely without heavy database daemons or external web servers. By pairing flat-file BEJSON 104a formats with O(1) Field Map Caching, atomic filesystem guarantees, and modular Flask micro-services, BEJSON_CMS provides a rock-solid publishing engine suitable for mobile Android deployments, desktop environments, and edge publishing.
 
-### 3. Basic Authentication
-All Flask web applications enforce HTTP Basic Authentication (`CMS_PASSWORD`). Unauthenticated requests are rejected with `401 Unauthorized`.
+Key takeaways include:
 
-### 4. HTML Input Escaping & Context Safety
-Dynamic values rendered within HTML templates are sanitized using `html.escape()`. JavaScript attributes utilize `data-*` attribute binding rather than raw string interpolation to prevent script injection vulnerabilities.
+- **Complete Data Autonomy**: Local flat-file storage eliminates third-party database vendor lock-in.
+- **Zero-Dependency Static Exports**: Output files in `storage/builds/` can be deployed anywhere instantly.
+- **Extreme Hardware Efficiency**: Low peak memory footprints enable seamless execution on mobile Android devices.
+- **Robust Security Architecture**: Path guarding, atomic file IO, and ZIP validation prevent system vulnerabilities.
 
----
+### Visual Identity, Branding & CSS Token System
 
-## Testing & Quality Assurance
+The visual design system of BEJSON_CMS enforces a high-contrast, modern aesthetic:
 
-BEJSON CMS includes an automated test suite verifying core library safety, path guard boundaries, and dataset validation logic.
+- **Color Palette**:
+  - **Background**: Deep Black (`#000000`) and Crisp White (`#FFFFFF`)
+  - **Text**: Crisp White (`#FFFFFF`) and Deep Black (`#000000`)
+  - **Active / Accent**: Vibrant Red (`#DE2627` / `#DE2626`)
+- **Typography & Layout**: Modern REM font scaling, responsive container padding, and clean grid alignment across dark and light themes (`resources/styles/dark.css` and `resources/styles/light.css`).
 
-### Executing the Test Suite
+### Author Credit & Legal Governance
 
-```bash
-# Run tests using pytest (recommended)
-python3 -m pytest
-
-# Alternatively, execute unittest discovery
-python3 -m unittest discover -s tests -p "test_*.py"
-```
-
-### Verified Test Coverage
-- **Path Guard Test Suite** (`tests/test_lib_bejson_Core_bejson_path_guard.py`): Validates traversal prevention, safe ZIP extraction, and sibling directory isolation.
-- **MFDB Validator Test Suite** (`tests/test_lib_bejson_Core_mfdb_validator.py`): Validates manifest integrity, scalar field declarations, and dataset consistency.
-
----
-
-## Author & Attribution
-
-**BEJSON CMS** is designed, developed, and maintained by **Elton Boehnen**.
+BEJSON_CMS is designed, developed, and maintained by **Elton Boehnen**.
 
 - **Author**: Elton Boehnen
-- **Email Contact**: [boehnenelton2024@gmail.com](mailto:boehnenelton2024@gmail.com)
+- **Email Contact**: boehnenelton2024@gmail.com
 - **Personal Webpage**: [boehnenelton2024.pages.dev](https://boehnenelton2024.pages.dev)
 - **GitHub Repository**: [github.com/boehnenelton](https://github.com/boehnenelton)
 
+### License Information
+
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**.
+
 ---
 
-## License Information
-
-This project is licensed under the **PolyForm Noncommercial 1.0.0 License**.
-
-```
-PolyForm Noncommercial License 1.0.0
-
-1. Grant: You may exercise the licensed rights for noncommercial purposes only.
-2. Noncommercial Purpose: Noncommercial purpose means a purpose that is not
-   intended for or directed toward commercial advantage or monetary compensation.
-3. Commercial Use: For commercial licensing inquiries or agreements, please
-   contact Elton Boehnen at boehnenelton2024@gmail.com.
-```
-
-See the full `LICENSE` file in the project root for complete license text and legal terms.
+![BEJSON Monolith Slide 16](images/The_BEJSON_Monolith_-_Slide_13(1).png)
+*Figure 16: Architectural & Monolith Overview — Slide 16*

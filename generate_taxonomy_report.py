@@ -10,6 +10,7 @@ Description: Comprehensive 700+ line technical PDF generator for BEJSON CMS Nami
 
 import os
 import sys
+from pathlib import Path
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import (
@@ -56,7 +57,9 @@ class NumberedCanvas(canvas.Canvas):
         
         self.restoreState()
 
-def create_pdf(filename="/storage/emulated/0/!CMS_AGY/BEJSON_CMS-V18_28-PKG81/CMS_Naming_Taxonomy_Architecture_Report.pdf"):
+def create_pdf(filename=None):
+    if filename is None:
+        filename = str(Path(__file__).resolve().parent / "CMS_Naming_Taxonomy_Architecture_Report.pdf")
     doc = SimpleDocTemplate(
         filename,
         pagesize=letter,

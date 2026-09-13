@@ -4,6 +4,119 @@ Full, unabridged change history (every verification step, every file touched)
 lives in `.bejson_project.json` at the project root — this file is a
 readable summary. Newest at top, oldest at bottom.
 
+## pkg133 — Full audit remediation (external report against pkg132)
+
+All HIGH and MEDIUM findings from the submitted audit fixed and verified;
+LOW findings left as-is per the audit's own no-action/pending-decision
+framing.
+
+- **H-1** (manifest drift): `AI_Profile`'s manifest `primary_key` was still
+  `"Name"` after the pkg132 field rename — the app code itself already
+  declared `persona_name` correctly, only the manifest's live row was stale.
+  One-cell fix in `104a.mfdb.bejson`.
+- **H-2** (XSS, missed by 2 prior fix passes): two `copyAssetPath()` inline
+  `onclick` sites in the Media Library (external-links table, YouTube cards)
+  were still vulnerable to the same escaped-quote breakout bug already fixed
+  elsewhere at pkg123/pkg124 — converted to `data-url` + the existing
+  delegated click handler.
+- **H-3** (stored XSS via SVG): removed `.svg` from the allowed upload
+  extensions — no sanitizer exists, and asset serving does zero content
+  inspection.
+- **M-1 through M-5**: hardened two `KeyError`-risk direct dict indices in
+  the Publisher to `.get()`, made an app-feed mapping's category exclusion
+  explicit, resynced the embedded stylesheet fallback to byte-match the
+  real shipped CSS, added `AI_Profile` to the migration tool's file map
+  (already present in the audit tool's), and removed a dead duplicate
+  `SiteConfig` key.
+
+Verified via import smoke-tests on every touched module, a byte-diff
+confirming the resynced CSS fallback matches the shipped files exactly,
+and the full existing 39-case pytest suite (39/39, unchanged).
+
+## pkg132 — AI_Profile schema migration: 25 fields renamed to match project taxonomy
+
+`AI_Profile` was the one entity in this project still using PascalCase
+"CrammedFieldNames" (`Name`, `SystemInstruction`, `EmotionalExpression_Enabled`...)
+— deliberately, per a prior decision to stay compatible with an external
+tool, `BEProfiler.py`. Confirmed with Elton that compatibility no longer
+matters, then renamed all 25 fields to `persona_`-prefixed snake_case,
+matching every other entity in this project.
+
+- Every real field reference updated across `System.py` (both schema
+  definitions), `BEJSON_CMS_ProfileManager.py` (found 3 references an
+  initial pass missed due to template whitespace), `BEJSON_CMS_PageEditorV2.py`
+  (3, not 2), and `lib_cms_persona_writer.py` (the actual prompt-assembly
+  logic — the highest-stakes part of this migration).
+- Live data migrated directly (0 rows existed, so purely a Fields-array
+  rename, nothing to transform).
+- `AI_Profile` added to the taxonomy registry and the audit tool's entity
+  list — previously explicitly excluded as "out of scope."
+- Verified with a full real create → edit → delete cycle through
+  ProfileManager, plus direct testing of the persona-writer's prompt
+  assembly against real (test) data.
+
+## pkg131 — P1 test coverage + P2 items: last of the two-report audit's findings
+
+- **P1**: pytest suite grew from 21 to 39 tests. New coverage: full
+  `CMSCore` CRUD round-trip, the Admin app's global auth hook (tested
+  across every registered blueprint, not just `/`), and a permanent
+  regression test for the `app_delete()` incident earlier this session —
+  proves the exact attack that once wiped real data now fails safely,
+  without over-rejecting legitimate requests.
+- **P2**: investigated both remaining items. The legacy-file warning
+  mechanism is staying — it's not a packaging bug to fix, it's a real
+  runtime safety net for something no packaging change can prevent (a new
+  ZIP extracted on top of an old project directory on your own device).
+  The Gemini key manager's stderr noise was real — fixed by capturing
+  subprocess output instead of letting it leak to the console, while
+  still surfacing it in the JSON error for genuine failures.
+
+This closes out every item from both audit reports delivered this
+session — several turned out to need real investigation rather than
+blind fixes, and a few (ISSUES.txt, the "zombie" CLI commands, this
+P0 factory-reset concern) turned out to already be resolved or never
+true, matching a pattern that held throughout this whole remediation
+pass: verify first, always.
+
+## pkg130 — Both P0 audit items: stale claims, but real findings while checking
+
+Neither of the first audit report's P0 items held up against real code —
+same pattern as several other findings this session that turned out to
+already be fixed or never actually true.
+
+- **Factory reset**: the cited `ISSUES.txt` doesn't exist anymore (deleted
+  at pkg120 after its real root cause was fixed). Verified the underlying
+  concern live anyway — a real reset test with real non-default data
+  confirmed everything genuinely gets wiped. Found a real gap while
+  checking: `MediaAsset`/`ExternalMedia` only existed in the migration
+  path, not in the fresh-install bootstrap itself. Fixed and verified
+  with an isolated test.
+- **"Zombie" CLI commands**: both `page import --app` and `asset
+  optimize` are already fully implemented, not broken placeholders.
+  Found a real adjacent gap instead: `page import`'s own `add_record`
+  calls were missing two fields already fixed everywhere else. Fixed.
+
+## pkg129 — Remaining MEDIUM/LOW items from the two-report audit
+
+All verified against real code first; several turned out larger than
+reported (L-6 had 2 broken sites not 1, L-8 had 6 dead calls not 4, H-1
+last round had 3 sites not 2 — checking rather than trusting report counts
+keeps paying off).
+
+- **M-2, M-3, M-5, L-7**: CLI page-type default fixed; duplicating a page
+  no longer drops its featured video; import-flow hidden inputs and the
+  category dropdown now properly escaped.
+- **L-1, L-2**: all 4 page-creation paths (CLI, New Page, external Link,
+  HTML import) now explicitly write the same complete field set.
+- **L-3, L-4, L-5**: three more hardcoded stale values fixed (a launcher
+  port, a dev-only PDF path, an editor footer) — all now resolve for
+  real instead of being frozen at whatever they were when first written.
+- **L-6**: 2 unescaped `alt` attributes in Publisher — verified with a
+  real crafted page title through a real build, checking the actual
+  generated HTML on disk.
+- **L-8**: 6 dead no-op `db.commit()` calls removed after confirming
+  `commit()` is a documented no-op in `CMSCore`.
+
 ## pkg128 — Two audit reports: real security fixes, plus a data-loss incident during testing
 
 **Incident, disclosed in full:** while verifying an audit finding, a test

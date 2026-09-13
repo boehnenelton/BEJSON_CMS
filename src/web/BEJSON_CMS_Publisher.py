@@ -1,8 +1,27 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_Publisher
-SCRIPT_VERSION: 16.4
-RELATIONAL_ID:  b386633b-f4ea-4910-9f37-aa2f7acc7ae6
+SCRIPT_VERSION: 16.5
+RELATIONAL_ID:  93237dad-1bb2-42a1-887e-46aaea824b03
 AUTHOR:         Elton Boehnen
+CHANGE (2026-09-12): PKG133 -- external audit remediation (M-1, M-2, M-3).
+M-1: _generate_related_block()'s s['page_slug'] and _generate_card_html()'s
+item['page_title'] were direct dict indices (every other field access in
+both already used .get()) -- a None/missing slug or title on a corrupted
+row would KeyError and abort the entire publish; switched both to .get()
+with safe fallbacks. M-2: the app-feed-item mapping in _execute() now
+explicitly sets "page_cat_name": None (was omitted) so a future related-
+content bug where a None-category real page accidentally matches an app
+can't slip in unnoticed -- the intent is visible now, not an accidental
+side effect of a missing key. M-3: _LIGHT_ROOT/_DARK_ROOT/_CSS_SHARED (a
+hand-assembled fallback that had drifted from what's actually shipped:
+missing the html{font-size:87%} scale, the .article-body h2 accent
+border, link/bold red coloring, and the card/grid/lightbox/mobile-menu
+rules) replaced with _LIGHT_DEFAULT/_DARK_DEFAULT, byte-for-byte copies of
+resources/styles/light.css and dark.css as of pkg132 (verified via direct
+diff). _write_default_stylesheets() only writes on first launch or if a
+shipped file is later deleted, so this drift was invisible until that
+fallback path actually triggered -- keep these in sync if the shipped
+CSS files are ever edited directly.
 CHANGE (2026-08-05): Variable naming remediation pass (Part 2/Part 3 items
 13,14,27,31,34,35,36,37,43,44,45) - renamed generic single/short-letter
 locals (out, css, env, apps, cats, body, link, text, path, unit, line, cmd)
@@ -57,6 +76,7 @@ RUNS ON: http://localhost:5001
 """
 
 import os
+import html as _html_escape
 import re
 import json
 import random
@@ -422,69 +442,236 @@ class SkeletonBuilder:
 # Users copy and customise these to build their own themes.
 # ==============================================================================
 
-_LIGHT_ROOT = """\
+# NOTE (pkg133, audit M-3): these are now byte-for-byte copies of
+# resources/styles/light.css and resources/styles/dark.css as of pkg132,
+# embedded so that if those shipped files are ever deleted, the regenerated
+# fallback matches what actually ships instead of an older, visually
+# degraded stand-in. Keep in sync with resources/styles/*.css if those are
+# edited directly -- _write_default_stylesheets() only writes when the file
+# is missing, so drift here is invisible until a fallback is triggered.
+_LIGHT_DEFAULT = """\
+/*
+Name:           light.css
+Description:    Light theme stylesheet for exported BEJSON CMS static site.
+Version:        1.2
+Date:           2026-07-05
+Author:         Elton Boehnen
+RELATIONAL_ID:  5ec3974e-67bc-4ea2-8601-2e7d206d133c
+*/
+
+html { font-size: 87%; }
+
 :root {
-    --bg-body: #FFFFFF;
-    --bg-nav: #FFFFFF;
-    --bg-card: #FFFFFF;
-    --bg-footer: #F8F9FA;
-    --text-main: #121212;
-    --text-muted: #555555;
-    --accent-color: #DE2626;
-    --border-color: #E5E5E5;
-    --card-border: #EEEEEE;
-    --shadow-hover: 0 10px 30px rgba(0,0,0,0.08);
-    --font-main: 'Inter', sans-serif;
-    --container-width: 1100px;
-    --radius: 0px;
-    --code-bg: #F4F4F4;
-    --code-text: #111111;
-    --img-placeholder: #f0f0f0;
-    --social-bg: #FFFFFF;
+    /* CSS Policy Standard Variables */
+    --primary-color: #DE2626;
+    --background-color: #FFFFFF;
+    --text-color: #111111;
+    --border-color: #E0E0E0;
+    --border-radius: 4px;
+    --font-family-base: 'Inter', sans-serif;
+    --font-family-mono: 'Source Code Pro', monospace;
+
+    /* Legacy Aliases */
+    --accent-color: var(--primary-color);
+    --bg-body: var(--background-color);
+    --text-main: var(--text-color);
+    --radius: var(--border-radius);
+    --font-main: var(--font-family-base);
+
+    /* Project Specific */
+    --bg-nav: rgba(255, 255, 255, 0.95);
+    --bg-card: #F8F8F8;
+    --bg-footer: #F0F0F0;
+    --text-muted: #666666;
+    --card-border: #E5E5E5;
+    --shadow-hover: 0 20px 40px rgba(0,0,0,0.12);
+    --container-width: 1200px;
+    --code-bg: #F3F3F3;
+    --code-text: #222222;
+    --img-placeholder: #EEEEEE;
+    --social-bg: #F0F0F0;
     --social-border: #DDDDDD;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-main); background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+a:hover { color: var(--accent-color); }
+ul { list-style: none; }
+
+/* GLOBAL CONTAINMENT FIX */
+img { max-width: 100% !important; height: auto !important; display: block; border-radius: var(--radius); }
+pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
+
+.container { width: 100%; max-width: var(--container-width); margin: 0 auto; padding: 0 30px; }
+
+@media (max-width: 600px) {
+    .container { padding: 0 14px; }
+}
+
+.site-header { background: var(--bg-nav); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--text-main); height: 80px; display: flex; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+.nav-wrap { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.logo { font-weight: 900; font-size: 1.6rem; color: var(--text-main); letter-spacing: -1.5px; text-transform: uppercase; }
+.logo span { color: var(--accent-color); }
+
+.nav-menu { display: flex; gap: 20px; align-items: center; }
+.nav-menu a { color: var(--text-main); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+.nav-menu a:hover { opacity: 1; color: var(--accent-color); }
+
+.mobile-menu-toggle { display: none; background: none; border: none; color: var(--text-main); font-size: 2rem; cursor: pointer; line-height: 1; }
+
+.nav-dropdown { position: relative; }
+.nav-dropdown .chevron { font-size: 0.6rem; margin-left: 5px; opacity: 0.5; vertical-align: middle; }
+.dropdown-content { position: absolute; top: 100%; left: 0; background: var(--bg-card); border: 1px solid var(--border-color); min-width: 220px; box-shadow: var(--shadow-hover); opacity: 0; visibility: hidden; transform: translateY(10px); transition: all 0.3s ease; z-index: 1000; padding: 15px 0; border-radius: var(--radius); }
+.nav-dropdown:hover .dropdown-content { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown-content li a { display: block; padding: 10px 25px; font-size: 0.8rem; text-transform: none; opacity: 0.8; letter-spacing: 0.5px; }
+.dropdown-content li a:hover { background: rgba(222, 38, 38, 0.08); opacity: 1; color: var(--accent-color); padding-left: 30px; }
+
+.main-layout { display: flex; gap: 60px; margin-top: 40px; margin-bottom: 80px; width: 100%; }
+.main-content { flex: 1; min-width: 0; text-align: left; overflow-x: hidden; }
+.sidebar { width: 320px; flex-shrink: 0; text-align: left; }
+
+/* Collapsible Sidebar Styles */
+.sidebar-collapsible { margin-bottom: 30px; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-card); overflow: hidden; }
+.collapse-trigger { width: 100%; padding: 15px 20px; background: none; border: none; color: var(--accent-color); font-weight: 900; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.3s; }
+.collapse-trigger:hover { background: rgba(222, 38, 38, 0.05); }
+.collapse-trigger .chevron { transition: transform 0.3s ease; font-size: 0.6rem; }
+.sidebar-collapsible.active .collapse-trigger .chevron { transform: rotate(180deg); }
+.collapse-content { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0, 1, 0, 1); background: var(--bg-body); }
+.sidebar-collapsible.active .collapse-content { max-height: 1000px; transition: max-height 0.4s cubic-bezier(1, 0, 1, 0); }
+.category-list { padding: 10px 0; }
+.category-list li a { display: block; padding: 12px 20px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); opacity: 0.8; }
+.category-list li:last-child a { border-bottom: none; }
+.category-list a:hover { opacity: 1; color: var(--accent-color); background: rgba(222,38,38,0.04); padding-left: 25px; }
+
+.article-header { margin-bottom: 50px; }
+.article-title { font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1; margin-bottom: 20px; color: var(--text-main); font-weight: 900; letter-spacing: -2px; }
+.article-meta { color: var(--accent-color); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; display: block; }
+.article-body { font-size: 1.2rem; line-height: 1.8; color: #222222; width: 100%; overflow-wrap: break-word; }
+.article-body h2 { margin-top: 60px; margin-bottom: 25px; font-size: 2.2rem; font-weight: 900; color: #111111; letter-spacing: -1px; border-left: 5px solid var(--primary-color); padding-left: 20px; line-height: 1.15; }
+.article-body h3, .article-body h4 { line-height: 1.15; font-weight: 900; }
+.article-body a { color: var(--primary-color); text-decoration: underline; }
+.article-body strong, .article-body b { color: var(--primary-color); }
+.article-body p { margin-bottom: 30px; }
+.article-body pre { background: var(--code-bg); padding: 25px; border-radius: 4px; border: 1px solid var(--border-color); margin-bottom: 35px; font-family: var(--font-family-mono); font-size: 0.95rem; overflow-x: auto; color: var(--code-text); }
+
+.site-footer { background: var(--bg-footer); color: var(--text-muted); padding: 80px 0; border-top: 1px solid var(--border-color); margin-top: auto; }
+.footer-content { display: flex; justify-content: space-between; align-items: center; }
+
+/* Card styles */
+.card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; transition: all 0.3s ease; }
+.card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+.card-img-container { aspect-ratio: 16/9; overflow: hidden; }
+.card-img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.card-content { padding: 20px; }
+.card-type { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); display: block; margin-bottom: 8px; }
+.card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
+
+/* Article featured image */
+.article-featured-image { width: 100%; max-height: 500px; object-fit: cover; border-radius: var(--radius); margin-bottom: 40px; border-radius: 0; }
+
+/* Lightbox */
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; justify-content: center; align-items: center; }
+.lightbox-close { position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: #fff; cursor: pointer; line-height: 1; opacity: 0.8; transition: opacity 0.2s; }
+.lightbox-close:hover { opacity: 1; }
+.lightbox-content { max-width: 90vw; max-height: 90vh; border-radius: var(--radius); object-fit: contain; }
+
+@media (max-width: 1024px) {
+    .main-layout { flex-direction: column; gap: 40px; }
+    .sidebar { width: 100%; order: 2; }
+    .mobile-menu-toggle { display: block; }
+    .nav-menu { 
+        display: none; 
+        flex-direction: column; 
+        position: absolute; 
+        top: 80px; 
+        left: 0; 
+        right: 0; 
+        background: var(--bg-card); 
+        padding: 30px; 
+        gap: 20px;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: var(--shadow-hover);
+        z-index: 1001;
+    }
+    .nav-menu.active { display: flex; }
+    .nav-dropdown .dropdown-content { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; display: none; padding-left: 20px; }
+    .nav-dropdown:hover .dropdown-content { display: block; }
 }
 """
 
-_DARK_ROOT = """\
+_DARK_DEFAULT = """\
+/*
+Name:           dark.css
+Description:    Dark theme stylesheet for exported BEJSON CMS static site.
+Version:        1.2
+Date:           2026-07-05
+Author:         Elton Boehnen
+RELATIONAL_ID:  b51a230b-6c03-47b0-b33c-a8eb73d2aab6
+*/
+
+html { font-size: 87%; }
+
 :root {
-    --bg-body: #050505;
-    --bg-nav: rgba(10, 10, 10, 0.8);
+    /* CSS Policy Standard Variables */
+    --primary-color: #DE2626;
+    --background-color: #050505;
+    --text-color: #FFFFFF;
+    --border-color: #1A1A1A;
+    --border-radius: 4px;
+    --font-family-base: 'Inter', sans-serif;
+    --font-family-mono: 'Source Code Pro', monospace;
+
+    /* Legacy Aliases */
+    --accent-color: var(--primary-color);
+    --bg-body: var(--background-color);
+    --text-main: var(--text-color);
+    --radius: var(--border-radius);
+    --font-main: var(--font-family-base);
+
+    /* Project Specific */
+    --bg-nav: rgba(10, 10, 10, 0.95);
     --bg-card: #0F0F0F;
     --bg-footer: #080808;
-    --text-main: #FFFFFF;
     --text-muted: #888888;
-    --accent-color: #DE2626;
-    --border-color: #1A1A1A;
     --card-border: #151515;
     --shadow-hover: 0 20px 40px rgba(0,0,0,0.6);
-    --font-main: 'Inter', sans-serif;
     --container-width: 1200px;
-    --radius: 4px;
     --code-bg: #0A0A0A;
     --code-text: #E0E0E0;
     --img-placeholder: #111111;
     --social-bg: #121212;
     --social-border: #222222;
 }
-"""
 
-_CSS_SHARED = """\
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: var(--font-main); background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; font-size: 16px; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-main); background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration: none; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 a:hover { color: var(--accent-color); }
 ul { list-style: none; }
-img { max-width: 100%; height: auto; display: block; }
+
+/* GLOBAL CONTAINMENT FIX */
+img { max-width: 100% !important; height: auto !important; display: block; border-radius: var(--radius); }
+pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
 
 .container { width: 100%; max-width: var(--container-width); margin: 0 auto; padding: 0 30px; }
+
+@media (max-width: 600px) {
+    .container { padding: 0 14px; }
+}
 
 .site-header { background: var(--bg-nav); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--text-main); height: 80px; display: flex; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border-color); }
 .nav-wrap { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .logo { font-weight: 900; font-size: 1.6rem; color: var(--text-main); letter-spacing: -1.5px; text-transform: uppercase; }
 .logo span { color: var(--accent-color); }
-.nav-menu { display: flex; gap: 40px; align-items: center; }
-.nav-menu a { color: var(--text-main); font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; }
+
+.nav-menu { display: flex; gap: 20px; align-items: center; }
+.nav-menu a { color: var(--text-main); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
 .nav-menu a:hover { opacity: 1; color: var(--accent-color); }
+
+.mobile-menu-toggle { display: none; background: none; border: none; color: var(--text-main); font-size: 2rem; cursor: pointer; line-height: 1; }
 
 .nav-dropdown { position: relative; }
 .nav-dropdown .chevron { font-size: 0.6rem; margin-left: 5px; opacity: 0.5; vertical-align: middle; }
@@ -493,8 +680,8 @@ img { max-width: 100%; height: auto; display: block; }
 .dropdown-content li a { display: block; padding: 10px 25px; font-size: 0.8rem; text-transform: none; opacity: 0.8; letter-spacing: 0.5px; }
 .dropdown-content li a:hover { background: rgba(222, 38, 38, 0.1); opacity: 1; color: var(--accent-color); padding-left: 30px; }
 
-.main-layout { display: flex; gap: 60px; margin-top: 40px; }
-.main-content { flex: 1; min-width: 0; text-align: left; }
+.main-layout { display: flex; gap: 60px; margin-top: 40px; margin-bottom: 80px; width: 100%; }
+.main-content { flex: 1; min-width: 0; text-align: left; overflow-x: hidden; }
 .sidebar { width: 320px; flex-shrink: 0; text-align: left; }
 
 /* Collapsible Sidebar Styles */
@@ -510,43 +697,63 @@ img { max-width: 100%; height: auto; display: block; }
 .category-list li:last-child a { border-bottom: none; }
 .category-list a:hover { opacity: 1; color: var(--accent-color); background: rgba(255,255,255,0.02); padding-left: 25px; }
 
-.card { background: var(--bg-card); border: 1px solid var(--card-border); border-radius: var(--radius); display: flex; flex-direction: column; transition: all 0.3s ease; height: 100%; overflow: hidden; text-align: left; }
-.card:hover { transform: translateY(-8px); border-color: var(--accent-color); box-shadow: var(--shadow-hover); }
-.card-img-container { width: 100%; height: 220px; background: var(--img-placeholder); overflow: hidden; position: relative; border-bottom: 1px solid var(--border-color); }
-.card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1); }
-.card:hover .card-img { transform: scale(1.08); }
-.card-content { padding: 30px; flex: 1; display: flex; flex-direction: column; }
-.card-type { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); font-weight: 900; margin-bottom: 12px; }
-.card h3 { margin-bottom: 12px; font-size: 1.4rem; line-height: 1.2; color: var(--text-main); font-weight: 800; }
-.card-meta { margin-top: auto; font-size: 0.8rem; color: var(--text-muted); padding-top: 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; }
-
 .article-header { margin-bottom: 50px; }
 .article-title { font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1; margin-bottom: 20px; color: var(--text-main); font-weight: 900; letter-spacing: -2px; }
 .article-meta { color: var(--accent-color); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; display: block; }
-.article-body { font-size: 1.2rem; line-height: 1.8; color: rgba(255,255,255,0.9); }
-.article-body h2 { margin-top: 60px; margin-bottom: 25px; font-size: 2.2rem; font-weight: 900; color: #FFF; letter-spacing: -1px; }
+.article-body { font-size: 1.2rem; line-height: 1.8; color: rgba(255,255,255,0.9); width: 100%; overflow-wrap: break-word; }
+.article-body h2 { margin-top: 60px; margin-bottom: 25px; font-size: 2.2rem; font-weight: 900; color: #FFF; letter-spacing: -1px; border-left: 5px solid var(--primary-color); padding-left: 20px; line-height: 1.15; }
+.article-body h3, .article-body h4 { line-height: 1.15; font-weight: 900; }
+.article-body a { color: var(--primary-color); text-decoration: underline; }
+.article-body strong, .article-body b { color: var(--primary-color); }
 .article-body p { margin-bottom: 30px; }
-
-.sidebar-widget { margin-bottom: 50px; }
-.widget-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 3px; color: var(--accent-color); font-weight: 900; margin-bottom: 25px; display: flex; align-items: center; gap: 15px; }
-.widget-title::after { content: ""; height: 1px; background: var(--border-color); flex: 1; }
-.category-list li { margin-bottom: 12px; }
-.category-list a { display: block; padding: 10px 15px; background: var(--bg-card); border: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; border-radius: var(--radius); }
-.category-list a:hover { background: var(--accent-color); border-color: var(--accent-color); color: white; transform: translateX(5px); }
+.article-body pre { background: var(--code-bg); padding: 25px; border-radius: 4px; border: 1px solid var(--border-color); margin-bottom: 35px; font-family: var(--font-family-mono); font-size: 0.95rem; overflow-x: auto; }
 
 .site-footer { background: var(--bg-footer); color: var(--text-muted); padding: 80px 0; border-top: 1px solid var(--border-color); margin-top: auto; }
 .footer-content { display: flex; justify-content: space-between; align-items: center; }
-.copyright strong { color: var(--text-main); }
-
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 40px; }
 
 @media (max-width: 1024px) {
-    .main-layout { flex-direction: column; }
+    .main-layout { flex-direction: column; gap: 40px; }
     .sidebar { width: 100%; order: 2; }
+    .mobile-menu-toggle { display: block; }
+    .nav-menu { 
+        display: none; 
+        flex-direction: column; 
+        position: absolute; 
+        top: 80px; 
+        left: 0; 
+        right: 0; 
+        background: var(--bg-card); 
+        padding: 30px; 
+        gap: 20px;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: var(--shadow-hover);
+        z-index: 1001;
+    }
+    .nav-menu.active { display: flex; }
+    .nav-dropdown .dropdown-content { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; display: none; padding-left: 20px; }
+    .nav-dropdown:hover .dropdown-content { display: block; }
 }
+
+/* Card styles */
+.card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; transition: all 0.3s ease; }
+.card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+.card-img-container { aspect-ratio: 16/9; overflow: hidden; }
+.card-img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.card-content { padding: 20px; }
+.card-type { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); display: block; margin-bottom: 8px; }
+.card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
+
+/* Article featured image */
+.article-featured-image { width: 100%; max-height: 500px; object-fit: cover; margin-bottom: 40px; border-radius: 0; }
+
+/* Lightbox */
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9999; justify-content: center; align-items: center; }
+.lightbox-close { position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: #fff; cursor: pointer; line-height: 1; opacity: 0.8; transition: opacity 0.2s; }
+.lightbox-close:hover { opacity: 1; }
+.lightbox-content { max-width: 90vw; max-height: 90vh; border-radius: var(--radius); object-fit: contain; }
 """
-
-
 def _write_default_stylesheets():
     """Write light.css and dark.css to Stylesheets/ only if they don't already exist."""
     os.makedirs(STYLESHEETS_DIR, exist_ok=True)
@@ -554,11 +761,11 @@ def _write_default_stylesheets():
     dark_path  = os.path.join(STYLESHEETS_DIR, "dark.css")
     if not os.path.exists(light_path):
         with open(light_path, 'w', encoding='utf-8') as f:
-            f.write(_LIGHT_ROOT + _CSS_SHARED)
+            f.write(_LIGHT_DEFAULT)
         print(f"[STYLESHEETS] Written: {light_path}")
     if not os.path.exists(dark_path):
         with open(dark_path, 'w', encoding='utf-8') as f:
-            f.write(_DARK_ROOT + _CSS_SHARED)
+            f.write(_DARK_DEFAULT)
         print(f"[STYLESHEETS] Written: {dark_path}")
 
 
@@ -632,14 +839,14 @@ def _generate_card_html(item, link, target_attr, label, p_date, p_auth, rel_pref
 
     if f_img:
         img_path = f"{rel_prefix}assets/{f_img}"
-        img_html = f'<div class="card-img-container"><img src="{img_path}" class="card-img" style="{img_fit_style}" alt="{item.get("page_title", "")}" onerror="this.src=\'{fallback_url}\'"></div>'
+        img_html = f'<div class="card-img-container"><img src="{img_path}" class="card-img" style="{img_fit_style}" alt="{_html_escape.escape(item.get("page_title", ""))}" onerror="this.src=\'{fallback_url}\'"></div>'
     else:
         # Automatically generate text canvas image when no image is assigned
-        img_html = f'<div class="card-img-container"><img src="{fallback_url}" class="card-img" style="{img_fit_style}" alt="{item.get("page_title", "")}"></div>'
+        img_html = f'<div class="card-img-container"><img src="{fallback_url}" class="card-img" style="{img_fit_style}" alt="{_html_escape.escape(item.get("page_title", ""))}"></div>'
 
     desc_html = f'<p class="card-desc" style="font-size:0.85rem; color:var(--text-muted); margin-top:10px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">{desc}</p>' if desc else ""
 
-    return f"""<a href="{link}" class="card"{target_attr}>{img_html}<div class="card-content"><span class="card-type">{label}</span><h3>{item['page_title']}</h3>{desc_html}<div class="card-meta">{p_date}</div></div></a>"""
+    return f"""<a href="{link}" class="card"{target_attr}>{img_html}<div class="card-content"><span class="card-type">{label}</span><h3>{item.get('page_title', '')}</h3>{desc_html}<div class="card-meta">{p_date}</div></div></a>"""
 def _generate_ad_block(ad_units, rel_prefix, zone="sidebar"):
     # BUG FIX: this used to pick a random active ad regardless of ad_zone,
     # even though the admin UI (site/ads) lets you assign header/footer/sidebar
@@ -721,7 +928,7 @@ def _generate_related_block(items, current_item, default_author, categories):
         cat_slug = cat_obj['cat_slug'] if cat_obj and cat_obj.get('cat_slug') else "uncategorized"
         itype = s.get('page_type', 'page')
         # This is used in Article_Skeleton which is at itype/cat/slug/index.html (3 levels deep)
-        Generated_Page_Permalink = f"../../../{itype}/{cat_slug}/{s['page_slug']}/index.html"
+        Generated_Page_Permalink = f"../../../{itype}/{cat_slug}/{s.get('page_slug', 'unknown')}/index.html"
         p_date = s.get('page_created_at') or ""
         grid_html += _generate_card_html(s, Generated_Page_Permalink, "", itype.upper(), p_date, default_author, "../../../")
         
@@ -900,7 +1107,14 @@ def _execute():
             if os.path.exists(dst_dir): shutil.rmtree(dst_dir)
             shutil.copytree(src_dir, dst_dir)
             Generated_App_Permalink = f"apps/{sa['app_slug']}/{sa.get('app_entry_file', 'index.html')}"
-            feed_items.append({"date": sa.get("app_created_at", datetime.now().strftime("%Y-%m-%d")), "item": {"page_title": sa["app_name"], "page_featured_img": sa.get("app_featured_img"), "page_uuid": sa["app_uuid"]}, "link": Generated_App_Permalink, "type": "app", "desc": sa.get("app_description", "")})
+            # page_cat_name explicitly set to None (not omitted) -- apps have
+            # no category, and _generate_related_block()'s rel_cat match is
+            # `i.get('page_cat_name') == rel_cat`; an omitted key and an
+            # explicit None both read as None via .get(), but declaring it
+            # here makes the "apps never match a category" intent visible
+            # rather than an accidental side effect of a missing key (audit
+            # pkg132 M-2).
+            feed_items.append({"date": sa.get("app_created_at", datetime.now().strftime("%Y-%m-%d")), "item": {"page_title": sa["app_name"], "page_featured_img": sa.get("app_featured_img"), "page_uuid": sa["app_uuid"], "page_cat_name": None}, "link": Generated_App_Permalink, "type": "app", "desc": sa.get("app_description", "")})
 
     # --- BUILD HOME ---
     _log("Generating Home Feed...")

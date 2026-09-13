@@ -52,19 +52,5 @@
       "type": "string"
     }
   ],
-  "Values": [
-    [
-      "c10e6e6d-84cf-4a18-b439-3534a70efc8e",
-      "Agentic Domination: Pwn-ing Bloated AI Architectures with BEJSON in 2026",
-      "agentic-domination-pwn-ing-bloated-ai-architectures-with-bejson-in-2026",
-      "BEJSON",
-      "page",
-      "2026-08-30",
-      null,
-      "Leethaxor69",
-      "default_page_image.webp",
-      null,
-      null
-    ]
-  ]
+  "Values": []
 }

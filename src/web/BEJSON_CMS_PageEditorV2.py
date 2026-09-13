@@ -209,7 +209,7 @@ def api_generate_plan():
     persona = writer.get_persona(profile_name) if profile_name else None
     if persona:
         plan_sys_inst = writer.assemble_system_instruction(persona) + "\n\n" + plan_format_inst
-        temperature = float(persona.get("Creativity", 0.7))
+        temperature = float(persona.get("persona_creativity", 0.7))
     else:
         plan_sys_inst = plan_format_inst
         temperature = 0.7
@@ -249,8 +249,8 @@ def api_execute_task():
     if persona:
         exec_sys_inst = writer.assemble_system_instruction(persona) + "\n\n" + format_inst
         gen_config = {
-            "temperature": float(persona.get("Creativity", 0.7)),
-            "maxOutputTokens": int(persona.get("MaxResponseTokens", 8192)),
+            "temperature": float(persona.get("persona_creativity", 0.7)),
+            "maxOutputTokens": int(persona.get("persona_max_tokens", 8192)),
         }
     else:
         exec_sys_inst = format_inst
@@ -501,8 +501,19 @@ def api_export_keys():
         # Simplified path for export - using project root/storage/tmp
         out_path = os.path.join(PROJECT_ROOT, "storage", "tmp", "gemini_keys_export.bejson")
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--export", out_path], check=True)
+        # capture_output instead of letting stderr leak straight to this
+        # app's own console -- if gemini_key_manager.py isn't present at
+        # this path (expected off the original authoring device), python3
+        # itself writes a "can't open file" message to stderr before
+        # exiting non-zero; check=True turns that into a clean caught
+        # CalledProcessError either way, but without capture_output the
+        # noise still hits the real console first. Captured stderr is
+        # included in the JSON error so a genuine script failure (not just
+        # a missing-file case) still surfaces useful diagnostic text.
+        result = subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--export", out_path], check=True, capture_output=True, text=True)
         return jsonify({"ok": True, "msg": f"Template exported to {out_path}"})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"ok": False, "error": (e.stderr or str(e)).strip()[-500:]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
@@ -515,8 +526,10 @@ def api_import_keys():
         os.makedirs(os.path.dirname(tmp_path), exist_ok=True)
         file.save(tmp_path)
         import subprocess
-        subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--import-keys", tmp_path], check=True)
+        result = subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--import-keys", tmp_path], check=True, capture_output=True, text=True)
         return jsonify({"ok": True, "msg": "Keys imported successfully."})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"ok": False, "error": (e.stderr or str(e)).strip()[-500:]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 

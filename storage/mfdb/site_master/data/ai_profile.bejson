@@ -8,103 +8,103 @@
   ],
   "Fields": [
     {
-      "name": "Record_Type_Parent",
+      "name": "persona_record_type",
       "type": "string"
     },
     {
-      "name": "Name",
+      "name": "persona_name",
       "type": "string"
     },
     {
-      "name": "Archetype",
+      "name": "persona_archetype",
       "type": "string"
     },
     {
-      "name": "Persona",
+      "name": "persona_bio",
       "type": "string"
     },
     {
-      "name": "SystemInstruction",
+      "name": "persona_system_instruction",
       "type": "string"
     },
     {
-      "name": "Active",
+      "name": "persona_active",
       "type": "boolean"
     },
     {
-      "name": "MaxResponseTokens",
+      "name": "persona_max_tokens",
       "type": "integer"
     },
     {
-      "name": "Creativity",
+      "name": "persona_creativity",
       "type": "number"
     },
     {
-      "name": "Tone",
+      "name": "persona_tone",
       "type": "array"
     },
     {
-      "name": "Formality",
+      "name": "persona_formality",
       "type": "string"
     },
     {
-      "name": "Verbosity",
+      "name": "persona_verbosity",
       "type": "string"
     },
     {
-      "name": "EmotionalExpression_Enabled",
+      "name": "persona_emotion_enabled",
       "type": "boolean"
     },
     {
-      "name": "EmotionalExpression_Intensity",
+      "name": "persona_emotion_intensity",
       "type": "number"
     },
     {
-      "name": "GoogleSearch_Enabled",
+      "name": "persona_google_search_enabled",
       "type": "boolean"
     },
     {
-      "name": "CodeInterpreter_Enabled",
+      "name": "persona_code_interpreter_enabled",
       "type": "boolean"
     },
     {
-      "name": "EphemeralMemory",
+      "name": "persona_ephemeral_memory",
       "type": "boolean"
     },
     {
-      "name": "CodeParsing_Mode",
+      "name": "persona_code_parsing_mode",
       "type": "string"
     },
     {
-      "name": "CodeParsing_Languages",
+      "name": "persona_code_parsing_languages",
       "type": "array"
     },
     {
-      "name": "CodeParsing_StructureValidation",
+      "name": "persona_code_structure_validation",
       "type": "boolean"
     },
     {
-      "name": "CodeParsing_VersionControl",
+      "name": "persona_code_version_control",
       "type": "boolean"
     },
     {
-      "name": "Thinking_Supported",
+      "name": "persona_thinking_supported",
       "type": "boolean"
     },
     {
-      "name": "ForbiddenTopics",
+      "name": "persona_forbidden_topics",
       "type": "array"
     },
     {
-      "name": "Avatar_Type",
+      "name": "persona_avatar_type",
       "type": "string"
     },
     {
-      "name": "Avatar_sourceUrl",
+      "name": "persona_avatar_source_url",
       "type": "string"
     },
     {
-      "name": "Avatar_Data",
+      "name": "persona_avatar_data",
       "type": "string"
     }
   ],

@@ -102,7 +102,6 @@ def site_nav():
         elif action == 'delete':
             label = request.form.get('nav_display_label', '')
             db.delete_record("NavLink", "nav_display_label", label)
-        db.commit()
         
         flash('Navigation updated.', 'success')
         return redirect('/site/nav')
@@ -152,7 +151,6 @@ def site_social():
         elif action == 'delete':
             platform = request.form.get('social_platform_name', '')
             db.delete_record("SocialLink", "social_platform_name", platform)
-        db.commit()
         
         flash('Social links updated.', 'success')
         return redirect('/site/social')
@@ -212,7 +210,6 @@ def manage_ads():
                     "ad_zone": zone,
                     "ad_active": active
                 })
-                db.commit()
                 flash(f'Ad "{name}" saved.', 'success')
             else:
                 flash('Ad name and image are required.', 'error')

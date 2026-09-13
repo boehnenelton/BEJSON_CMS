@@ -115,7 +115,8 @@ def page_new():
         db.mount()
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": title, "page_slug": slug,
             "page_cat_name": category, "page_type": "page", "page_created_at": datetime.now().strftime("%Y-%m-%d"),
-            "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE})
+            "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE,
+            "page_template_key": "blank", "page_featured_video_url": None})
         
         pfile = os.path.join(PAGES_DB_DIR, f"{new_uuid}.json")
         New_Page_Content_Doc = {
@@ -423,6 +424,7 @@ def duplicate_page(page_uuid):
         "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_external_url": None,
         "page_author_name": source.get("page_author_name"), "page_featured_img": source.get("page_featured_img"),
         "page_template_key": source.get("page_template_key"),
+        "page_featured_video_url": source.get("page_featured_video_url"),
     })
 
     src_file = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
@@ -477,7 +479,8 @@ def link_new():
         db.mount()
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": label, "page_slug": slug,
             "page_cat_name": category, "page_type": "external_link", "page_external_url": Submitted_External_Link_Url,
-            "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_author_name": "", "page_featured_img": ""})
+            "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_author_name": "", "page_featured_img": "",
+            "page_template_key": None, "page_featured_video_url": None})
         
         flash('External link added.', 'success')
         return redirect('/links')
@@ -919,19 +922,16 @@ def manage_authors():
                     flash(f'An author named "{name}" already exists.', 'error')
                 else:
                     db.add_record("AuthorProfile", {"author_display_name": name, "author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
-                    db.commit()
                     flash(f'Author "{name}" added.', 'success')
         elif action == 'edit':
             name = request.form.get('author_display_name', '').strip()
             Submitted_Author_Bio  = request.form.get('author_bio', '')
             Submitted_Author_Image_Filename  = request.form.get('author_avatar_url', '')
             db.update_record("AuthorProfile", "author_display_name", name, {"author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
-            db.commit()
             flash(f'Author "{name}" updated.', 'success')
         elif action == 'delete':
             name = request.form.get('author_display_name', '')
             db.delete_record("AuthorProfile", "author_display_name", name)
-            db.commit()
             flash('Author deleted.', 'success')
         return redirect('/site/authors')
 
@@ -1160,6 +1160,8 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
         "page_external_url": None,
         "page_author_name":   author,
         "page_featured_img": DEFAULT_FEATURED_IMAGE,
+        "page_template_key": "blank",
+        "page_featured_video_url": None,
     }, sync_count=sync_count)
     _t_add1 = time.perf_counter()
     
@@ -1239,7 +1241,7 @@ def import_index():
             <label class="form-label">Target Category *</label>
             <select name="category" class="form-control" required>
               <option value="" disabled selected>-- Select Target Category --</option>
-              {"".join(f'<option value="{c["cat_name"]}">{c["cat_name"]}</option>' for c in cats)}
+              {"".join(f'<option value="{_html_escape.escape(c["cat_name"])}">{_html_escape.escape(c["cat_name"])}</option>' for c in cats)}
             </select>
           </div>
           <div class="form-group">
@@ -1384,8 +1386,8 @@ def import_preview():
     <div class="page-header"><h1>Review Import</h1>
     <p>Confirm titles and check which files to import, then click Import All.</p></div>
     <form action="/import/confirm" method="POST">
-      <input type="hidden" name="category" value="{category}">
-      <input type="hidden" name="author"   value="{author}">
+      <input type="hidden" name="category" value="{_html_escape.escape(category)}">
+      <input type="hidden" name="author"   value="{_html_escape.escape(author)}">
       {rows}
       <div class="card" style="padding:16px 22px;">
         <span style="color:var(--text-secondary);font-size:.85rem;">Category:</span>

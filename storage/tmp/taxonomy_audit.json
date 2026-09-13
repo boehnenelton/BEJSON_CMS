@@ -44,7 +44,8 @@
       "page_external_url",
       "page_author_name",
       "page_featured_img",
-      "page_template_key"
+      "page_template_key",
+      "page_featured_video_url"
     ],
     "fields_to_rename": {},
     "already_canonical": [
@@ -57,7 +58,8 @@
       "page_external_url",
       "page_author_name",
       "page_featured_img",
-      "page_template_key"
+      "page_template_key",
+      "page_featured_video_url"
     ],
     "needs_uuid_injection": false,
     "uuid_field": "page_uuid"
@@ -196,5 +198,66 @@
     ],
     "needs_uuid_injection": true,
     "uuid_field": "social_uuid"
+  },
+  "AI_Profile": {
+    "file": "ai_profile.bejson",
+    "row_count": 0,
+    "live_fields": [
+      "persona_record_type",
+      "persona_name",
+      "persona_archetype",
+      "persona_bio",
+      "persona_system_instruction",
+      "persona_active",
+      "persona_max_tokens",
+      "persona_creativity",
+      "persona_tone",
+      "persona_formality",
+      "persona_verbosity",
+      "persona_emotion_enabled",
+      "persona_emotion_intensity",
+      "persona_google_search_enabled",
+      "persona_code_interpreter_enabled",
+      "persona_ephemeral_memory",
+      "persona_code_parsing_mode",
+      "persona_code_parsing_languages",
+      "persona_code_structure_validation",
+      "persona_code_version_control",
+      "persona_thinking_supported",
+      "persona_forbidden_topics",
+      "persona_avatar_type",
+      "persona_avatar_source_url",
+      "persona_avatar_data"
+    ],
+    "fields_to_rename": {},
+    "already_canonical": [
+      "persona_record_type",
+      "persona_name",
+      "persona_archetype",
+      "persona_bio",
+      "persona_system_instruction",
+      "persona_active",
+      "persona_max_tokens",
+      "persona_creativity",
+      "persona_tone",
+      "persona_formality",
+      "persona_verbosity",
+      "persona_emotion_enabled",
+      "persona_emotion_intensity",
+      "persona_google_search_enabled",
+      "persona_code_interpreter_enabled",
+      "persona_ephemeral_memory",
+      "persona_code_parsing_mode",
+      "persona_code_parsing_languages",
+      "persona_code_structure_validation",
+      "persona_code_version_control",
+      "persona_thinking_supported",
+      "persona_forbidden_topics",
+      "persona_avatar_type",
+      "persona_avatar_source_url",
+      "persona_avatar_data"
+    ],
+    "needs_uuid_injection": false,
+    "uuid_field": null
   }
 }

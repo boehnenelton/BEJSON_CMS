@@ -65,25 +65,25 @@ class PersonaWriter:
         if not self.db: return None
         records = self.db.get_records("AI_Profile")
         for r in records:
-            if r.get("Name") == name:
+            if r.get("persona_name") == name:
                 return r
         return None
 
     def assemble_system_instruction(self, persona):
-        name = persona.get("Name", "AI")
-        arch = persona.get("Archetype", "Persona")
+        name = persona.get("persona_name", "AI")
+        arch = persona.get("persona_archetype", "Persona")
         identity = f"[IDENTITY]: {name} ({arch})"
 
-        tones = persona.get("Tone") or []
+        tones = persona.get("persona_tone") or []
         voice = f"[VOICE]: {', '.join(tones)}" if isinstance(tones, list) and tones else ""
 
-        quirks_text = persona.get("Persona") or ""
+        quirks_text = persona.get("persona_bio") or ""
         quirks = f"[QUIRKS]: {quirks_text}" if quirks_text else ""
 
-        langs = persona.get("CodeParsing_Languages") or []
+        langs = persona.get("persona_code_parsing_languages") or []
         domain = f"[DOMAIN]: {', '.join(langs)}" if isinstance(langs, list) and langs else ""
 
-        base_inst = persona.get("SystemInstruction", "")
+        base_inst = persona.get("persona_system_instruction", "")
         extra_lines = "\n".join(line for line in [identity, voice, quirks, domain] if line)
         return f"{base_inst}\n\n{extra_lines}" if extra_lines else base_inst
 
@@ -101,8 +101,8 @@ class PersonaWriter:
                 client = genai.Client(api_key=key)
                 config = {
                     "system_instruction": sys_inst,
-                    "temperature": float(persona.get("Creativity", 0.7)),
-                    "max_output_tokens": int(persona.get("MaxResponseTokens", 8192))
+                    "temperature": float(persona.get("persona_creativity", 0.7)),
+                    "max_output_tokens": int(persona.get("persona_max_tokens", 8192))
                 }
                 response = client.models.generate_content(
                     model=model,
@@ -121,8 +121,8 @@ class PersonaWriter:
                 "contents": [{"parts": [{"text": prompt}]}],
                 "system_instruction": {"parts": [{"text": sys_inst}]},
                 "generationConfig": {
-                    "maxOutputTokens": int(persona.get("MaxResponseTokens", 8192)),
-                    "temperature": float(persona.get("Creativity", 0.7))
+                    "maxOutputTokens": int(persona.get("persona_max_tokens", 8192)),
+                    "temperature": float(persona.get("persona_creativity", 0.7))
                 }
             }
             

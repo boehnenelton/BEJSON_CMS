@@ -55,16 +55,16 @@ _T = """
     <div class='container'>
         {% for p in profiles %}<div class='card'>
             <div style='display:flex; justify-content:space-between;'>
-                <div style='font-weight:900;'>{{p.Name}} <span style='color:var(--m)'>@{{p.Archetype}}</span></div>
+                <div style='font-weight:900;'>{{p.persona_name}} <span style='color:var(--m)'>@{{p.persona_archetype}}</span></div>
                 <div style='display:flex; gap:6px;'>
-                    <a href='/edit/{{p.Name}}' class='btn-out' style='text-decoration:none; border-radius:15px;'>Edit</a>
-                    <form method='post' action='/delete/{{p.Name}}' style='display:inline;' onsubmit='return confirm("Delete this persona? Pages already using it as author will fall back to the default author.")'>
+                    <a href='/edit/{{p.persona_name}}' class='btn-out' style='text-decoration:none; border-radius:15px;'>Edit</a>
+                    <form method='post' action='/delete/{{p.persona_name}}' style='display:inline;' onsubmit='return confirm("Delete this persona? Pages already using it as author will fall back to the default author.")'>
                         <button type='submit' class='btn-out' style='border-radius:15px; color:#f4212e; border-color:#f4212e;'>Delete</button>
                     </form>
                 </div>
             </div>
-            <p style='margin:10px 0; font-size:0.95rem;'>{{p.Persona}}</p>
-            <div style='color:var(--m); font-size:0.75rem; font-family:monospace; background:#0a0a0a; padding:10px; border-radius:4px;'>{{p.SystemInstruction[:150]}}...</div>
+            <p style='margin:10px 0; font-size:0.95rem;'>{{p.persona_bio}}</p>
+            <div style='color:var(--m); font-size:0.75rem; font-family:monospace; background:#0a0a0a; padding:10px; border-radius:4px;'>{{p.persona_system_instruction[:150]}}...</div>
         </div>{% endfor %}
         <hr style='border:0; border-top:1px solid var(--b); margin:30px 0;'>
         <div id='form' class='card'>
@@ -84,10 +84,10 @@ _T = """
     </div>
     <script>
     {% if ep %}
-        document.getElementById('n').value="{{ep.Name}}";
-        document.getElementById('a').value="{{ep.Archetype}}";
-        document.getElementById('b').value="{{ep.Persona}}";
-        document.getElementById('i').value=`{{ep.SystemInstruction|safe}}`;
+        document.getElementById('n').value="{{ep.persona_name}}";
+        document.getElementById('a').value="{{ep.persona_archetype}}";
+        document.getElementById('b').value="{{ep.persona_bio}}";
+        document.getElementById('i').value=`{{ep.persona_system_instruction|safe}}`;
         document.getElementById('form').scrollIntoView();
     {% endif %}</script>
 </body></html>"""
@@ -97,15 +97,15 @@ def index(): return render_template_string(_T, profiles=db.get_records('AI_Profi
 
 @app.route('/edit/<n>')
 def edit(n):
-    p = next((x for x in db.get_records('AI_Profile') if x['Name']==n), None)
+    p = next((x for x in db.get_records('AI_Profile') if x['persona_name']==n), None)
     return render_template_string(_T, profiles=db.get_records('AI_Profile'), ep=p)
 
 @app.route('/save', methods=['POST'])
 def save():
     Submitted_Persona_Name=request.form.get('name'); Submitted_Persona_Archetype=request.form.get('archetype'); Submitted_Persona_Bio=request.form.get('bio'); Submitted_Persona_System_Instruction=request.form.get('inst')
-    Persona_Record_Payload={'Record_Type_Parent':'AI_Profile','Name':Submitted_Persona_Name,'Archetype':Submitted_Persona_Archetype,'Persona':Submitted_Persona_Bio,'SystemInstruction':Submitted_Persona_System_Instruction,'Active':True,'MaxResponseTokens':8192,'Creativity':0.7}
-    existing=next((x for x in db.get_records('AI_Profile') if x['Name'].lower()==Submitted_Persona_Name.lower()), None)
-    if existing: db.update_record('AI_Profile','Name',Submitted_Persona_Name,Persona_Record_Payload)
+    Persona_Record_Payload={'persona_record_type':'AI_Profile','persona_name':Submitted_Persona_Name,'persona_archetype':Submitted_Persona_Archetype,'persona_bio':Submitted_Persona_Bio,'persona_system_instruction':Submitted_Persona_System_Instruction,'persona_active':True,'persona_max_tokens':8192,'persona_creativity':0.7}
+    existing=next((x for x in db.get_records('AI_Profile') if x['persona_name'].lower()==Submitted_Persona_Name.lower()), None)
+    if existing: db.update_record('AI_Profile','persona_name',Submitted_Persona_Name,Persona_Record_Payload)
     else:
         db.add_record('AI_Profile',Persona_Record_Payload)
 
@@ -138,7 +138,7 @@ def delete(n):
     # dangling reference; does NOT delete the linked AuthorProfile itself
     # (a persona going away shouldn't erase the byline on pages already
     # published under that name).
-    db.delete_record('AI_Profile', 'Name', n)
+    db.delete_record('AI_Profile', 'persona_name', n)
     DEFAULT_AUTHOR_NAME = "boehnenelton2024"
     pages = db.get_records("PageRecord")
     for p in pages:

@@ -51,7 +51,7 @@
       "PageRecord",
       "data/pagerecord.bejson",
       null,
-      1,
+      0,
       "1.0",
       "page_uuid"
     ],
@@ -59,7 +59,7 @@
       "StandaloneApp",
       "data/standaloneapp.bejson",
       null,
-      1,
+      0,
       "1.0",
       "app_uuid"
     ],
@@ -67,7 +67,7 @@
       "AuthorProfile",
       "data/authorprofile.bejson",
       null,
-      2,
+      1,
       "1.0",
       "author_display_name"
     ],
@@ -83,7 +83,7 @@
       "SiteConfig",
       "data/siteconfig.bejson",
       null,
-      5,
+      4,
       "1.0",
       "sys_key"
     ],
@@ -109,7 +109,7 @@
       null,
       0,
       "1.0",
-      "Name"
+      "persona_name"
     ],
     [
       "PageVideoMetadata",
@@ -131,7 +131,7 @@
       "MediaAsset",
       "data/mediaasset.bejson",
       null,
-      5,
+      4,
       "1.0",
       "asset_filename"
     ],

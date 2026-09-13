@@ -159,6 +159,7 @@ def cmd_page_add(args):
         "page_created_at": datetime.now().strftime("%Y-%m-%d"),
         "page_external_url": None, "page_author_name": args.author or "",
         "page_featured_img": DEFAULT_FEATURED_IMAGE,
+        "page_template_key": "blank",
         "page_featured_video_url": args.featured_video or ""
     }):
         _write_page_content_file(new_uuid, args.title, html_body)
@@ -228,7 +229,8 @@ def cmd_page_import(args):
             "page_cat_name": args.category, "page_type": "page",
             "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": None, "page_author_name": args.author or "",
-            "page_featured_img": DEFAULT_FEATURED_IMAGE
+            "page_featured_img": DEFAULT_FEATURED_IMAGE,
+            "page_template_key": "blank", "page_featured_video_url": None
         }):
             _write_page_content_file(new_uuid, title, html_body)
             print(f"HTML imported as page: {title} (UUID: {new_uuid})")
@@ -267,7 +269,8 @@ def cmd_page_import(args):
             "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": f"/apps/{app_slug}/",
             "page_author_name": args.author or "",
-            "page_featured_img": DEFAULT_FEATURED_IMAGE
+            "page_featured_img": DEFAULT_FEATURED_IMAGE,
+            "page_template_key": "blank", "page_featured_video_url": None
         }):
             _write_page_content_file(new_uuid, page_title, html_body)
             print(f"App '{app_name}' imported as page: {page_title} (UUID: {new_uuid})")
@@ -362,6 +365,24 @@ def cmd_nav_delete(args):
 def cmd_nav_list(args):
     db = get_db()
     print(json.dumps(db.get_records("NavLink"), indent=2))
+
+def cmd_social_add(args):
+    db = get_db()
+    if db.add_record("SocialLink", {"social_platform_name": args.platform, "social_target_url": args.url}):
+        print(f"Social link added: {args.platform}")
+    else:
+        print(f"Failed to add social link: {args.platform}")
+
+def cmd_social_delete(args):
+    db = get_db()
+    if db.delete_record("SocialLink", "social_platform_name", args.platform):
+        print(f"Social link deleted: {args.platform}")
+    else:
+        print(f"Social link not found: {args.platform}")
+
+def cmd_social_list(args):
+    db = get_db()
+    print(json.dumps(db.get_records("SocialLink"), indent=2))
 
 def cmd_ad_add(args):
     db = get_db()
@@ -881,7 +902,7 @@ def main():
     p_padd = page_sub.add_parser("add", help="Add a new page")
     p_padd.add_argument("title", help="Page title")
     p_padd.add_argument("--category", default="Uncategorized", help="Category NAME (not slug) -- must match a live Category's cat_name exactly, e.g. 'Uncategorized' or 'BEJSON'. Run 'category list' to see valid names.")
-    p_padd.add_argument("--type", default="blog", help="Page type")
+    p_padd.add_argument("--type", default="page", help="Page type")
     p_padd.add_argument("--body", help="HTML body content")
     p_padd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
     p_padd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Rendered above the article body on publish.")
@@ -958,6 +979,18 @@ def main():
     p_ndel.add_argument("label", help="Link label")
     
     nav_sub.add_parser("list", help="List nav links")
+
+    p_social = subparsers.add_parser("social", help="Social link operations")
+    social_sub = p_social.add_subparsers(dest="op")
+
+    p_soadd = social_sub.add_parser("add", help="Add a social link")
+    p_soadd.add_argument("platform", help="Platform name (e.g. Twitter, GitHub)")
+    p_soadd.add_argument("url", help="Profile URL")
+
+    p_sodel = social_sub.add_parser("delete", help="Delete a social link")
+    p_sodel.add_argument("platform", help="Platform name")
+
+    social_sub.add_parser("list", help="List social links")
 
     # Ad Management
     p_ad = subparsers.add_parser("ad", help="Advertisement operations")
@@ -1070,6 +1103,7 @@ def main():
         "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
         "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,
         "navlink": lambda a: {"add": cmd_nav_add, "delete": cmd_nav_delete, "list": cmd_nav_list}.get(a.op)(a) if a.op else None,
+        "social": lambda a: {"add": cmd_social_add, "delete": cmd_social_delete, "list": cmd_social_list}.get(a.op)(a) if a.op else None,
         "ad": lambda a: {"add": cmd_ad_add, "update": cmd_ad_update, "delete": cmd_ad_delete, "list": cmd_ad_list}.get(a.op)(a) if a.op else None,
         "asset": lambda a: {"add": cmd_asset_add, "delete": cmd_asset_delete, "optimize": cmd_asset_optimize, "list": lambda _: cmd_db_list(argparse.Namespace(entity="assets", filter=None)), "add-external": cmd_asset_add_external, "delete-external": cmd_asset_delete_external, "list-external": cmd_asset_list_external}.get(a.op)(a) if a.op else None,
         "app": lambda a: {"add": cmd_app_add, "delete": cmd_app_delete, "list": cmd_app_list}.get(a.op)(a) if a.op else None,

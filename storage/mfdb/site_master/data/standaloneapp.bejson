@@ -32,14 +32,5 @@
       "type": "string"
     }
   ],
-  "Values": [
-    [
-      "9bc12de3-e9cc-4837-95a0-62b2b6d20cf9",
-      "BEJSON Editor",
-      "bejson-editor",
-      "Single file JavaScript and HTML way better for the original three formats that runs without a server offline.",
-      "Bejson_Editor-v98.html",
-      "bejson_brand_1.jpeg"
-    ]
-  ]
+  "Values": []
 }

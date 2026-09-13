@@ -74,7 +74,11 @@ TAXONOMY_PREFIX_REGISTRY: Dict[str, Dict] = {
         "uuid_field": "app_uuid",            # already exists in live schema
         "description": "Standalone HTML/JS mini-app records"
     },
-    # AI_Profile intentionally excluded — out of scope for this taxonomy pass
+    "AI_Profile": {
+        "prefix": "persona_",
+        "uuid_field": None,                  # keyed on persona_name, matching AuthorProfile/Category/etc -- same open UUID question as those 6 entities, not decided here
+        "description": "AI persona/profile records for Gemini-backed content generation. Migrated from a 25-field PascalCase/CrammedFieldNames schema (Name, SystemInstruction, EmotionalExpression_Enabled, ...) that had been deliberately kept mismatched with the rest of this taxonomy for compatibility with an external tool (BEProfiler.py); that compatibility was explicitly dropped by Elton in favor of taxonomy consistency."
+    },
 }
 
 # ---------------------------------------------------------------------------

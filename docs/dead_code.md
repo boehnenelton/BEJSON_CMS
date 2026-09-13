@@ -1,5 +1,15 @@
 # Dead Code Log
 
+## pkg133 — `"site_name"` SiteConfig key (`BEJSON_CMS_System.py`, `site_config()`)
+
+**Removed** — `site_config()`'s POST handler wrote a `"site_name"` row on
+every save, byte-identical in value to `"title"`.
+
+**Reason:** confirmed via `grep` that no code path anywhere reads
+`"site_name"` — the Publisher reads `"title"` (fixed at pkg125 M-3). Pure
+dead data accumulating in `SiteConfig` on every single save. Found by
+external audit (M-5), confirmed before removing.
+
 ## pkg119 — AI Multi-Page Builder (BEJSON_CMS_PageEditor.py)
 
 **Removed entirely** — sidebar link, modal HTML, all JS (`openAiModal`,

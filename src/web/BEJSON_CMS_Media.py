@@ -2,10 +2,23 @@
 Library:         BEJSON_CMS_Media
 Family:          BEJSON_CMS
 Description:     Media Cube: gallery, uploads, background thumbnail worker, external media links. In-process serial worker thread by design (no multiprocessing) — see comment block below.
-Version:         18.28
+Version:         18.29
 Library_Version: 58
-Date:            2026-08-06
-RELATIONAL_ID:   7c3e4a12-9f6d-4b8e-9a1c-2d5f8e0b6c47
+Date:            2026-09-12
+RELATIONAL_ID:   2318aaf0-f97b-4dc4-84e5-c400288fe3a4
+CHANGE (2026-09-12): PKG133 -- external audit remediation (H-2, H-3). H-2:
+the external-links table and YouTube-card "Copy URL" buttons still
+interpolated extmedia_url raw into an inline onclick="copyAssetPath('...')"
+string -- html.escape() alone doesn't make a value safe inside inline
+event-handler JS source, since the browser decodes entities in an
+attribute value before running onclick as JS (same bug class as the
+pkg123/pkg124 rename/lightbox fixes; these two call sites were missed by
+both passes). Converted both to data-url + the existing document.body
+delegation handler (added a .copy-url-btn branch). H-3: removed ".svg"
+from ALLOWED_ASSET_EXTENSIONS -- serve_asset() does send_file() with no
+content inspection, so an uploaded SVG carrying <script>/on*= payloads was
+served back verbatim (stored XSS); no sanitizer exists. Zero-risk fix per
+audit; re-add once sanitization/CSP is implemented.
 CHANGE (2026-08-06): PKG74 - added "PDF" as a selectable Type on the
 External Media Link form (was Image/Video/Other only), so an external
 PDF URL can be tagged and picked up by the new Insert-PDF picker in
@@ -44,9 +57,13 @@ try:
 except ImportError:
     _PIL_OK = False
 
-ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
+ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp',
                               '.pdf', '.mp4', '.mp3', '.ogg', '.webm', '.ico'}
-# NOTE: SVG is allowed but sanitize SVG content before serving to prevent XSS.
+# SVG removed from the allowed set (pkg133, audit H-3): SVG can carry
+# <script>/on*= payloads and serve_asset() does send_file() with no content
+# inspection, so an uploaded SVG was served back verbatim -- stored XSS.
+# No sanitizer exists yet. Re-add '.svg' only once upload-time sanitization
+# (or a strict CSP + Content-Type on serve_asset()) is implemented.
 
 media_cube = Blueprint('media', __name__)
 
@@ -294,7 +311,7 @@ def assets_gallery():
           <td><a href="{_html_escape.escape(e.get('extmedia_url','') or '')}" target="_blank" style="color:var(--accent);">{_html_escape.escape((e.get('extmedia_url') or '')[:60])}</a></td>
           <td>{_html_escape.escape(e.get('extmedia_type') or '')}</td>
           <td>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{_html_escape.escape(e.get('extmedia_url','') or '')}')">Copy URL</button>
+            <button type="button" class="btn btn-secondary btn-sm copy-url-btn" data-url="{_html_escape.escape(e.get('extmedia_url','') or '')}">Copy URL</button>
             <button type="button" class="btn btn-secondary btn-sm rename-ext-btn" data-uuid="{e.get('extmedia_uuid','')}" data-name="{e_name}">Rename</button>
             <form method="post" action="/assets/external/delete/{e.get('extmedia_uuid','')}" style="display:inline;" onsubmit="return confirm('Delete this link?')">
               <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -318,7 +335,7 @@ def assets_gallery():
           <div class="yt-card-body">
             <span class="yt-card-name">{e_name}</span>
             <div class="yt-card-actions">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{_html_escape.escape(e.get('extmedia_url','') or '')}')">Copy URL</button>
+              <button type="button" class="btn btn-secondary btn-sm copy-url-btn" data-url="{_html_escape.escape(e.get('extmedia_url','') or '')}">Copy URL</button>
               <button type="button" class="btn btn-secondary btn-sm rename-ext-btn" data-uuid="{e.get('extmedia_uuid','')}" data-name="{e_name}">Rename</button>
               <form method="post" action="/assets/external/delete/{e.get('extmedia_uuid','')}" style="display:inline;" onsubmit="return confirm('Delete this video link?')">
                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -548,7 +565,7 @@ def assets_gallery():
     // here rather than per-row, so it also covers rows added later without
     // re-binding.
     document.body.addEventListener('click', function(ev) {{
-        var t = ev.target.closest('.lightbox-trigger, .rename-asset-btn, .rename-ext-btn, .yt-thumb-link');
+        var t = ev.target.closest('.lightbox-trigger, .rename-asset-btn, .rename-ext-btn, .yt-thumb-link, .copy-url-btn');
         if (!t) return;
         if (t.classList.contains('lightbox-trigger')) {{
             ev.stopPropagation();
@@ -559,6 +576,8 @@ def assets_gallery():
             renameExternalLink(t.dataset.uuid, t.dataset.name);
         }} else if (t.classList.contains('yt-thumb-link')) {{
             window.open(t.dataset.url, '_blank');
+        }} else if (t.classList.contains('copy-url-btn')) {{
+            copyAssetPath(t.dataset.url);
         }}
     }}, true);
     function closeLightbox() {{

@@ -117,6 +117,45 @@ disconnected) — corrected to match current reality.
 
 ---
 
+## `BEJSON_CMS_Media.py` — two `copyAssetPath` onclick sites missed by the pkg123/pkg124 delegation fixes (found + fixed pkg133)
+
+**Severity:** High — same exploitable-quote bug class as pkg123 #7 (author
+names) and pkg124 H-1 (rename/lightbox), confirmed by an external audit;
+two call sites survived both prior passes.
+
+**What's wrong:** the external-links table's and the YouTube tab's "Copy
+URL" buttons built `onclick="copyAssetPath('{html.escape(extmedia_url)}')"`.
+`html.escape()` turns a literal `'` into `&#39;`, but the browser decodes
+that entity back to a raw `'` before running the `onclick` attribute as JS
+— an `extmedia_url` containing a single quote breaks out of the string
+argument.
+
+**Fix:** both sites now use `data-url="{html.escape(...)}"` plus the
+existing `document.body` delegated click handler (added a `.copy-url-btn`
+branch), matching the pattern already used correctly for rename/lightbox
+in the same file.
+
+**Verified:** rendered a crafted URL containing `');alert(1);//` through
+the actual f-string template — confirmed it lands only inside the
+HTML-escaped `data-url` attribute value, never inside executable JS source.
+
+---
+
+## `BEJSON_CMS_Media.py` — SVG upload allowed with no sanitization (found + fixed pkg133)
+
+**Severity:** High — stored XSS. `ALLOWED_ASSET_EXTENSIONS` permitted
+`.svg`, and `serve_asset()` does `send_file()` with zero content
+inspection. An uploaded SVG can carry `<script>`/`on*=` payloads and gets
+served back verbatim. A code comment acknowledged the risk ("sanitize SVG
+content before serving") but no sanitizer was ever implemented.
+
+**Fix:** removed `.svg` from `ALLOWED_ASSET_EXTENSIONS` — the zero-risk
+immediate option per the audit, since no sanitizer exists. Re-add only
+once upload-time sanitization or a strict CSP + explicit
+`Content-Type: image/svg+xml` on `serve_asset()` is built.
+
+---
+
 *Add new entries above this line, newest first. Each entry should state
 what was actually run/observed to confirm the finding, not just what the
 code appears to do on read-through.*

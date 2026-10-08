@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditor
-SCRIPT_VERSION: 16.2
-RELATIONAL_ID:  1a9d7e63-4c2f-4b91-8e0a-6f3b2c9d5e18
+SCRIPT_VERSION: 16.3
+RELATIONAL_ID:  e9a0d71d-f292-4e1d-b10c-2e2301035c2b
 AUTHOR:         Elton Boehnen
 EMAIL:          boehnenelton2024@gmail.com
 GITHUB:         github.com/boehnenelton
+CHANGE (2026-09-16): PKG137 -- _write_page_record() (the single function
+handling both add and update) now resolves category/author name to their
+live UUIDs and writes page_cat_uuid/page_author_uuid alongside the
+existing name fields on every save. Verified live: create resolved the
+correct UUIDs, a follow-up edit re-resolved them correctly.
 CHANGE (2026-08-06): PKG74 - added an Insert PDF toolbar button (new
 pdfModal, mirrors the existing YouTube/Code File modal pattern). Lets
 you pick an already-uploaded PDF from the Media Library, pick a saved
@@ -170,7 +175,13 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
 
     existing_pages = db.get_records("PageRecord")
     existing_page = next((p for p in existing_pages if p.get('page_uuid') == page_uuid), None)
-    
+
+    # NEW (pkg137): resolve category/author name to their live UUIDs,
+    # kept in sync alongside page_cat_name/page_author_name on every
+    # write, same as every other PageRecord write site this pass.
+    cat_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == category), None)
+    author_uuid = next((a.get("author_uuid") for a in db.get_records("AuthorProfile") if a.get("author_display_name") == author), None) if author else None
+
     if is_new:
         db.add_record("PageRecord", {
             "page_uuid":    page_uuid,
@@ -183,6 +194,8 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_author_name":   author,
             "page_featured_img": featured_img,
             "page_template_key": template_key,
+            "page_cat_uuid": cat_uuid,
+            "page_author_uuid": author_uuid,
         })
     else:
         updates = {
@@ -191,6 +204,8 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_cat_name": category,
             "page_author_name":   author,
             "page_template_key": template_key,
+            "page_cat_uuid": cat_uuid,
+            "page_author_uuid": author_uuid,
         }
         if featured_img is not None:
             updates["page_featured_img"] = featured_img

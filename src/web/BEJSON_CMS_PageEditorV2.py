@@ -1,9 +1,62 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditorV2
-SCRIPT_VERSION: 18.3
-RELATIONAL_ID:  9b4f2d81-3e7c-4a95-b6d0-8c1f5a2e9d63
+SCRIPT_VERSION: 18.8
+RELATIONAL_ID:  8a4ff525-7b7b-4ac5-8720-585974579d54
 AUTHOR:         Elton Boehnen
+CHANGE (2026-09-25): PKG142 -- api_generate_plan()/api_execute_task() (the
+/api/tasking/* routes) used to each do their own single-shot
+requests.post() against Gemini -- no retry, no model fallback on 429/503,
+only one key attempt ever. Per Elton: "take a look at the AI system in
+place in the react system, use it to architect the python CMS version AI
+system" -- both routes now call lib_cms_persona_writer.py's new
+generate_with_fallback(), which ports the React CMS's server.ts
+/api/gemini/generate proxy's model-cascade + token-budget architecture
+(full detail in that file's own pkg142 changelog entry). Both routes now
+also return model_used, and a failure response carries a structured
+status + retry_delay instead of a bare error string. Verified live
+through the real Flask routes with a mocked HTTP layer: successful
+generation, markdown-fence stripping on execute_task still works, and a
+429 failure surfaces the correctly-parsed retry_delay through the actual
+JSON response.
+CHANGE (2026-09-21): PKG141 -- found continuing the sweep after pkg140
+(user: "anything else"/"go", kept auditing rather than stopping): a
+DIFFERENT bug class from the SVG work, same instinct to keep checking
+sibling code. api_upload_context()'s file.filename is client-controlled
+(the multipart Content-Disposition header) and werkzeug's FileStorage.
+save() does not sanitize it -- confirmed directly that a filename like
+"../../../../tmp/x" resolved clean outside CONTEXT_DIR entirely before
+this fix. Gated behind the same auth as every route in this app, but an
+authenticated user still shouldn't get arbitrary-path file writes from a
+filename field. Fixed with secure_filename() plus bejson_safe_join()
+(already used for this file's /assets/ routes) as a second layer.
+Verified live: the exact traversal filename that escaped before the fix
+now writes safely inside CONTEXT_DIR under a collapsed-safe name, and
+confirmed nothing was written to the traversal target; a legitimate
+upload still works unchanged. Swept every other file.filename/upload site
+in the codebase for the same pattern (BEJSON_CMS_Media.py,
+BEJSON_CMS_Content.py, BEJSON_CMS_PageEditor.py) -- all already either
+use secure_filename(), write to a fixed non-user-controlled path, or
+never write the upload to disk at all (read into memory only). This was
+the only real gap.
+CHANGE (2026-09-20): PKG140 -- found while continuing the sweep right after
+pkg139 shipped: BEJSON_CMS_Media.py's serve_asset()/upload-handler CSP+
+sanitization work had a sibling gap in THIS file -- serve_asset_v2() and
+serve_thumb_v2() are separate route implementations serving the exact
+same physical ASSETS_DIR files, and neither had picked up the CSP header
+serve_asset() got. Fixed both the same way. Verified live via Flask test
+client: a real sanitized SVG served through both /assets/<file> and
+/assets/thumb/<file> in this app now carries the CSP header; a non-SVG
+asset is unaffected either way.
+CHANGE (2026-09-16): PKG137 -- api_save() (add+update in one function) now
+resolves category/author name to their live UUIDs and writes
+page_cat_uuid/page_author_uuid alongside the existing name fields on every
+save. Verified live: create resolved the correct UUIDs, a follow-up edit
+re-resolved them correctly.
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). /api/category/
+add's Category add_record() call now includes a real cat_uuid -- it
+didn't, so every category created via this endpoint was landing with
+cat_uuid: None. Verified live via Flask test client against real data.
 DESCRIPTION:    Editor v2 with Stabilized Sidebar, Tasking Workflow, and Gemini Config.
                 Unified with CMS Data Model and Storage Format.
 CHANGE (2026-08-06): PKG74 - added an Insert PDF button next to the
@@ -32,6 +85,7 @@ round-trip test (external-link page survives a V2 edit intact).
 """
 
 from flask import Flask, render_template_string, request, redirect, flash, jsonify, send_file, Response
+from werkzeug.utils import secure_filename
 import os, re, uuid, json, sys, html as _html, io
 from datetime import datetime
 
@@ -153,8 +207,25 @@ def api_upload_context():
     try:
         file = request.files.get("file")
         if not file: return jsonify({"ok": False, "error": "No file"})
-        file.save(os.path.join(CONTEXT_DIR, file.filename))
-        return jsonify({"ok": True, "msg": f"Uploaded {file.filename}"})
+        # SECURITY FIX (pkg141): file.filename is client-controlled (the
+        # multipart Content-Disposition header) and werkzeug's
+        # FileStorage.save() does NOT sanitize it -- a filename like
+        # "../../../../etc/cron.d/x" resolved outside CONTEXT_DIR entirely
+        # (confirmed: os.path.join + the traversal segments walks right out
+        # before this fix). Gated behind the same auth as every other route
+        # in this app, but an authenticated user still shouldn't be able to
+        # write arbitrary files via a crafted filename. bejson_safe_join is
+        # already used for the /assets/ routes in this same file; reused
+        # here for the same guarantee rather than trusting secure_filename()
+        # alone.
+        safe_filename = secure_filename(file.filename)
+        if not safe_filename:
+            return jsonify({"ok": False, "error": "Invalid filename"})
+        dest_path = bejson_safe_join(CONTEXT_DIR, safe_filename)
+        file.save(dest_path)
+        return jsonify({"ok": True, "msg": f"Uploaded {safe_filename}"})
+    except ValueError:
+        return jsonify({"ok": False, "error": "Invalid filename"})
     except Exception as e: return jsonify({"ok": False, "error": str(e)})
 
 def get_context_content(filenames):
@@ -216,20 +287,26 @@ def api_generate_plan():
 
     if not _REQUESTS_AVAILABLE:
         return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
-    key = writer._get_key()
-    if not key: return jsonify({"ok": False, "error": "No API keys found"})
 
-    payload = {
-        "contents": [{"parts": [{"text": f"Build a plan for: {prompt}"}]}],
-        "system_instruction": {"parts": [{"text": plan_sys_inst}]},
-        "generationConfig": {"response_mime_type": "application/json", "temperature": temperature}
-    }
+    # PKG142: was a single-shot requests.post() with no retry, no model
+    # fallback on 429/503, and only one key attempt total -- ported from
+    # the React CMS's server.ts /api/gemini/generate proxy, see
+    # lib_cms_persona_writer.py's pkg142 changelog entry for the full
+    # architecture. generate_with_fallback() already applies the SAME
+    # token-budget trim as the React version before sending.
+    result = writer.generate_with_fallback(
+        f"Build a plan for: {prompt}",
+        system_instruction=plan_sys_inst,
+        model=model,
+        generation_config={"response_mime_type": "application/json", "temperature": temperature},
+    )
+    if not result["ok"]:
+        return jsonify({"ok": False, "error": result["error"], "status": result["status"], "retry_delay": result["retry_delay"]})
     try:
-        res = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", json=payload, timeout=90)
-        res.raise_for_status()
-        tasks = json.loads(res.json()["candidates"][0]["content"]["parts"][0]["text"])
-        return jsonify({"ok": True, "tasks": tasks})
-    except Exception as e: return jsonify({"ok": False, "error": str(e)})
+        tasks = json.loads(result["text"])
+    except (json.JSONDecodeError, TypeError) as e:
+        return jsonify({"ok": False, "error": f"Model returned non-JSON content: {e}"})
+    return jsonify({"ok": True, "tasks": tasks, "model_used": result["model_used"]})
 
 @app.route('/api/tasking/execute_task', methods=['POST'])
 def api_execute_task():
@@ -258,19 +335,21 @@ def api_execute_task():
 
     if not _REQUESTS_AVAILABLE:
         return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
-    key = writer._get_key()
-    if not key: return jsonify({"ok": False, "error": "No API keys found"})
 
-    payload = {"contents": [{"parts": [{"text": task_prompt}]}], "system_instruction": {"parts": [{"text": exec_sys_inst}]}}
-    if gen_config:
-        payload["generationConfig"] = gen_config
-    try:
-        res = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", json=payload, timeout=120)
-        res.raise_for_status()
-        content = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        if content.startswith("```"): content = re.sub(r'^```html?\n?|\n?```$', '', content)
-        return jsonify({"ok": True, "content": content})
-    except Exception as e: return jsonify({"ok": False, "error": str(e)})
+    # PKG142: same fix as api_generate_plan() above -- see that route's
+    # comment and lib_cms_persona_writer.py's pkg142 changelog entry.
+    result = writer.generate_with_fallback(
+        task_prompt,
+        system_instruction=exec_sys_inst,
+        model=model,
+        generation_config=gen_config or None,
+        timeout=120,
+    )
+    if not result["ok"]:
+        return jsonify({"ok": False, "error": result["error"], "status": result["status"], "retry_delay": result["retry_delay"]})
+    content = result["text"].strip()
+    if content.startswith("```"): content = re.sub(r'^```html?\n?|\n?```$', '', content)
+    return jsonify({"ok": True, "content": content, "model_used": result["model_used"]})
 
 # =============================================================================
 # CMS INTEGRATION API
@@ -315,6 +394,12 @@ def api_save():
     db.mount()
     existing = next((x for x in db.get_records("PageRecord") if x['page_uuid'] == uuid_val), None)
 
+    # NEW (pkg137): resolve category/author name to their live UUIDs,
+    # kept in sync alongside page_cat_name/page_author_name on every
+    # write, same as every other PageRecord write site this pass.
+    cat_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == cat), None)
+    author_uuid = next((a.get("author_uuid") for a in db.get_records("AuthorProfile") if a.get("author_display_name") == author), None) if author else None
+
     if existing:
         # Update: only touch the fields this editor actually edits. item_type
         # and external_url are deliberately omitted - update_record() only
@@ -329,6 +414,8 @@ def api_save():
             "page_author_name": author,
             "page_template_key": tpl_key,
             "page_featured_video_url": featured_video,
+            "page_cat_uuid": cat_uuid,
+            "page_author_uuid": author_uuid,
         }
         db.update_record("PageRecord", "page_uuid", uuid_val, rec)
     else:
@@ -344,6 +431,8 @@ def api_save():
             "page_featured_img": None,
             "page_template_key": tpl_key,
             "page_featured_video_url": featured_video,
+            "page_cat_uuid": cat_uuid,
+            "page_author_uuid": author_uuid,
         }
         db.add_record("PageRecord", rec)
     
@@ -386,7 +475,17 @@ def serve_asset_v2(filename):
         safe_path = bejson_safe_join(str(ASSETS_DIR), filename)
     except ValueError:
         return "Not found", 404
-    return send_file(safe_path)
+    response = send_file(safe_path)
+    if filename.lower().endswith('.svg'):
+        # Same CSP defense-in-depth as BEJSON_CMS_Media.py's serve_asset()
+        # (pkg139) -- this is a SEPARATE route serving the SAME physical
+        # ASSETS_DIR files, so it needed the identical fix, not inherited
+        # automatically from the other file. Found in the same sweep that
+        # added it there, before shipping as an inconsistency between the
+        # two apps' serving of identical files.
+        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
+        response.headers['Content-Type'] = 'image/svg+xml'
+    return response
 
 @app.route('/assets/thumb/<path:filename>')
 def serve_thumb_v2(filename):
@@ -398,7 +497,11 @@ def serve_thumb_v2(filename):
         return "Not found", 404
     if os.path.exists(safe_thumb):
         return send_file(safe_thumb)
-    return send_file(safe_orig)
+    response = send_file(safe_orig)
+    if filename.lower().endswith('.svg'):
+        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
+        response.headers['Content-Type'] = 'image/svg+xml'
+    return response
 
 @app.route('/api/media/list')
 def api_media_list():
@@ -491,7 +594,7 @@ def api_add_cat():
     name = request.json.get('name')
     if not name: return jsonify({"ok": False})
     db.mount()
-    db.add_record("Category", {"cat_name": name, "cat_slug": name.lower().replace(" ","-")})
+    db.add_record("Category", {"cat_uuid": str(uuid.uuid4()), "cat_name": name, "cat_slug": name.lower().replace(" ","-")})
     return jsonify({"ok": True})
 
 @app.route('/api/settings/export_keys')

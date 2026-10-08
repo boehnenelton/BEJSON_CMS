@@ -8,6 +8,10 @@
   ],
   "Fields": [
     {
+      "name": "persona_uuid",
+      "type": "string"
+    },
+    {
       "name": "persona_record_type",
       "type": "string"
     },

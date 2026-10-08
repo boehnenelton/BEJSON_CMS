@@ -28,6 +28,11 @@ REQUIRED entity schemas, so a factory reset/re-bootstrap would silently
 produce entities without them even if a prior ad-hoc migration had added
 them.
 
+**pkg135 update:** all six of these plus `AI_Profile` now have a live
+UUID field — see the "Decided, pkg135" note below the table. The table
+itself is left as the accurate historical record of what the pkg119 audit
+found; treat every "no UUID field" cell below as stale as of pkg135.
+
 | Entity | Canonical Fields (UUID status verified live) |
 |---|---|
 | Category | `cat_name, cat_slug` — **no UUID field** |
@@ -41,17 +46,49 @@ them.
 | SiteConfig | `sys_key, sys_value` — **no UUID field** |
 | SocialLink | `social_platform_name, social_target_url` — **no UUID field** |
 
-**Open decision, not yet made:** whether to actually inject
-`cat_uuid`/`author_uuid`/`asset_uuid`/`nav_uuid`/`sys_uuid`/`social_uuid`
-into live data + `_migrate_db()`'s REQUIRED list (real schema migration +
-backfill + every FK reference across the codebase), or drop the UUID
-mandate for the entities that will never need cross-entity referencing
-(NavLink, SiteConfig, SocialLink are pure config/label records — no code
-anywhere points *at* one of their rows). MediaAsset is the one open
-question worth resolving deliberately rather than by default: a future
-video/document page-type feature would want to reference a specific
-MediaAsset by a stable ID rather than its mutable filename. Flagged for
-Elton; not resolved in this pass. `storage/tmp/taxonomy_audit.json` has been
+**Decided, pkg135:** "give them all uuids" (Elton). All 6 got their UUID
+field injected into live data via `tools/migrate_taxonomy.py` (backed up
+first), plus a 7th: `AI_Profile` (`persona_name`-keyed, the same open
+question, resolved the same way). `_migrate_db()` now self-heals this for
+any other environment too — see `BEJSON_CMS_System.py`'s pkg135 changelog
+entry for why that couldn't just reuse the existing generic field-backfill
+loop (shared `None` vs. a distinct value per row). Every CRUD call site
+across the web apps and `cms-manage.py` that creates or identifies one of
+these 7 entities was converted to use the new UUID — full list in each
+touched file's own pkg135 changelog entry.
+
+**pkg137 update:** the FK-by-name gap noted below (`page_cat_name`,
+`page_author_name`) was partially closed — see the "pkg137" note further
+down. What follows was accurate as of pkg135; NOT done this pass: the FK
+fields that reference these entities by name rather than by the new UUID
+(`PageRecord.page_cat_name`, `PageRecord.page_author_name`) were
+deliberately left as-is — switching those is a separate, larger decision
+(denormalizing every render/permalink/related-content path that reads
+them), not implied by "give the entities themselves an identity."
+`SiteConfig` is a partial exception: it got `sys_uuid` for consistency,
+but `site_config()`'s actual upsert logic stays keyed by `sys_key` --
+config rows are looked up by their known setting name throughout this
+codebase (`"title"`, `"base_url"`, ...), which is the correct behavior for
+a settings store and was never the same collision-prone pattern as a
+user-created display name.
+
+**pkg137 (Elton: "keep making everything uuid based"):** added
+`page_cat_uuid`/`page_author_uuid` to `PageRecord`, kept in sync alongside
+the existing `page_cat_name`/`page_author_name` on every write across
+every write site in the codebase (`BEJSON_CMS_Content.py`,
+`BEJSON_CMS_PageEditor.py`, `BEJSON_CMS_PageEditorV2.py`,
+`cms-manage.py`). Deliberately additive, not a replacement: the name
+fields are untouched and every render/permalink/related-content path in
+`BEJSON_CMS_Publisher.py` that reads them is unchanged and still works.
+This is NOT the "separate, larger decision" from the paragraph above —
+that would be switching those render paths to resolve through the UUID
+instead of matching on the name string, which still hasn't been done.
+What pkg137 adds is a genuine, resolvable identity link a page carries
+alongside its display strings, immune to the rename/case-collision class
+of bug even though the display strings themselves are still what
+everything renders from today.
+
+`storage/tmp/taxonomy_audit.json` has been
 regenerated to reflect this correction (see pkg119 changelog entry) —
 it previously asserted the same false claim independently.
 

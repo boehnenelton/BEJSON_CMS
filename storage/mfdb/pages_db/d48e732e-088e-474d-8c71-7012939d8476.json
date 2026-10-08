@@ -1,0 +1,54 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string"
+    },
+    {
+      "name": "html_body",
+      "type": "string"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string"
+    },
+    {
+      "name": "source_code",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "Edit FK Test",
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "",
+      "",
+      ""
+    ]
+  ],
+  "_bejson_field_map": {
+    "Record_Type_Parent": 0,
+    "meta_title": 1,
+    "html_body": 2,
+    "markdown_body": 3,
+    "source_code": 4
+  }
+}

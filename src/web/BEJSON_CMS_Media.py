@@ -2,10 +2,56 @@
 Library:         BEJSON_CMS_Media
 Family:          BEJSON_CMS
 Description:     Media Cube: gallery, uploads, background thumbnail worker, external media links. In-process serial worker thread by design (no multiprocessing) — see comment block below.
-Version:         18.29
+Version:         18.32
 Library_Version: 58
-Date:            2026-09-12
-RELATIONAL_ID:   2318aaf0-f97b-4dc4-84e5-c400288fe3a4
+Date:            2026-09-20
+RELATIONAL_ID:   78da8c87-9b66-4843-9d80-df1412affdb6
+CHANGE (2026-09-20): PKG140 -- found while continuing the sweep right after
+pkg139 shipped: the CSP/upload-sanitization work only covered serve_asset()
+and the upload handler. Two more gaps in the SAME file, same attack class:
+(1) serve_thumb()'s fallback path (serves the raw original when no
+thumbnail exists yet -- which for .svg is ALWAYS, since .svg is not in
+_THUMBABLE_EXT) had no CSP header, even though the gallery view's <img>
+tags always request /assets/thumb/<file> for every asset row regardless of
+type -- this was a live, reachable path, not theoretical. Fixed with the
+same header logic as serve_asset(). (2) assets_replace() -- overwriting an
+existing asset's content while keeping the same stored filename -- never
+sanitized at all, for any extension, meaning "replace" was an entirely
+separate, unprotected write path to the same files the upload handler had
+just been locked down: someone could overwrite an already-sanitized SVG's
+content with raw malicious bytes under the same filename. Fixed to run the
+same sanitize_svg() check when the existing file's extension is .svg.
+Verified live: created a real SVG asset, replaced it with a payload
+containing <script>+onload= cookie exfiltration, confirmed the on-disk
+content came out completely inert (down to a bare <svg/>); confirmed
+serve_thumb()'s fallback now sends the CSP header for a real SVG request.
+Also confirmed a non-.svg asset is completely unaffected by either change.
+CHANGE (2026-09-20): PKG139 -- SVG re-enabled (Elton's call, resolving audit
+H-3 -- disabled since pkg133 pending a sanitizer). ".svg" added back to
+ALLOWED_ASSET_EXTENSIONS. Upload path now runs every .svg through the new
+lib_bejson_Core_svg_sanitizer.sanitize_svg() (stdlib-only, strict
+allowlist) before writing to disk -- a file that fails sanitization is
+rejected outright, no partial/unsafe version is ever saved. serve_asset()
+adds Content-Security-Policy: script-src 'none'; sandbox; on .svg
+responses as defense in depth on top of upload-time sanitization.
+Live-verified through the real Flask upload route, not just the sanitizer
+library's own unit tests: a malicious SVG (<script> + onload= cookie
+exfiltration) came out the other end on disk completely inert; a
+genuinely broken file was correctly rejected with nothing written or
+queued; confirmed the CSP header is actually present on a served .svg
+response. All test assets cleaned up after, live data confirmed back to
+its 4-asset baseline.
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). MediaAsset's
+upload-commit add_record() call now includes a real asset_uuid -- it
+didn't, so every uploaded asset was landing with asset_uuid: None. Rename/
+delete for MediaAsset deliberately left keyed by asset_filename (not
+converted to asset_uuid) -- asset_filename is already a stable,
+collision-free identifier (uuid.hex-based, generated once at upload and
+never changed by rename, per the pkg133 H-2 audit finding), so this isn't
+the same bug class as AuthorProfile/Category; the new asset_uuid field
+exists for future FK use (e.g. a video/document page type referencing a
+specific asset by stable ID) rather than fixing an active identity bug
+here.
 CHANGE (2026-09-12): PKG133 -- external audit remediation (H-2, H-3). H-2:
 the external-links table and YouTube-card "Copy URL" buttons still
 interpolated extmedia_url raw into an inline onclick="copyAssetPath('...')"
@@ -50,6 +96,7 @@ from BEJSON_CMS_Shared import (
     ASSETS_DIR, THUMBS_DIR,
 )
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
+from lib_bejson_Core_svg_sanitizer import sanitize_svg
 
 try:
     from PIL import Image
@@ -57,13 +104,14 @@ try:
 except ImportError:
     _PIL_OK = False
 
-ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp',
+ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
                               '.pdf', '.mp4', '.mp3', '.ogg', '.webm', '.ico'}
-# SVG removed from the allowed set (pkg133, audit H-3): SVG can carry
-# <script>/on*= payloads and serve_asset() does send_file() with no content
-# inspection, so an uploaded SVG was served back verbatim -- stored XSS.
-# No sanitizer exists yet. Re-add '.svg' only once upload-time sanitization
-# (or a strict CSP + Content-Type on serve_asset()) is implemented.
+# SVG re-added (pkg139, Elton: "build sanitizer + re-enable" -- resolves
+# audit H-3, open since pkg133). Every .svg upload is now run through
+# lib_bejson_Core_svg_sanitizer.sanitize_svg() before being written to
+# disk -- see the upload handler below. A file that fails sanitization
+# (doesn't parse, isn't an <svg> document) is rejected outright, not
+# saved in any form.
 
 media_cube = Blueprint('media', __name__)
 
@@ -159,6 +207,7 @@ def _process_uploaded_asset(job: dict) -> None:
 
         fsize = dest_path.stat().st_size
         db.add_record("MediaAsset", {
+            "asset_uuid": str(uuid.uuid4()),
             "asset_filename": stored_name,
             "asset_original_name": job["asset_original_name"],
             "asset_file_hash": file_hash,
@@ -205,7 +254,17 @@ def serve_asset(filename):
         safe_path = bejson_safe_join(str(ASSETS_DIR), filename)
     except ValueError:
         return "Not found", 404
-    return send_file(safe_path)
+    response = send_file(safe_path)
+    if filename.lower().endswith('.svg'):
+        # Defense in depth alongside upload-time sanitization (pkg139): even
+        # a sanitized SVG is still parsed and rendered as a document by the
+        # browser (not a flat raster image), so a strict CSP here means a
+        # sanitizer gap or a future regression doesn't automatically become
+        # an executable one -- inline scripts/handlers still won't run even
+        # if one somehow made it through.
+        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
+        response.headers['Content-Type'] = 'image/svg+xml'
+    return response
 
 
 @media_cube.route('/assets/thumb/<path:filename>')
@@ -217,7 +276,18 @@ def serve_thumb(filename):
         return "Not found", 404
     if os.path.exists(safe_name):
         return send_file(safe_name)
-    return send_file(safe_orig)  # fallback: original, until thumb generation catches up
+    response = send_file(safe_orig)  # fallback: original, until thumb generation catches up
+    if filename.lower().endswith('.svg'):
+        # Same CSP defense-in-depth as serve_asset() (pkg139) -- SVG is
+        # never in _THUMBABLE_EXT, so this fallback is the ONLY path an
+        # SVG is ever served through when requested via /assets/thumb/,
+        # which the gallery view (below) always does for every asset row
+        # regardless of type. Found and fixed same-session as the original
+        # SVG re-enable, before it shipped as an inconsistency between the
+        # two routes that serve the same files.
+        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
+        response.headers['Content-Type'] = 'image/svg+xml'
+    return response
 
 
 @media_cube.route('/assets/list.json', methods=['GET'])
@@ -611,7 +681,21 @@ def assets_upload():
         stored_name = f"{uuid.uuid4().hex}{Uploaded_File_Extension}"
         dest_path = ASSETS_DIR / stored_name
         try:
-            f.save(str(dest_path))  # streams straight to disk — never reads whole file into memory
+            if Uploaded_File_Extension == '.svg':
+                # SVGs are sanitized, not streamed straight through -- this
+                # requires reading the whole file into memory (unlike every
+                # other extension here), but SVGs are icons/logos/diagrams,
+                # never large enough for that to matter in practice.
+                raw = f.read()
+                sanitized = sanitize_svg(raw)
+                if sanitized is None:
+                    flash(f'"{f.filename}" skipped — not a valid/safe SVG file.', 'error')
+                    skipped_count += 1
+                    continue
+                with open(dest_path, 'wb') as out:
+                    out.write(sanitized)
+            else:
+                f.save(str(dest_path))  # streams straight to disk — never reads whole file into memory
             _asset_process_queue.put({
                 "stored_name": stored_name,
                 "asset_original_name": f.filename,
@@ -698,7 +782,23 @@ def assets_replace(filename):
     ext = Path(filename).suffix.lower()
     dest_path = ASSETS_DIR / filename
     try:
-        f.save(str(dest_path))  # overwrites in place, same stored filename
+        if ext == '.svg':
+            # Same sanitization as the upload path (pkg139) -- without
+            # this, "replace" was a way to overwrite an already-sanitized
+            # SVG's content with unsanitized raw bytes under the same
+            # stored filename, completely bypassing the upload-time check.
+            # Found in the same sweep that added sanitization to upload,
+            # before shipping as a second, unprotected write path to the
+            # same files.
+            raw = f.read()
+            sanitized = sanitize_svg(raw)
+            if sanitized is None:
+                flash('Replacement file is not a valid/safe SVG — not replaced.', 'error')
+                return redirect('/assets')
+            with open(dest_path, 'wb') as out:
+                out.write(sanitized)
+        else:
+            f.save(str(dest_path))  # overwrites in place, same stored filename
         file_hash = _get_file_hash(dest_path)
         db.update_record("MediaAsset", "asset_filename", filename, {
             "asset_file_hash": file_hash,

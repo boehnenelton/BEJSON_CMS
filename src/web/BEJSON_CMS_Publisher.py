@@ -1,8 +1,19 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_Publisher
-SCRIPT_VERSION: 16.5
-RELATIONAL_ID:  93237dad-1bb2-42a1-887e-46aaea824b03
+SCRIPT_VERSION: 16.6
+RELATIONAL_ID:  731af172-63d8-4341-8a97-4a0cf82d48a0
 AUTHOR:         Elton Boehnen
+CHANGE (2026-09-18): PKG138 -- deferred-item sweep (audit L-6). Two imports
+(lib_bejson_Core_bejson_core as Core, BEJSON_CMS_Renderers.render_page)
+were inside the per-page publish loop, re-executed on every single
+iteration -- Python's import cache makes this functionally harmless but
+wasteful and stylistically inconsistent with the rest of this file.
+Checked both for circular-import risk before moving (neither module
+imports anything from this project), moved both to module level. Verified
+with a real end-to-end build, not just a compile check: created a real
+page, ran _execute() directly, confirmed the build completed and the
+page's actual rendered content appeared correctly in the output HTML,
+then cleaned up the test page and build output.
 CHANGE (2026-09-12): PKG133 -- external audit remediation (M-1, M-2, M-3).
 M-1: _generate_related_block()'s s['page_slug'] and _generate_card_html()'s
 item['page_title'] were direct dict indices (every other field access in
@@ -138,6 +149,7 @@ if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
+import lib_bejson_Core_bejson_core as Core  # moved to module level (pkg138, audit L-6) -- was previously imported inside the per-page publish loop on every single iteration; no circular-import risk (verified: this is a leaf Core library, already imported at module level elsewhere in this codebase without issue)
 
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER_PORT")
@@ -150,6 +162,7 @@ app = Flask(__name__)
 db = CMSCore.CMSCore(MANIFEST_PATH)
 
 from BEJSON_CMS_Shared import _check_auth, _unauthorized
+from BEJSON_CMS_Renderers import render_page  # moved to module level (pkg138, audit L-6) -- was previously imported inside the per-page publish loop on every single iteration; no circular-import risk (verified: BEJSON_CMS_Renderers.py imports nothing from this project)
 
 
 @app.before_request
@@ -1032,7 +1045,6 @@ def _execute():
         if not os.path.exists(src_file): continue
 
         try:
-            import lib_bejson_Core_bejson_core as Core
             with open(src_file, "r", encoding="utf-8") as f: js = json.load(f)
             field_map = Core.bejson_core_get_field_map(js)
             idx_html = field_map.get("html_body", -1)

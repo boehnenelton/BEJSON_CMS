@@ -8,6 +8,10 @@
   ],
   "Fields": [
     {
+      "name": "sys_uuid",
+      "type": "string"
+    },
+    {
       "name": "sys_key",
       "type": "string"
     },
@@ -18,18 +22,22 @@
   ],
   "Values": [
     [
+      "db161844-df0d-4a08-b95c-9ee63f496675",
       "title",
       "My BEJSON Site"
     ],
     [
+      "83b978c8-b601-4704-a3e6-994540c7d631",
       "description",
       "A BEJSON CMS powered site"
     ],
     [
+      "2783bc87-0676-4080-b630-1d45304cc33c",
       "creator",
       "Admin"
     ],
     [
+      "ade96039-8500-4812-9f9d-1f1113b6699c",
       "base_url",
       "https://example.com"
     ]

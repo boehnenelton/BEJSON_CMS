@@ -16,7 +16,7 @@ localhost.
 | `/pages/delete/<page_uuid>` | POST | Delete a page + its content file |
 | `/pages/duplicate/<page_uuid>` | POST | Clone a page (new UUID, auto-uniquified slug, "Copy of ..." title); rejects external-link pages |
 | `/links`, `/links/new` | GET / GET,POST | External-link "page" items (`page_type == "external_link"`) |
-| `/categories`, `/categories/add`, `/categories/delete/<name>` | GET / POST / POST | Category CRUD |
+| `/categories`, `/categories/add`, `/categories/delete/<cat_uuid>` | GET / POST / POST | Category CRUD (delete is UUID-keyed as of pkg135) |
 | `/apps`, `/apps/new`, `/apps/edit/<app_uuid>`, `/apps/delete/<app_uuid>`, `/apps/view/<app_uuid>[/<path:filename>]` | — | Standalone-app bundle CRUD + serving |
 | `/site/authors` | GET, POST | `AuthorProfile` CRUD with case-insensitive duplicate-name check |
 | `/import`, `/import/preview`, `/import/confirm`, `/api/import/process_item` | — | HTML batch-import pipeline |
@@ -60,10 +60,11 @@ stream), `/delete/<page_uuid>`, `/upload_code`, `/upload_markdown`,
 
 ## ProfileManager ("Persona Hub")
 
-`/`, `/edit/<name>`, `/save`, `/delete/<name>` — manages `AI_Profile`
-records (25 fields: Tone, Archetype, CodeParsing_Languages, Creativity, etc.)
-that shape AI-generated page content when a matching author/persona is
-selected in either page editor.
+`/`, `/edit/<persona_uuid>`, `/save`, `/delete/<persona_uuid>` — manages
+`AI_Profile` records (25 fields: Tone, Archetype, CodeParsing_Languages,
+Creativity, etc.) that shape AI-generated page content when a matching
+author/persona is selected in either page editor. UUID-keyed as of
+pkg135 (previously name-keyed).
 
 ## Publisher
 

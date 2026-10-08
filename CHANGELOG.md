@@ -4,6 +4,175 @@ Full, unabridged change history (every verification step, every file touched)
 lives in `.bejson_project.json` at the project root — this file is a
 readable summary. Newest at top, oldest at bottom.
 
+## pkg143 — Library sync against CLI_AI-V16-PKG30
+
+Scanned every file in the newest CLI_AI zip (nested archives included) against the CMS's `src/lib`. Two real updates: the validator (2.1.0 → 2.2.1, a corrective release) and `source_env()` in the env library (adds JSON secure-env loading, no `exec` for `.json`). Left alone on purpose: `path_guard`, where the CMS is *ahead* of the zip and overwriting would break zip-extraction safety. The rest were identical or not successors. The decisions are tabled in `docs/architecture.md`.
+
+## pkg142 — Python CMS generation ported from the React CMS's architecture
+
+The React CMS's server-side Gemini proxy was ahead of the Python CMS: it
+falls back across models on a 429/503, trims oversized prompts before
+sending, and reports a retry delay. The Python CMS's `/api/tasking/*`
+routes did one raw request with no retry at all. Ported the React design
+into `PersonaWriter.generate_with_fallback()` and pointed both routes at
+it. Adapted rather than copied where the architectures differ — the React
+version rotates keys client-side and models server-side; here both happen
+in the one Flask process.
+
+Caught one regression of my own before shipping: the first draft made
+`requests` a hard import, which would have stopped the whole page editor
+from starting anywhere `requests` isn't installed. Fixed.
+
+Tested against a mocked HTTP layer only — not against real Gemini.
+
+## pkg141 — Path traversal in PageEditorV2's context-file upload
+
+Continued the sweep instinct from pkg139/140, this time into a different
+bug class entirely: `/api/context/upload` used the raw client-supplied
+filename to build a save path, which werkzeug doesn't sanitize on its
+own — a crafted filename could write outside the intended directory.
+Confirmed the escape directly before fixing, fixed with the same
+sanitization/safe-join pattern already used elsewhere in the same file,
+then swept every other upload site in the codebase for the same pattern.
+This was the only instance.
+
+## pkg140 — Closing the remaining SVG gaps pkg139 missed
+
+Kept auditing the SVG sanitization work right after shipping it instead
+of treating it as done. Found three more places the same attack class
+could slip through: the thumbnail fallback route (which is the *only*
+route an SVG's raw bytes are ever served through, since SVGs never get
+thumbnailed), the asset-replace endpoint (a second write path that never
+sanitized at all), and a second Flask app with its own duplicate copies
+of both serving routes. All three fixed the same way as the original fix
+and verified with a real malicious payload run through each path.
+
+## pkg139 — The three deferred judgment calls, decided
+
+Elton decided the three items pkg138 flagged as needing an opinion, not a
+unilateral fix.
+
+**SVG uploads:** build a sanitizer, re-enable. New stdlib-only sanitizer
+(`lib_bejson_Core_svg_sanitizer.py`) — strict allowlist, everything not
+explicitly known-safe gets dropped rather than selectively filtered.
+Tested against 13 real attack payloads (including an actual XXE check,
+not an assumed one) before it ever touched the upload path, then verified
+end to end through the real upload route: a malicious file comes out the
+other side completely inert, a broken one gets rejected outright. Added a
+CSP header on served SVGs as a second layer on top of that.
+
+**`mount`/`commit`/`repack`:** removed entirely. They were deprecated
+escape hatches into an old disconnected data model, long superseded by
+`backup`/`restore`. The read-only diagnostic in `status` that reports on
+that legacy layer stays, in case anything outside this CLI still touches
+it directly.
+
+**`app_created_at`:** added. App cards were showing the site's build date
+instead of when the app was actually created, because the field never
+existed. Existing apps get backfilled with a single shared timestamp
+(the date this field was added, since there's no real creation date to
+recover) — new apps get their real date going forward.
+
+## pkg138 — Deferred-item sweep
+
+Went through every doc and source file for outstanding TODOs and
+"pending Elton's call" markers. Most turned out to already be resolved —
+just stale documentation, corrected. Two real bugs fixed: the admin app's
+`<title>` tag was dead Jinja syntax that never actually changed per page,
+and a logging handler could duplicate itself on a module reload. Also
+moved two imports out of Publisher's per-page loop where they were
+needlessly re-executed on every iteration.
+
+Four genuine judgment calls surfaced along the way — not fixed, presented
+separately since they're product decisions, not bugs: SVG upload
+sanitization (currently just disabled), whether to keep the deprecated
+`mount`/`commit` CLI commands, three unused template files that might be
+forward-looking scaffolding, and a missing `app_created_at` field.
+
+## pkg137 — CLI additions (find/export/import/merge) + PageRecord FK identity
+
+Two pieces, following up on pkg136's proposal list and "keep making
+everything uuid based."
+
+Built the 3 remaining CLI ideas: `find` (fuzzy name→UUID lookup across
+every entity type), `export`/`import` (JSON/CSV round-trip, always
+generates fresh UUIDs on import and skips duplicates rather than creating
+them), and `category merge`. The proposed `--json` flag was dropped —
+every `list` command already outputs JSON.
+
+Then extended pkg135's UUID work into the one thing it deliberately left
+alone: `PageRecord.page_cat_name`/`page_author_name`. Added
+`page_cat_uuid`/`page_author_uuid`, kept in sync automatically across
+every place a page gets created or edited, in every app and the CLI. This
+is additive, not a rewrite — every existing render and permalink path
+still reads the name fields exactly as before. A page now carries a real,
+stable identity link to its category and author, immune to the
+rename/collision class of bug, without touching how the site actually
+renders. Found and fixed a real leftover schema inconsistency from pkg135
+along the way.
+
+Every piece verified live against real data with cleanup after — not
+mocked, not just compiled.
+
+## pkg136 — Advanced CLI streamlining: rename commands + doctor
+
+Following pkg135's UUID work, added `cms-manage.py author rename` and
+`category rename` — the latter also fixed a real pre-existing bug found
+while building it: `category update` changed the category's display name
+but never touched the pages already in it, silently orphaning them.
+Both new commands cascade the rename everywhere it's referenced and
+refuse collisions. `category rename` also won't let you rename away from
+"Uncategorized" — doing so would fight the system's own self-heal logic.
+
+Also added `doctor`, a health-check command: orphaned category/author
+references on pages, and case-insensitive duplicate names across every
+entity that identifies itself by name. Exits non-zero if it finds
+anything, so it's usable in a script.
+
+Every piece verified live against real data — add→rename→cascade→cleanup,
+and `doctor` was fed real orphans and real duplicates on purpose to
+confirm it actually catches them, not just that it runs.
+
+## pkg135 — "Give them all UUIDs": Category, AuthorProfile, MediaAsset, NavLink, SiteConfig, SocialLink, AI_Profile
+
+Resolved the open architectural question flagged since pkg119: these 7
+entities were name-keyed with no UUID. Elton's call — inject one into all
+of them. Ran the already-prepared `tools/migrate_taxonomy.py` live for the
+first time (after a real backup), which surfaced and fixed a genuine bug
+in the tool itself (it wrote two custom keys the project's own strict
+validator forbids). Converted every CRUD path across the web apps and the
+CLI to use the new UUIDs for add/edit/delete identity, and along the way
+found a whole class of latent bug: several `add_record()` calls weren't
+including the new field at all, which would have written `None` as the
+"unique" ID — the exact problem UUIDs exist to prevent. All fixed;
+confirmed live with a full sweep (0 of 11 real rows have a missing UUID).
+
+Deliberately not touched: `PageRecord`'s name-based category/author FKs
+(a separate, much larger decision), and `MediaAsset`'s filename-based
+rename/delete (its filename was already a stable, collision-free ID).
+
+Everything in this entry was verified against real, live project data —
+add→edit→delete round-trips via actual Flask test clients and the real
+CLI, not mocks — and the full 39-case test suite passed throughout.
+
+## pkg134 — CLI/web disconnect on AuthorProfile duplicate-checking
+
+AuthorProfile has no UUID field — `author_display_name` is the primary key
+everywhere, so nothing catches two rows that differ only by case unless
+every write path checks for that itself. Both web paths (`manage_authors()`
+in the Content Cube, and Persona Hub's persona→author sync) already
+compared names case-insensitively before adding; `cms-manage.py`'s
+`author add` compared them case-sensitively. Net effect: adding an author
+from the CLI whose name differed only in case from an existing web-created
+author silently created a second, disconnected row instead of being
+rejected as a duplicate.
+
+Made `cmd_author_add()` case-insensitive to match. Verified live against
+the real (not synthetic) `authorprofile.bejson`: a case-variant re-add is
+now correctly rejected, a genuinely new name still adds/deletes cleanly,
+and live data was restored to its original state afterward. Full 39-case
+test suite unaffected.
+
 ## pkg133 — Full audit remediation (external report against pkg132)
 
 All HIGH and MEDIUM findings from the submitted audit fixed and verified;

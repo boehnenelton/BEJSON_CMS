@@ -3,32 +3,36 @@
     "file": "authorprofile.bejson",
     "row_count": 1,
     "live_fields": [
+      "author_uuid",
       "author_display_name",
       "author_bio",
       "author_avatar_url"
     ],
     "fields_to_rename": {},
     "already_canonical": [
+      "author_uuid",
       "author_display_name",
       "author_bio",
       "author_avatar_url"
     ],
-    "needs_uuid_injection": true,
+    "needs_uuid_injection": false,
     "uuid_field": "author_uuid"
   },
   "Category": {
     "file": "category.bejson",
     "row_count": 2,
     "live_fields": [
+      "cat_uuid",
       "cat_name",
       "cat_slug"
     ],
     "fields_to_rename": {},
     "already_canonical": [
+      "cat_uuid",
       "cat_name",
       "cat_slug"
     ],
-    "needs_uuid_injection": true,
+    "needs_uuid_injection": false,
     "uuid_field": "cat_uuid"
   },
   "PageRecord": {
@@ -68,6 +72,7 @@
     "file": "mediaasset.bejson",
     "row_count": 4,
     "live_fields": [
+      "asset_uuid",
       "asset_filename",
       "asset_original_name",
       "asset_file_hash",
@@ -77,6 +82,7 @@
     ],
     "fields_to_rename": {},
     "already_canonical": [
+      "asset_uuid",
       "asset_filename",
       "asset_original_name",
       "asset_file_hash",
@@ -84,7 +90,7 @@
       "asset_mime_type",
       "asset_uploaded_at"
     ],
-    "needs_uuid_injection": true,
+    "needs_uuid_injection": false,
     "uuid_field": "asset_uuid"
   },
   "ExternalMedia": {
@@ -158,51 +164,58 @@
     "file": "navlink.bejson",
     "row_count": 0,
     "live_fields": [
+      "nav_uuid",
       "nav_display_label",
       "nav_target_url"
     ],
     "fields_to_rename": {},
     "already_canonical": [
+      "nav_uuid",
       "nav_display_label",
       "nav_target_url"
     ],
-    "needs_uuid_injection": true,
+    "needs_uuid_injection": false,
     "uuid_field": "nav_uuid"
   },
   "SiteConfig": {
     "file": "siteconfig.bejson",
     "row_count": 4,
     "live_fields": [
+      "sys_uuid",
       "sys_key",
       "sys_value"
     ],
     "fields_to_rename": {},
     "already_canonical": [
+      "sys_uuid",
       "sys_key",
       "sys_value"
     ],
-    "needs_uuid_injection": true,
+    "needs_uuid_injection": false,
     "uuid_field": "sys_uuid"
   },
   "SocialLink": {
     "file": "sociallink.bejson",
     "row_count": 0,
     "live_fields": [
+      "social_uuid",
       "social_platform_name",
       "social_target_url"
     ],
     "fields_to_rename": {},
     "already_canonical": [
+      "social_uuid",
       "social_platform_name",
       "social_target_url"
     ],
-    "needs_uuid_injection": true,
+    "needs_uuid_injection": false,
     "uuid_field": "social_uuid"
   },
   "AI_Profile": {
     "file": "ai_profile.bejson",
     "row_count": 0,
     "live_fields": [
+      "persona_uuid",
       "persona_record_type",
       "persona_name",
       "persona_archetype",
@@ -231,6 +244,7 @@
     ],
     "fields_to_rename": {},
     "already_canonical": [
+      "persona_uuid",
       "persona_record_type",
       "persona_name",
       "persona_archetype",
@@ -258,6 +272,6 @@
       "persona_avatar_data"
     ],
     "needs_uuid_injection": false,
-    "uuid_field": null
+    "uuid_field": "persona_uuid"
   }
 }

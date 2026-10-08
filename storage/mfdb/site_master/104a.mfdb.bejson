@@ -45,7 +45,7 @@
       null,
       2,
       "1.0",
-      "cat_slug"
+      "cat_uuid"
     ],
     [
       "PageRecord",
@@ -69,7 +69,7 @@
       null,
       1,
       "1.0",
-      "author_display_name"
+      "author_uuid"
     ],
     [
       "AdUnit",
@@ -85,7 +85,7 @@
       null,
       4,
       "1.0",
-      "sys_key"
+      "sys_uuid"
     ],
     [
       "SocialLink",
@@ -93,7 +93,7 @@
       null,
       0,
       "1.0",
-      "social_platform_name"
+      "social_uuid"
     ],
     [
       "NavLink",
@@ -101,7 +101,7 @@
       null,
       0,
       "1.0",
-      "nav_display_label"
+      "nav_uuid"
     ],
     [
       "AI_Profile",
@@ -109,7 +109,7 @@
       null,
       0,
       "1.0",
-      "persona_name"
+      "persona_uuid"
     ],
     [
       "PageVideoMetadata",
@@ -133,7 +133,7 @@
       null,
       4,
       "1.0",
-      "asset_filename"
+      "asset_uuid"
     ],
     [
       "ExternalMedia",

@@ -2,7 +2,7 @@
 Library:        lib_bejson_Core_bejson_validator.py
 Family:         Core
 Description:    Structural integrity checker for positional values and mandatory keys.
-Version:        2.1.0
+Version:        2.2.1
 Date:           2026-08-19
 Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
@@ -11,6 +11,13 @@ RELATIONAL_ID:  3e7a9c1f-5b8d-4e2a-9c6f-1d4a7b9e3f52
 Release_Version: 300
 
 CHANGELOG:
+- 2.2.1 (2026-09-04): CORRECTIVE — restored the 104a "array"/"object" ban
+  that was erroneously reverted in 2.2.0. The spec (BEJSON_MFDB_Crash_Course
+  v24, §Version Differences / 104a) is explicit: 104a is primitives-only
+  (string, integer, number, boolean). Schemas requiring array/object fields
+  must use Format_Version "104" instead. The revert in 2.2.0 was wrong.
+- 2.2.0 (2026-09-04): ERRONEOUS — wrongly removed the 104a array/object ban.
+  Do not use this version. Superseded immediately by 2.2.1.
 - 2.1.0 (2026-08-19): bejson_validator_check_fields_structure now rejects
   any Field whose "type" isn't exactly one of the 6 canonical values
   (string/integer/number/boolean/array/object). Previously an unrecognized
@@ -141,7 +148,11 @@ def bejson_validator_check_fields_structure(doc, version):
                 E_INVALID_FIELDS,
             )
         if version == "104a" and ftype in ("array", "object"):
-            raise BEJSONValidationError(f"104a forbids complex type: {ftype}", E_INVALID_FIELDS)
+            raise BEJSONValidationError(
+                f"104a forbids complex type '{ftype}'. "
+                "Use Format_Version \"104\" for schemas requiring array or object fields.",
+                E_INVALID_FIELDS,
+            )
         if version == "104db" and fname != "Record_Type_Parent" and "Record_Type_Parent" not in f:
             raise BEJSONValidationError(f"Field '{fname}' missing Record_Type_Parent in 104db", E_INVALID_RECORD_TYPE_PARENT)
     return len(fields)

@@ -2,13 +2,131 @@
 """
 Script:        cms-manage.py
 Description:   Unified CLI Toolkit for BEJSON_CMS management.
-Version:       18.7
+Version:       18.12
 Author:        Elton Boehnen
-Date:          2026-08-21
-Relational_ID: 4e8b1a7c-3f2d-4c9e-b0a5-7d6e3f1c9b2c
+Date:          2026-09-20
+Relational_ID: e0336281-1672-4062-a13a-0396e19e8d90
+CHANGE (2026-09-20): PKG139 -- deferred-item sweep decisions (Elton). Removed
+`mount`/`commit`/`repack` entirely -- deprecated escape hatches into the old
+disconnected workspace/archive model, superseded by backup/restore (real
+live-data snapshots) for a long time before this. get_manager()/
+MFDB_CMS_Manager itself was NOT removed -- cmd_status() still reports on
+that legacy workspace read-only in case something outside this CLI still
+touches the archive directly; its printed NOTE updated to stop referencing
+the now-gone commands. Also added app_created_at to `app add`'s
+StandaloneApp record (see BEJSON_CMS_System.py's pkg139 entry for the
+schema/self-heal side -- BEJSON_CMS_Publisher.py already read this field
+defensively via .get() with a build-date fallback, so nothing there needed
+to change, it just had nothing to read until now). Verified live: `mount`/
+`commit` now correctly error as unknown commands, `status` still runs
+clean with corrected messaging; `app add` confirmed writing a real
+app_created_at, cleaned up after.
+CHANGE (2026-09-16): PKG137 -- two things (Elton: continued CLI streamlining
++ "keep making everything uuid based").
+
+(1) New commands: `find <entity> <query>` (fuzzy case-insensitive name->
+UUID lookup across all 10 registered entity types -- _ENTITY_REGISTRY is
+the new single source of truth for entity/uuid-field/name-fields, kept
+separate from the older _DB_ENTITY_MAP used by `db list` rather than
+merged into it, since that one has a different shape (a filter field, not
+a uuid field) already in use); `export`/`import` (JSON or CSV round-trip
+per entity -- import always generates a FRESH uuid for every row
+regardless of what the file contains, even a re-imported previous export,
+and skips a row whose name case-insensitively matches an existing live
+record rather than creating a duplicate); `category merge <source> <into>`
+(reassigns pages, deletes source, same "can't touch Uncategorized" guard
+as rename, for the same self-heal reason). The previously-proposed --json
+flag turned out to be unnecessary -- every `list` command already emits
+clean JSON.
+
+(2) Extended pkg135's uuid work into PageRecord's page_cat_name/
+page_author_name: added page_cat_uuid/page_author_uuid, resolved and kept
+in sync on every write in this file (cmd_page_add, cmd_page_update, both
+branches of cmd_page_import) via a new _resolve_page_fk_uuids() helper.
+cmd_category_merge (added earlier in this same entry) initially only
+moved page_cat_name to the target category on merge -- found and fixed
+before shipping: page_cat_uuid needs the TARGET's uuid on merge (identity
+actually changes), unlike rename where it doesn't (same record, new
+name only).
+
+Every piece of both (1) and (2) verified live against real data end to
+end -- find, export, import (JSON+CSV, fresh vs. duplicate), merge
+(including the Uncategorized guard), and all four page commands' new FK
+resolution -- with `doctor` run clean before and after as an extra check,
+not just the individual round-trips. Live data confirmed back to its
+exact original state after every test in this pass.
+CHANGE (2026-09-14): PKG136 -- advanced CLI streamlining (Elton). Added
+`author rename <old> <new>` and `category rename <slug> <new-name>` /
+`category update` (now cascade-safe) -- both were previously either
+impossible (author had no name-change path at all) or silently broken
+(category update changed Category.cat_name but never touched
+PageRecord.page_cat_name, so renamed categories quietly orphaned every
+page already in them -- found while building this, not previously known).
+Both new/fixed commands cascade the rename to every PageRecord that
+references the old name, and both refuse a rename that would collide
+case-insensitively with an existing different record. category rename
+additionally refuses to rename "Uncategorized" itself -- found live while
+testing: BEJSON_CMS_System.py's self-heal recreates a category by that
+exact name on every boot if missing, so renaming it away would leave a
+stray duplicate next restart. Also modernized cmd_author_update/delete to
+resolve the typed name case-insensitively before keying the actual
+operation by author_uuid (a softer version of the pkg134 bug class -- a
+case-only typo could previously silently report "not found" even though
+the author clearly existed).
+
+Added `doctor` -- a health-check command bundling two checks the pkg135
+UUID work made newly relevant: (1) orphaned page_cat_name/page_author_name
+references (both are still plain name strings by design -- pkg135
+deliberately didn't convert them to UUID FKs -- so nothing else catches a
+page pointing at a category/author name that no longer exists), and (2)
+case-insensitive duplicate names across AuthorProfile/Category/NavLink/
+SocialLink/AI_Profile (only Author and Category are guarded against this
+at add-time; Nav/Social aren't). Exits 1 if anything is found, for
+scripting.
+
+Every piece of this verified live against real data, not just compiled:
+add->rename->verify-cascade->cleanup for both author and category (the
+category test also live-confirmed the Uncategorized-rename guard fires
+correctly, then reverted the test rename immediately since it's a
+self-heal-load-bearing name); doctor run clean against real data first,
+then deliberately fed a real orphan (create author+page, delete the
+author) and a real duplicate (two navlinks differing only by case) to
+confirm both detections fire with the correct message and exit code, then
+fully cleaned up -- live data confirmed byte-for-byte back to its
+pre-test state (1 author, 2 categories, 0 navlinks, 0 pages) after every
+test in this pass.
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). Category,
+AuthorProfile, MediaAsset, NavLink, SiteConfig, SocialLink all gained a
+real UUID field (AuthorProfile already had author_uuid included from
+pkg134's fix). Added the corresponding uuid field to every add_record()
+call in this file that creates one of these entities (category add, nav
+add, social add, asset add, config set, and _bootstrap_live_schema's
+Category/SiteConfig seeding loop) -- none of them had it, so every row
+these commands created was landing with its new uuid field set to None,
+defeating the entire point. Update/delete commands (category delete,
+category update, nav delete, social delete) deliberately left keyed by
+the human-typed slug/label, not the new UUID -- these are typed by a
+person at a terminal who doesn't have the UUID memorized, and the
+existing slug/label matching was never the source of a collision bug the
+way cmd_author_add's case-sensitivity was at pkg134 (category slugs are
+already deduplicated at add-time; nav/social have no dedup but also no
+existing report of a collision). Verified live: ran category/navlink/
+social add+delete and config set+delete against real data end to end,
+confirmed correct UUIDs generated and live data restored afterward.
+CHANGE (2026-09-12): PKG134 -- cmd_author_add()'s duplicate check was an
+exact-match comparison (author_display_name ==), while both web-side
+author-creation paths (BEJSON_CMS_Content.py's manage_authors(),
+BEJSON_CMS_ProfileManager.py's persona->author sync) already compare
+case-insensitively. AuthorProfile has no UUID -- author_display_name IS
+the key -- so a case-only variant added via the CLI (e.g. "JANE DOE" when
+"Jane Doe" already exists from the web UI) silently created a second,
+disconnected row with nothing to catch the collision. Made cmd_author_add()
+case-insensitive to match. Verified live: re-adding a case-variant of the
+existing author is now rejected, a genuinely new name still adds and
+deletes cleanly, live data unchanged.
 """
 
-VERSION = "18.7"
+VERSION = "18.12"
 
 
 import os
@@ -94,29 +212,94 @@ def cmd_status(args):
     live_manifest = get_live_manifest_path()
     print(f"Live site manifest: {live_manifest} (exists: {Path(live_manifest).exists()})")
     print("NOTE: 'Mounted' above refers to the disconnected workspace/archive")
-    print("      copy -- only 'mount'/'commit' still use it (deprecated legacy")
-    print("      escape hatches, --force required). Every data command --")
-    print("      category/navlink/config/author/page/asset/app/ad/backup/restore")
-    print("      -- reads/writes the real 'Live site manifest' path above via")
-    print("      CMSCore. See docs/security-notes.md.")
+    print("      copy -- a legacy layer with no remaining CLI commands that")
+    print("      write to it (mount/commit/repack were removed at pkg139;")
+    print("      this status line is read-only legacy diagnostic reporting,")
+    print("      kept in case something outside this CLI still touches that")
+    print("      archive). Every data command -- category/navlink/config/")
+    print("      author/page/asset/app/ad/backup/restore -- reads/writes the")
+    print("      real 'Live site manifest' path above via CMSCore. See")
+    print("      docs/security-notes.md.")
     print(f"Dirty Changes: {mgr.is_dirty()}")
 
-def cmd_mount(args):
-    print("'mount' operates on the old disconnected workspace/archive copy --")
-    print("it does NOT touch live site data. Use 'backup'/'restore' for real")
-    print("live-data snapshots instead. See docs/security-notes.md.")
-    if not args.force:
-        print("Pass --force to run the old disconnected mount anyway.")
-        return
-    mgr = get_manager()
-    print(f"Mounting disconnected workspace at {mgr.data_root}...")
-    mgr.mount_system(force=args.force)
-    print("Mount complete (disconnected workspace only -- live site unchanged).")
+def cmd_doctor(args):
+    """NEW (pkg136). One command bundling the two health checks the
+    pkg135 "give them all uuids" pass made newly relevant:
 
-def cmd_commit(args):
-    print("'commit'/'repack' operates on the old disconnected workspace/archive")
-    print("copy -- it does NOT touch live site data. Deprecated; no-op.")
-    print("Use 'backup' for a real live-data snapshot instead.")
+    1. Orphaned FK check -- PageRecord.page_cat_name/page_author_name are
+       still plain name strings (pkg135 deliberately did not convert these
+       to reference the new cat_uuid/author_uuid), so nothing stops a page
+       from pointing at a category or author name that no longer exists.
+       This can happen today via any path that changes a category/author's
+       name without going through the cascade-aware `rename` commands
+       added alongside this one (e.g. hand-editing live data, or any
+       future code path that doesn't know about the cascade).
+    2. Case-insensitive duplicate-name check across every entity that
+       still identifies itself to a human by name, now that AuthorProfile-
+       specific case-insensitivity (pkg134) is the only entity actually
+       guarded against this at add-time -- Category has a similar guard,
+       but NavLink/SocialLink do not.
+
+    Exits 0 clean, 1 if anything was found (so it's usable in a script/cron
+    check, not just interactively).
+    """
+    db = get_db()
+    issues_found = 0
+
+    print("=== cms-manage.py doctor ===\n")
+
+    # --- 1. Orphaned FK check ---
+    print("-- Orphaned references --")
+    categories = {c.get("cat_name") for c in db.get_records("Category")}
+    authors = {a.get("author_display_name") for a in db.get_records("AuthorProfile")}
+    pages = db.get_records("PageRecord")
+
+    orphan_cats = [p for p in pages if p.get("page_cat_name") and p.get("page_cat_name") not in categories]
+    orphan_authors = [p for p in pages if p.get("page_author_name") and p.get("page_author_name") not in authors]
+
+    if not orphan_cats and not orphan_authors:
+        print("  OK -- every page's category and author reference a live record.")
+    else:
+        for p in orphan_cats:
+            print(f"  ORPHAN: page '{p.get('page_title')}' (UUID {p.get('page_uuid')}) "
+                  f"references category '{p.get('page_cat_name')}', which no longer exists.")
+            issues_found += 1
+        for p in orphan_authors:
+            print(f"  ORPHAN: page '{p.get('page_title')}' (UUID {p.get('page_uuid')}) "
+                  f"references author '{p.get('page_author_name')}', which no longer exists.")
+            issues_found += 1
+        print(f"  Fix: 'page update <uuid> --category \"<live category name>\"' / --author, "
+              f"or 'category rename' / 'author rename' if the name just moved.")
+
+    # --- 2. Case-insensitive duplicate-name check ---
+    print("\n-- Duplicate names (case-insensitive) --")
+    dup_checks = [
+        ("AuthorProfile", "author_display_name"),
+        ("Category",      "cat_name"),
+        ("NavLink",       "nav_display_label"),
+        ("SocialLink",    "social_platform_name"),
+        ("AI_Profile",    "persona_name"),
+    ]
+    any_dupes = False
+    for entity, field in dup_checks:
+        seen = {}
+        for rec in db.get_records(entity):
+            name = rec.get(field, "")
+            if not name:
+                continue
+            seen.setdefault(name.lower(), []).append(name)
+        dupes = {k: v for k, v in seen.items() if len(v) > 1}
+        for lower_name, variants in dupes.items():
+            any_dupes = True
+            issues_found += 1
+            print(f"  DUPLICATE in {entity}: {variants} all match case-insensitively.")
+    if not any_dupes:
+        print("  OK -- no case-insensitive name collisions in AuthorProfile, "
+              "Category, NavLink, SocialLink, or AI_Profile.")
+
+    print(f"\n=== {issues_found} issue{'s' if issues_found != 1 else ''} found ===")
+    if issues_found:
+        sys.exit(1)
 
 def _write_page_content_file(page_uuid, title, html_body):
     """Matches the exact live shape written by BEJSON_CMS_Content.py::page_new()
@@ -148,11 +331,23 @@ def _write_page_content_file(page_uuid, title, html_body):
     os.replace(tmp, pfile)  # atomic write per Golden Rule/System Dev Policy conventions
     return pfile
 
+def _resolve_page_fk_uuids(db, cat_name, author_name):
+    """NEW (pkg137). Resolves a category/author NAME to its live UUID, for
+    setting page_cat_uuid/page_author_uuid alongside the existing
+    page_cat_name/page_author_name on every write -- same helper as
+    BEJSON_CMS_Content.py's (this file doesn't share Python modules with
+    the Flask blueprints, so it's duplicated rather than imported, matching
+    this codebase's established file-independence convention)."""
+    cat_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == cat_name), None)
+    author_uuid = next((a.get("author_uuid") for a in db.get_records("AuthorProfile") if a.get("author_display_name") == author_name), None) if author_name else None
+    return cat_uuid, author_uuid
+
 def cmd_page_add(args):
     db = get_db()
     new_uuid = str(uuid.uuid4())
     slug = re.sub(r'[^a-z0-9]', '-', args.title.lower()).strip('-')
     html_body = args.body or f"<h2>{args.title}</h2><p>Start writing your content here...</p>"
+    cat_uuid, author_uuid = _resolve_page_fk_uuids(db, args.category, args.author)
     if db.add_record("PageRecord", {
         "page_uuid": new_uuid, "page_title": args.title, "page_slug": slug,
         "page_cat_name": args.category, "page_type": args.type,
@@ -160,7 +355,8 @@ def cmd_page_add(args):
         "page_external_url": None, "page_author_name": args.author or "",
         "page_featured_img": DEFAULT_FEATURED_IMAGE,
         "page_template_key": "blank",
-        "page_featured_video_url": args.featured_video or ""
+        "page_featured_video_url": args.featured_video or "",
+        "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid,
     }):
         _write_page_content_file(new_uuid, args.title, html_body)
         print(f"Page created: {args.title} (UUID: {new_uuid})")
@@ -175,8 +371,12 @@ def cmd_page_update(args):
         print(f"Page not found: {args.uuid}")
         return
     updates = {"page_title": args.title}
-    if args.category: updates["page_cat_name"] = args.category
-    if args.author: updates["page_author_name"] = args.author
+    if args.category:
+        updates["page_cat_name"] = args.category
+        updates["page_cat_uuid"], _ = _resolve_page_fk_uuids(db, args.category, None)
+    if args.author:
+        updates["page_author_name"] = args.author
+        _, updates["page_author_uuid"] = _resolve_page_fk_uuids(db, None, args.author)
     if args.featured_video is not None: updates["page_featured_video_url"] = args.featured_video
     db.update_record("PageRecord", "page_uuid", args.uuid, updates)
     if args.body is not None:
@@ -224,13 +424,15 @@ def cmd_page_import(args):
         db = get_db()
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
+        cat_uuid, author_uuid = _resolve_page_fk_uuids(db, args.category, args.author)
         if db.add_record("PageRecord", {
             "page_uuid": new_uuid, "page_title": title, "page_slug": slug,
             "page_cat_name": args.category, "page_type": "page",
             "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": None, "page_author_name": args.author or "",
             "page_featured_img": DEFAULT_FEATURED_IMAGE,
-            "page_template_key": "blank", "page_featured_video_url": None
+            "page_template_key": "blank", "page_featured_video_url": None,
+            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid,
         }):
             _write_page_content_file(new_uuid, title, html_body)
             print(f"HTML imported as page: {title} (UUID: {new_uuid})")
@@ -261,6 +463,7 @@ def cmd_page_import(args):
             f"title='{app_name}' loading='lazy'></iframe>\n"
             f"</div>"
         )
+        cat_uuid, author_uuid = _resolve_page_fk_uuids(db, args.category, args.author)
         if db.add_record("PageRecord", {
             "page_uuid": new_uuid, "page_title": page_title,
             "page_slug": page_slug,
@@ -270,7 +473,9 @@ def cmd_page_import(args):
             "page_external_url": f"/apps/{app_slug}/",
             "page_author_name": args.author or "",
             "page_featured_img": DEFAULT_FEATURED_IMAGE,
-            "page_template_key": "blank", "page_featured_video_url": None
+            "page_template_key": "blank", "page_featured_video_url": None,
+            "page_cat_uuid": cat_uuid,
+            "page_author_uuid": author_uuid,
         }):
             _write_page_content_file(new_uuid, page_title, html_body)
             print(f"App '{app_name}' imported as page: {page_title} (UUID: {new_uuid})")
@@ -281,34 +486,99 @@ def cmd_page_import(args):
         print("Error: Specify --html or --app for import.")
 
 def cmd_author_add(args):
-    # Live AuthorProfile schema (author_display_name, author_bio,
-    # author_avatar_url) has no UUID field -- the name IS the key, matching BEJSON_CMS_ProfileManager.py.
+    # Live AuthorProfile schema (author_uuid, author_display_name,
+    # author_bio, author_avatar_url) -- author_uuid is the real key as of
+    # pkg135 ("give them all uuids"). Duplicate check is case-INSENSITIVE to
+    # match the two web-side creation paths (BEJSON_CMS_Content.py's
+    # manage_authors(), BEJSON_CMS_ProfileManager.py's persona->author
+    # sync) -- both already compare .lower()==.lower(). This was previously
+    # an exact-match (==) comparison here only, so e.g.
+    # 'cms-manage.py author add "JANE DOE"' would silently create a second,
+    # disconnected AuthorProfile row even with a web-created "Jane Doe"
+    # already live -- there's no UUID to catch the collision once the name
+    # key itself diverges by case (found + fixed pkg134).
     db = get_db()
-    existing = next((a for a in db.get_records("AuthorProfile") if a.get("author_display_name") == args.name), None)
+    existing = next((a for a in db.get_records("AuthorProfile") if a.get("author_display_name", "").lower() == args.name.lower()), None)
     if existing:
-        print(f"Error: an author named '{args.name}' already exists.")
+        print(f"Error: an author named '{existing.get('author_display_name')}' already exists (case-insensitive match).")
         return
-    if db.add_record("AuthorProfile", {"author_display_name": args.name, "author_bio": args.bio or "", "author_avatar_url": args.image or ""}):
+    if db.add_record("AuthorProfile", {"author_uuid": str(uuid.uuid4()), "author_display_name": args.name, "author_bio": args.bio or "", "author_avatar_url": args.image or ""}):
         print(f"Author added: {args.name}")
     else:
         print(f"Failed to add author: {args.name}")
 
+def _find_author_ci(db, name):
+    """Case-insensitive author lookup by current display name. Returns the
+    full record (with author_uuid) or None. Shared by update/delete/rename
+    so all three resolve a typed name the same way (pkg136)."""
+    return next((a for a in db.get_records("AuthorProfile") if a.get("author_display_name", "").lower() == name.lower()), None)
+
 def cmd_author_update(args):
+    # Resolves args.name case-insensitively then updates by author_uuid
+    # (pkg136) -- previously matched author_display_name exactly, which
+    # could silently no-op ("Author not found") on a case-only typo even
+    # though the author clearly exists, the same softer version of the
+    # pkg134 bug class.
     db = get_db()
+    author = _find_author_ci(db, args.name)
+    if not author:
+        print(f"Author not found: {args.name}")
+        return
     updates = {}
     if args.bio is not None: updates["author_bio"] = args.bio
     if args.image is not None: updates["author_avatar_url"] = args.image
-    if db.update_record("AuthorProfile", "author_display_name", args.name, updates):
-        print(f"Author updated: {args.name}")
+    if db.update_record("AuthorProfile", "author_uuid", author["author_uuid"], updates):
+        print(f"Author updated: {author['author_display_name']}")
     else:
         print(f"Author not found: {args.name}")
 
 def cmd_author_delete(args):
     db = get_db()
-    if db.delete_record("AuthorProfile", "author_display_name", args.name):
-        print(f"Author deleted: {args.name}")
+    author = _find_author_ci(db, args.name)
+    if not author:
+        print(f"Author not found: {args.name}")
+        return
+    if db.delete_record("AuthorProfile", "author_uuid", author["author_uuid"]):
+        print(f"Author deleted: {author['author_display_name']}")
     else:
         print(f"Author not found: {args.name}")
+
+def cmd_author_rename(args):
+    # NEW (pkg136). Renaming an author was never actually possible before
+    # -- cmd_author_update has no field for changing the name itself, only
+    # bio/image. Made possible now that author_uuid (pkg135) means the
+    # record's identity survives the display name changing under it.
+    #
+    # Cascades to every PageRecord.page_author_name that references the
+    # OLD name -- that FK is still a plain string (pkg135 deliberately did
+    # not convert it to reference author_uuid), so a rename that only
+    # touched AuthorProfile would silently orphan every page already
+    # bylined under the old name: they'd stop matching their author and
+    # nothing would error, they'd just quietly stop being associated with
+    # anyone. This is exactly the gap `doctor` (below) checks for.
+    db = get_db()
+    author = _find_author_ci(db, args.old_name)
+    if not author:
+        print(f"Author not found: {args.old_name}")
+        return
+    old_name = author["author_display_name"]
+    if old_name == args.new_name:
+        print("New name is the same as the current name -- nothing to do.")
+        return
+    collision = next((a for a in db.get_records("AuthorProfile")
+                       if a["author_uuid"] != author["author_uuid"] and a.get("author_display_name", "").lower() == args.new_name.lower()), None)
+    if collision:
+        print(f"Error: an author named '{collision.get('author_display_name')}' already exists (case-insensitive match). Pick a different name.")
+        return
+    if not db.update_record("AuthorProfile", "author_uuid", author["author_uuid"], {"author_display_name": args.new_name}):
+        print(f"Failed to rename author: {old_name}")
+        return
+    cascaded = 0
+    for p in db.get_records("PageRecord"):
+        if p.get("page_author_name") == old_name:
+            if db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_author_name": args.new_name}):
+                cascaded += 1
+    print(f"Author renamed: '{old_name}' -> '{args.new_name}' ({cascaded} page{'s' if cascaded != 1 else ''} updated)")
 
 def cmd_author_list(args):
     db = get_db()
@@ -323,17 +593,73 @@ def cmd_category_add(args):
     if existing:
         print(f"Error: a category with slug '{args.slug}' already exists.")
         return
-    if db.add_record("Category", {"cat_name": args.name, "cat_slug": args.slug}):
+    if db.add_record("Category", {"cat_uuid": str(uuid.uuid4()), "cat_name": args.name, "cat_slug": args.slug}):
         print(f"Category added: {args.name} ({args.slug})")
     else:
         print(f"Failed to add category: {args.name}")
 
+def _cascade_category_rename(db, cat, new_name):
+    """Shared by update and rename (pkg136) -- both change cat_name, and
+    both need the SAME cascade to PageRecord.page_cat_name, which was
+    previously missing entirely from cmd_category_update: renaming a
+    category via `category update <slug> <name>` changed Category.cat_name
+    but left every PageRecord.page_cat_name still pointing at the OLD name
+    -- those pages silently stopped matching their category (nothing
+    errors; they just fall out of that category's listing) even though the
+    category itself still existed. Real, pre-existing bug, caught while
+    building the rename feature and fixed here rather than shipped
+    knowingly broken in one of the two callers.
+
+    Also blocks renaming AWAY FROM "Uncategorized" -- found live while
+    testing this feature: BEJSON_CMS_System.py's self-heal
+    (_ensure_uncategorized_category) checks for cat_name == "Uncategorized"
+    on every boot and creates a fresh one if missing. Rename it to
+    something else and the next boot silently creates a SECOND, empty
+    category also going by "Uncategorized" alongside the renamed one (now
+    holding all the old pages) -- and categories_delete()'s existing
+    "can't delete Uncategorized" guard would then be protecting the wrong,
+    empty one. Same category of protection that guard already gives
+    delete; rename needed it too."""
+    old_name = cat["cat_name"]
+    if old_name == "Uncategorized":
+        print("Error: cannot rename 'Uncategorized' -- the system self-heal "
+              "recreates a category by that exact name on every boot if it's "
+              "missing, so renaming it away would leave a stray duplicate "
+              "next restart. Create a new category and reassign pages instead.")
+        return 0, False
+    if old_name == new_name:
+        return 0, True
+    collision = next((c for c in db.get_records("Category")
+                       if c["cat_uuid"] != cat["cat_uuid"] and c.get("cat_name", "").lower() == new_name.lower()), None)
+    if collision:
+        print(f"Error: a category named '{collision.get('cat_name')}' already exists (case-insensitive match). Pick a different name.")
+        return 0, False
+    if not db.update_record("Category", "cat_uuid", cat["cat_uuid"], {"cat_name": new_name}):
+        return 0, False
+    cascaded = 0
+    for p in db.get_records("PageRecord"):
+        if p.get("page_cat_name") == old_name:
+            if db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_cat_name": new_name}):
+                cascaded += 1
+    return cascaded, True
+
 def cmd_category_update(args):
     db = get_db()
-    if db.update_record("Category", "cat_slug", args.slug, {"cat_name": args.name}):
-        print(f"Category updated: {args.slug} -> {args.name}")
-    else:
+    cat = next((c for c in db.get_records("Category") if c.get("cat_slug") == args.slug), None)
+    if not cat:
         print(f"Category not found: {args.slug}")
+        return
+    cascaded, ok = _cascade_category_rename(db, cat, args.name)
+    if ok:
+        print(f"Category updated: {args.slug} -> {args.name} ({cascaded} page{'s' if cascaded != 1 else ''} updated)")
+    else:
+        print(f"Failed to update category: {args.slug}")
+
+def cmd_category_rename(args):
+    # NEW (pkg136), alias of `category update` with clearer intent -- same
+    # underlying cascade-safe implementation (_cascade_category_rename),
+    # not a second, divergent code path.
+    cmd_category_update(argparse.Namespace(slug=args.slug, name=args.new_name))
 
 def cmd_category_delete(args):
     db = get_db()
@@ -341,6 +667,49 @@ def cmd_category_delete(args):
         print(f"Category deleted: {args.slug}")
     else:
         print(f"Category not found: {args.slug}")
+
+def cmd_category_merge(args):
+    """NEW (pkg137). Reassigns every page from the source category to the
+    target, then deletes the source. Source may not be "Uncategorized" --
+    same reasoning as the rename guard (_cascade_category_rename): the
+    self-heal in BEJSON_CMS_System.py recreates a category by that exact
+    name on every boot if missing, so deleting it out from under a merge
+    would just have it silently reappear (empty) next restart while pages
+    live on in the target -- confusing, not actually destructive, but not
+    what "merge" should do either. Target may be "Uncategorized" (merging
+    INTO the fallback category is exactly what you'd want e.g. before
+    deleting a category by hand)."""
+    db = get_db()
+    source = next((c for c in db.get_records("Category") if c.get("cat_slug") == args.source_slug), None)
+    target = next((c for c in db.get_records("Category") if c.get("cat_slug") == args.into_slug), None)
+    if not source:
+        print(f"Category not found: {args.source_slug}")
+        return
+    if not target:
+        print(f"Category not found: {args.into_slug}")
+        return
+    if source["cat_uuid"] == target["cat_uuid"]:
+        print("Source and target are the same category -- nothing to do.")
+        return
+    if source["cat_name"] == "Uncategorized":
+        print("Error: cannot merge 'Uncategorized' away -- the system self-heal "
+              "recreates it on every boot if missing. Merge other categories "
+              "INTO Uncategorized instead, or move pages individually.")
+        return
+    cascaded = 0
+    for p in db.get_records("PageRecord"):
+        if p.get("page_cat_name") == source["cat_name"]:
+            # page_cat_uuid updated too (pkg137) -- merge, unlike rename,
+            # actually changes which category a page belongs to, so the
+            # moved page needs the TARGET's uuid, not the source's. Missed
+            # on first pass (this command predates page_cat_uuid existing
+            # at all within the same session) -- found before shipping,
+            # not after.
+            if db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_cat_name": target["cat_name"], "page_cat_uuid": target["cat_uuid"]}):
+                cascaded += 1
+    db.delete_record("Category", "cat_uuid", source["cat_uuid"])
+    print(f"Merged '{source['cat_name']}' into '{target['cat_name']}' "
+          f"({cascaded} page{'s' if cascaded != 1 else ''} moved), source deleted.")
 
 def cmd_category_list(args):
     db = get_db()
@@ -350,7 +719,7 @@ def cmd_nav_add(args):
     db = get_db()
     if args.order:
         print("Note: --order is not supported by the live NavLink schema (nav_display_label, nav_target_url only) -- ignored.")
-    if db.add_record("NavLink", {"nav_display_label": args.label, "nav_target_url": args.url}):
+    if db.add_record("NavLink", {"nav_uuid": str(uuid.uuid4()), "nav_display_label": args.label, "nav_target_url": args.url}):
         print(f"Nav link added: {args.label}")
     else:
         print(f"Failed to add nav link: {args.label}")
@@ -368,7 +737,7 @@ def cmd_nav_list(args):
 
 def cmd_social_add(args):
     db = get_db()
-    if db.add_record("SocialLink", {"social_platform_name": args.platform, "social_target_url": args.url}):
+    if db.add_record("SocialLink", {"social_uuid": str(uuid.uuid4()), "social_platform_name": args.platform, "social_target_url": args.url}):
         print(f"Social link added: {args.platform}")
     else:
         print(f"Failed to add social link: {args.platform}")
@@ -440,6 +809,7 @@ def cmd_asset_add(args):
     mime_type = mimetypes.guess_type(str(dest))[0] or "application/octet-stream"
 
     if db.add_record("MediaAsset", {
+        "asset_uuid": str(uuid.uuid4()),
         "asset_filename": dest.name, "asset_original_name": src.name, "asset_file_hash": file_hash,
         "asset_file_size": file_size, "asset_mime_type": mime_type,
         "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
@@ -623,7 +993,8 @@ def cmd_app_add(args):
         entry_file = src.name
     if db.add_record("StandaloneApp", {
         "app_uuid": new_uuid, "app_name": args.name, "app_slug": slug,
-        "app_description": args.desc or "", "app_entry_file": entry_file, "app_featured_img": args.image or ""
+        "app_description": args.desc or "", "app_entry_file": entry_file, "app_featured_img": args.image or "",
+        "app_created_at": datetime.now().strftime("%Y-%m-%d")
     }):
         print(f"App created: {args.name} (UUID: {new_uuid})")
     else:
@@ -662,9 +1033,9 @@ def _bootstrap_live_schema(db):
     Must match the self-heal logic in BEJSON_CMS_System.py (confirmed).
     """
     for cat in _BOOTSTRAP_CATEGORIES:
-        db.add_record("Category", cat)
+        db.add_record("Category", {**cat, "cat_uuid": str(uuid.uuid4())})
     for cfg in _BOOTSTRAP_SITE_CONFIG:
-        db.add_record("SiteConfig", cfg)
+        db.add_record("SiteConfig", {**cfg, "sys_uuid": str(uuid.uuid4())})
     print("Schema bootstrapped: Uncategorized category + default SiteConfig written.")
 
 def cmd_reset(args):
@@ -810,7 +1181,7 @@ def cmd_config_set(args):
     if existing:
         db.update_record("SiteConfig", "sys_key", args.key, {"sys_value": args.value})
     else:
-        db.add_record("SiteConfig", {"sys_key": args.key, "sys_value": args.value})
+        db.add_record("SiteConfig", {"sys_uuid": str(uuid.uuid4()), "sys_key": args.key, "sys_value": args.value})
     print(f"Config set: {args.key} = {args.value}")
 
 def cmd_config_list(args):
@@ -856,6 +1227,127 @@ _DB_ENTITY_MAP = {
     "navlinks": ("NavLink", None),
 }
 
+# NEW (pkg137). Single source of truth for `find`/`export`/`import` --
+# (BEJSON entity name, uuid field, [human-readable fields to search/export
+# as the "name" column]). Deliberately a separate registry from
+# _DB_ENTITY_MAP above rather than merged into it: that one is keyed by the
+# plural/legacy names `db list` already shipped with (mixed with a filter
+# field, not a uuid field), and changing its shape would be a needless
+# behavior change to a command that already works. Covers every entity
+# that has a uuid field as of pkg135 ("give them all uuids") plus the ones
+# that already had one before that (PageRecord, StandaloneApp, AdUnit,
+# ExternalMedia).
+_ENTITY_REGISTRY = {
+    "author":   ("AuthorProfile",   "author_uuid",   ["author_display_name"]),
+    "category": ("Category",        "cat_uuid",      ["cat_name", "cat_slug"]),
+    "page":     ("PageRecord",      "page_uuid",     ["page_title", "page_slug"]),
+    "asset":    ("MediaAsset",      "asset_uuid",    ["asset_original_name", "asset_filename"]),
+    "app":      ("StandaloneApp",   "app_uuid",      ["app_name", "app_slug"]),
+    "ad":       ("AdUnit",          "ad_uuid",       ["ad_name"]),
+    "navlink":  ("NavLink",         "nav_uuid",      ["nav_display_label"]),
+    "social":   ("SocialLink",      "social_uuid",   ["social_platform_name"]),
+    "persona":  ("AI_Profile",      "persona_uuid",  ["persona_name"]),
+    "extmedia": ("ExternalMedia",   "extmedia_uuid", ["extmedia_name"]),
+}
+
+def cmd_find(args):
+    """NEW (pkg137). Fuzzy name->UUID lookup. Now that UUID is the real
+    identity for every entity in _ENTITY_REGISTRY, the practical gap is
+    going the other way: a human remembers a name, not a UUID. Substring,
+    case-insensitive match across every registered "name" field for the
+    given entity type."""
+    entry = _ENTITY_REGISTRY.get(args.entity)
+    if not entry:
+        print(f"Unknown entity type '{args.entity}'. Known types: {', '.join(sorted(_ENTITY_REGISTRY))}")
+        return
+    entity_name, uuid_field, name_fields = entry
+    db = get_db()
+    query = args.query.lower()
+    matches = []
+    for rec in db.get_records(entity_name):
+        if any(query in str(rec.get(f, "")).lower() for f in name_fields):
+            matches.append(rec)
+    if not matches:
+        print(f"No {args.entity} records matching '{args.query}'.")
+        return
+    for rec in matches:
+        label = " / ".join(str(rec.get(f, "")) for f in name_fields if rec.get(f))
+        print(f"{rec.get(uuid_field)}  {label}")
+    if len(matches) > 1:
+        print(f"\n{len(matches)} matches.")
+
+def cmd_export(args):
+    """NEW (pkg137). Dump one entity's live records to a file --
+    JSON (full fidelity) or CSV (for spreadsheet editing). Pairs with
+    cmd_import below for a round trip."""
+    entry = _ENTITY_REGISTRY.get(args.entity)
+    if not entry:
+        print(f"Unknown entity type '{args.entity}'. Known types: {', '.join(sorted(_ENTITY_REGISTRY))}")
+        return
+    entity_name, uuid_field, name_fields = entry
+    db = get_db()
+    recs = db.get_records(entity_name)
+    out_path = args.out or f"{args.entity}_export.{args.format}"
+    if args.format == "json":
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(recs, f, indent=2)
+    else:  # csv
+        import csv as _csv
+        fieldnames = list(recs[0].keys()) if recs else [uuid_field] + name_fields
+        with open(out_path, "w", encoding="utf-8", newline="") as f:
+            writer = _csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for r in recs:
+                writer.writerow(r)
+    print(f"Exported {len(recs)} {args.entity} record(s) to {out_path}")
+
+def cmd_import(args):
+    """NEW (pkg137). Bulk-add records from a JSON or CSV file exported by
+    cmd_export (or hand-written in the same shape). Every imported row
+    gets a FRESH uuid generated here -- imported data is never trusted to
+    supply its own uuid_field value, even if the file has one (e.g.
+    re-importing a previous export), to guarantee no collision with a live
+    record's identity is possible. Skips (does not overwrite) a row whose
+    first name field case-insensitively matches an existing live record,
+    printing what it skipped, so a partially-duplicate import file doesn't
+    silently create duplicates as a side effect of the very feature meant
+    to reduce name-based duplication risk."""
+    entry = _ENTITY_REGISTRY.get(args.entity)
+    if not entry:
+        print(f"Unknown entity type '{args.entity}'. Known types: {', '.join(sorted(_ENTITY_REGISTRY))}")
+        return
+    entity_name, uuid_field, name_fields = entry
+    db = get_db()
+    fmt = args.format or ("csv" if args.file.lower().endswith(".csv") else "json")
+    if fmt == "json":
+        with open(args.file, "r", encoding="utf-8") as f:
+            rows = json.load(f)
+    else:
+        import csv as _csv
+        with open(args.file, "r", encoding="utf-8", newline="") as f:
+            rows = list(_csv.DictReader(f))
+
+    primary_name_field = name_fields[0]
+    existing_names = {r.get(primary_name_field, "").lower() for r in db.get_records(entity_name) if r.get(primary_name_field)}
+
+    added, skipped = 0, 0
+    for row in rows:
+        row = dict(row)
+        row.pop(uuid_field, None)  # never trust an imported uuid -- always fresh
+        row[uuid_field] = str(uuid.uuid4())
+        name_val = row.get(primary_name_field, "")
+        if name_val and name_val.lower() in existing_names:
+            print(f"  Skipped (already exists): {name_val}")
+            skipped += 1
+            continue
+        if db.add_record(entity_name, row):
+            added += 1
+            if name_val:
+                existing_names.add(name_val.lower())
+        else:
+            print(f"  Failed to add: {name_val or row}")
+    print(f"Imported {added} {args.entity} record(s), skipped {skipped} duplicate(s).")
+
 def cmd_db_list(args):
     entry = _DB_ENTITY_MAP.get(args.entity)
     if not entry:
@@ -889,11 +1381,29 @@ def main():
     p_restore = subparsers.add_parser("restore", help="Restore site from backup")
     p_restore.add_argument("file", help="Path to backup zip file")
 
-    # Mount/Commit
-    p_mount = subparsers.add_parser("mount", help="Mount MFDB archives to workspace")
-    p_mount.add_argument("--force", action="store_true", help="Force mount")
-    
-    subparsers.add_parser("commit", help="Commit workspace changes to archives")
+    # mount/commit removed at pkg139 (Elton's call, following the pkg132
+    # audit's "pending Elton's call" note in docs/security-notes.md):
+    # deprecated escape hatches into the old disconnected workspace/archive
+    # model, superseded entirely by backup/restore (which operate on real
+    # live data) for years before this. get_manager()/MFDB_CMS_Manager
+    # itself is NOT removed -- cmd_status() still reports on that legacy
+    # workspace read-only, in case something outside this CLI still touches
+    # the archive directly.
+    subparsers.add_parser("doctor", help="Health check: orphaned category/author refs + duplicate names")
+
+    p_find = subparsers.add_parser("find", help="Fuzzy name->UUID lookup across any entity type")
+    p_find.add_argument("entity", choices=sorted(_ENTITY_REGISTRY.keys()), help="Entity type to search")
+    p_find.add_argument("query", help="Case-insensitive substring to match against the entity's name field(s)")
+
+    p_export = subparsers.add_parser("export", help="Export one entity's live records to a file")
+    p_export.add_argument("entity", choices=sorted(_ENTITY_REGISTRY.keys()), help="Entity type to export")
+    p_export.add_argument("--format", choices=["json", "csv"], default="json", help="Output format (default json)")
+    p_export.add_argument("--out", help="Output file path (default: <entity>_export.<format>)")
+
+    p_import = subparsers.add_parser("import", help="Bulk-import records for one entity from a file")
+    p_import.add_argument("entity", choices=sorted(_ENTITY_REGISTRY.keys()), help="Entity type to import")
+    p_import.add_argument("file", help="Path to a JSON or CSV file (as produced by 'export')")
+    p_import.add_argument("--format", choices=["json", "csv"], help="Input format (default: inferred from file extension)")
 
     # Page Management
     p_page = subparsers.add_parser("page", help="Page operations")
@@ -937,13 +1447,17 @@ def main():
     p_aadd.add_argument("--bio", help="Author bio")
     p_aadd.add_argument("--image", help="Author image URL")
 
-    p_aupd = author_sub.add_parser("update", help="Update an author")
-    p_aupd.add_argument("name", help="Author name (identifies the record -- live schema has no UUID)")
+    p_aupd = author_sub.add_parser("update", help="Update an author's bio/image")
+    p_aupd.add_argument("name", help="Author name (case-insensitive match; identity is author_uuid internally, pkg135)")
     p_aupd.add_argument("--bio", help="Author bio")
     p_aupd.add_argument("--image", help="Author image URL")
-    
+
+    p_aren = author_sub.add_parser("rename", help="Rename an author, cascading to every page's byline")
+    p_aren.add_argument("old_name", help="Current author name (case-insensitive match)")
+    p_aren.add_argument("new_name", help="New author name")
+
     p_adel = author_sub.add_parser("delete", help="Delete an author")
-    p_adel.add_argument("name", help="Author name (identifies the record -- live schema has no UUID)")
+    p_adel.add_argument("name", help="Author name (case-insensitive match; identity is author_uuid internally, pkg135)")
     
     author_sub.add_parser("list", help="List authors")
 
@@ -957,13 +1471,21 @@ def main():
     p_cadd.add_argument("--desc", help="Category description")
     p_cadd.add_argument("--type", help="Feed type (blog, portfolio, etc)")
 
-    p_cupd = cat_sub.add_parser("update", help="Update a category")
+    p_cupd = cat_sub.add_parser("update", help="Update a category's name (cascades to every page's category)")
     p_cupd.add_argument("slug", help="Category slug")
-    p_cupd.add_argument("name", help="Category name")
+    p_cupd.add_argument("name", help="New category name")
+
+    p_cren = cat_sub.add_parser("rename", help="Rename a category, cascading to every page's category")
+    p_cren.add_argument("slug", help="Category slug (unchanged by rename -- only the display name changes)")
+    p_cren.add_argument("new_name", help="New category name")
 
     p_cdel = cat_sub.add_parser("delete", help="Delete a category")
     p_cdel.add_argument("slug", help="Category slug")
-    
+
+    p_cmerge = cat_sub.add_parser("merge", help="Merge a category into another, moving all its pages")
+    p_cmerge.add_argument("source_slug", help="Category to merge away (deleted after merge)")
+    p_cmerge.add_argument("into_slug", help="Category to merge into (kept)")
+
     cat_sub.add_parser("list", help="List categories")
 
     # NavLink Management
@@ -1096,12 +1618,13 @@ def main():
         "factory-reset": cmd_reset,
         "backup": cmd_backup,
         "restore": cmd_restore,
-        "mount": cmd_mount,
-        "commit": cmd_commit,
-        "repack": cmd_commit,
+        "doctor": cmd_doctor,
+        "find": cmd_find,
+        "export": cmd_export,
+        "import": cmd_import,
         "page": lambda a: {"add": cmd_page_add, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
-        "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
-        "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,
+        "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "rename": cmd_author_rename, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
+        "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "rename": cmd_category_rename, "merge": cmd_category_merge, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,
         "navlink": lambda a: {"add": cmd_nav_add, "delete": cmd_nav_delete, "list": cmd_nav_list}.get(a.op)(a) if a.op else None,
         "social": lambda a: {"add": cmd_social_add, "delete": cmd_social_delete, "list": cmd_social_list}.get(a.op)(a) if a.op else None,
         "ad": lambda a: {"add": cmd_ad_add, "update": cmd_ad_update, "delete": cmd_ad_delete, "list": cmd_ad_list}.get(a.op)(a) if a.op else None,

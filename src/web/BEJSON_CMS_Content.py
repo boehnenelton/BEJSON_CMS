@@ -2,10 +2,39 @@
 Library:         BEJSON_CMS_Content
 Family:          BEJSON_CMS
 Description:     Content Cube: Page/Link CRUD, Category management, Author profiles, Standalone Apps, HTML import pipeline. Uses CMSCore (lib_bejson_CMS_cms_core), the same data layer as the rest of the Flask app — NOT lib_bejson_CMS_cms_mfdb (that manager is CLI-only, used by cms-manage.py, and is a different schema/data layer).
-Version:         18.27
+Version:         18.30
 Library_Version: 58
-Date:            2026-08-05
-RELATIONAL_ID:   8f4684ed-8a3a-469b-870b-f6d16b606f2f
+Date:            2026-09-20
+RELATIONAL_ID:   303520e3-1cd8-4ac0-8ee8-bc2ee9bb2596
+CHANGE (2026-09-20): PKG139 -- deferred-item sweep decisions (Elton: "add
+app_created_at field" -- audit L-4). apps_new()'s StandaloneApp
+add_record() call now includes app_created_at (today's date) -- see
+BEJSON_CMS_System.py's pkg139 entry for the schema/self-heal side.
+Verified live via Flask test client: created a real app, confirmed
+app_created_at was written with today's date, cleaned up.
+CHANGE (2026-09-16): PKG137 -- page_cat_uuid/page_author_uuid added alongside
+page_cat_name/page_author_name on every PageRecord write in this file:
+page_new, page_edit, duplicate_page (copies the FK fields verbatim from the
+source page rather than re-resolving, preserving an orphan/None state
+faithfully if the source had one), link_new, and the AI/HTML import page
+creator. categories_delete()'s Uncategorized-reassignment cascade also
+updated to set page_cat_uuid to Uncategorized's real uuid, not just the
+name string. New shared _resolve_page_fk_uuids() helper. Every site
+verified live end to end against real data (create/edit/duplicate/delete,
+and the categories_delete cascade specifically), not just compiled.
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). AuthorProfile
+and Category both went from name/slug-keyed to UUID-keyed for their own
+identity. manage_authors(): add generates author_uuid; edit/delete now key
+off a hidden author_uuid form field instead of author_display_name (fixes
+the underlying issue behind pkg134's case-insensitivity patch at the
+root -- two rows can never collide on identity again, whatever their
+names look like). Dropped the `aid = name|replace(' ','_')` DOM-id hack in
+the template in favor of using auth.author_uuid directly. categories_add()/
+categories_delete(): same conversion, including the URL route itself
+(/categories/delete/<name> -> /categories/delete/<cat_uuid>). Verified live
+against real data end to end (add -> edit -> delete round-trip via Flask
+test client), not just import-checked; live data confirmed restored to its
+original state after each test.
 """
 
 import os
@@ -36,6 +65,21 @@ except ImportError:
     _BS4_OK = False
 
 content_cube = Blueprint('content', __name__)
+
+def _resolve_page_fk_uuids(cat_name, author_name):
+    """NEW (pkg137). Resolves a category/author NAME to its live UUID, for
+    setting the new page_cat_uuid/page_author_uuid fields alongside the
+    existing page_cat_name/page_author_name strings on every write. Does
+    NOT touch page_cat_name/page_author_name themselves or any render
+    path that reads them -- purely additive (see BEJSON_CMS_System.py's
+    pkg137 changelog entry for the reasoning). Returns (cat_uuid,
+    author_uuid), either of which is None if the name doesn't match any
+    live record -- the same honest-orphan behavior as the self-heal
+    backfill for existing pages, not an error (author is optional; a
+    category name typo would be caught by `cms-manage.py doctor`)."""
+    cat_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == cat_name), None)
+    author_uuid = next((a.get("author_uuid") for a in db.get_records("AuthorProfile") if a.get("author_display_name") == author_name), None) if author_name else None
+    return cat_uuid, author_uuid
 
 @content_cube.route('/content')
 def content_hub():
@@ -113,10 +157,12 @@ def page_new():
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
         db.mount()
+        cat_uuid, author_uuid = _resolve_page_fk_uuids(category, author)
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": title, "page_slug": slug,
             "page_cat_name": category, "page_type": "page", "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE,
-            "page_template_key": "blank", "page_featured_video_url": None})
+            "page_template_key": "blank", "page_featured_video_url": None,
+            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid})
         
         pfile = os.path.join(PAGES_DB_DIR, f"{new_uuid}.json")
         New_Page_Content_Doc = {
@@ -191,8 +237,10 @@ def edit_content(page_uuid):
         except Exception as err: print(f"Content write error: {err}")
 
         # Update Master Record
+        cat_uuid, author_uuid = _resolve_page_fk_uuids(category, author)
         db.update_record("PageRecord", "page_uuid", page_uuid, {
-            "page_title": title, "page_featured_img": featured_img, "page_author_name": author, "page_cat_name": category
+            "page_title": title, "page_featured_img": featured_img, "page_author_name": author, "page_cat_name": category,
+            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid
         })
         flash("Changes saved successfully!", "success")
         return redirect(f"/edit/{page_uuid}")
@@ -425,6 +473,11 @@ def duplicate_page(page_uuid):
         "page_author_name": source.get("page_author_name"), "page_featured_img": source.get("page_featured_img"),
         "page_template_key": source.get("page_template_key"),
         "page_featured_video_url": source.get("page_featured_video_url"),
+        # Copied directly from source rather than re-resolved by name --
+        # source already carries the correct uuid (pkg137), and copying it
+        # verbatim preserves an orphan (None) state faithfully too, if the
+        # source page had one.
+        "page_cat_uuid": source.get("page_cat_uuid"), "page_author_uuid": source.get("page_author_uuid"),
     })
 
     src_file = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
@@ -477,10 +530,12 @@ def link_new():
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', label.lower()).strip('-')
         db.mount()
+        cat_uuid, _ = _resolve_page_fk_uuids(category, None)
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": label, "page_slug": slug,
             "page_cat_name": category, "page_type": "external_link", "page_external_url": Submitted_External_Link_Url,
             "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_author_name": "", "page_featured_img": "",
-            "page_template_key": None, "page_featured_video_url": None})
+            "page_template_key": None, "page_featured_video_url": None,
+            "page_cat_uuid": cat_uuid, "page_author_uuid": None})
         
         flash('External link added.', 'success')
         return redirect('/links')
@@ -510,7 +565,7 @@ def categories_list():
     </div>
     <div class="card"><div class="table-container"><table><thead><tr><th>Category Name</th><th>Slug</th><th>Actions</th></tr></thead><tbody>
     {% for c in categories %}<tr><td>{{ c.cat_name }}</td><td><code style="background:var(--bg-secondary);padding:2px 8px;border-radius:4px;">{{ c.cat_slug }}</code></td>
-    <td>{% if c.cat_name != \'Uncategorized\' %}<form method="post" action="/categories/delete/{{ c.cat_name }}" style="display:inline;" onsubmit="return confirm(\'Delete category?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form>{% endif %}</td></tr>{% endfor %}
+    <td>{% if c.cat_name != \'Uncategorized\' %}<form method="post" action="/categories/delete/{{ c.cat_uuid }}" style="display:inline;" onsubmit="return confirm(\'Delete category?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form>{% endif %}</td></tr>{% endfor %}
     </tbody></table></div></div>'''
     return R(html, categories=categories, breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
@@ -523,28 +578,31 @@ def categories_add():
         db.mount()
         exists = any(c.get('cat_name', '').lower() == name.lower() for c in db.get_records("Category"))
         if not exists:
-            db.add_record("Category", {"cat_name": name, "cat_slug": slug})
+            db.add_record("Category", {"cat_uuid": str(uuid.uuid4()), "cat_name": name, "cat_slug": slug})
             flash(f'Category "{name}" added.', 'success')
         else:
             flash(f'Category "{name}" already exists.', 'error')
     return redirect('/categories')
 
 
-@content_cube.route("/categories/delete/<name>", methods=['POST'])
-def categories_delete(name):
+@content_cube.route("/categories/delete/<cat_uuid>", methods=['POST'])
+def categories_delete(cat_uuid):
+    cat = next((c for c in db.get_records("Category") if c.get("cat_uuid") == cat_uuid), None)
+    name = cat.get("cat_name") if cat else None
     if name == "Uncategorized":
         flash("Cannot delete Uncategorized.", "error")
         return redirect("/categories")
-    
+
     # Delete the category
-    db.delete_record("Category", "cat_name", name)
-    
+    db.delete_record("Category", "cat_uuid", cat_uuid)
+
     # Reassign pages to Uncategorized using orchestrator
+    uncategorized_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == "Uncategorized"), None)
     pages = db.get_records("PageRecord")
     for p in pages:
         if p.get("page_cat_name") == name:
-            db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_cat_name": "Uncategorized"})
-            
+            db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_cat_name": "Uncategorized", "page_cat_uuid": uncategorized_uuid})
+
     flash(f"Category '{name}' deleted. Pages reassigned to Uncategorized.", "success")
     return redirect("/categories")
 
@@ -617,7 +675,8 @@ def app_new():
         db.mount()
         _t_add0 = time.perf_counter()
         db.add_record("StandaloneApp", {"app_uuid": new_uuid, "app_name": name, "app_slug": slug,
-            "app_description": Submitted_App_Description, "app_entry_file": entry_file, "app_featured_img": app_image})
+            "app_description": Submitted_App_Description, "app_entry_file": entry_file, "app_featured_img": app_image,
+            "app_created_at": datetime.now().strftime("%Y-%m-%d")})
         logging.debug(f"[IMPORT] app_new add_record_ms={(time.perf_counter()-_t_add0)*1000:.1f} "
                       f"total_ms={(time.perf_counter()-_t0)*1000:.1f}")
         
@@ -921,17 +980,17 @@ def manage_authors():
                 if existing:
                     flash(f'An author named "{name}" already exists.', 'error')
                 else:
-                    db.add_record("AuthorProfile", {"author_display_name": name, "author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
+                    db.add_record("AuthorProfile", {"author_uuid": str(uuid.uuid4()), "author_display_name": name, "author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
                     flash(f'Author "{name}" added.', 'success')
         elif action == 'edit':
-            name = request.form.get('author_display_name', '').strip()
+            author_uuid = request.form.get('author_uuid', '')
             Submitted_Author_Bio  = request.form.get('author_bio', '')
             Submitted_Author_Image_Filename  = request.form.get('author_avatar_url', '')
-            db.update_record("AuthorProfile", "author_display_name", name, {"author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
-            flash(f'Author "{name}" updated.', 'success')
+            db.update_record("AuthorProfile", "author_uuid", author_uuid, {"author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
+            flash('Author updated.', 'success')
         elif action == 'delete':
-            name = request.form.get('author_display_name', '')
-            db.delete_record("AuthorProfile", "author_display_name", name)
+            author_uuid = request.form.get('author_uuid', '')
+            db.delete_record("AuthorProfile", "author_uuid", author_uuid)
             flash('Author deleted.', 'success')
         return redirect('/site/authors')
 
@@ -971,7 +1030,7 @@ def manage_authors():
         <div class="card">
             <div class="card-header"><span class="card-title">Existing Authors ({{ authors|length }})</span></div>
             {% for auth in authors %}
-            {% set aid = auth.author_display_name | replace(\' \', \'_\') %}
+            {% set aid = auth.author_uuid %}
             <div style="padding:15px;background:var(--bg-secondary);margin-bottom:10px;border-radius:8px;">
                 <div class="author-row">
                     <div class="author-row-info">
@@ -989,7 +1048,7 @@ def manage_authors():
                         <button class="btn btn-secondary btn-sm toggle-edit-btn" data-aid="{{ aid }}" type="button">Edit</button>
                         <form method="POST" style="display:inline;">
                             <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="author_display_name" value="{{ auth.author_display_name }}">
+                            <input type="hidden" name="author_uuid" value="{{ auth.author_uuid }}">
                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm(\'Delete author?\')">Delete</button>
                         </form>
                     </div>
@@ -997,7 +1056,7 @@ def manage_authors():
                 <div id="edit-{{ aid }}" class="author-edit-panel">
                     <form method="POST">
                         <input type="hidden" name="action" value="edit">
-                        <input type="hidden" name="author_display_name" value="{{ auth.author_display_name }}">
+                        <input type="hidden" name="author_uuid" value="{{ auth.author_uuid }}">
                         <div class="form-group"><label class="form-label" style="font-size:0.8rem;">Bio</label>
                             <textarea name="author_bio" class="form-control" rows="3">{{ auth.author_bio or \'\'  }}</textarea>
                         </div>
@@ -1150,6 +1209,7 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
 
     db.mount()
     _t_add0 = time.perf_counter()
+    cat_uuid, author_uuid = _resolve_page_fk_uuids(category, author)
     db.add_record("PageRecord", {
         "page_uuid":    new_uuid,
         "page_title":   title,
@@ -1162,6 +1222,8 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
         "page_featured_img": DEFAULT_FEATURED_IMAGE,
         "page_template_key": "blank",
         "page_featured_video_url": None,
+        "page_cat_uuid": cat_uuid,
+        "page_author_uuid": author_uuid,
     }, sync_count=sync_count)
     _t_add1 = time.perf_counter()
     

@@ -6,16 +6,23 @@ Description:   Canonical Prefix Registry and Field Alias Map for BEJSON_CMS.
                field names, and old->new field translation. All migration tools
                and Phase 5 blueprint updates import from this module.
                See docs/taxonomy_migration_tasks.md for step context.
-Version:       1.0.0
+Version:       1.1.0
 Author:        Elton Boehnen
-Date:          2026-08-10
-RELATIONAL_ID: 7c3a5e9f-2b4d-4f6a-8e0c-1a9b7d5c3e2f
+Date:          2026-09-13
+RELATIONAL_ID: 2e6acb68-3d3d-46c0-aebb-145e38f82d17
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). Decided the
+open question this registry had explicitly flagged: AI_Profile's
+uuid_field is now "persona_uuid", matching the other 6 entities that
+already had one picked out (cat_uuid, author_uuid, asset_uuid, nav_uuid,
+sys_uuid, social_uuid). This is the only change -- the registry's own
+uuid_field values for those 6 were already correct and are what
+tools/migrate_taxonomy.py actually injected when run live this pass.
 """
+
+VERSION = "1.1.0"
 
 from pathlib import Path
 from typing import Dict, List, Optional
-
-VERSION = "1.0.0"
 
 # ---------------------------------------------------------------------------
 # CANONICAL PREFIX REGISTRY
@@ -76,7 +83,7 @@ TAXONOMY_PREFIX_REGISTRY: Dict[str, Dict] = {
     },
     "AI_Profile": {
         "prefix": "persona_",
-        "uuid_field": None,                  # keyed on persona_name, matching AuthorProfile/Category/etc -- same open UUID question as those 6 entities, not decided here
+        "uuid_field": "persona_uuid",         # DECIDED (pkg135, Elton): "give them all uuids" -- resolves the open question below in favor of injecting, matching the other 6 entities.
         "description": "AI persona/profile records for Gemini-backed content generation. Migrated from a 25-field PascalCase/CrammedFieldNames schema (Name, SystemInstruction, EmotionalExpression_Enabled, ...) that had been deliberately kept mismatched with the rest of this taxonomy for compatibility with an external tool (BEProfiler.py); that compatibility was explicitly dropped by Elton in favor of taxonomy consistency."
     },
 }

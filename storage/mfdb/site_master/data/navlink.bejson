@@ -8,6 +8,10 @@
   ],
   "Fields": [
     {
+      "name": "nav_uuid",
+      "type": "string"
+    },
+    {
       "name": "nav_display_label",
       "type": "string"
     },

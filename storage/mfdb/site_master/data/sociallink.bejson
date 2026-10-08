@@ -8,6 +8,10 @@
   ],
   "Fields": [
     {
+      "name": "social_uuid",
+      "type": "string"
+    },
+    {
       "name": "social_platform_name",
       "type": "string"
     },

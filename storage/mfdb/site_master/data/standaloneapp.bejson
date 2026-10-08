@@ -30,6 +30,10 @@
     {
       "name": "app_featured_img",
       "type": "string"
+    },
+    {
+      "name": "app_created_at",
+      "type": "string"
     }
   ],
   "Values": []

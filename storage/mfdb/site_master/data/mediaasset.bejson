@@ -8,6 +8,10 @@
   ],
   "Fields": [
     {
+      "name": "asset_uuid",
+      "type": "string"
+    },
+    {
       "name": "asset_filename",
       "type": "string"
     },
@@ -34,6 +38,7 @@
   ],
   "Values": [
     [
+      "096e0fef-1980-4afb-a044-64253919b6b6",
       "bejson_brand_1.jpeg",
       "bejson_brand_1.jpeg",
       "65981be2ca53471bc024fbc09e4b5bbf4510fc848f40909df26a745c2255bccf",
@@ -42,6 +47,7 @@
       "2026-08-15T04:12:12.425074"
     ],
     [
+      "a15959fa-bffa-4c04-8fca-8865f99edc94",
       "bejson_brand_3_icon.jpeg",
       "bejson_brand_3_icon.jpeg",
       "c8cf514398df5d31ff8c40f8205f4f4474665a060033664c19eaf2589d84a8da",
@@ -50,6 +56,7 @@
       "2026-08-15T04:12:12.432868"
     ],
     [
+      "4a70fe8f-616c-4031-828c-10b15705efc2",
       "bejson_brand_4.webp",
       "bejson_brand_4.webp",
       "ede9c8f5e9fd216e872020d689ff7d7d0b4d24237daf328255915fe462a881a9",
@@ -58,6 +65,7 @@
       "2026-08-15T04:12:12.435220"
     ],
     [
+      "f5923bf7-a0ef-4be5-95c2-684aeef04809",
       "default_page_image.webp",
       "default_page_image.webp",
       "749defa49928d3a3b750ab5d372a46534ab01c19fc598157d539e663139496c1",

@@ -7,3 +7,9 @@ storage/tmp/html_imports/*
 storage/builds/*
 storage/logs/*
 launcher_registry.json
+dev/
+logs/
+log/
+backups/
+*.tmp
+.DS_Store

@@ -2,10 +2,17 @@
 Library:         BEJSON_CMS_Interface
 Family:          BEJSON_CMS
 Description:     Interface Cube: Dashboard, Navigation manager, Social Links, Ad Unit manager, Publish trigger UI. NAV_SECTIONS/base template/R() live in BEJSON_CMS_Shared (not here) since Content/Media/System routes render through them too.
-Version:         18.23
+Version:         18.24
 Library_Version: 57
-Date:            2026-08-05
-RELATIONAL_ID:   0eb4cd90-6e13-4e0e-a8ad-a75238989e4f
+Date:            2026-09-13
+RELATIONAL_ID:   fa52c8b5-ef7b-4094-a82b-3cb3a394c9f3
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). NavLink and
+SocialLink both went from label/platform-name-keyed to UUID-keyed for
+their own identity. Both add routes now generate a uuid; both delete
+routes and their templates' hidden form fields switched from
+nav_display_label/social_platform_name to nav_uuid/social_uuid. Verified
+live end to end (add -> delete round-trip via Flask test client against
+real data).
 """
 
 import os
@@ -98,10 +105,10 @@ def site_nav():
             label = request.form.get('nav_display_label', '').strip()
             Submitted_Nav_Link_Url = request.form.get('nav_target_url', '').strip()
             if label and Submitted_Nav_Link_Url:
-                db.add_record("NavLink", {"nav_display_label": label, "nav_target_url": Submitted_Nav_Link_Url})
+                db.add_record("NavLink", {"nav_uuid": str(uuid.uuid4()), "nav_display_label": label, "nav_target_url": Submitted_Nav_Link_Url})
         elif action == 'delete':
-            label = request.form.get('nav_display_label', '')
-            db.delete_record("NavLink", "nav_display_label", label)
+            nav_uuid = request.form.get('nav_uuid', '')
+            db.delete_record("NavLink", "nav_uuid", nav_uuid)
         
         flash('Navigation updated.', 'success')
         return redirect('/site/nav')
@@ -128,7 +135,7 @@ def site_nav():
                 <span>{{ nav.nav_display_label }} &rarr; {{ nav.nav_target_url }}</span>
                 <form method="POST" style="display:inline;">
                     <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="nav_display_label" value="{{ nav.nav_display_label }}">
+                    <input type="hidden" name="nav_uuid" value="{{ nav.nav_uuid }}">
                     <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm(\'Remove?\')">Remove</button>
                 </form>
             </div>
@@ -147,10 +154,10 @@ def site_social():
             platform = request.form.get('social_platform_name', '').strip()
             Submitted_Social_Link_Url = request.form.get('social_target_url', '').strip()
             if platform and Submitted_Social_Link_Url:
-                db.add_record("SocialLink", {"social_platform_name": platform, "social_target_url": Submitted_Social_Link_Url})
+                db.add_record("SocialLink", {"social_uuid": str(uuid.uuid4()), "social_platform_name": platform, "social_target_url": Submitted_Social_Link_Url})
         elif action == 'delete':
-            platform = request.form.get('social_platform_name', '')
-            db.delete_record("SocialLink", "social_platform_name", platform)
+            social_uuid = request.form.get('social_uuid', '')
+            db.delete_record("SocialLink", "social_uuid", social_uuid)
         
         flash('Social links updated.', 'success')
         return redirect('/site/social')
@@ -177,7 +184,7 @@ def site_social():
                 <span>{{ soc.social_platform_name }} &rarr; {{ soc.social_target_url }}</span>
                 <form method="POST" style="display:inline;">
                     <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="social_platform_name" value="{{ soc.social_platform_name }}">
+                    <input type="hidden" name="social_uuid" value="{{ soc.social_uuid }}">
                     <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm(\'Remove?\')">Remove</button>
                 </form>
             </div>

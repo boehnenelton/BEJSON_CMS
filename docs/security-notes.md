@@ -7,6 +7,39 @@ assumed.
 
 ---
 
+## `BEJSON_CMS_PageEditorV2.py` — `/api/context/upload` path traversal via unsanitized filename (found + fixed pkg141)
+
+**Severity:** Medium — arbitrary file write. `file.filename` is
+client-controlled (the multipart `Content-Disposition` header), and
+werkzeug's `FileStorage.save()` does not sanitize it before joining it
+onto a directory path. Gated behind the same Basic Auth every route in
+this app enforces (`_enforce_auth_everywhere`), so not exploitable
+unauthenticated — but an authenticated user of the CMS shouldn't be able
+to write files outside the intended `Context/` directory via a crafted
+filename, and if any other bug ever exposes this route to a
+lower-privilege caller, this becomes a much bigger problem.
+
+**Confirmed directly, not assumed:** `os.path.join(CONTEXT_DIR,
+"../../../../tmp/x")` resolves clean outside `CONTEXT_DIR` entirely —
+checked with `os.path.abspath()` before writing any fix.
+
+**Fix:** `secure_filename()` (werkzeug) plus `bejson_safe_join()` — the
+same path guard this file already uses for its `/assets/` routes — as a
+second layer rather than trusting `secure_filename()` alone.
+
+**Verified:** sent the exact traversal filename that escaped before the
+fix through the real Flask route; confirmed nothing was written at the
+traversal target and the upload landed safely inside `CONTEXT_DIR` under
+a collapsed-safe name instead. Confirmed a legitimate upload is
+unaffected. Then swept every other `file.filename`/upload site in the
+codebase (`BEJSON_CMS_Media.py`, `BEJSON_CMS_Content.py`,
+`BEJSON_CMS_PageEditor.py`) for the same pattern — all already either use
+`secure_filename()`, write to a fixed non-user-controlled path, or never
+write the upload to disk at all (read into memory only). This was the
+only real instance.
+
+---
+
 ## `src/cms-manage.py` operates on data completely disconnected from the live site (found pkg78, unresolved)
 
 **Severity:** High — every data command in this CLI silently succeeds
@@ -98,11 +131,34 @@ data) by deleting all `pages_db/*.json` files and confirming `restore`
 correctly recovered all 5. Full `py_compile` sweep across every `.py` file
 in the project: clean.
 
-**Status:** substantially remediated. Remaining gaps: `asset optimize`
-still needs its live write shape verified before conversion; `mount`/
-`commit` remain as explicitly-labeled legacy escape hatches (`--force`)
-rather than being removed outright, pending Elton's call on whether the
-disconnected workspace model has any remaining use.
+**Status:** fully remediated. Remaining gap from earlier entries --
+`mount`/`commit` as legacy escape hatches, pending Elton's call -- is
+resolved: removed entirely at pkg139 (Elton: "remove entirely"). See
+"Correction, pkg139" below.
+
+**Correction, pkg139:** the "Status" line above used to list `mount`/
+`commit` as remaining, explicitly-labeled legacy escape hatches, pending
+Elton's call on whether the disconnected workspace model had any
+remaining use. Elton's call: remove them. Done -- `cmd_mount`/
+`cmd_commit`, their argparse subparsers, and their dispatch-table entries
+are gone; `mount`/`commit`/`repack` are no longer valid commands at all
+(verified: both now correctly error as an unrecognized command).
+`get_manager()`/`MFDB_CMS_Manager` itself was NOT removed -- `cmd_status`
+still reports on the legacy workspace read-only (Mounted/Dirty Changes),
+in case something outside this CLI still touches that archive directly;
+its printed NOTE was updated so it no longer references the now-gone
+commands. Verified `status` still runs clean with the corrected message.
+
+**Correction, pkg138:** the line above used to also list `asset optimize`
+as needing its live write shape verified. Checked directly this session --
+it's already fully converted and correct, not a gap. Live-tested end to
+end: created a real PNG MediaAsset row, ran `asset optimize --dry-run`
+(correctly previewed with no changes made), then for real -- confirmed the
+PNG converted to WebP on disk, the MediaAsset row's filename/mime/size/hash
+all updated correctly, and `asset_uuid` (pkg135) was correctly preserved
+through the update (it's keyed by `asset_filename`, not touched by this
+command, so preservation was automatic -- confirmed rather than assumed).
+Cleaned up after; live data confirmed back to its original 4-asset baseline.
 
 **Correction, pkg113:** the entry above (written pkg81) said `page import
 --app` was left unconverted. Checked directly this session — it wasn't;
@@ -114,6 +170,40 @@ markup, canonical fields throughout), cleaned up after. Also fixed
 `cmd_status`'s own printed NOTE text, which still described the pkg80
 intermediate state (naming `author`/`page`/`asset`/`app`/`ad` as
 disconnected) — corrected to match current reality.
+
+**Update, pkg134:** the pkg81 conversion made `author` name-keyed to match
+the live schema, but only converted the data-access layer — it didn't
+check whether the *duplicate-detection logic* itself matched the web's.
+It didn't: `cmd_author_add()` compared `author_display_name` with an exact
+(`==`) match, while both web-side author-creation paths
+(`BEJSON_CMS_Content.py`'s `manage_authors()`,
+`BEJSON_CMS_ProfileManager.py`'s persona→author sync) already compare
+case-insensitively. Since `AuthorProfile` still has no UUID field —
+`author_display_name` is the only key that exists — a case-only variant
+added via the CLI (e.g. `"JANE DOE"` when `"Jane Doe"` already existed
+from the web UI) would silently create a second, disconnected row with
+nothing left to catch the collision. Elton reported this as "a disconnect
+between the CLI and the author features."
+
+Fix: made `cmd_author_add()`'s duplicate check case-insensitive, matching
+both web paths. **Verified live** against the real (not synthetic)
+`authorprofile.bejson`: confirmed no case-duplicate already existed before
+touching anything; re-running `author add` with a case-variant of the
+existing author is now correctly rejected; a genuinely new name still
+adds and deletes cleanly; live data confirmed back to its original
+single-row state afterward. `cmd_author_update()`/`cmd_author_delete()`
+left untouched — a case-mismatched update/delete fails safely with "not
+found" today, which isn't this bug's failure mode (silent duplication),
+so out of scope here.
+
+**Status:** the CLI/live-data structural disconnect remains substantially
+remediated (per pkg81/pkg113). This entry is a narrower, separate finding:
+one remaining behavioral inconsistency between the CLI and web write paths
+for the one entity (`AuthorProfile`) that's still name-keyed rather than
+UUID-keyed — worth keeping in mind if any of the other 5 name-keyed
+entities (`Category`, `MediaAsset`, `NavLink`, `SiteConfig`, `SocialLink`,
+per `docs/taxonomy_remediation_plan.md`) grow a second write path with its
+own duplicate-check logic.
 
 ---
 
@@ -141,7 +231,7 @@ HTML-escaped `data-url` attribute value, never inside executable JS source.
 
 ---
 
-## `BEJSON_CMS_Media.py` — SVG upload allowed with no sanitization (found + fixed pkg133)
+## `BEJSON_CMS_Media.py` — SVG upload allowed with no sanitization (found + fixed pkg133, sanitizer built + re-enabled pkg139, remaining serve/replace gaps closed pkg140)
 
 **Severity:** High — stored XSS. `ALLOWED_ASSET_EXTENSIONS` permitted
 `.svg`, and `serve_asset()` does `send_file()` with zero content
@@ -149,10 +239,72 @@ inspection. An uploaded SVG can carry `<script>`/`on*=` payloads and gets
 served back verbatim. A code comment acknowledged the risk ("sanitize SVG
 content before serving") but no sanitizer was ever implemented.
 
-**Fix:** removed `.svg` from `ALLOWED_ASSET_EXTENSIONS` — the zero-risk
-immediate option per the audit, since no sanitizer exists. Re-add only
-once upload-time sanitization or a strict CSP + explicit
-`Content-Type: image/svg+xml` on `serve_asset()` is built.
+**Fix (pkg133):** removed `.svg` from `ALLOWED_ASSET_EXTENSIONS` — the
+zero-risk immediate option per the audit, since no sanitizer existed.
+
+**Resolution (pkg139, Elton: "build sanitizer + re-enable"):** built
+`lib_bejson_Core_svg_sanitizer.py` -- a stdlib-only (no new dependency,
+matching this project's Termux/Pydroid3-friendly conventions) strict
+allowlist sanitizer using `xml.etree.ElementTree`. Only explicitly
+known-safe elements/attributes/namespaces survive; `<script>`, `<style>`,
+`<foreignObject>`, `<image>`, SMIL animation elements, `on*=` handlers,
+and non-local `href`/`xlink:href` values are all dropped unconditionally,
+not selectively filtered. `.svg` re-added to `ALLOWED_ASSET_EXTENSIONS`;
+every upload now runs through the sanitizer before being written to
+disk, and a file that fails (doesn't parse, isn't an `<svg>` document) is
+rejected outright. `serve_asset()` additionally sends
+`Content-Security-Policy: script-src 'none'; sandbox;` on `.svg`
+responses as defense in depth on top of sanitization.
+
+**Verified:** ran 13 real attack payloads against the sanitizer directly
+before trusting it — `<script>`, `onload=`/`onclick=`, `foreignObject`
+with embedded `<script>`, `javascript:` hrefs, CSS-based XSS via
+`style=`, SMIL `<animate onbegin=...>`, an external `<image>` reference,
+and an actual XXE payload (confirmed via a direct, separate check that
+Python's stdlib expat parser genuinely refuses the external entity —
+didn't just assume this from documentation). A legitimate icon SVG
+survives sanitization intact and renders identically. Then verified
+through the real Flask upload route end to end, not just the sanitizer's
+own unit-level tests: a malicious SVG (`<script>` + `onload=` cookie
+exfiltration) came out the other end on disk completely inert; a
+genuinely broken/unparseable file was correctly rejected with nothing
+written to disk or queued for processing; confirmed the CSP header is
+actually present on a served `.svg` HTTP response, not just intended.
+All test assets cleaned up after; live data confirmed back to its
+original 4-asset baseline.
+
+**Correction, pkg140:** the pkg139 fix above only covered
+`BEJSON_CMS_Media.py`'s `serve_asset()` and the upload handler. Continuing
+the same sweep immediately after pkg139 shipped found three more gaps in
+the same attack class, same file plus one sibling file:
+
+1. `serve_thumb()`'s fallback path (serves the raw original when no
+   thumbnail exists yet) had no CSP header. For `.svg` this fallback is
+   the ONLY path ever taken -- `.svg` is not in `_THUMBABLE_EXT`, and the
+   gallery view's `<img>` tags always request `/assets/thumb/<file>` for
+   every asset row regardless of type, so this was a live, reachable gap,
+   not a theoretical one.
+2. `assets_replace()` (overwrite an existing asset's content under the
+   same stored filename) never sanitized at all, for any extension --
+   meaning "replace" was a second, completely unprotected write path to
+   the same files the upload handler had just been locked down for:
+   someone could overwrite an already-sanitized SVG with raw malicious
+   content under the same filename.
+3. `BEJSON_CMS_PageEditorV2.py` has its OWN separate implementations of
+   both `serve_asset`/`serve_thumb` (as `serve_asset_v2`/`serve_thumb_v2`)
+   serving the exact same physical files -- neither had picked up the CSP
+   header either, since they're a separate route registration in a
+   separate Flask app, not something that inherits from the other file's
+   fix automatically.
+
+All three fixed the same way as the original pkg139 fix (CSP header on
+serve paths, `sanitize_svg()` on the write path). Verified live: created
+a real SVG asset, replaced it via `assets_replace()` with a payload
+containing `<script>` + `onload=` cookie exfiltration, confirmed the
+on-disk content came out completely inert; confirmed both files'
+`serve_thumb`/`serve_thumb_v2` fallback now sends the CSP header for a
+real SVG request; confirmed a non-`.svg` asset is unaffected by any of
+the three changes. All test data cleaned up after.
 
 ---
 

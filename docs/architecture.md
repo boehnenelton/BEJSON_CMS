@@ -37,7 +37,14 @@ endpoints under `/api/*`) and under active separate development; V1 is the
 older server-rendered form-based editor. Both include AI generation features
 that call `lib_cms_persona_writer.py` to layer an `AI_Profile`'s system
 instruction on top of required task formatting when an author/persona is
-selected.
+selected. V2's `/api/tasking/*` routes generate through
+`PersonaWriter.generate_with_fallback()` (pkg142) -- a model-cascade +
+token-budget architecture ported from the companion React CMS's
+server-side Gemini proxy: a 429 (quota)/503 (overloaded) response rotates
+to the next key and, once a model's keys are exhausted, the next model in
+a fixed fallback list, rather than failing on the first error. The two
+CMS codebases' generation behavior is intentionally kept in sync this way
+rather than diverging.
 
 **BEJSON_CMS_ProfileManager.py** ("Persona Hub") manages `AI_Profile` records
 (25 fields — internal voice/tone/domain/creativity settings for AI page
@@ -60,7 +67,7 @@ units by `ad_zone`, and writes the complete output to `storage/builds/`
 
 All live database entities adhere to a single source of truth defined in `src/lib/lib_bejson_CMS_taxonomy.py`:
 - **Canonical Field Prefixes**: Every entity's fields use explicit snake_case tags:
-  - `PageRecord` → `page_` (`page_uuid`, `page_title`, `page_slug`, `page_cat_name`, `page_type`, `page_author_name`, `page_featured_img`, `page_created_at`, `page_external_url`)
+  - `PageRecord` → `page_` (`page_uuid`, `page_title`, `page_slug`, `page_cat_name`, `page_type`, `page_author_name`, `page_featured_img`, `page_created_at`, `page_external_url`, `page_cat_uuid`, `page_author_uuid`)
   - `AuthorProfile` → `author_` (`author_uuid`, `author_display_name`, `author_bio`, `author_avatar_url`)
   - `MediaAsset` → `asset_` (`asset_uuid`, `asset_filename`, `asset_original_name`, `asset_file_hash`, `asset_file_size`, `asset_mime_type`, `asset_uploaded_at`)
   - `ExternalMedia` → `extmedia_` (`extmedia_uuid`, `extmedia_name`, `extmedia_type`, `extmedia_url`, `extmedia_created_at`)
@@ -70,7 +77,8 @@ All live database entities adhere to a single source of truth defined in `src/li
   - `SiteConfig` → `sys_` (`sys_uuid`, `sys_key`, `sys_value`)
   - `SocialLink` → `social_` (`social_uuid`, `social_platform_name`, `social_target_url`)
   - `StandaloneApp` → `app_` (`app_uuid`, `app_name`, `app_slug`, `app_description`, `app_entry_file`, `app_featured_img`)
-- **Synthetic UUID Primary Keys**: Every table contains a synthetic `<prefix>_uuid` RFC 4122 v4 primary key column at position 0.
+- **Synthetic UUID Primary Keys**: Every table contains a synthetic `<prefix>_uuid` RFC 4122 v4 primary key column, resolved by name via Field Map Cache (System Development Policy §6.2) rather than a fixed position — six entities (`Category`, `AuthorProfile`, `MediaAsset`, `NavLink`, `SiteConfig`, `SocialLink`) plus `AI_Profile` had theirs injected after the fact (pkg135, "give them all uuids") rather than present from the schema's original design, so its column position varies by how a given live install got it: first for data migrated directly via `tools/migrate_taxonomy.py`, last for anything backfilled by `BEJSON_CMS_System.py`'s self-heal on boot. Correctness never depends on position either way.
+- **`PageRecord`'s `page_cat_uuid`/`page_author_uuid`** (pkg137): a resolvable identity link to the live `Category`/`AuthorProfile` row, kept in sync on every write — NOT yet what rendering, permalinks, or related-content matching actually use. Every read path (`BEJSON_CMS_Publisher.py` included) still matches on `page_cat_name`/`page_author_name`, the plain strings. The two `_uuid` fields are additive, immune to the rename/case-collision class of bug that the plain-string fields aren't, but converting the read paths to resolve through them instead is a separate, larger, not-yet-made decision.
 
 ## Data Flow
 
@@ -107,3 +115,19 @@ hash/dedup/DB-write/thumbnail work happens on the `_asset_worker` background
 thread, decoupled from the request so a slow decode can't hang the whole
 app (a real, previously-shipped bug — see the seeded project history in
 `.bejson_project.json`).
+
+## Upstream library sync status (checked against CLI_AI-V16-PKG30, pkg143)
+
+The Core libraries in `src/lib/` are vendored copies of the same Core
+family used by the CLI_AI project. Last full comparison (every file in the
+PKG30 zip, including nested archives, not just `lib/`):
+
+| Library | Result |
+|---|---|
+| `lib_bejson_Core_bejson_validator` | **Updated** 2.1.0 → 2.2.1 (corrective; same rejection behavior, clearer 104a message). |
+| `lib_bejson_Core_bejson_env` | **Updated** `source_env()` (adds `secureenv_file.py/.json`, parses `.json` without `exec`). Version stays 2.1.2 upstream. Dormant here: the CMS only imports `resolve_path()`, which is byte-identical. |
+| `lib_bejson_Core_bejson_path_guard` | **Kept, CMS ahead.** CMS 1.2.0 has `safe_extract_zip()` (4 call sites); upstream 1.1.0 lacks it. Do NOT overwrite from upstream. |
+| `bejson_core`, `bejson_errors`, `mfdb_core`, `mfdb_validator` | Code identical to upstream; the CMS copies carry an extra `Release_Version: 300` header stamp. Nothing to do. |
+| `bejson_server`, `gemini_showcase_intro`, `showcase_master` | Identical. |
+| `lib_mfdb_chunker_v6` | Not superseded: upstream's `lib_bejson_Core_bejson_chunking` is a different tool. |
+| Upstream-only libs (`lib/AI/*`, `bejson_schema`, `104db_parser`, `list_validator`, `provider`, `chunking`) | Deliberately not vendored. The CMS imports none of them; its AI code (`lib_cms_persona_writer.py`) is self-contained. |

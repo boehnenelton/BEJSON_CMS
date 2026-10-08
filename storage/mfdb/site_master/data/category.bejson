@@ -8,6 +8,10 @@
   ],
   "Fields": [
     {
+      "name": "cat_uuid",
+      "type": "string"
+    },
+    {
       "name": "cat_name",
       "type": "string"
     },
@@ -18,10 +22,12 @@
   ],
   "Values": [
     [
+      "d6986923-9153-4edd-b1b0-0839da110ec1",
       "Uncategorized",
       "uncategorized"
     ],
     [
+      "3a34fa5a-0d3d-4a3a-b037-8bd05776537a",
       "BEJSON",
       "bejson"
     ]

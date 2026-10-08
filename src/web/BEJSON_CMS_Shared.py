@@ -2,10 +2,33 @@
 Library:         BEJSON_CMS_Shared
 Family:          BEJSON_CMS
 Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB handle, base template/render helper, nav structure, auth guard.
-Version:         18.23
+Version:         18.24
 Library_Version: 57
-Date:            2026-08-05
-RELATIONAL_ID:   b8e14c52-46ea-4b2e-af32-b4c2bcc1698b
+Date:            2026-09-18
+RELATIONAL_ID:   c711bf54-404d-45ac-a8cb-8d6d99d24b19
+CHANGE (2026-09-18): PKG138 -- deferred-item sweep (Elton: "fix anything and
+finish anything deferred... if it's common sense just fix it"). Two real
+bugs found in the original pkg132 audit's LOW section, fixed:
+L-2: BASE_TEMPLATE's <title>{% block title %}BEJSON Manager{% endblock
+%}</title> was dead Jinja -- a {% block %} with no {% extends %} chain
+just renders its own default forever, so every admin page showed
+"BEJSON Manager" regardless of which page you were actually on. R()
+already passed **kwargs through to render_template_string(), so the fix
+is purely template-side: replaced with {{ page_title or "BEJSON Manager"
+}}. Verified both paths render correctly (no page_title -> default;
+page_title passed -> override) before touching any real route. No call
+site was updated to actually pass page_title yet -- that's a separate,
+larger expansion (every R() call across every blueprint), not done this
+pass; the mechanism just now supports it.
+L-3: the RotatingFileHandler attached to the root logger at this module's
+import time had no idempotency guard -- re-importing this module in the
+same process (module reload, or any future test harness importing
+multiple blueprints in one process) would attach a second, duplicate
+handler pointing at the same file. Not a production issue (each Flask app
+is its own process, per the audit's own note) but a real latent bug.
+Guarded by checking for an existing handler with the same baseFilename
+before adding another. Verified with an actual importlib.reload() --
+handler count stayed at 1, would have become 2 before this fix.
 """
 
 import os
@@ -97,12 +120,25 @@ def _debug_logging_enabled() -> bool:
     except Exception:
         return True  # fail open — never let a config read error silence diagnostics
 
-_log_handler = logging.handlers.RotatingFileHandler(
-    str(LOGS_DIR / "import_debug.log"), maxBytes=2_000_000, backupCount=3, encoding="utf-8"
-)
-_log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-logging.getLogger().addHandler(_log_handler)
-logging.getLogger().setLevel(logging.DEBUG if _debug_logging_enabled() else logging.WARNING)
+_LOG_FILE_PATH = str(LOGS_DIR / "import_debug.log")
+_root_logger = logging.getLogger()
+# Idempotency guard (pkg138, audit L-3): this module runs its self-heal at
+# import time (see bottom of this file), and importing the SAME module
+# twice in one process (e.g. multiple test files importing
+# BEJSON_CMS_Shared, or any future harness that imports several blueprint
+# modules in one process) would otherwise attach a second, duplicate
+# RotatingFileHandler pointing at the same file on every re-import --
+# harmless in production (each Flask app is its own process) but a real
+# source of duplicated log lines anywhere that isn't true. Check by target
+# file rather than a module-level "already ran" flag, since the latter
+# wouldn't survive Python's own module-cache-clearing reload paths.
+if not any(isinstance(h, logging.handlers.RotatingFileHandler) and getattr(h, "baseFilename", None) == os.path.abspath(_LOG_FILE_PATH) for h in _root_logger.handlers):
+    _log_handler = logging.handlers.RotatingFileHandler(
+        _LOG_FILE_PATH, maxBytes=2_000_000, backupCount=3, encoding="utf-8"
+    )
+    _log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _root_logger.addHandler(_log_handler)
+_root_logger.setLevel(logging.DEBUG if _debug_logging_enabled() else logging.WARNING)
 logging.info("[CMS] Logging initialized. debug_import_logging=%s -> level=%s",
              _debug_logging_enabled(), logging.getLevelName(logging.getLogger().level))
 EXPORTS_DIR = STORAGE_ROOT / "exports"
@@ -187,7 +223,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{% block title %}BEJSON Manager{% endblock %}</title>
+    <title>{{ page_title or "BEJSON Manager" }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {

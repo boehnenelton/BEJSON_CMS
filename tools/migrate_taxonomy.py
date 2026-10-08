@@ -5,10 +5,22 @@ Description:   Renames entity fields in live BEJSON data files to canonical
                that lack a UUID primary key.
                All writes are atomic (temp + os.replace). Backup BEFORE running live.
                See docs/taxonomy_migration_tasks.md Steps 4.1-4.3
-Version:       1.0.1
+Version:       1.0.2
 Author:        Elton Boehnen
-Date:          2026-09-12
-RELATIONAL_ID: 028eae73-d175-4f38-b2d5-df51e62523d6
+Date:          2026-09-13
+RELATIONAL_ID: 3c8e9a41-6f2b-4d5e-9a17-8b0c4e2f7d5a
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Category, AuthorProfile,
+MediaAsset, NavLink, SiteConfig, SocialLink, AI_Profile). Ran this tool live
+for the first time (previously dry-run only) and caught a real bug in the
+tool itself: it stamped "Taxonomy_Migrated_At"/"Taxonomy_Version" as custom
+top-level keys onto every migrated entity file, which the project's own
+strict BEJSON 104 validator (lib_bejson_Core_mfdb_validator) rejects
+outright -- "Custom key ... forbidden in 104". Caught by
+test_live_database_is_fully_valid failing across all 11 touched entity
+files immediately after the live run. Removed both stamps; migration
+provenance is tracked in .bejson_project.json's changelog instead, where
+everything else in this project is tracked. Cleaned the two keys off the
+11 live files this run had already written them to.
 CHANGE (2026-09-12): PKG133 -- external audit remediation (M-4). ENTITY_FILE_MAP
 was missing "AI_Profile": "ai_profile.bejson", present in audit_taxonomy.py's
 copy since pkg132 -- a future migration run would silently skip AI_Profile
@@ -148,8 +160,18 @@ def run_migration(dry_run: bool):
         # Apply changes to data dict
         data["Fields"]   = result["new_fields"]
         data["Values"]   = result["new_values"]
-        data["Taxonomy_Migrated_At"] = ts
-        data["Taxonomy_Version"]     = "1.0.0"
+        # NOTE (pkg135): do NOT stamp Taxonomy_Migrated_At/Taxonomy_Version
+        # here. This was tried and reverted -- both are custom top-level
+        # keys the project's own strict BEJSON 104 validator
+        # (lib_bejson_Core_mfdb_validator) rejects outright ("Custom key
+        # ... forbidden in 104"), confirmed by test_live_database_is_fully_
+        # valid failing across all 11 entity files the first time this tool
+        # was actually run live rather than only dry-run. A 104 entity file
+        # may only carry Format/Format_Version/Format_Creator/
+        # Parent_Hierarchy/Records_Type/Fields/Values. If migration
+        # provenance needs recording, it belongs in .bejson_project.json's
+        # changelog (where every other change in this project is tracked),
+        # not stamped onto the live data file itself.
 
         # Atomic write: temp file + os.replace
         tmp_path = str(fpath) + ".migrate_tmp"

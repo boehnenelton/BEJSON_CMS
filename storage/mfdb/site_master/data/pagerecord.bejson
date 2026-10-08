@@ -50,6 +50,14 @@
     {
       "name": "page_featured_video_url",
       "type": "string"
+    },
+    {
+      "name": "page_cat_uuid",
+      "type": "string"
+    },
+    {
+      "name": "page_author_uuid",
+      "type": "string"
     }
   ],
   "Values": []

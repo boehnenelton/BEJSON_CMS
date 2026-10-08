@@ -8,6 +8,10 @@
   ],
   "Fields": [
     {
+      "name": "author_uuid",
+      "type": "string"
+    },
+    {
       "name": "author_display_name",
       "type": "string"
     },
@@ -22,6 +26,7 @@
   ],
   "Values": [
     [
+      "89846e3c-7a0f-4446-bf49-e0ce0ceb3bcc",
       "boehnenelton2024",
       "",
       "bejson_brand_3_icon.jpeg"

@@ -9,6 +9,15 @@ Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com
 Format_Creator: Elton Boehnen
 RELATIONAL_ID:  91453b6e-3950-41d9-8a0f-c6a946f54d53
 Release_Version: 300
+
+CMS-PROJECT SYNC NOTE (2026-10-02, pkg143): source_env() synced from
+CLI_AI-V16-PKG30's copy of this file, which adds secureenv_file.py/.json to
+the search paths and parses .json secure-env files as BEJSON (no exec) --
+upstream kept Version 2.1.2 despite the code change. Release_Version: 300
+header (CMS policy stamp, absent upstream) re-applied. resolve_path() is
+byte-identical to upstream and unchanged. Nothing in this CMS calls
+source_env() today (only resolve_path() is imported), so this is a sync,
+not a behavior change for the CMS itself.
 """
 
 import os
@@ -23,14 +32,28 @@ def source_env(override_path: str = None) -> bool:
     env_path = override_path or os.environ.get("ENV_FILE_PATH")
     search_paths = [
         Path(env_path) if env_path else None,
+        Path("/storage/emulated/0/.env/secure/secureenv_file.py"),
+        Path("/storage/emulated/0/.env/secure/secureenv_file.json"),
         Path("/storage/emulated/0/env_file.py"),
         Path.home() / "env_file.py"
     ]
     for p in search_paths:
         if p and p.exists():
             try:
-                exec(p.read_text(), globals())
-                return True
+                if p.suffix == ".json":
+                    import json
+                    data = json.loads(p.read_text(encoding="utf-8"))
+                    values = data.get("Values", [])
+                    for row in values:
+                        if isinstance(row, list) and len(row) >= 2:
+                            var_name = str(row[0]).strip()
+                            var_val = str(row[1]).strip()
+                            if var_name and var_val:
+                                os.environ[var_name] = var_val
+                    return True
+                else:
+                    exec(p.read_text(encoding="utf-8"), globals())
+                    return True
             except Exception:
                 continue
     return False

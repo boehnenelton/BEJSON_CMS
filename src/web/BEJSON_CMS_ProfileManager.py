@@ -1,15 +1,34 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_ProfileManager
-SCRIPT_VERSION: 1.1
-DATE:           2026-08-05
-RELATIONAL_ID:  a7c2e9f4-3b81-4d6a-9e05-6c1f8a2b3d94
+SCRIPT_VERSION: 1.2
+DATE:           2026-09-13
+RELATIONAL_ID:  f031ed87-45b1-4c62-9e97-ad436cfbb446
 AUTHOR:         Elton Boehnen
 DESCRIPTION:    Persona Hub - manages AI_Profile records (BEJSON 104 persona
                  format). Standalone admin app, port 5004.
+CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). AI_Profile
+went from persona_name-keyed to UUID-keyed. /edit/<n> and /delete/<n>
+routes converted to /edit/<u> and /delete/<u> (persona_uuid); save() now
+carries a hidden `uuid` form field (empty on create, ep.persona_uuid on
+edit) and keys update_record()/add_record() off it instead of re-matching
+on the submitted name every time -- the name input was already readonly
+during edit so this never produced a wrong result in practice, but it
+meant AI_Profile had no identity that would survive a rename if that
+readonly restriction were ever lifted. delete() looks up the persona's
+name before deleting (still needed for the PageRecord.page_author_name
+cascade below it, which stays name-based by design -- that FK was NOT
+converted this pass, a separate, larger decision). Also fixed the
+linked-AuthorProfile auto-create in save() to include a real author_uuid
+-- it didn't, so every persona-triggered AuthorProfile row was landing
+with author_uuid: None, defeating the whole point (caught live, not by
+inspection: ran the full add/edit/delete cycle via Flask test client
+against real data and found the stray None row in authorprofile.bejson
+afterward, cleaned it up). Verified live end to end.
 """
 
 import os
 import sys
+import uuid
 from flask import Flask, request, redirect, render_template_string
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -57,8 +76,8 @@ _T = """
             <div style='display:flex; justify-content:space-between;'>
                 <div style='font-weight:900;'>{{p.persona_name}} <span style='color:var(--m)'>@{{p.persona_archetype}}</span></div>
                 <div style='display:flex; gap:6px;'>
-                    <a href='/edit/{{p.persona_name}}' class='btn-out' style='text-decoration:none; border-radius:15px;'>Edit</a>
-                    <form method='post' action='/delete/{{p.persona_name}}' style='display:inline;' onsubmit='return confirm("Delete this persona? Pages already using it as author will fall back to the default author.")'>
+                    <a href='/edit/{{p.persona_uuid}}' class='btn-out' style='text-decoration:none; border-radius:15px;'>Edit</a>
+                    <form method='post' action='/delete/{{p.persona_uuid}}' style='display:inline;' onsubmit='return confirm("Delete this persona? Pages already using it as author will fall back to the default author.")'>
                         <button type='submit' class='btn-out' style='border-radius:15px; color:#f4212e; border-color:#f4212e;'>Delete</button>
                     </form>
                 </div>
@@ -70,6 +89,7 @@ _T = """
         <div id='form' class='card'>
             <h3 style='margin-bottom:10px;'>{{ "Edit" if ep else "Create" }} Persona</h3>
             <form action='/save' method='POST'>
+                <input type='hidden' name='uuid' value="{{ ep.persona_uuid if ep else '' }}">
                 <input name='name' id='n' placeholder='Display Name' required {{ "readonly" if ep else "" }}>
                 <input name='archetype' id='a' placeholder='Archetype (e.g. Rebel, Architect)'>
                 <textarea name='bio' id='b' rows='3' placeholder='Persona / Voice Description (INTERNAL -- shapes the AI, never shown publicly)'></textarea>
@@ -95,19 +115,34 @@ _T = """
 @app.route('/')
 def index(): return render_template_string(_T, profiles=db.get_records('AI_Profile'))
 
-@app.route('/edit/<n>')
-def edit(n):
-    p = next((x for x in db.get_records('AI_Profile') if x['persona_name']==n), None)
+@app.route('/edit/<u>')
+def edit(u):
+    p = next((x for x in db.get_records('AI_Profile') if x['persona_uuid']==u), None)
     return render_template_string(_T, profiles=db.get_records('AI_Profile'), ep=p)
 
 @app.route('/save', methods=['POST'])
 def save():
+    Submitted_Persona_Uuid=request.form.get('uuid', '').strip()
     Submitted_Persona_Name=request.form.get('name'); Submitted_Persona_Archetype=request.form.get('archetype'); Submitted_Persona_Bio=request.form.get('bio'); Submitted_Persona_System_Instruction=request.form.get('inst')
     Persona_Record_Payload={'persona_record_type':'AI_Profile','persona_name':Submitted_Persona_Name,'persona_archetype':Submitted_Persona_Archetype,'persona_bio':Submitted_Persona_Bio,'persona_system_instruction':Submitted_Persona_System_Instruction,'persona_active':True,'persona_max_tokens':8192,'persona_creativity':0.7}
-    existing=next((x for x in db.get_records('AI_Profile') if x['persona_name'].lower()==Submitted_Persona_Name.lower()), None)
-    if existing: db.update_record('AI_Profile','persona_name',Submitted_Persona_Name,Persona_Record_Payload)
+    if Submitted_Persona_Uuid:
+        # Editing an existing persona: identity comes from the hidden uuid
+        # field (set from ep.persona_uuid when the edit form was rendered),
+        # not by re-matching on name -- the name input is readonly during
+        # edit anyway, but keying the update off a stable UUID rather than
+        # re-deriving identity from the submitted name on every save is the
+        # actual fix (give-them-all-uuids pass, pkg135): matching by name
+        # here was never wrong in practice since it round-tripped the same
+        # readonly value, but it meant AI_Profile had no identity that
+        # survives a rename if that readonly restriction is ever lifted.
+        db.update_record('AI_Profile','persona_uuid',Submitted_Persona_Uuid,Persona_Record_Payload)
     else:
-        db.add_record('AI_Profile',Persona_Record_Payload)
+        existing=next((x for x in db.get_records('AI_Profile') if x['persona_name'].lower()==Submitted_Persona_Name.lower()), None)
+        if existing:
+            db.update_record('AI_Profile','persona_uuid',existing['persona_uuid'],Persona_Record_Payload)
+        else:
+            Persona_Record_Payload['persona_uuid'] = str(uuid.uuid4())
+            db.add_record('AI_Profile',Persona_Record_Payload)
 
     # This "Persona" bio is internal only -- it shapes the AI's voice, and
     # is never meant to be shown on the published site. It must NOT be
@@ -119,7 +154,7 @@ def save():
     # own auth_bio field for exactly this purpose.
     existing_author = next((x for x in db.get_records('AuthorProfile') if x['author_display_name'].lower()==Submitted_Persona_Name.lower()), None)
     if not existing_author:
-        db.add_record('AuthorProfile', {'author_display_name': Submitted_Persona_Name, 'author_bio': ''})
+        db.add_record('AuthorProfile', {'author_uuid': str(uuid.uuid4()), 'author_display_name': Submitted_Persona_Name, 'author_bio': ''})
 
     # CMSCore.add_record()/update_record() above already sync the manifest
     # record-count safely under its own PID lock (mfdb_core_add_entity_record /
@@ -129,8 +164,8 @@ def save():
     return redirect('/')
 
 
-@app.route('/delete/<n>', methods=['POST'])
-def delete(n):
+@app.route('/delete/<u>', methods=['POST'])
+def delete(u):
     # BUG FIX: there was no way to delete a persona at all -- this route
     # didn't exist. Cascades to PageRecord.author_ref the same way
     # categories_delete already does for category_ref elsewhere in this
@@ -138,7 +173,9 @@ def delete(n):
     # dangling reference; does NOT delete the linked AuthorProfile itself
     # (a persona going away shouldn't erase the byline on pages already
     # published under that name).
-    db.delete_record('AI_Profile', 'persona_name', n)
+    persona_record = next((x for x in db.get_records('AI_Profile') if x['persona_uuid']==u), None)
+    n = persona_record['persona_name'] if persona_record else None
+    db.delete_record('AI_Profile', 'persona_uuid', u)
     DEFAULT_AUTHOR_NAME = "boehnenelton2024"
     pages = db.get_records("PageRecord")
     for p in pages:

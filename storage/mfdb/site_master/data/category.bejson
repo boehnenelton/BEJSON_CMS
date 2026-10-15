@@ -18,18 +18,30 @@
     {
       "name": "cat_slug",
       "type": "string"
+    },
+    {
+      "name": "cat_is_hidden_flag",
+      "type": "boolean"
     }
   ],
   "Values": [
     [
       "d6986923-9153-4edd-b1b0-0839da110ec1",
       "Uncategorized",
-      "uncategorized"
+      "uncategorized",
+      false
     ],
     [
       "3a34fa5a-0d3d-4a3a-b037-8bd05776537a",
       "BEJSON",
-      "bejson"
+      "bejson",
+      false
+    ],
+    [
+      "9f7eb7f2-9fc1-4c92-b09c-1a2e9eeb604b",
+      "Remediate",
+      "remediate",
+      false
     ]
   ]
 }

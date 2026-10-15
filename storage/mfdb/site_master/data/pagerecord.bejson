@@ -58,7 +58,67 @@
     {
       "name": "page_author_uuid",
       "type": "string"
+    },
+    {
+      "name": "page_is_standalone_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "page_is_hidden_flag",
+      "type": "boolean"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "93e1eb39-036e-4869-9b19-e434a188ef70",
+      "BEJDON - Foundational Principals",
+      "imported-page",
+      "BEJSON",
+      "page",
+      "2026-10-14",
+      null,
+      "boehnenelton2024",
+      "default_page_image.webp",
+      "blank",
+      null,
+      "3a34fa5a-0d3d-4a3a-b037-8bd05776537a",
+      "89846e3c-7a0f-4446-bf49-e0ce0ceb3bcc",
+      false,
+      false
+    ],
+    [
+      "68ab3a1f-e62d-4eb8-aab3-9aa8cc5f4b67",
+      "NewAgent: Token Efficient Autonomous Agent",
+      "newagent-token-efficient-autonomous-agent",
+      "BEJSON",
+      "page",
+      "2026-10-14",
+      null,
+      "Leethaxor69",
+      "default_page_image.webp",
+      "blank",
+      null,
+      "3a34fa5a-0d3d-4a3a-b037-8bd05776537a",
+      "682e0b55-e3d4-4bcd-986c-e27cf280fb52",
+      false,
+      false
+    ],
+    [
+      "7779f4d6-7a69-4975-9cc3-da7bdd8006d0",
+      "Remediate",
+      "remediate",
+      "BEJSON",
+      "page",
+      "2026-10-14",
+      null,
+      "boehnenelton2024",
+      "default_page_image.webp",
+      "blank",
+      null,
+      "3a34fa5a-0d3d-4a3a-b037-8bd05776537a",
+      "89846e3c-7a0f-4446-bf49-e0ce0ceb3bcc",
+      false,
+      false
+    ]
+  ]
 }

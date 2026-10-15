@@ -111,6 +111,7 @@ def init_master_db():
                 {"name": "cat_uuid", "type": "string"},
                 {"name": "cat_name", "type": "string"},
                 {"name": "cat_slug", "type": "string"},
+                {"name": "cat_is_hidden_flag", "type": "boolean"},
             ],
         },
         {
@@ -130,6 +131,8 @@ def init_master_db():
                 {"name": "page_featured_video_url", "type": "string"},
                 {"name": "page_cat_uuid",    "type": "string"},
                 {"name": "page_author_uuid", "type": "string"},
+                {"name": "page_is_standalone_flag", "type": "boolean"},
+                {"name": "page_is_hidden_flag",     "type": "boolean"},
             ],
         },
         {
@@ -434,6 +437,16 @@ def _migrate_db():
     # Extend this list whenever a new entity is added.
     REQUIRED = [
         {
+            "name": "Category",
+            "primary_key": "cat_uuid",
+            "fields": [
+                {"name": "cat_uuid", "type": "string"},
+                {"name": "cat_name", "type": "string"},
+                {"name": "cat_slug", "type": "string"},
+                {"name": "cat_is_hidden_flag", "type": "boolean"},
+            ],
+        },
+        {
             "name": "PageRecord",
             "primary_key": "page_uuid",
             "fields": [
@@ -450,6 +463,8 @@ def _migrate_db():
                 {"name": "page_featured_video_url", "type": "string"},
                 {"name": "page_cat_uuid",    "type": "string"},
                 {"name": "page_author_uuid", "type": "string"},
+                {"name": "page_is_standalone_flag", "type": "boolean"},
+                {"name": "page_is_hidden_flag",     "type": "boolean"},
             ],
         },
         {

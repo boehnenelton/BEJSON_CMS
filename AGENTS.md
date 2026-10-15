@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Active Feature Tasks & Execution Mandate
+
+Refer to the active checklist at [`dev/checklist-20261014-145500.md`](file:///storage/emulated/0/Admin/repos/new/BEJSON_CMS/dev/checklist-20261014-145500.md).
+
+> [!CAUTION]
+> **STRICT EXECUTION PROTOCOL:**
+> 1. **DO NOT START ANY OF THE 6 CMS UPDATE TASKS UNTIL EXPLICITLY INSTRUCTED BY THE USER.**
+> 2. When instructed, execute strictly **ONE task at a time**.
+> 3. Verify each task thoroughly (syntax check, tests, and smoke test) before moving on to the next.
+> 4. Check off the items on the active checklist (`dev/checklist-20261014-145500.md`) as you go.
+
 ## Build / Lint / Test / Run
 
 No build step (flat Python/Flask project, no compiler/bundler).

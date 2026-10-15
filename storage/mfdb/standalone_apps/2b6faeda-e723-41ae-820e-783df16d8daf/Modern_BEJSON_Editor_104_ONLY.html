@@ -1,0 +1,3357 @@
+<!--
+  Name:            Modern_BEJSON_Editor_104_ONLY.html
+  Description:     Single-file, dependency-free browser editor for BEJSON
+                    (104/104a only — no 105-series, no 104db) and MFDB
+                    documents. Table-style grid editing, schema/field
+                    management, raw-JSON view, and manifest+entity MFDB
+                    scaffolding via the Hub tab. This is the 104-only
+                    variant of Modern_BEJSON_Editor.html; the parallel
+                    104+105 variant is maintained separately.
+  Version:         see VERSION constant in <script> (single source of truth)
+  Date Created:    2026 (original), remediated 2026-09-18, 104-only variant forked 2026-09-19
+  Author:          Elton Boehnen
+  Contact:         eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
+  Format_Creator:  Elton Boehnen
+  RELATIONAL_ID:   324fdeff-4d40-40a6-b8d4-fbd8b9b8553f
+
+  Changelog (Instructions.md UI update, 2026-10-07, V120 / PKG160):
+    - Header toolbar: Save / Save As / Load now sit directly after the title (where the theme
+      toggle was) and are always visible, so Load works from the Hub. The light/dark toggle moved
+      to the far right end of the toolbar row.
+    - "Paste .bejson" removed from the toolbar; the Hub "Paste BEJSON Text" button is unchanged.
+    - Cell context menu gained "Delete Record" and "Delete Field (Column)". Both (and the existing
+      record/field-header menu deletes) confirm with an explicit not-recoverable warning; the
+      field warning states the whole column is removed from every record.
+    - Hub gained an "Open Files" panel: active file + every open file with its browser-visible
+      path (mounted folder/relative path, folder-relative path, linked file, or file name),
+      unsaved-changes flag, and an Open button to switch to it.
+    - Added dev/stamp_csp.py (was referenced but missing) and re-stamped the script hash.
+
+  Changelog (strict CSP, 2026-10-04):
+    - All 28 inline on* handlers (static buttons + the generated Schema "Delete" button) were
+      replaced by data-click / data-change attributes and one delegated dispatcher with an
+      allow-list. The CSP therefore no longer needs 'unsafe-inline' for scripts: it allows ONE
+      script by SHA-256 hash and sets script-src-attr 'none'. Injected <script> tags, inline
+      event handlers and eval are all refused by the browser.
+    - style-src keeps 'unsafe-inline' (106 inline style attributes); styles cannot run code or
+      reach the network (connect-src/img-src/font-src stay locked).
+    - MAINTENANCE: editing the JavaScript changes its hash. Run  dev/stamp_csp.py <this file>
+      after any script edit. If you forget, a "script did not start" notice appears after 1.5 s.
+
+  Changelog (record wording, 2026-10-04):
+    - Every user-facing "row" is now "record": context menus (Encrypt/Decrypt/Duplicate/Delete/
+      Advanced Edit Record), confirms, the selected-count banner, the grid and raw-view truncation
+      notices, the select-all aria label, validation messages, the MFDB validation report and the
+      Delete Entity dialog ("manifest record"). Validation messages now number records from 1.
+    - Internal names (ids, classes, function names) are unchanged.
+
+  Changelog (bug report: custom headers / toolbar, 2026-10-04):
+    - FIXED silent bug: custom 104a headers added via Custom Headers were appended to the END of
+      the document object, so they sat below the Values array (off-screen in Live Schema and at the
+      bottom of the saved file). Documents now always serialize as
+      Format, Format_Version, Format_Creator, <custom headers>, Records_Type, Fields, Values.
+      Applied when headers are saved AND when a file is loaded, so files already saved with trailing
+      headers are corrected the next time they are opened.
+    - Editing an existing custom header keeps its JSON type (a number stays a number, object/array
+      values are shown and edited as JSON instead of "[object Object]").
+    - Grid toolbar order is now Save File, + Add Field, + Add Record; "Add Row" renamed "Add Record".
+
+  Changelog (audit / refine / harden, 2026-10-04):
+    SECURITY
+    - FIXED stored XSS: a custom header key in a loaded 104a file was placed inside an inline
+      onclick, so a key like  x');alert(1);//  ran script when its remove button was clicked.
+      Header rows are now built with DOM APIs. Confirmed exploitable before, blocked after.
+    - Added a Content-Security-Policy: no network (connect-src none), no external loads,
+      no frames/objects/forms/base. The editor works offline and nothing can phone home.
+    - ZIP loader: bounds-checked offsets, entry-count and size caps, streaming inflate with a
+      hard output cap (ZIP-bomb guard), and entries with ../ or absolute paths are blocked.
+      A manifest whose file_path escapes the database root fails validation and blocks export.
+    - getFieldMap is prototype-less; fields named hasOwnProperty/toString no longer break lookups.
+    - Header keys __proto__/constructor/prototype are never copied into the header editor.
+    ROBUSTNESS
+    - Files with non-array Values rows, or a top-level JSON array, are refused up front instead
+      of half-loading and throwing. Per-file (64 MB) import cap.
+    - Grid draws at most 2000 rows (60k-row file took 4.4 s to load); raw view shows 500 rows.
+      Raw-view Copy now always copies the FULL document, never the truncated view.
+    - Save now warns before writing a document that fails validation.
+    - Unsaved-change tracking: beforeunload prompt, and Close File/Table/All only ask when
+      something would actually be lost. Saved state is tracked per table.
+    - Uncaught errors and rejected promises now show in the status banner (no silent failures).
+    - localStorage access wrapped (private mode / sandboxed frames no longer halt startup).
+    - Field rename validation in the Schema tab; Escape closes the top dialog.
+    CRYPTO
+    - Encrypt requires a password of at least 8 characters. Encrypted cells with a malformed
+      salt/IV are rejected with a clear error before any decrypt attempt.
+
+  Package 155 (2026-10-03): no code change; zip now includes images/ with the 29
+    Playwright verification screenshots (01.png - 29.png, in test order).
+
+  Changelog (context menu fix, 2026-10-03):
+    - Found by Playwright screenshots: the right-click / long-press menu could run off the
+      right or bottom edge of a phone screen and clip its labels. It is now clamped to the viewport.
+
+  Changelog (mode audit, 2026-10-03):
+    - MFDB mode: added Load ZIP (store + deflate, re-roots wrapped folders), Validate MFDB
+      (spec Levels 1-3 report), Save All (writes mounted tables, syncs record_count; with no
+      mount it exports a ZIP), Load Files / Mount Folder in the header, Close Table / Close All.
+    - ZIP export now writes the manifest at the root and each entity at its declared file_path,
+      whatever way it was loaded (loose files, wrapped folder, ZIP, mount, Hub create). Export
+      is blocked if two tables would collide on one path. record_count sync only touches the
+      record_count column (it no longer falls back to column 3).
+    - Standard mode: "Export BEJSON" duplicated Save File and is now "Save As..." (file picker
+      where supported, otherwise a name prompt). Added Close File.
+    - ZIP files can also be dropped anywhere on the window to load them as an MFDB.
+
+  Changelog (cell/row encryption, 2026-10-03):
+    - Right-click / long-press a cell: Encrypt Cell / Decrypt Cell, plus Encrypt Row /
+      Decrypt Row (also on the row-number menu). Password is asked in a masked dialog
+      (confirmed on encrypt) and never stored.
+    - Format matches CryptoUtils in lib_bejson_Core_bejson_core: AES-256-GCM, PBKDF2-SHA256
+      100k, stored as "ENC:AES-GCM:<salt>:<iv>:<ct>" strings. Object-form cells written by
+      the JS library ({_enc:"AES-GCM",...}) are recognised and can be decrypted.
+    - Encrypted cells render locked, are skipped by search, and bypass the editor's
+      per-type check. If a row has an is_encrypted boolean field it is kept in sync.
+    - Encrypt/decrypt is all-or-nothing per operation; a wrong password changes nothing.
+
+  Changelog (mode-scoped Hub, 2026-10-03):
+    - Hub and header toolbar are now driven by one applyMode() switch.
+      Standard mode: Create File, Load Existing JSON/BEJSON, Paste, Save,
+      Export BEJSON. MFDB mode: Create Database, Load Multiple Files, Load
+      MFDB Folder, Mount, Export ZIP, Save.
+    - Removed the duplicate Load/Paste buttons from the Create card; the
+      Standard load card and MFDB card are each shown only in their own mode.
+    - Loading a manifest/entity (files, folder, mount) switches to MFDB mode;
+      loading a standalone file switches to Standard mode.
+    - Standard mode now says "Record Type" (BEJSON 104/104a); "Entity" is
+      used only in MFDB mode. Default new-file Records_Type is "NewRecord".
+
+  Changelog (MFDB entity management, 2026-10-02):
+    - Added "+ Add Entity" and "Delete Entity" buttons (grid toolbar and Schema
+      tab, next to Add Field), shown whenever an MFDB manifest is loaded.
+      Add Entity creates a BEJSON 104 entity file (Parent_Hierarchy resolved
+      relative to data/), appends the manifest row (primary_key = first field,
+      record_count 0), and writes both to disk when the folder is mounted.
+      Delete Entity removes the manifest row and unloads the entity table
+      (files on disk are never deleted).
+    - Fixed Hub-created MFDB tables: manifest/entity now carry the real
+      filenames and relative paths (104a.mfdb.bejson, data/<name>.bejson), so
+      Save and Export ZIP no longer emit "Manifest: <db>" style filenames.
+    - Mounted manifests now remember their folder handle (mountRoot).
+
+  Changelog (104-only fork, 2026-09-19):
+    - Forked from the remediated Modern_BEJSON_Editor.html (104-family
+      remediation pass, 2026-09-18) with all 105/105a/105db support
+      completely removed: format picker option, validator acceptance,
+      field_uuid/record_uuid generation, UUID-column offset math and
+      display logic, and all "105" references in UI text.
+    - 104db support was NOT added in this fork either -- this build
+      supports exactly 104 and 104a, nothing else, per explicit
+      instruction.
+    - All 104-family fixes from the 2026-09-18 remediation pass are
+      still present (MFDB_Version 1.31, correct Parent_Hierarchy,
+      lowercase file_path, array/object cell JSON parsing, Live Schema
+      desync fix, repaired syntax-highlighter regex, string-typed first
+      field default, __proto__ guard on custom headers, unified naming/
+      credit line/version display/light-theme active-tab color).
+
+  Changelog (104-family remediation pass, 2026-09-18, carried forward):
+    - Fixed MFDB manifest generation: MFDB_Version corrected to "1.31",
+      Parent_Hierarchy corrected to the fixed "104a.mfdb.bejson" filename,
+      file_path casing corrected to lowercase, added Author/Created_At/
+      DB_Description optional headers.
+    - Fixed array/object-typed cell edits: values are now JSON-parsed and
+      type-checked against the field's declared type instead of being
+      stored as raw strings (also fixed the matching display bug where
+      re-opening such a cell showed "[object Object]" instead of its JSON).
+    - Fixed Live Schema tab going stale when switching tables via the
+      header dropdown.
+    - Repaired the corrupted syntax-highlighter regex (restored \s, \d,
+      \., \b escapes that had lost their backslashes / become literal
+      backspace bytes).
+    - Changed the Hub's quick-create default type for the first field from
+      integer to string, matching spec convention.
+    - Extended the __proto__/constructor/prototype forbidden-name guard to
+      custom header keys (previously field names only).
+    - Unified the tool's name to "BEJSON Editor" across <title>, header,
+      and About tab; added full author credit line; fixed light-theme
+      active-tab color to the mandated #DE2626 red; added VERSION/
+      PACKAGE_VERSION as single-source constants.
+
+  Changelog (MFDB roadmap build, 2026-09-20, ported from the 104+105 build):
+    - Phase 1 (Detection): added classifyBejsonDoc() -- loaded tables are
+      now tagged [Manifest] / [Entity] / [Standalone] automatically.
+    - Phase 2 (Broadened Loading): added "Load Multiple Files" and
+      "Load MFDB Folder" (webkitdirectory, preserves real relative
+      paths), plus resolveMfdbLinks() which matches loaded entities to
+      a loaded manifest's declared rows and reports "(x/y resolved)".
+    - Phase 3 (True Mount): added "Mount MFDB Folder (Chrome/Edge)" via
+      the File System Access API (feature-detected). saveActiveBejsonFile()
+      now writes directly back to a mounted file's handle via
+      createWritable() when one exists, instead of always downloading.
+    - Phase 4 (Export): added "Export Loaded Tables as ZIP" (hand-rolled
+      store-only ZIP writer, own CRC32, no dependency). Pre-export
+      validation blocks on any invalid loaded table; record_count is
+      resynced against actual row counts before writing.
+    - This port is code-identical to the 104+105 build's MFDB-roadmap
+      additions -- none of it touches 105-series logic, since MFDB
+      manifest/entity handling is 104/104a-only regardless of build.
+    All four phases live-verified via Playwright on this file specifically
+    (isolated-page mount+save-back test, folder-load resolution test,
+    export validation-gate test, and a full regression pass confirming
+    every prior 104-family fix in this build is still intact).
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-/pVjY5lnAHmg9xqdDno5g1WNAkMOk/WyB/42Mr9hhok='; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; media-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>BEJSON Editor (104 Only)</title>
+  <style>
+    :root {
+      --border-color: #ddd;
+      --bg-color: #f9f9f9;
+      --text-color: #000000;
+      --font-ui: "Inter", sans-serif;
+      --font-mono: "Source Code Pro", monospace;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: var(--font-ui);
+      background-color: #ffffff;
+      color: #000000;
+      min-height: 0;
+    }
+    body.dark-theme {
+      --border-color: #444;
+      --bg-color: #111;
+      --text-color: #ffffff;
+      background-color: #000000;
+      color: #ffffff;
+    }
+
+    /* Scrollbar */
+    .thin-scrollbar {
+      -ms-overflow-style: auto;
+      scrollbar-width: thin;
+    }
+    .thin-scrollbar::-webkit-scrollbar {
+      height: 4px;
+      display: block;
+    }
+    .thin-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .thin-scrollbar::-webkit-scrollbar-thumb {
+      background-color: rgba(100, 100, 100, 0.3);
+      border-radius: 4px;
+    }
+
+    *:focus-visible { outline: 2px solid #DE2626; outline-offset: 2px; }
+    /* Header & Nav */
+    .header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 16px;
+      background-color: #000000;
+      color: #ffffff;
+      border-bottom: 1px solid #333333;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      background-color: #f5f5f5;
+      border-bottom: 1px solid #cccccc;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+    }
+    body.dark-theme .nav-tabs {
+      background-color: #111111;
+      border-bottom: 1px solid #333333;
+    }
+    .nav-tab {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: bold;
+      border: 1px solid #cccccc;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #000000;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    body.dark-theme .nav-tab {
+      background: #000000;
+      border-color: #333333;
+      color: #ffffff;
+    }
+    .nav-tab:hover {
+      background: #e5e5e5;
+    }
+    body.dark-theme .nav-tab:hover {
+      background: #222222;
+    }
+    .nav-tab.active {
+      background: #DE2626;
+      color: #ffffff;
+      border-color: #DE2626;
+    }
+    body.dark-theme .nav-tab.active {
+      background: #DE2626;
+      color: #ffffff;
+      border-color: #DE2626;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border: 1px solid #cccccc;
+      background: #ffffff;
+      color: #000000;
+    }
+    body.dark-theme .btn {
+      background: #000000;
+      color: #ffffff;
+      border-color: #333333;
+    }
+    .btn:hover { background: #e5e5e5; }
+    body.dark-theme .btn:hover { background: #222222; }
+    
+    .btn-red {
+      background-color: #DE2626 !important;
+      color: #ffffff !important;
+      border-color: #DE2626 !important;
+    }
+    .btn-red:hover {
+      background-color: #b91c1c !important;
+    }
+
+    /* Form Elements */
+    .text-input, select {
+      padding: 6px 8px;
+      font-size: 12px;
+      border: 1px solid #cccccc;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #000000;
+      font-family: var(--font-ui);
+    }
+    body.dark-theme .text-input, body.dark-theme select {
+      background: #000000;
+      color: #ffffff;
+      border-color: #333333;
+    }
+
+    /* Tables */
+    table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    th, td {
+      border: 1px solid #cccccc;
+      padding: 8px;
+      text-align: left;
+    }
+    body.dark-theme th, body.dark-theme td {
+      border-color: #333333;
+    }
+    th {
+      background: #f5f5f5;
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    body.dark-theme th {
+      background: #111111;
+    }
+    .table-cell-input {
+      width: 100%;
+      min-width: 120px;
+      max-width: 400px;
+      box-sizing: border-box;
+      border: none;
+      background: transparent;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: inherit;
+      outline: none;
+    }
+
+    /* Layout */
+    .main-content {
+      padding: 12px 16px;
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .tab-content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .tab-content:not(.hidden) {
+      display: flex !important;
+    }
+    .scrollable-container {
+      flex: 1;
+      overflow: auto;
+      min-height: 0;
+    }
+    .hidden {
+      display: none !important;
+    }
+    /* Shown only if the main script did not run (e.g. the CSP script hash is stale after a hand edit). */
+    #cspStaleNotice {
+      visibility: hidden; position: fixed; inset: 0; z-index: 99999; background: #000; color: #fff;
+      padding: 24px; font-family: sans-serif; font-size: 15px; line-height: 1.5;
+      animation: cspShow 0s linear 1.5s forwards;
+    }
+    @keyframes cspShow { to { visibility: visible; } }
+    
+    .status-banner {
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-weight: bold;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .status-banner.valid {
+      background-color: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    .status-banner.invalid {
+      background-color: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+    body.dark-theme .status-banner.valid {
+      background-color: #052e16;
+      color: #4ade80;
+      border-color: #14532d;
+    }
+    body.dark-theme .status-banner.invalid {
+      background-color: #450a0a;
+      color: #f87171;
+      border-color: #7f1d1d;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-content {
+      background: #ffffff; padding: 20px; border-radius: 4px; 
+      width: 90%; max-width: 400px; color: #000000;
+      border: 1px solid #cccccc;
+    }
+    body.dark-theme .modal-content { 
+      background: #000000; color: #ffffff; border-color: #333333; 
+    }
+    .cell-encrypted { color: #DE2626; font-style: italic; cursor: default; }
+    .context-menu {
+      position: fixed; background: #ffffff; border: 1px solid #cccccc;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 2000;
+      padding: 4px 0; border-radius: 4px; min-width: 160px;
+    }
+    body.dark-theme .context-menu { 
+      background: #111111; border-color: #333333; 
+    }
+    .context-menu-item { 
+      padding: 8px 16px; cursor: pointer; font-size: 12px; font-weight: bold;
+    }
+    .context-menu-item:hover { background: #e5e5e5; }
+    body.dark-theme .context-menu-item:hover { background: #222222; color: #DE2626; }
+
+    .table-cell-input::placeholder { color: #aaa; }
+    body.dark-theme .table-cell-input { background: #111; color: #fff; border-color: #333; }
+    body.dark-theme .table-cell-input::placeholder { color: #666; }
+    body.dark-theme .table-cell-input:focus { background: #000; border-color: #DE2626; outline: none; }
+    #rawSchemaPre { background: #fff; color: #000; border: 1px solid #ccc; margin-bottom: 16px; overflow: auto; }
+    body.dark-theme #rawSchemaPre { background: #000; color: #fff; border-color: #333; }
+    .json-key { color: #000000; font-weight: 700; }
+    body.dark-theme .json-key { color: #ffffff; font-weight: 700; }
+    .json-string { color: #b91c1c; }
+    body.dark-theme .json-string { color: #fca5a5; }
+    .json-boolean { color: #0284c7; font-weight: bold; }
+    body.dark-theme .json-boolean { color: #38bdf8; font-weight: bold; }
+    .json-number { color: #16a34a; font-weight: bold; }
+    body.dark-theme .json-number { color: #4ade80; font-weight: bold; }
+    .json-null { color: #737373; font-style: italic; }
+    body.dark-theme .json-null { color: #a3a3a3; font-style: italic; }
+  </style>
+</head>
+<body class="dark-theme">
+  <div id="cspStaleNotice"><strong style="color:#DE2626;">The editor script did not start.</strong><br><br>
+    This build only runs the script whose SHA-256 hash is listed in its Content-Security-Policy. If you edited the
+    JavaScript by hand, re-stamp the hash:<br><code>python3 stamp_csp.py Modern_BEJSON_Editor_104_ONLY.html</code></div>
+
+  <!-- Header -->
+  <header class="header hide-scrollbar">
+    <div style="font-weight: 900; font-size: 14px; flex-shrink: 0; margin-right: 16px;">BEJSON Editor (104 Only)</div>
+    <div id="headerFileActions" style="display: flex; gap: 8px; flex-wrap: nowrap; align-items: center; flex-shrink: 0; margin-right: 16px;">
+      <button class="btn btn-red" id="btnSaveFile" title="Save active file immediately (Ctrl+S)">💾 Save</button>
+      <button class="btn js-mode-standard" id="btnSaveAs" title="Save the active file under a new name">Save As…</button>
+      <button class="btn js-mode-standard" id="btnImportHeader" title="Load an existing .bejson / .json file">📂 Load</button>
+    </div>
+    <div id="tableTools" class="hidden" style="display: flex; gap: 8px; flex-wrap: nowrap; align-items: center;">
+      <select id="tableSelector" style="min-width: 150px; flex-shrink: 0;"></select>
+      <input type="text" id="searchInput" class="text-input" placeholder="Search grid..." style="width: 150px; flex-shrink: 0;">
+      <button class="btn js-mode-mfdb hidden" id="btnLoadMultiFilesHeader">Load Files</button>
+      <button class="btn js-mode-mfdb hidden" id="btnLoadMfdbFolderHeader">Load Folder</button>
+      <button class="btn js-mode-mfdb hidden" id="btnLoadMfdbZipHeader">Load ZIP</button>
+      <button class="btn js-mode-mfdb js-needs-fsa hidden" id="btnMountMfdbFolderHeader" title="Link a folder on disk so saves write straight back (Chrome/Edge)">Mount Folder</button>
+      <button class="btn js-mode-mfdb hidden" id="btnValidateMfdb" title="Check manifest and entity files against the MFDB rules">Validate MFDB</button>
+      <button class="btn js-mode-mfdb hidden" id="btnSaveAllMfdb" title="Write every mounted table back to disk (no mount: exports a ZIP)">Save All</button>
+      <button class="btn js-mode-mfdb hidden" id="btnExportMfdbZipHeader">Export ZIP</button>
+      <button class="btn" id="btnCloseTable" title="Unload the active file from the editor (nothing is deleted on disk)">Close File</button>
+      <button class="btn js-mode-mfdb hidden" id="btnCloseAllMfdb" title="Unload everything and return to the Hub">Close All</button>
+    </div>
+    <button class="btn" id="btnToggleTheme" style="margin-left: auto; flex-shrink: 0;"><span id="themeIcon">☀️</span> <span id="themeLabel">Light</span></button>
+  </header>
+
+  <!-- Nav Tabs -->
+  <div class="nav-tabs hide-scrollbar">
+    <button class="nav-tab active" data-tab="tab-hub">Hub</button>
+    <button class="nav-tab" data-tab="tab-grid" id="navTabGrid" disabled style="opacity: 0.5; cursor: not-allowed;">Spreadsheet Grid</button>
+    <button class="nav-tab" data-tab="tab-schema" id="navTabSchema" disabled style="opacity: 0.5; cursor: not-allowed;">Schema & Fields</button>
+    <button class="nav-tab" data-tab="tab-raw-schema" id="navTabRawSchema" disabled style="opacity: 0.5; cursor: not-allowed;">Live Schema</button>
+    <button class="nav-tab" data-tab="tab-about">About</button>
+  </div>
+
+  <div class="main-content">
+    <!-- Hub Tab -->
+    <div id="tab-hub" class="tab-content" role="tabpanel">
+      <div class="scrollable-container thin-scrollbar">
+      <h2 style="margin-top: 0;">BEJSON Hub</h2>
+
+      <div id="hubOpenFilesPanel" style="border: 1px solid var(--border-color, #ccc); padding: 16px 20px; border-radius: 4px; max-width: 500px; margin-bottom: 20px; background: var(--bg-color);">
+        <h3 style="margin-top: 0; margin-bottom: 8px;">Open Files</h3>
+        <div style="font-size: 12px; margin-bottom: 10px;"><strong>Active:</strong> <span id="hubActiveFileLabel">No file open</span></div>
+        <div id="hubOpenFilesList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        <p style="font-size: 11px; opacity: 0.6; margin: 10px 0 0 0;">Paths are shown as the browser reports them (file name, folder-relative path, or mounted folder). Browsers do not expose full disk paths.</p>
+      </div>
+      
+      <div style="border: 1px solid #ccc; padding: 20px; border-radius: 4px; max-width: 500px; margin-bottom: 20px;">
+        <h3 style="margin-top: 0;" id="hubCreateHeading">Create New File</h3>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 8px;">Mode Selection</label>
+          <div style="display: flex; gap: 16px;">
+            <label><input type="radio" name="modeSelect" value="standard" checked data-change="toggleModes"> Standard Mode</label>
+            <label><input type="radio" name="modeSelect" value="mfdb" data-change="toggleModes"> MFDB Mode</label>
+          </div>
+        </div>
+
+        <div id="standardOptions" style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 8px;">Standard Format</label>
+          <div style="display: flex; gap: 16px;">
+            <label><input type="radio" name="formatSelectRadio" value="104" checked> 104</label>
+            <label><input type="radio" name="formatSelectRadio" value="104a"> 104a</label>
+          </div>
+        </div>
+
+        <div id="mfdbOptions" class="hidden" style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Database Name</label>
+          <input type="text" id="hubDbName" class="text-input" placeholder="MyDatabase" style="width: 100%;">
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label id="hubEntityLabel" style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Record Type</label>
+          <input type="text" id="hubEntityName" class="text-input" placeholder="Records" style="width: 100%;">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Initial Fields (comma separated)</label>
+          <input type="text" id="hubFieldsText" class="text-input" placeholder="id, name, status" style="width: 100%;">
+        </div>
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button id="btnCreateCustom" class="btn btn-red">Create & Open</button>
+        </div>
+      </div>
+
+      <div id="hubDropZone" class="js-mode-standard" style="border: 2px dashed var(--border-color, #ccc); padding: 24px; border-radius: 4px; max-width: 500px; margin-bottom: 20px; text-align: center; transition: all 0.2s; background: var(--bg-color);">
+        <div style="font-size: 24px; margin-bottom: 8px;">📂</div>
+        <h4 style="margin-top: 0; margin-bottom: 6px;">Load Existing File</h4>
+        <p style="font-size: 12px; opacity: 0.7; margin-top: 0; margin-bottom: 14px;">Select any <code>.bejson</code> or <code>.json</code> file from device, or paste raw text</p>
+        <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-red" id="btnDropZoneImport">Load Existing JSON / BEJSON</button>
+          <button class="btn" id="btnDropZonePaste">Paste BEJSON Text</button>
+        </div>
+        <input type="file" id="fileInput" class="hidden">
+      </div>
+
+      <div id="hubMfdbLoadZone" class="js-mode-mfdb hidden" style="border: 1px solid var(--border-color, #ccc); padding: 20px; border-radius: 4px; max-width: 500px; margin-bottom: 20px; background: var(--bg-color);">
+        <h4 style="margin-top: 0; margin-bottom: 6px;">MFDB Database</h4>
+        <p style="font-size: 12px; opacity: 0.7; margin-top: 0; margin-bottom: 14px;">Load a manifest and its entity files together (multiple files, a whole folder, or a ZIP), mount a folder for direct save-back, or export everything loaded as a ZIP.</p>
+        <div style="display: flex; justify-content: flex-start; gap: 10px; flex-wrap: wrap;">
+          <button class="btn" id="btnLoadMultiFiles">Load Multiple Files</button>
+          <button class="btn" id="btnLoadMfdbFolder">Load MFDB Folder</button>
+          <button class="btn" id="btnLoadMfdbZip">Load MFDB ZIP</button>
+          <button class="btn hidden" id="btnMountMfdbFolder" title="Uses the File System Access API to keep this editor linked to the folder on disk, so Save writes directly back to the original files.">Mount MFDB Folder (Chrome/Edge)</button>
+          <button class="btn" id="btnExportMfdbZip">Export Loaded Tables as ZIP</button>
+        </div>
+        <div id="mfdbMountStatus" style="font-size: 12px; opacity: 0.75; margin-top: 10px;"></div>
+      </div>
+      </div>
+    </div>
+    <!-- Grid Tab -->
+    <div id="tab-grid" class="tab-content hidden" role="tabpanel">
+      <div id="statusBanner" class="status-banner valid hidden">
+        <span id="statusMessage"></span>
+        
+      </div>
+      <div style="margin-bottom: 8px; display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0;" class="thin-scrollbar">
+        <button class="btn btn-red" id="btnSaveFileGrid" title="Save file immediately (Ctrl+S)">💾 Save File</button>
+        <button class="btn" id="btnShowAddFieldDialog">+ Add Field</button>
+        <button class="btn" id="btnAddRow">+ Add Record</button>
+        <button class="btn js-entity-btn hidden" id="btnAddEntity" title="Create a new MFDB entity file and register it in the manifest">+ Add Entity</button>
+        <button class="btn js-entity-btn hidden" id="btnDeleteEntity" title="Remove an entity from the manifest and unload its table">Delete Entity</button>
+        <button class="btn hidden" id="btnDeleteSelected">Delete Selected</button>
+        <button class="btn hidden" id="btnToggleUuid">Show UUID</button>
+        <button class="btn hidden" id="btnEditHeaders">Custom Headers</button>
+      </div>
+      <div class="scrollable-container thin-scrollbar">
+        <table>
+          <thead>
+            <tr id="tableHeaderRow"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Live Schema Tab -->
+    <div id="tab-raw-schema" class="tab-content hidden" role="tabpanel">
+      <div style="margin-bottom: 8px; display: flex; gap: 8px; overflow-x: auto; align-items: center; flex-shrink: 0;" class="thin-scrollbar">
+        <button class="btn btn-red" id="btnSaveFileSchema" data-click="saveActiveBejsonFile" title="Save file immediately (Ctrl+S)">💾 Save File</button>
+        <button class="btn" data-click="rawSchemaCopy">Copy Schema</button>
+        <button class="btn" data-click="rawSchemaSelectAll">Select All</button>
+        <button class="btn" data-click="saveRawSchema">Download JSON</button>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; margin-left: auto; white-space: nowrap; user-select: none;">
+          <input type="checkbox" id="chkRawSchemaIncludeValues" checked data-change="renderRawSchema"> Include Records (Values)
+        </label>
+      </div>
+      <pre id="rawSchemaPre" class="text-input scrollable-container thin-scrollbar" style="width: 100%; box-sizing: border-box; font-family: var(--font-mono); margin: 0; resize: none;"></pre>
+    </div>
+
+    <!-- About Tab -->
+    <div id="tab-about" class="tab-content hidden">
+      <div class="scrollable-container thin-scrollbar">
+      <h2 style="margin-top: 0;">About</h2>
+      <div style="border: 1px solid var(--border-color); padding: 20px; border-radius: 4px; max-width: 500px; background: var(--bg-color);">
+        <h3 style="margin-top: 0; margin-bottom: 8px;">BEJSON Editor (104 Only)</h3>
+        <p style="margin-top: 0; font-size: 14px; opacity: 0.8; margin-bottom: 16px;">A table view editor supporting <strong>BEJSON</strong> (Boehnen Elton JSON) 104/104a formats and <strong>MFDB</strong> (Multi File Database) manifest/entity scaffolding, with document editing, schema management, and raw-JSON inspection. This build intentionally excludes 105/105a/105db and 104db support.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+          <div>
+            <strong style="display: block; opacity: 0.6; font-size: 11px; text-transform: uppercase;">Version</strong>
+            <span id="aboutVersionSpan" style="font-family: var(--font-mono);"></span>
+          </div>
+          <div>
+            <strong style="display: block; opacity: 0.6; font-size: 11px; text-transform: uppercase;">Date</strong>
+            <span style="font-family: var(--font-mono);">2026-09-18</span>
+          </div>
+          <div>
+            <strong style="display: block; opacity: 0.6; font-size: 11px; text-transform: uppercase;">Author</strong>
+            <span>Elton Boehnen</span>
+          </div>
+          <div>
+            <strong style="display: block; opacity: 0.6; font-size: 11px; text-transform: uppercase;">Format</strong>
+            <span style="font-family: var(--font-mono);">BEJSON 104a</span>
+          </div>
+        </div>
+        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 12px; opacity: 0.75;">
+          Elton Boehnen &middot; eltonboehnen@gmail.com &middot; boehnenelton2024.pages.dev &middot; github.com/boehnenelton
+        </div>
+      </div>
+      </div>
+    </div>
+    <!-- Schema Tab -->
+    <div id="tab-schema" class="tab-content hidden" role="tabpanel">
+      <div style="margin-bottom: 12px;">
+        <button class="btn btn-red" id="btnShowAddFieldDialogSchema">+ Add Field</button>
+        <button class="btn js-entity-btn hidden" id="btnAddEntitySchema" style="margin-left: 8px;">+ Add Entity</button>
+        <button class="btn js-entity-btn hidden" id="btnDeleteEntitySchema">Delete Entity</button>
+      </div>
+      <div class="scrollable-container thin-scrollbar">
+        <table>
+          <thead>
+            <tr>
+              <th>Field Index</th>
+              <th>Field Name</th>
+              <th>Field Type</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="schemaBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+
+  
+  <div id="modalEditHeaders" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 600px; width: 90%;">
+      <h3 style="margin-top: 0;">Edit Custom Headers (104a)</h3>
+      <div style="font-size: 11px; color: #767676; margin-bottom: 12px;">Edit the root-level metadata properties. Standard core keys are protected.</div>
+      <div id="headersContainer" style="max-height: 50vh; overflow-y: auto; margin-bottom: 16px;"></div>
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="newHeaderKey" class="text-input" placeholder="New Header Key" style="flex: 1;">
+          <input type="text" id="newHeaderValue" class="text-input" placeholder="Value" style="flex: 2;">
+          <button class="btn btn-red" data-click="addCustomHeader">Add</button>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="closeModal" data-arg="modalEditHeaders">Cancel</button>
+        <button class="btn btn-red" data-click="saveCustomHeaders">Save</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modals -->
+  <div id="modalAddField" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 style="margin-top: 0;">Add New Field(s)</h3>
+      <input type="text" id="newFieldName" class="text-input" placeholder="e.g. field_1, field_2" style="width: 100%; margin-bottom: 4px; box-sizing: border-box;">
+      <div style="font-size: 10px; color: #777; margin-bottom: 10px;">Comma separate for multiple fields.</div>
+      <select id="newFieldType" style="width: 100%; margin-bottom: 20px; box-sizing: border-box;"></select>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="closeModal" data-arg="modalAddField">Cancel</button>
+        <button class="btn btn-red" data-click="confirmAddField">Add Field</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalAddEntity" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 style="margin-top: 0;">Add Entity</h3>
+      <div id="addEntityTarget" style="font-size: 11px; opacity: 0.7; margin-bottom: 10px;"></div>
+      <input type="text" id="newEntityName" class="text-input" placeholder="Entity name, e.g. Orders" style="width: 100%; margin-bottom: 10px; box-sizing: border-box;">
+      <input type="text" id="newEntityFields" class="text-input" placeholder="Initial fields: id, name, status" style="width: 100%; margin-bottom: 4px; box-sizing: border-box;">
+      <div style="font-size: 10px; color: #777; margin-bottom: 16px;">Creates data/&lt;name&gt;.bejson (BEJSON 104) and registers it in the manifest. The first field becomes primary_key.</div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="closeModal" data-arg="modalAddEntity">Cancel</button>
+        <button class="btn btn-red" data-click="confirmAddEntity">Add Entity</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalDeleteEntity" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 style="margin-top: 0;">Delete Entity</h3>
+      <div id="deleteEntityTarget" style="font-size: 11px; opacity: 0.7; margin-bottom: 10px;"></div>
+      <select id="deleteEntitySelect" style="width: 100%; margin-bottom: 8px; box-sizing: border-box;"></select>
+      <div style="font-size: 10px; color: #777; margin-bottom: 16px;">Removes the manifest record and unloads the entity table from the editor. Files on disk are not deleted.</div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="closeModal" data-arg="modalDeleteEntity">Cancel</button>
+        <button class="btn btn-red" data-click="confirmDeleteEntity">Delete Entity</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalMfdbReport" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 640px; width: 92vw;">
+      <h3 style="margin-top: 0;">MFDB Validation</h3>
+      <div id="mfdbReportSummary" style="font-size: 12px; margin-bottom: 8px; font-weight: bold;"></div>
+      <pre id="mfdbReportBody" class="text-input thin-scrollbar" style="max-height: 50vh; overflow: auto; white-space: pre-wrap; font-family: var(--font-mono); font-size: 11px; margin: 0 0 12px 0;"></pre>
+      <div style="display: flex; justify-content: flex-end;"><button class="btn btn-red" data-click="closeModal" data-arg="modalMfdbReport">Close</button></div>
+    </div>
+  </div>
+
+  <div id="modalCryptoPassword" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 id="cryptoPwTitle" style="margin-top: 0;">Password</h3>
+      <div id="cryptoPwHint" style="font-size: 11px; opacity: 0.7; margin-bottom: 10px;"></div>
+      <input type="password" id="cryptoPwInput" class="text-input" placeholder="Password" autocomplete="off" style="width: 100%; margin-bottom: 8px; box-sizing: border-box;">
+      <input type="password" id="cryptoPwConfirm" class="text-input hidden" placeholder="Confirm password" autocomplete="off" style="width: 100%; margin-bottom: 8px; box-sizing: border-box;">
+      <div id="cryptoPwError" style="font-size: 11px; color: #DE2626; min-height: 14px; margin-bottom: 12px;"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="cancelCryptoPassword">Cancel</button>
+        <button class="btn btn-red" id="btnCryptoPwOk" data-click="confirmCryptoPassword">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalCellEditor" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 600px; width: 95%;">
+      <h3 style="margin-top: 0;">Advanced Cell Editor</h3>
+      <div style="margin-bottom: 8px; display: flex; gap: 8px; overflow-x: auto;" class="thin-scrollbar">
+        <button class="btn" data-click="cellEditorCopy">Copy</button>
+        <button class="btn" data-click="cellEditorPaste">Paste</button>
+        <button class="btn" data-click="cellEditorSelectAll">Select All</button>
+      </div>
+      <textarea id="cellEditorTextarea" class="text-input" style="width: 100%; height: 200px; box-sizing: border-box; font-family: var(--font-mono); margin-bottom: 16px; resize: vertical;"></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="closeModal" data-arg="modalCellEditor">Cancel</button>
+        <button class="btn btn-red" data-click="confirmCellEdit">Save</button>
+      </div>
+    </div>
+  </div>
+  
+  
+  <div id="modalEditField" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 style="margin-top: 0;">Edit Field</h3>
+      <input type="text" id="editFieldName" class="text-input" placeholder="Field Name" style="width: 100%; margin-bottom: 10px; box-sizing: border-box;">
+      <select id="editFieldType" style="width: 100%; margin-bottom: 20px; box-sizing: border-box;"></select>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="closeModal" data-arg="modalEditField">Cancel</button>
+        <button class="btn btn-red" data-click="confirmEditField">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalPasteBejson" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 600px; width: 95%;">
+      <h3 style="margin-top: 0;">Paste .bejson / JSON Text</h3>
+      <div style="font-size: 11px; opacity: 0.7; margin-bottom: 8px;">Paste the contents of your .bejson file directly below:</div>
+      <textarea id="pasteBejsonTextarea" class="text-input scrollable-container thin-scrollbar" style="width: 100%; height: 220px; box-sizing: border-box; font-family: var(--font-mono); resize: vertical; margin-bottom: 12px;" placeholder='{ "Format": "BEJSON", "Format_Version": "104", ... }'></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn" data-click="closeModal" data-arg="modalPasteBejson">Cancel</button>
+        <button class="btn btn-red" id="btnLoadPastedBejson">Load BEJSON</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="contextMenu" class="context-menu hidden" role="menu"></div>
+
+  <script>
+    (function () { var n = document.getElementById('cspStaleNotice'); if (n) n.remove(); })(); // script is running: drop the stale-hash notice
+    // --- Version (single source of truth per file-header policy) ---
+    const VERSION = "120";        // Project_Version 1.2.0 -- toolbar reorder, Hub open-files panel, cell-menu deletes
+    const PACKAGE_VERSION = "160"; // bumped from 159 for the Instructions.md UI update
+
+    // --- Global State ---
+    let loadedTables = [];
+    let activeTableId = null;
+    let hideUuidColumn = true;
+    let currentDoc = null;
+    const fieldMapCache = new Map();
+
+    // --- Core BEJSON Functions ---
+    // --- Hardening limits (browser tab on a phone: fail early with a clear message) ---
+    const MAX_FILE_BYTES = 64 * 1024 * 1024;        // single .bejson/.json import
+    const MAX_ZIP_BYTES = 128 * 1024 * 1024;        // the .zip itself
+    const MAX_ZIP_ENTRIES = 2000;
+    const MAX_ZIP_ENTRY_BYTES = 64 * 1024 * 1024;   // one entry, after inflate
+    const MAX_ZIP_TOTAL_BYTES = 256 * 1024 * 1024;  // all entries, after inflate
+    const MAX_RENDER_ROWS = 2000;                   // grid rows drawn at once (search narrows the rest)
+    const MAX_RAW_ROWS = 500;                       // rows shown in the raw JSON view
+    const MIN_ENCRYPT_PASSWORD_LENGTH = 8;
+
+    // Buttons declare data-click="fn" [data-arg="x"] (or data-change="fn"); no inline handlers exist, so the
+    // CSP can forbid them. Only names on this list can be invoked.
+    const UI_ACTIONS = new Set(['addCustomHeader', 'cancelCryptoPassword', 'cellEditorCopy', 'cellEditorPaste', 'cellEditorSelectAll', 'closeModal', 'confirmAddEntity', 'confirmAddField', 'confirmCellEdit', 'confirmCryptoPassword', 'confirmDeleteEntity', 'confirmEditField', 'deleteField', 'rawSchemaCopy', 'rawSchemaSelectAll', 'renderRawSchema', 'saveActiveBejsonFile', 'saveCustomHeaders', 'saveRawSchema', 'toggleModes']);
+    function runUiAction(el, attr) {
+      const name = el.getAttribute(attr);
+      if (!UI_ACTIONS.has(name) || typeof window[name] !== 'function') { reportFatal('Unknown UI action: ' + name); return; }
+      const arg = el.getAttribute('data-arg');
+      if (arg === null) window[name](); else window[name](/^\d+$/.test(arg) ? Number(arg) : arg);
+    }
+    document.addEventListener('click', e => {
+      const el = e.target && e.target.closest ? e.target.closest('[data-click]') : null;
+      if (el) runUiAction(el, 'data-click');
+    });
+    document.addEventListener('change', e => {
+      const el = e.target && e.target.closest ? e.target.closest('[data-change]') : null;
+      if (el) runUiAction(el, 'data-change');
+    });
+
+    function reportFatal(msg) {
+      try {
+        console.error('[BEJSON Editor]', msg);
+        const banner = document.getElementById('statusBanner');
+        const span = document.getElementById('statusMessage');
+        if (!banner || !span) return;
+        banner.className = 'status-banner invalid';
+        banner.classList.remove('hidden');
+        span.textContent = '⚠ Unexpected error: ' + String(msg).slice(0, 200);
+      } catch (e) { /* nothing safe left to do */ }
+    }
+    window.addEventListener('error', e => reportFatal(e.error && e.error.message ? e.error.message : e.message));
+    window.addEventListener('unhandledrejection', e => reportFatal(e.reason && e.reason.message ? e.reason.message : e.reason));
+
+    function safeStorageGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function safeStorageSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode / blocked: ignore */ } }
+
+    // JSON key order for every BEJSON document:
+    //   Format, Format_Version, Format_Creator, <custom / file-level headers>, Records_Type, Fields, Values
+    // A header assigned with doc[k] = v lands AFTER Values (the end of the object), which is where
+    // the 104a custom headers were silently disappearing to. Reorders IN PLACE so references stay valid.
+    function canonicalizeKeyOrder(doc) {
+      if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return doc;
+      const lead = ['Format', 'Format_Version', 'Format_Creator'];
+      const tail = ['Records_Type', 'Fields', 'Values'];
+      const keys = Object.keys(doc);
+      const middle = keys.filter(k => lead.indexOf(k) === -1 && tail.indexOf(k) === -1);
+      const order = lead.filter(k => keys.indexOf(k) !== -1).concat(middle, tail.filter(k => keys.indexOf(k) !== -1));
+      if (order.every((k, i) => k === keys[i])) return doc; // already canonical
+      const held = new Map();
+      keys.forEach(k => held.set(k, doc[k]));
+      keys.forEach(k => { delete doc[k]; });
+      order.forEach(k => Object.defineProperty(doc, k, { value: held.get(k), writable: true, enumerable: true, configurable: true }));
+      return doc;
+    }
+
+    function escapeHTML(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    function getFieldMap(doc) {
+      if (fieldMapCache.has(doc)) return fieldMapCache.get(doc);
+      const map = Object.create(null); // no inherited keys: a field called "hasOwnProperty"/"toString" cannot break lookups
+      if (doc && Array.isArray(doc.Fields)) {
+        doc.Fields.forEach((f, idx) => {
+          if (f && typeof f.name === 'string') map[f.name] = idx;
+        });
+      }
+      fieldMapCache.set(doc, map);
+      return map;
+    }
+
+    function validateBEJSON(doc) {
+      const errors = [];
+      if (!doc || typeof doc !== 'object') return { valid: false, errors: ["No document loaded or invalid root type."] };
+      
+      const mandatory = ["Format", "Format_Version", "Format_Creator", "Records_Type", "Fields", "Values"];
+      for (const key of mandatory) {
+        if (!(key in doc)) errors.push("Missing mandatory key: " + key);
+      }
+      
+      if (doc.Format !== "BEJSON") errors.push("Format must be 'BEJSON'.");
+      if (doc.Format_Creator !== "Elton Boehnen") errors.push("Format_Creator must be 'Elton Boehnen'.");
+      
+      const validVersions = ["104", "104a"];
+      if (!validVersions.includes(doc.Format_Version)) errors.push("Invalid Format_Version: " + doc.Format_Version);
+      
+      if (!Array.isArray(doc.Records_Type) || doc.Records_Type.length !== 1) {
+        errors.push("Records_Type must be an array with exactly one entry.");
+      } else if (typeof doc.Records_Type[0] !== 'string' || doc.Records_Type[0].trim() === '') {
+        errors.push("Records_Type entry must be a non-empty string.");
+      }
+      
+      const validTypes = ["string", "integer", "number", "boolean", "array", "object"];
+      const primitiveTypes = ["string", "integer", "number", "boolean"];
+      const seenFields = new Set();
+      
+      if (!Array.isArray(doc.Fields) || doc.Fields.length === 0) {
+        errors.push("Fields must be a non-empty array.");
+      } else {
+        doc.Fields.forEach((f, i) => {
+          if (!f || typeof f.name !== 'string' || f.name.trim() === '') errors.push("Invalid field name at index " + i);
+          if (!validTypes.includes(f.type)) errors.push("Invalid field type at index " + i + ": " + f.type);
+          if (seenFields.has(f.name)) errors.push("Duplicate field name: " + f.name);
+          seenFields.add(f.name);
+          
+          if (doc.Format_Version === "104a") {
+            if (!primitiveTypes.includes(f.type)) errors.push("104a fields must be primitive types. Found: " + f.type);
+          }
+        });
+      }
+      
+      if (!Array.isArray(doc.Values)) {
+        errors.push("Values must be an array.");
+      } else {
+        doc.Values.forEach((row, rIdx) => {
+          if (!Array.isArray(row)) {
+            errors.push("Record " + (rIdx + 1) + " must be an array.");
+            return;
+          }
+          if (row.length !== doc.Fields.length) {
+            errors.push("Record " + (rIdx + 1) + " length mismatch.");
+          } else {
+            row.forEach((val, cIdx) => {
+              if (val === null) return; // null always valid
+              if (isEncryptedCell(val)) return; // ciphertext is valid regardless of declared type
+              const type = doc.Fields[cIdx].type;
+              let typeMatch = false;
+              if (type === 'string') typeMatch = typeof val === 'string';
+              if (type === 'number') typeMatch = typeof val === 'number';
+              if (type === 'integer') typeMatch = typeof val === 'number' && Number.isInteger(val);
+              if (type === 'boolean') typeMatch = typeof val === 'boolean';
+              if (type === 'array') typeMatch = Array.isArray(val);
+              if (type === 'object') typeMatch = typeof val === 'object' && !Array.isArray(val) && val !== null;
+              if (!typeMatch) errors.push("Record " + (rIdx + 1) + " cell " + (cIdx + 1) + " type mismatch. Expected " + type);
+            });
+          }
+        });
+      }
+      
+      const isA = doc.Format_Version === "104a";
+      for (const key of Object.keys(doc)) {
+        if (mandatory.includes(key)) continue;
+        if (key === "Parent_Hierarchy") {
+          if (typeof doc.Parent_Hierarchy !== 'string') errors.push("Parent_Hierarchy must be a string.");
+          continue;
+        }
+        if (!isA) {
+          errors.push("Custom top-level keys forbidden in " + doc.Format_Version + ": " + key);
+        } else {
+          if (!/^[A-Z][A-Za-z0-9]*(_[A-Za-z0-9]+)*$/.test(key)) {
+            errors.push("Custom header must be PascalCase: " + key);
+          }
+        }
+      }
+      
+      return { valid: errors.length === 0, errors };
+    }
+
+    // --- UI Navigation ---
+    function switchTab(tabId) {
+      if (tabId !== 'tab-hub' && (!currentDoc || document.querySelector('[data-tab="' + tabId + '"]').hasAttribute('disabled'))) return; // Prevent opening editor without doc or if disabled
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+
+      if (tabId === 'tab-grid') renderTable();
+      if (tabId === 'tab-schema') renderSchema();
+      if (tabId === 'tab-raw-schema') renderRawSchema();
+      
+      const tools = document.getElementById('tableTools');
+      if (tabId === 'tab-hub') {
+        tools.classList.add('hidden');
+        renderHubOpenFiles();
+      } else {
+        tools.classList.remove('hidden');
+      }
+    }
+
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        switchTab(this.getAttribute('data-tab'));
+      });
+    });
+
+    // Single source of truth for Standard vs MFDB mode. Anything tagged .js-mode-standard
+    // or .js-mode-mfdb is only visible in its own mode (Hub cards and header toolbar buttons).
+    function applyMode(mode) {
+      const isMfdb = (mode === 'mfdb');
+      document.querySelectorAll('input[name="modeSelect"]').forEach(r => { r.checked = (r.value === mode); });
+      document.getElementById('standardOptions').classList.toggle('hidden', isMfdb);
+      document.getElementById('mfdbOptions').classList.toggle('hidden', !isMfdb);
+      document.querySelectorAll('.js-mode-standard').forEach(el => el.classList.toggle('hidden', isMfdb));
+      document.querySelectorAll('.js-mode-mfdb').forEach(el => el.classList.toggle('hidden', !isMfdb));
+      if (!('showDirectoryPicker' in window)) document.querySelectorAll('.js-needs-fsa').forEach(el => el.classList.add('hidden'));
+      const closeBtn = document.getElementById('btnCloseTable');
+      if (closeBtn) closeBtn.textContent = isMfdb ? 'Close Table' : 'Close File';
+      // Terminology: BEJSON 104/104a files have a Record Type; "entity" is MFDB-only.
+      document.getElementById('hubCreateHeading').textContent = isMfdb ? 'Create New MFDB Database' : 'Create New File';
+      document.getElementById('hubEntityLabel').textContent = isMfdb ? 'First Entity Name' : 'Record Type';
+      document.getElementById('hubEntityName').placeholder = isMfdb ? 'Users' : 'Records';
+    }
+
+    function toggleModes() {
+      applyMode(document.querySelector('input[name="modeSelect"]:checked').value);
+    }
+
+    // Called after anything is loaded: MFDB manifest/entity content => MFDB mode, else Standard.
+    function syncModeFromLoaded() {
+      const anyMfdb = loadedTables.some(t => t.classification === 'Manifest' || t.classification === 'Entity');
+      applyMode(anyMfdb ? 'mfdb' : 'standard');
+    }
+
+    function unlockTabs() {
+      document.getElementById('navTabGrid').disabled = false;
+      document.getElementById('navTabGrid').style.opacity = "1";
+      document.getElementById('navTabGrid').style.cursor = "pointer";
+      document.getElementById('navTabSchema').disabled = false;
+      document.getElementById('navTabSchema').style.opacity = "1";
+      document.getElementById('navTabSchema').style.cursor = "pointer";
+      document.getElementById('navTabRawSchema').disabled = false;
+      document.getElementById('navTabRawSchema').style.opacity = "1";
+      document.getElementById('navTabRawSchema').style.cursor = "pointer";
+    }
+
+    // --- Renderers ---
+    function renderTableSelect() {
+      const sel = document.getElementById('tableSelector');
+      sel.innerHTML = '';
+      loadedTables.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name;
+        if (t.id === activeTableId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      renderHubOpenFiles();
+    }
+
+    // Best path the browser lets us know for a loaded table: mounted folder + relative path,
+    // folder-relative path, Save As handle / file name, or a note that it only exists in memory.
+    function tableDisplayPathForHub(t) {
+      const owner = t.mountRoot ? t : loadedTables.find(m => m.id === t.resolvedAgainstManifestId && m.mountRoot);
+      if (owner && owner.mountRoot && t.relativePath) return owner.mountRoot.name + '/' + t.relativePath + ' (mounted)';
+      if (t.relativePath) return t.relativePath;
+      if (t.fileHandle && t.fileHandle.name) return t.fileHandle.name + ' (linked file)';
+      if (t.sourceFileName) return t.sourceFileName;
+      return '(in memory only, not yet saved)';
+    }
+
+    function renderHubOpenFiles() {
+      const list = document.getElementById('hubOpenFilesList');
+      const activeLabel = document.getElementById('hubActiveFileLabel');
+      if (!list || !activeLabel) return;
+      list.innerHTML = '';
+      const active = loadedTables.find(t => t.id === activeTableId);
+      activeLabel.textContent = active ? (tableDisplayFilename(active) + '  —  ' + tableDisplayPathForHub(active)) : 'No file open';
+      if (loadedTables.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'font-size: 12px; opacity: 0.7;';
+        empty.textContent = 'No files are open. Create or load one below.';
+        list.appendChild(empty);
+        return;
+      }
+      loadedTables.forEach(t => {
+        const isActive = t.id === activeTableId;
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 4px; border: 1px solid ' + (isActive ? '#DE2626' : 'var(--border-color, #ccc)') + ';';
+        const info = document.createElement('div');
+        info.style.cssText = 'flex: 1; min-width: 0;';
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-size: 13px; font-weight: bold; overflow-wrap: anywhere;';
+        nameEl.textContent = (isActive ? '● ' : '') + t.name + (isTableDirty(t) ? '  (unsaved changes)' : '');
+        const pathEl = document.createElement('div');
+        pathEl.style.cssText = 'font-size: 11px; opacity: 0.7; overflow-wrap: anywhere;';
+        pathEl.textContent = 'Path: ' + tableDisplayPathForHub(t);
+        info.appendChild(nameEl); info.appendChild(pathEl);
+        const openBtn = document.createElement('button');
+        openBtn.className = 'btn' + (isActive ? ' btn-red' : '');
+        openBtn.textContent = isActive ? 'Active' : 'Open';
+        openBtn.addEventListener('click', () => {
+          activeTableId = t.id;
+          currentDoc = t.doc;
+          fieldMapCache.clear();
+          renderTableSelect();
+          unlockTabs();
+          switchTab('tab-grid');
+        });
+        row.appendChild(info); row.appendChild(openBtn);
+        list.appendChild(row);
+      });
+    }
+
+    function renderStatusBanner() {
+      const banner = document.getElementById("statusBanner");
+      const msg = document.getElementById("statusMessage");
+      const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+      
+      banner.classList.remove("hidden");
+      
+      const val = validateBEJSON(currentDoc);
+      if (val.valid) {
+        banner.className = "status-banner valid";
+        msg.textContent = `✓ Document is valid BEJSON ${currentDoc.Format_Version} (${currentDoc.Values.length} records)` + (checkedCount > 0 ? ` | ${checkedCount} ${checkedCount === 1 ? 'record' : 'records'} selected` : '');
+      } else {
+        banner.className = "status-banner invalid";
+        msg.textContent = `⚠ Validation Alerts (${val.errors.length} errors detected)`;
+      }
+    }
+
+    
+    // --- Context Menu & Long Press Helpers ---
+    function bindLongPress(elements, callback) {
+      elements.forEach(el => {
+        let timer;
+        let isLongPress = false;
+        el.addEventListener('touchstart', e => {
+          isLongPress = false;
+          timer = setTimeout(() => { isLongPress = true; callback(e, el); }, 500);
+        });
+        el.addEventListener('touchend', e => {
+          if (timer) clearTimeout(timer);
+          if (isLongPress && e.cancelable) e.preventDefault();
+        });
+        el.addEventListener('touchmove', () => { if (timer) clearTimeout(timer); });
+        el.addEventListener('contextmenu', e => { e.preventDefault(); callback(e, el); });
+      });
+    }
+
+    function showContextMenu(e, items) {
+      const menu = document.getElementById('contextMenu');
+      menu.innerHTML = '';
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'context-menu-item';
+        div.textContent = item.label;
+        div.onclick = () => {
+          menu.classList.add('hidden');
+          item.action();
+        };
+        menu.appendChild(div);
+      });
+      menu.classList.remove('hidden');
+      
+      let x = e.clientX || (e.touches && e.touches.length > 0 ? e.touches[0].clientX : 0);
+      let y = e.clientY || (e.touches && e.touches.length > 0 ? e.touches[0].clientY : 0);
+      
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+      // Keep the whole menu on screen (long-press near the right/bottom edge of a phone).
+      const mr = menu.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+      menu.style.left = Math.max(8, Math.min(x, vw - mr.width - 8)) + 'px';
+      menu.style.top = Math.max(8, Math.min(y, vh - mr.height - 8)) + 'px';
+      
+      const closeMenu = (ev) => {
+        if (!menu.contains(ev.target)) {
+          menu.classList.add('hidden');
+          document.removeEventListener('click', closeMenu);
+          document.removeEventListener('touchstart', closeMenu);
+        }
+      };
+      setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+        document.addEventListener('touchstart', closeMenu);
+      }, 0);
+    }
+
+    function updateCellData(r, c, valStr) {
+      if (!currentDoc || !currentDoc.Fields || !currentDoc.Fields[c]) return;
+      if (currentDoc.Values[r] && isEncryptedCell(currentDoc.Values[r][c])) return; // encrypted cells are read-only until decrypted
+      const field = currentDoc.Fields[c];
+      let val = valStr;
+      if (valStr === '') {
+        val = null;
+      } else if (field.type === 'integer') {
+        const parsed = parseInt(valStr, 10);
+        val = isNaN(parsed) ? valStr : parsed;
+      } else if (field.type === 'number') {
+        const parsed = parseFloat(valStr);
+        val = isNaN(parsed) ? valStr : parsed;
+      } else if (field.type === 'boolean') {
+        const lower = String(valStr).toLowerCase().trim();
+        if (lower === 'true') val = true;
+        else if (lower === 'false') val = false;
+        else val = valStr;
+      } else if (field.type === 'array' || field.type === 'object') {
+        let parsed;
+        try {
+          parsed = JSON.parse(valStr);
+        } catch (e) {
+          alert(`Invalid JSON for field "${field.name}" (type: ${field.type}): ${e.message}\n\nThe cell was not changed.`);
+          return;
+        }
+        const isArrayVal = Array.isArray(parsed);
+        const isObjectVal = typeof parsed === 'object' && parsed !== null && !isArrayVal;
+        if ((field.type === 'array' && !isArrayVal) || (field.type === 'object' && !isObjectVal)) {
+          alert(`Value for field "${field.name}" must be a valid JSON ${field.type} (got ${isArrayVal ? 'array' : typeof parsed}).\n\nThe cell was not changed.`);
+          return;
+        }
+        val = parsed;
+      }
+      if (!currentDoc.Values[r]) currentDoc.Values[r] = [];
+      currentDoc.Values[r][c] = val;
+      renderStatusBanner();
+
+      const rawTab = document.getElementById('tab-raw-schema');
+      if (rawTab && !rawTab.classList.contains('hidden')) {
+        renderRawSchema();
+      }
+    }
+
+    // --- Modal Logic ---
+    let activeCellEdit = null;
+    window.openCellEditor = function(rIdx, cIdx) {
+      activeCellEdit = { rIdx, cIdx };
+      const val = currentDoc.Values[rIdx][cIdx];
+      const isObjOrArr = typeof val === 'object' && val !== null;
+      document.getElementById('cellEditorTextarea').value = val === null ? '' : (isObjOrArr ? JSON.stringify(val, null, 2) : String(val));
+      document.getElementById('modalCellEditor').classList.remove('hidden');
+    };
+    window.confirmCellEdit = function() {
+      if (activeCellEdit) {
+        const valStr = document.getElementById('cellEditorTextarea').value;
+        updateCellData(activeCellEdit.rIdx, activeCellEdit.cIdx, valStr);
+        renderTable();
+      }
+      closeModal('modalCellEditor');
+    };
+    window.cellEditorCopy = function() {
+      const ta = document.getElementById('cellEditorTextarea');
+      navigator.clipboard.writeText(ta.value);
+    };
+    window.cellEditorPaste = async function() {
+      const ta = document.getElementById('cellEditorTextarea');
+      try {
+        ta.value = await navigator.clipboard.readText();
+      } catch(e) {
+        alert("Clipboard read failed. Ensure permissions are granted.");
+      }
+    };
+    window.cellEditorSelectAll = function() {
+      const ta = document.getElementById('cellEditorTextarea');
+      ta.select();
+    };
+    
+    
+    let activeFieldEditIdx = null;
+    window.openEditFieldModal = function(cIdx) {
+      const is104a = currentDoc.Format_Version && currentDoc.Format_Version.startsWith('104a');
+      const types = is104a ? ['string', 'integer', 'number', 'boolean'] : ['string', 'integer', 'number', 'boolean', 'array', 'object'];
+      document.getElementById('editFieldType').innerHTML = types.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+      activeFieldEditIdx = cIdx;
+      
+      const field = currentDoc.Fields[cIdx];
+      document.getElementById('editFieldName').value = field.name;
+      document.getElementById('editFieldType').value = field.type;
+      document.getElementById('modalEditField').classList.remove('hidden');
+    };
+
+    window.confirmEditField = function() {
+      if (activeFieldEditIdx !== null) {
+        const newName = document.getElementById('editFieldName').value.trim();
+        const newType = document.getElementById('editFieldType').value;
+        if (newName) {
+          const oldType = currentDoc.Fields[activeFieldEditIdx].type;
+          currentDoc.Fields[activeFieldEditIdx].name = newName;
+          currentDoc.Fields[activeFieldEditIdx].type = newType;
+          
+          if (oldType !== newType) {
+            currentDoc.Values.forEach(row => {
+              let val = row[activeFieldEditIdx];
+              if (newType === 'integer' || newType === 'number') {
+                row[activeFieldEditIdx] = Number(val) || 0;
+              } else if (newType === 'boolean') {
+                row[activeFieldEditIdx] = String(val).toLowerCase() === 'true';
+              } else if (newType === 'string') {
+                row[activeFieldEditIdx] = String(val);
+              }
+            });
+          }
+          
+          fieldMapCache.clear();
+          if (!document.getElementById('tab-grid').classList.contains('hidden')) renderTable();
+          if (!document.getElementById('tab-schema').classList.contains('hidden')) renderSchema();
+        if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+        }
+      }
+      closeModal('modalEditField');
+    };
+
+    window.closeModal = function(id) {
+      document.getElementById(id).classList.add('hidden');
+    };
+
+    window.showAddFieldModal = function() {
+      document.getElementById('newFieldName').value = '';
+      const is104a = currentDoc.Format_Version === '104a';
+      const types = is104a ? ['string', 'integer', 'number', 'boolean'] : ['string', 'integer', 'number', 'boolean', 'array', 'object'];
+      document.getElementById('newFieldType').innerHTML = types.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+      document.getElementById('modalAddField').classList.remove('hidden');
+    };
+    document.getElementById('btnShowAddFieldDialog')?.addEventListener('click', showAddFieldModal);
+    document.getElementById('btnShowAddFieldDialogSchema')?.addEventListener('click', showAddFieldModal);
+
+    window.confirmAddField = function() {
+      const namesStr = document.getElementById('newFieldName').value;
+      const type = document.getElementById('newFieldType').value;
+      
+      const names = namesStr.split(',').map(s => s.trim()).filter(s => s);
+      if (names.length === 0) return;
+      
+      const forbidden = ['__proto__', 'constructor', 'prototype', 'Format', 'Format_Version', 'Format_Creator', 'Records_Type', 'Fields', 'Values', 'Parent_Hierarchy'];
+      for (const name of names) {
+        if (forbidden.includes(name)) {
+          alert('Forbidden field name: ' + name);
+          return;
+        }
+      }
+      
+      names.forEach(name => {
+        const newField = { name, type };
+        currentDoc.Fields.push(newField);
+        currentDoc.Values.forEach(row => {
+          if (type === 'integer' || type === 'number') row.push(0);
+          else if (type === 'boolean') row.push(false);
+          else row.push('');
+        });
+      });
+      
+      fieldMapCache.clear();
+      closeModal('modalAddField');
+      if (!document.getElementById('tab-grid').classList.contains('hidden')) renderTable();
+      if (!document.getElementById('tab-schema').classList.contains('hidden')) renderSchema();
+      if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+    };
+
+    
+    // --- MFDB Entity Management (Add / Delete Entity) ---
+    const MFDB_MANIFEST_NAME = '104a.mfdb.bejson';
+    let pendingEntityManifestId = null;
+
+    function getTargetManifestEntry() {
+      const active = loadedTables.find(t => t.id === activeTableId);
+      if (active && classifyBejsonDoc(active.doc) === 'Manifest') return active;
+      if (active && active.resolvedAgainstManifestId) {
+        const linked = loadedTables.find(t => t.id === active.resolvedAgainstManifestId);
+        if (linked) return linked;
+      }
+      return loadedTables.find(t => classifyBejsonDoc(t.doc) === 'Manifest') || null;
+    }
+
+    function updateEntityButtons() {
+      const show = !!getTargetManifestEntry();
+      document.querySelectorAll('.js-entity-btn').forEach(b => b.classList.toggle('hidden', !show));
+    }
+
+    function manifestCols(doc) {
+      const m = getFieldMap(doc);
+      return { name: m['entity_name'], path: m['file_path'] };
+    }
+
+    function refreshManifestLabel(entry) {
+      const c = manifestCols(entry.doc);
+      let resolved = 0;
+      entry.doc.Values.forEach(row => {
+        if (loadedTables.some(t => t !== entry && t.doc && Array.isArray(t.doc.Records_Type) && t.doc.Records_Type[0] === row[c.name])) resolved++;
+      });
+      const base = entry.name.replace(/\s*\(\d+\/\d+ resolved[^)]*\)\s*$/, '');
+      entry.name = base + ' (' + resolved + '/' + entry.doc.Values.length + ' resolved' + (entry.mountRoot ? ', mounted' : '') + ')';
+    }
+
+    function renderVisibleTabs() {
+      renderTableSelect();
+      if (!document.getElementById('tab-grid').classList.contains('hidden')) renderTable();
+      if (!document.getElementById('tab-schema').classList.contains('hidden')) renderSchema();
+      if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+    }
+
+    async function writeDocToHandle(fileHandle, doc) {
+      const w = await fileHandle.createWritable();
+      await w.write(JSON.stringify(doc, null, 2));
+      await w.close();
+    }
+
+    async function writeNewFileToMount(rootHandle, relativePath, doc) {
+      const parts = relativePath.split('/').filter(p => p && p !== '.');
+      let dir = rootHandle;
+      for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i], { create: true });
+      const fh = await dir.getFileHandle(parts[parts.length - 1], { create: true });
+      await writeDocToHandle(fh, doc);
+      return fh;
+    }
+
+    window.openAddEntityModal = function() {
+      const m = getTargetManifestEntry();
+      if (!m) { alert('Load or create an MFDB manifest first.'); return; }
+      document.getElementById('newEntityName').value = '';
+      document.getElementById('newEntityFields').value = '';
+      document.getElementById('addEntityTarget').textContent = 'Target: ' + m.name.replace(/^\[Manifest\]\s*/, '');
+      document.getElementById('modalAddEntity').classList.remove('hidden');
+    };
+
+    window.confirmAddEntity = async function() {
+      const m = getTargetManifestEntry();
+      if (!m) return;
+      const mDoc = m.doc;
+      const c = manifestCols(mDoc);
+      if (c.name === undefined || c.path === undefined) {
+        alert('The manifest is missing the required "entity_name" and/or "file_path" field.');
+        return;
+      }
+      const entityName = document.getElementById('newEntityName').value.trim();
+      if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(entityName) || entityName.toLowerCase() === 'mfdb') {
+        alert('Entity name must start with a letter, contain only letters, digits, or underscores, and cannot be "mfdb".');
+        return;
+      }
+      let names = document.getElementById('newEntityFields').value.split(',').map(s => s.trim()).filter(s => s);
+      if (names.length === 0) names = ['unnamed_field'];
+      const forbidden = ['__proto__', 'constructor', 'prototype', 'Format', 'Format_Version', 'Format_Creator', 'Records_Type', 'Fields', 'Values', 'Parent_Hierarchy'];
+      const badName = names.find(n => forbidden.includes(n));
+      if (badName) { alert('Forbidden field name: ' + badName); return; }
+      if (new Set(names).size !== names.length) { alert('Duplicate field names are not allowed.'); return; }
+
+      const filePath = 'data/' + entityName.toLowerCase() + '.bejson';
+      const clash = mDoc.Values.some(r => String(r[c.name]).toLowerCase() === entityName.toLowerCase() || String(r[c.path]).toLowerCase() === filePath);
+      if (clash) { alert('An entity with that name or file path is already registered in the manifest.'); return; }
+
+      const entityDoc = {
+        Format: 'BEJSON', Format_Version: '104', Format_Creator: 'Elton Boehnen',
+        Parent_Hierarchy: '../' + MFDB_MANIFEST_NAME, Records_Type: [entityName],
+        Fields: names.map(n => ({ name: n, type: 'string' })), Values: []
+      };
+      const mMap = getFieldMap(mDoc);
+      const row = mDoc.Fields.map(() => null);
+      const setCol = (n, v) => { if (mMap[n] !== undefined) row[mMap[n]] = v; };
+      setCol('entity_name', entityName);
+      setCol('file_path', filePath);
+      setCol('description', entityName + ' Entity Table');
+      setCol('record_count', 0);
+      setCol('schema_version', '1.0.0');
+      setCol('primary_key', names[0]);
+      mDoc.Values.push(row);
+
+      const prefix = m.relativePath && m.relativePath.includes('/') ? m.relativePath.slice(0, m.relativePath.lastIndexOf('/') + 1) : '';
+      const entry = pushLoadedTable(entityDoc, entityName.toLowerCase() + '.bejson', { relativePath: prefix + filePath, resolvedAgainstManifestId: m.id, savedSnapshot: null });
+
+      if (m.mountRoot) {
+        try {
+          entry.fileHandle = await writeNewFileToMount(m.mountRoot, filePath, entityDoc);
+          if (m.fileHandle) await writeDocToHandle(m.fileHandle, mDoc);
+        } catch (e) {
+          alert('Entity added in the editor, but writing to the mounted folder failed (' + e.message + '). Use Save File or Export ZIP to persist it.');
+        }
+      }
+
+      refreshManifestLabel(m);
+      activeTableId = entry.id;
+      currentDoc = entityDoc;
+      fieldMapCache.clear();
+      closeModal('modalAddEntity');
+      renderVisibleTabs();
+    };
+
+    window.openDeleteEntityModal = function() {
+      const m = getTargetManifestEntry();
+      if (!m) { alert('Load or create an MFDB manifest first.'); return; }
+      const c = manifestCols(m.doc);
+      if (c.name === undefined) { alert('The manifest is missing the required "entity_name" field.'); return; }
+      if (m.doc.Values.length === 0) { alert('This manifest has no entities to delete.'); return; }
+      pendingEntityManifestId = m.id;
+      const active = loadedTables.find(t => t.id === activeTableId);
+      const sel = document.getElementById('deleteEntitySelect');
+      sel.innerHTML = '';
+      m.doc.Values.forEach((row, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = String(row[c.name]);
+        if (active && active.doc && Array.isArray(active.doc.Records_Type) && active.doc.Records_Type[0] === row[c.name]) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      document.getElementById('deleteEntityTarget').textContent = 'Target: ' + m.name.replace(/^\[Manifest\]\s*/, '');
+      document.getElementById('modalDeleteEntity').classList.remove('hidden');
+    };
+
+    window.confirmDeleteEntity = function() {
+      const m = loadedTables.find(t => t.id === pendingEntityManifestId);
+      if (!m) { closeModal('modalDeleteEntity'); return; }
+      const idx = parseInt(document.getElementById('deleteEntitySelect').value, 10);
+      const row = m.doc.Values[idx];
+      if (!row) { closeModal('modalDeleteEntity'); return; }
+      const c = manifestCols(m.doc);
+      const name = row[c.name];
+      const victim = loadedTables.find(t => t !== m && classifyBejsonDoc(t.doc) === 'Entity'
+        && Array.isArray(t.doc.Records_Type) && t.doc.Records_Type[0] === name
+        && (!t.resolvedAgainstManifestId || t.resolvedAgainstManifestId === m.id));
+      if (victim && victim.doc.Values.length > 0 && !confirm('Entity "' + name + '" holds ' + victim.doc.Values.length + ' record(s). Unload it and remove it from the manifest?')) return;
+
+      m.doc.Values.splice(idx, 1);
+      if (victim) loadedTables.splice(loadedTables.indexOf(victim), 1);
+      if (victim && activeTableId === victim.id) { activeTableId = m.id; currentDoc = m.doc; }
+      refreshManifestLabel(m);
+      fieldMapCache.clear();
+      closeModal('modalDeleteEntity');
+      renderVisibleTabs();
+    };
+
+    ['btnAddEntity', 'btnAddEntitySchema'].forEach(id => document.getElementById(id)?.addEventListener('click', openAddEntityModal));
+    ['btnDeleteEntity', 'btnDeleteEntitySchema'].forEach(id => document.getElementById(id)?.addEventListener('click', openDeleteEntityModal));
+
+    window.deleteRow = function(rIdx) {
+      if (confirm('⚠ Delete record #' + (rIdx + 1) + '?\n\nThis permanently removes the entire record. Deleting is NOT recoverable — there is no undo.')) {
+        currentDoc.Values.splice(rIdx, 1);
+        renderTable();
+        if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+      }
+    };
+
+    window.deleteField = function(cIdx) {
+      
+      if (confirm('⚠ Delete field "' + currentDoc.Fields[cIdx].name + '"?\n\nThis removes the WHOLE COLUMN: the field definition AND its value in all ' + currentDoc.Values.length + ' record(s). Deleting is NOT recoverable — there is no undo.')) {
+        currentDoc.Fields.splice(cIdx, 1);
+        currentDoc.Values.forEach(row => {
+          row.splice(cIdx, 1);
+        });
+        fieldMapCache.clear();
+        if (!document.getElementById('tab-grid').classList.contains('hidden')) renderTable();
+        if (!document.getElementById('tab-schema').classList.contains('hidden')) renderSchema();
+      }
+    };
+
+    // --- Cell / Row Encryption ---
+    // AES-GCM 256, PBKDF2-SHA256 100k iterations, 16-byte salt, 12-byte IV -- same parameters as
+    // CryptoUtils in lib_bejson_Core_bejson_core (JS/TS). Cells are stored as the string form
+    // "ENC:AES-GCM:<salt_b64>:<iv_b64>:<ct_b64>" (the TS library's write format; the JS library
+    // reads it too). Plaintext is JSON.stringify(value), so the original type is restored on decrypt.
+    // The object form {_enc:"AES-GCM",salt,iv,ct} written by the JS library is also recognised.
+    const ENC_PREFIX = 'ENC:AES-GCM:';
+    const ENC_PBKDF2_ITERATIONS = 100000;
+
+    function isEncryptedCell(val) {
+      if (typeof val === 'string') return val.indexOf(ENC_PREFIX) === 0 && val.split(':').length === 5;
+      return !!(val && typeof val === 'object' && !Array.isArray(val) && val._enc === 'AES-GCM');
+    }
+
+    function cryptoEligible(cIdx, val) {
+      const name = currentDoc.Fields[cIdx] ? currentDoc.Fields[cIdx].name : '';
+      return val !== null && val !== undefined && name !== 'is_encrypted' && name !== 'Record_Type_Parent' && !isEncryptedCell(val);
+    }
+
+    function cryptoBytesToB64(buf) {
+      const b = new Uint8Array(buf); let s = '';
+      for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+      return btoa(s);
+    }
+    function cryptoB64ToBytes(b64) {
+      const s = atob(b64); const out = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+      return out;
+    }
+
+    async function cryptoDeriveKey(password, saltBytes) {
+      const material = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+      return window.crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: saltBytes, iterations: ENC_PBKDF2_ITERATIONS, hash: 'SHA-256' },
+        material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    }
+
+    async function cryptoEncryptValue(val, key, saltB64) {
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const ct = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(JSON.stringify(val)));
+      return ENC_PREFIX + saltB64 + ':' + cryptoBytesToB64(iv) + ':' + cryptoBytesToB64(ct);
+    }
+
+    function cryptoParseCell(cell) {
+      if (typeof cell === 'string') {
+        const p = cell.split(':');
+        return { salt: p[2], iv: p[3], ct: p[4] };
+      }
+      return { salt: cell.salt, iv: cell.iv, ct: cell.ct };
+    }
+
+    async function cryptoDecryptValue(cell, password, keyBySalt) {
+      const parts = cryptoParseCell(cell);
+      if (typeof parts.salt !== 'string' || typeof parts.iv !== 'string' || typeof parts.ct !== 'string') throw new Error('Malformed encrypted cell');
+      if (cryptoB64ToBytes(parts.salt).length !== 16 || cryptoB64ToBytes(parts.iv).length !== 12) throw new Error('Malformed encrypted cell (bad salt or IV length)');
+      let key = keyBySalt[parts.salt];
+      if (!key) { key = await cryptoDeriveKey(password, cryptoB64ToBytes(parts.salt)); keyBySalt[parts.salt] = key; }
+      const plain = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: cryptoB64ToBytes(parts.iv) }, key, cryptoB64ToBytes(parts.ct));
+      return JSON.parse(new TextDecoder().decode(plain));
+    }
+
+    // Mirrors the library: if the doc has an is_encrypted field, keep it in sync with the row.
+    function cryptoSyncFlag(rIdx) {
+      const ie = currentDoc.Fields.findIndex(f => f.name === 'is_encrypted');
+      if (ie === -1 || currentDoc.Fields[ie].type !== 'boolean') return;
+      const row = currentDoc.Values[rIdx];
+      row[ie] = row.some((v, i) => i !== ie && isEncryptedCell(v));
+    }
+
+    let cryptoPwResolve = null;
+    let cryptoPwNeedConfirm = false;
+    function askPassword(title, needConfirm, hint) {
+      return new Promise(resolve => {
+        cryptoPwResolve = resolve;
+        cryptoPwNeedConfirm = needConfirm;
+        document.getElementById('cryptoPwTitle').textContent = title;
+        document.getElementById('cryptoPwHint').textContent = hint || '';
+        document.getElementById('cryptoPwError').textContent = '';
+        const a = document.getElementById('cryptoPwInput'); a.value = '';
+        const b = document.getElementById('cryptoPwConfirm'); b.value = '';
+        b.classList.toggle('hidden', !needConfirm);
+        document.getElementById('modalCryptoPassword').classList.remove('hidden');
+        setTimeout(() => a.focus(), 0);
+      });
+    }
+    window.confirmCryptoPassword = function() {
+      const pw = document.getElementById('cryptoPwInput').value;
+      const err = document.getElementById('cryptoPwError');
+      if (!pw) { err.textContent = 'Enter a password.'; return; }
+      if (cryptoPwNeedConfirm && pw.length < MIN_ENCRYPT_PASSWORD_LENGTH) { err.textContent = 'Use at least ' + MIN_ENCRYPT_PASSWORD_LENGTH + ' characters.'; return; }
+      if (cryptoPwNeedConfirm && pw !== document.getElementById('cryptoPwConfirm').value) { err.textContent = 'Passwords do not match.'; return; }
+      document.getElementById('cryptoPwInput').value = '';
+      document.getElementById('cryptoPwConfirm').value = '';
+      closeModal('modalCryptoPassword');
+      if (cryptoPwResolve) { const r = cryptoPwResolve; cryptoPwResolve = null; r(pw); }
+    };
+    window.cancelCryptoPassword = function() {
+      document.getElementById('cryptoPwInput').value = '';
+      document.getElementById('cryptoPwConfirm').value = '';
+      closeModal('modalCryptoPassword');
+      if (cryptoPwResolve) { const r = cryptoPwResolve; cryptoPwResolve = null; r(null); }
+    };
+    ['cryptoPwInput', 'cryptoPwConfirm'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') confirmCryptoPassword(); });
+    });
+
+    function cryptoRefreshViews() {
+      renderTable();
+      const raw = document.getElementById('tab-raw-schema');
+      if (raw && !raw.classList.contains('hidden')) renderRawSchema();
+    }
+
+    // Encrypts the given columns of one row. All-or-nothing: nothing is written unless every cell succeeds.
+    async function encryptRowCells(rIdx, cIdxList, label) {
+      if (!window.crypto || !window.crypto.subtle) { alert('Encryption is unavailable here: this browser context has no Web Crypto (needs https:// or a local file/localhost).'); return; }
+      const row = currentDoc.Values[rIdx];
+      const targets = cIdxList.filter(c => cryptoEligible(c, row[c]));
+      if (targets.length === 0) { alert('Nothing to encrypt: no non-empty, unencrypted cells in the selection.'); return; }
+      const pw = await askPassword('Encrypt ' + label, true, 'AES-256-GCM. A lost password cannot be recovered.');
+      if (pw === null) return;
+      try {
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const saltB64 = cryptoBytesToB64(salt);
+        const key = await cryptoDeriveKey(pw, salt);
+        const results = [];
+        for (const c of targets) results.push([c, await cryptoEncryptValue(row[c], key, saltB64)]);
+        results.forEach(pair => { row[pair[0]] = pair[1]; });
+        cryptoSyncFlag(rIdx);
+        cryptoRefreshViews();
+      } catch (e) {
+        alert('Encryption failed: ' + e.message + '\n\nNothing was changed.');
+      }
+    }
+
+    async function decryptRowCells(rIdx, cIdxList, label) {
+      if (!window.crypto || !window.crypto.subtle) { alert('Decryption is unavailable here: this browser context has no Web Crypto.'); return; }
+      const row = currentDoc.Values[rIdx];
+      const targets = cIdxList.filter(c => isEncryptedCell(row[c]));
+      if (targets.length === 0) { alert('Nothing to decrypt: no encrypted cells in the selection.'); return; }
+      const pw = await askPassword('Decrypt ' + label, false, '');
+      if (pw === null) return;
+      try {
+        const keyBySalt = {};
+        const results = [];
+        for (const c of targets) results.push([c, await cryptoDecryptValue(row[c], pw, keyBySalt)]);
+        results.forEach(pair => { row[pair[0]] = pair[1]; });
+        cryptoSyncFlag(rIdx);
+        cryptoRefreshViews();
+      } catch (e) {
+        alert('Decryption failed: wrong password or corrupted data.\n\nNothing was changed.');
+      }
+    }
+
+    function allColumns() { return currentDoc.Fields.map((f, i) => i); }
+
+    // Menu entries shared by the row and cell context menus.
+    function cryptoRowMenuItems(rIdx) {
+      const row = currentDoc.Values[rIdx];
+      const items = [];
+      if (row.some((v, i) => cryptoEligible(i, v))) items.push({ label: '🔒 Encrypt Record…', action: () => encryptRowCells(rIdx, allColumns(), 'record #' + (rIdx + 1)) });
+      if (row.some(v => isEncryptedCell(v))) items.push({ label: '🔓 Decrypt Record…', action: () => decryptRowCells(rIdx, allColumns(), 'record #' + (rIdx + 1)) });
+      return items;
+    }
+
+    function renderTable() {
+      renderTableSelect();
+      updateEntityButtons();
+      renderStatusBanner();
+      const btnHeaders = document.getElementById("btnEditHeaders");
+      if (btnHeaders) {
+        if (currentDoc.Format_Version && currentDoc.Format_Version.includes('a')) {
+          btnHeaders.classList.remove('hidden');
+        } else {
+          btnHeaders.classList.add('hidden');
+        }
+      }
+      const headerRow = document.getElementById("tableHeaderRow");
+      const tbody = document.getElementById("tableBody");
+      const query = document.getElementById("searchInput").value.toLowerCase().trim();
+
+      const btnToggleUuid = document.getElementById('btnToggleUuid');
+      btnToggleUuid.classList.add('hidden');
+
+      headerRow.innerHTML = '<th style="width: 30px; text-align: center;"><input type="checkbox" id="selectAllRows" aria-label="Select all records"></th>';
+
+      currentDoc.Fields.forEach((f, cIdx) => {
+        headerRow.innerHTML += `<th class="field-header" data-col="${cIdx}" style="cursor: pointer;">${escapeHTML(f.name)} <span style="font-size: 10px; color: #767676;">[${escapeHTML(f.type)}]</span></th>`;
+      });
+      
+      tbody.innerHTML = '';
+      let drawnRows = 0, matchedRows = 0;
+      currentDoc.Values.forEach((row, rIdx) => {
+        if (query && !row.some(val => !isEncryptedCell(val) && String(val).toLowerCase().includes(query))) return;
+        matchedRows++;
+        if (drawnRows >= MAX_RENDER_ROWS) return;
+        drawnRows++;
+        
+        const tr = document.createElement("tr");
+        let html = `<td class="row-index" data-row="${rIdx}" style="text-align: center; cursor: pointer; background: rgba(0,0,0,0.02);"><input type="checkbox" class="row-checkbox" data-row="${rIdx}"></td>`;
+        
+        currentDoc.Fields.forEach((field, cIdx) => {
+          const cellVal = row[cIdx];
+          if (isEncryptedCell(cellVal)) {
+            html += `<td><input type="text" class="table-cell-input cell-encrypted" readonly title="Encrypted (AES-GCM). Right-click or long-press to decrypt." data-row="${rIdx}" data-col="${cIdx}" value="🔒 encrypted"></td>`;
+            return;
+          }
+          const isObjOrArrCell = typeof cellVal === 'object' && cellVal !== null;
+          const displayVal = cellVal === null ? '' : (isObjOrArrCell ? JSON.stringify(cellVal) : String(cellVal));
+          html += `<td><input type="text" class="table-cell-input" data-row="${rIdx}" data-col="${cIdx}" value="${escapeHTML(displayVal)}"></td>`;
+        });
+        
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+      if (matchedRows > drawnRows) {
+        const noteTr = document.createElement('tr');
+        const noteTd = document.createElement('td');
+        noteTd.colSpan = currentDoc.Fields.length + 1;
+        noteTd.style.cssText = 'text-align: center; padding: 12px; color: #DE2626; font-weight: bold;';
+        noteTd.textContent = 'Showing the first ' + drawnRows + ' of ' + matchedRows + ' records. Use Search to narrow the list. All records are kept and saved.';
+        noteTr.appendChild(noteTd); tbody.appendChild(noteTr);
+      }
+
+      // Bind Inputs (real-time live schema updates on input & change)
+      document.querySelectorAll('.table-cell-input').forEach(input => {
+        const handleCellUpdate = function() {
+          const r = parseInt(this.getAttribute('data-row'));
+          const c = parseInt(this.getAttribute('data-col'));
+          updateCellData(r, c, this.value);
+        };
+        input.addEventListener('change', handleCellUpdate);
+        input.addEventListener('input', handleCellUpdate);
+      });
+
+      // Bind Context Menus
+      bindLongPress(document.querySelectorAll('.row-index'), (e, el) => {
+        const rIdx = parseInt(el.getAttribute('data-row'));
+        showContextMenu(e, [
+          { label: 'Record #' + (rIdx + 1) + ' Options', action: () => {} }, // Display pseudo-title
+          { label: 'Advanced Edit Record', action: () => openCellEditor(rIdx, 0) }, // fallback
+          { label: 'Duplicate Record', action: () => {
+            const rowToCopy = [...currentDoc.Values[rIdx]];
+            currentDoc.Values.splice(rIdx + 1, 0, rowToCopy);
+            renderTable();
+            if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+          }},
+          ...cryptoRowMenuItems(rIdx),
+          { label: 'Delete Record', action: () => deleteRow(rIdx) }
+        ]);
+      });
+
+      bindLongPress(document.querySelectorAll('.field-header'), (e, el) => {
+        const cIdx = parseInt(el.getAttribute('data-col'));
+        showContextMenu(e, [
+          { label: 'Edit Field', action: () => openEditFieldModal(cIdx) },
+          { label: 'Delete Field', action: () => deleteField(cIdx) }
+        ]);
+      });
+
+      bindLongPress(document.querySelectorAll('.table-cell-input'), (e, el) => {
+        const rIdx = parseInt(el.getAttribute('data-row'));
+        const cIdx = parseInt(el.getAttribute('data-col'));
+        const cellVal = currentDoc.Values[rIdx][cIdx];
+        const cellIsEnc = isEncryptedCell(cellVal);
+        const items = [];
+        if (!cellIsEnc) items.push({ label: 'Advanced Edit', action: () => openCellEditor(rIdx, cIdx) });
+        items.push({ label: 'Copy Cell', action: () => { const val = currentDoc.Values[rIdx][cIdx]; navigator.clipboard.writeText(typeof val === 'object' ? JSON.stringify(val) : String(val)); } });
+        if (!cellIsEnc) items.push({ label: 'Paste Cell', action: async () => { 
+            try { 
+              const text = await navigator.clipboard.readText(); 
+              el.value = text; 
+              updateCellData(rIdx, cIdx, text);
+            } catch(err) { alert('Paste failed: ' + err); } 
+          } 
+        });
+        if (cellIsEnc) items.push({ label: '🔓 Decrypt Cell…', action: () => decryptRowCells(rIdx, [cIdx], 'cell') });
+        else if (cryptoEligible(cIdx, cellVal)) items.push({ label: '🔒 Encrypt Cell…', action: () => encryptRowCells(rIdx, [cIdx], 'cell') });
+        cryptoRowMenuItems(rIdx).forEach(it => items.push(it));
+        items.push({ label: '🗑 Delete Record', action: () => deleteRow(rIdx) });
+        items.push({ label: '🗑 Delete Field (Column) "' + currentDoc.Fields[cIdx].name + '"', action: () => deleteField(cIdx) });
+        showContextMenu(e, items);
+      });
+
+      // Selection Checkboxes
+      const toggleDeleteSelectedBtn = () => {
+        const checked = document.querySelectorAll('.row-checkbox:checked').length;
+        const btn = document.getElementById('btnDeleteSelected');
+        if (checked > 0) btn.classList.remove('hidden');
+        else btn.classList.add('hidden');
+        renderStatusBanner();
+      };
+
+      const selectAll = document.getElementById('selectAllRows');
+      if (selectAll) {
+        selectAll.addEventListener('change', function() {
+          document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = this.checked);
+          toggleDeleteSelectedBtn();
+        });
+      }
+      document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.addEventListener('change', toggleDeleteSelectedBtn);
+      });
+    }
+
+    document.getElementById('btnDeleteSelected')?.addEventListener('click', () => {
+      const cbs = document.querySelectorAll('.row-checkbox');
+      const toDelete = [];
+      cbs.forEach((cb) => {
+        if (cb.checked) toDelete.push(parseInt(cb.getAttribute('data-row')));
+      });
+      // Sort descending to not mess up indices during splice
+      toDelete.sort((a, b) => b - a);
+      if (toDelete.length > 0 && confirm(`Delete ${toDelete.length} selected ${toDelete.length === 1 ? 'record' : 'records'}?`)) {
+        for (let i = 0; i < toDelete.length; i++) {
+          currentDoc.Values.splice(toDelete[i], 1);
+        }
+        renderTable();
+        if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+      }
+    });
+
+    
+    window.renderRawSchema = function() {
+      if (!currentDoc) return;
+      const pre = document.getElementById('rawSchemaPre');
+      if (!pre) return;
+      
+      const chk = document.getElementById('chkRawSchemaIncludeValues');
+      const includeValues = chk ? chk.checked : true;
+      
+      let docToDisplay;
+      if (includeValues && currentDoc.Values.length > MAX_RAW_ROWS) {
+        const shown = currentDoc.Values.slice(0, MAX_RAW_ROWS);
+        shown.push(['… ' + (currentDoc.Values.length - MAX_RAW_ROWS) + ' more records not shown in this view (Copy / Save / Download still include everything) …']);
+        docToDisplay = { ...currentDoc, Values: shown };
+      } else if (includeValues) {
+        docToDisplay = currentDoc;
+      } else {
+        const schemaOnly = { ...currentDoc };
+        delete schemaOnly.Values;
+        docToDisplay = schemaOnly;
+      }
+      
+      const jsonStr = JSON.stringify(docToDisplay, null, 2);
+      
+      // JSON syntax highlighter targeting keys and string/number/bool values
+      const formattedHTML = jsonStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/("(\u[a-zA-Z0-9]{4}|\[^u]|[^\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, function (match) {
+          if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+              return '<span class="json-key">' + match + '</span>';
+            } else {
+              return '<span class="json-string">' + match + '</span>';
+            }
+          } else if (/true|false/.test(match)) {
+            return '<span class="json-boolean">' + match + '</span>';
+          } else if (/null/.test(match)) {
+            return '<span class="json-null">' + match + '</span>';
+          } else {
+            return '<span class="json-number">' + match + '</span>';
+          }
+        });
+        
+      pre.innerHTML = formattedHTML;
+    };
+
+    window.rawSchemaCopy = function() {
+      if (!currentDoc) return;
+      const chk = document.getElementById('chkRawSchemaIncludeValues');
+      const includeValues = chk ? chk.checked : true;
+      const full = includeValues ? currentDoc : (() => { const s = { ...currentDoc }; delete s.Values; return s; })();
+      navigator.clipboard.writeText(JSON.stringify(full, null, 2)).catch(err => alert("Copy failed: " + err));
+    };
+
+    window.rawSchemaSelectAll = function() {
+      const pre = document.getElementById('rawSchemaPre');
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    };
+    window.saveRawSchema = function() {
+      if (!currentDoc) return;
+      const chk = document.getElementById('chkRawSchemaIncludeValues');
+      const includeValues = chk ? chk.checked : true;
+      const docToSave = includeValues ? currentDoc : (() => { const s = { ...currentDoc }; delete s.Values; return s; })();
+      const str = JSON.stringify(docToSave, null, 2);
+      const blob = new Blob([str], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      let filename = "schema.json";
+      if (currentDoc.Records_Type && currentDoc.Records_Type.length > 0) {
+        filename = `${currentDoc.Records_Type[0]}.bejson`;
+      }
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+    
+    
+    function renderSchema() {
+      updateEntityButtons();
+
+      const tbody = document.getElementById("schemaBody");
+      tbody.innerHTML = '';
+      currentDoc.Fields.forEach((f, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="text-align: center; color: #767676;">${idx}</td>
+          <td><input type="text" class="text-input" style="width: 100%; box-sizing: border-box;" value="${escapeHTML(f.name)}" data-idx="${idx}" data-prop="name"></td>
+          <td>
+            <select class="text-input" style="width: 100%;" data-idx="${idx}" data-prop="type">
+              <option value="string" ${f.type === 'string' ? 'selected' : ''}>string</option>
+              <option value="integer" ${f.type === 'integer' ? 'selected' : ''}>integer</option>
+              <option value="number" ${f.type === 'number' ? 'selected' : ''}>number</option>
+              <option value="boolean" ${f.type === 'boolean' ? 'selected' : ''}>boolean</option>
+              <option value="array" ${f.type === 'array' ? 'selected' : ''}>array</option>
+              <option value="object" ${f.type === 'object' ? 'selected' : ''}>object</option>
+            </select>
+          </td>
+          <td><button class="btn" data-click="deleteField" data-arg="${idx}">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('change', function() {
+          const idx = parseInt(this.getAttribute('data-idx'));
+          const prop = this.getAttribute('data-prop');
+          if (prop === 'name') {
+            const nv = this.value.trim();
+            if (!nv || ['__proto__', 'constructor', 'prototype'].includes(nv)) {
+              alert('A field name cannot be empty or a reserved word (__proto__, constructor, prototype).');
+              this.value = currentDoc.Fields[idx].name;
+              return;
+            }
+            this.value = nv;
+            currentDoc.Fields[idx].name = nv;
+          } else {
+            currentDoc.Fields[idx][prop] = this.value;
+          }
+          fieldMapCache.clear();
+          renderStatusBanner();
+          if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+        });
+      });
+    }
+
+    // Custom Headers Manager
+    const CORE_HEADERS = ['Format', 'Format_Version', 'Format_Creator', 'Fields', 'Values', 'Records_Type', 'DB_Name', 'Network_Role', 'Parent_Hierarchy'];
+    let tempHeaders = Object.create(null);
+    let headerOriginalTypes = Object.create(null);
+    // Editing an existing header keeps its JSON type (90 -> 120 stays a number, not "120").
+    function coerceHeaderValue(origType, text) {
+      if (origType === 'number') { const n = Number(text); return (text.trim() !== '' && isFinite(n)) ? n : text; }
+      if (origType === 'boolean') { if (text.trim() === 'true') return true; if (text.trim() === 'false') return false; return text; }
+      if (origType === 'object') { try { return JSON.parse(text); } catch (e) { return text; } }
+      return text;
+    }
+    window.openEditHeadersModal = function() {
+      tempHeaders = Object.create(null);
+      headerOriginalTypes = Object.create(null);
+      if (currentDoc) {
+        Object.keys(currentDoc).forEach(k => {
+          if (!CORE_HEADERS.includes(k) && !['__proto__', 'constructor', 'prototype'].includes(k)) {
+            tempHeaders[k] = currentDoc[k];
+            headerOriginalTypes[k] = (currentDoc[k] !== null && typeof currentDoc[k] === 'object') ? 'object' : typeof currentDoc[k];
+          }
+        });
+      }
+      renderCustomHeadersList();
+      document.getElementById('modalEditHeaders').classList.remove('hidden');
+    };
+    function renderCustomHeadersList() {
+      const container = document.getElementById('headersContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      const keys = Object.keys(tempHeaders);
+      if (keys.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: #767676; padding: 8px 0;">No custom headers defined.</div>';
+        return;
+      }
+      keys.forEach(k => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.marginBottom = '8px';
+        row.style.alignItems = 'center';
+        // Built with DOM APIs, never inline JS: header keys come from the loaded file and are untrusted.
+        const keyInp = document.createElement('input');
+        keyInp.type = 'text'; keyInp.className = 'text-input'; keyInp.readOnly = true; keyInp.value = k;
+        keyInp.style.cssText = 'flex: 1; background: rgba(0,0,0,0.05); font-weight: bold;';
+        const valInp = document.createElement('input');
+        valInp.type = 'text'; valInp.className = 'text-input header-val-input';
+        valInp.value = (tempHeaders[k] !== null && typeof tempHeaders[k] === 'object') ? JSON.stringify(tempHeaders[k]) : String(tempHeaders[k]);
+        valInp.setAttribute('data-key', k); valInp.style.cssText = 'flex: 2;';
+        const rmBtn = document.createElement('button');
+        rmBtn.className = 'btn'; rmBtn.style.cssText = 'padding: 4px 8px; font-size: 11px;'; rmBtn.textContent = '✕';
+        rmBtn.addEventListener('click', () => removeCustomHeader(k));
+        row.appendChild(keyInp); row.appendChild(valInp); row.appendChild(rmBtn);
+        container.appendChild(row);
+      });
+      container.querySelectorAll('.header-val-input').forEach(inp => {
+        inp.addEventListener('input', function() {
+          const k = this.getAttribute('data-key');
+          tempHeaders[k] = coerceHeaderValue(headerOriginalTypes[k], this.value);
+        });
+      });
+    }
+    window.addCustomHeader = function() {
+      const key = document.getElementById('newHeaderKey').value.trim();
+      const val = document.getElementById('newHeaderValue').value.trim();
+      if (!key) return;
+      if (CORE_HEADERS.includes(key)) {
+        alert('Cannot overwrite standard core header: ' + key);
+        return;
+      }
+      if (['__proto__', 'constructor', 'prototype'].includes(key)) {
+        alert('"' + key + '" is a reserved JavaScript property name and cannot be used as a custom header key.');
+        return;
+      }
+      tempHeaders[key] = val;
+      document.getElementById('newHeaderKey').value = '';
+      document.getElementById('newHeaderValue').value = '';
+      renderCustomHeadersList();
+    };
+    window.removeCustomHeader = function(k) {
+      delete tempHeaders[k];
+      renderCustomHeadersList();
+    };
+    window.saveCustomHeaders = function() {
+      if (!currentDoc) return;
+      Object.keys(currentDoc).forEach(k => {
+        if (!CORE_HEADERS.includes(k) && !(k in tempHeaders)) {
+          delete currentDoc[k];
+        }
+      });
+      Object.keys(tempHeaders).forEach(k => {
+        currentDoc[k] = tempHeaders[k];
+      });
+      canonicalizeKeyOrder(currentDoc); // custom headers belong above Records_Type/Fields/Values, never after Values
+      closeModal('modalEditHeaders');
+      renderStatusBanner();
+      if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+    };
+
+    // --- Actions ---
+
+    document.getElementById('btnEditHeaders')?.addEventListener('click', openEditHeadersModal);
+
+    document.getElementById('btnToggleUuid').addEventListener('click', () => {
+      hideUuidColumn = !hideUuidColumn;
+      renderTable();
+    });
+
+    document.getElementById('btnAddRow').addEventListener('click', () => {
+      const newRow = currentDoc.Fields.map(f => {
+        if (f.type === 'integer' || f.type === 'number') return 0;
+        if (f.type === 'boolean') return false;
+        return '';
+      });
+      currentDoc.Values.push(newRow);
+      renderTable();
+      if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+    });
+
+    
+
+    // --- Hub Create & Load (.bejson / .json) ---
+    function triggerFileInput() {
+      // Create a fresh file input on each invocation to ensure NO accept filter restricts .bejson on mobile/desktop
+      const tempInput = document.createElement('input');
+      tempInput.type = 'file';
+      tempInput.style.display = 'none';
+      tempInput.onchange = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) handleFileImport(file);
+      };
+      document.body.appendChild(tempInput);
+      tempInput.click();
+      setTimeout(() => {
+        try { document.body.removeChild(tempInput); } catch(e) {}
+      }, 60000);
+    }
+
+    const dropBtn = document.getElementById('btnDropZoneImport');
+    if (dropBtn) dropBtn.addEventListener('click', triggerFileInput);
+    const headerImportBtn = document.getElementById('btnImportHeader');
+    if (headerImportBtn) headerImportBtn.addEventListener('click', triggerFileInput);
+
+    // --- MFDB Discovery Algorithm (Phase 1) ---
+    function classifyBejsonDoc(doc) {
+      if (!doc || typeof doc !== 'object') return 'Standalone';
+      if (doc.Format_Version === '104a' && Array.isArray(doc.Records_Type) && doc.Records_Type.length === 1 && doc.Records_Type[0] === 'mfdb') {
+        return 'Manifest';
+      }
+      if (typeof doc.Parent_Hierarchy === 'string' && doc.Parent_Hierarchy.trim() !== '') {
+        return 'Entity';
+      }
+      return 'Standalone';
+    }
+
+    function normalizeDoc(doc, fileName) {
+      if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+        throw new Error("Parsed content is not a valid JSON/BEJSON object.");
+      }
+
+      const forbidden = ['__proto__', 'constructor', 'prototype'];
+      if (doc.Fields && Array.isArray(doc.Fields)) {
+        for (const f of doc.Fields) {
+          if (f && f.name && forbidden.includes(f.name)) {
+            throw new Error('Forbidden field name in import: ' + f.name);
+          }
+        }
+      }
+
+      // Ensure mandatory arrays and structures for table editor rendering
+      if (!Array.isArray(doc.Fields)) doc.Fields = [];
+      doc.Fields = doc.Fields.map((f, i) => {
+        if (typeof f === 'string') return { name: f, type: 'string' };
+        if (f && typeof f === 'object' && typeof f.name === 'string' && f.name) return f;
+        if (f && typeof f === 'object' && typeof f.name === 'number') { f.name = String(f.name); return f; }
+        return { name: 'field_' + (i + 1), type: 'string' };
+      });
+      doc.Fields.forEach(f => {
+        if (['__proto__', 'constructor', 'prototype'].includes(f.name)) throw new Error('Forbidden field name in import: ' + f.name);
+      });
+      if (!Array.isArray(doc.Values)) doc.Values = [];
+      for (let i = 0; i < doc.Values.length; i++) {
+        if (!Array.isArray(doc.Values[i])) throw new Error('Record ' + (i + 1) + ' in Values is not an array; refusing to load a structurally corrupt file.');
+      }
+      if (!doc.Format) doc.Format = "BEJSON";
+      if (!doc.Format_Version) doc.Format_Version = "104";
+      if (!doc.Format_Creator) doc.Format_Creator = "Elton Boehnen";
+      if (!Array.isArray(doc.Records_Type) || doc.Records_Type.length === 0) {
+        const rawName = (fileName || "ImportedTable").replace(/\.(bejson|json)$/i, '') || "ImportedTable";
+        doc.Records_Type = [rawName];
+      }
+      return canonicalizeKeyOrder(doc);
+    }
+
+    function classificationTag(cls) {
+      if (cls === 'Manifest') return '[Manifest] ';
+      if (cls === 'Entity') return '[Entity] ';
+      return '';
+    }
+
+    // Pushes one normalized doc into loadedTables. No UI refresh -- caller decides when.
+    // Returns the loadedTables entry created.
+    function pushLoadedTable(doc, fileName, extra) {
+      const cls = classifyBejsonDoc(doc);
+      const newId = "tbl_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+      const entry = Object.assign({
+        id: newId,
+        name: classificationTag(cls) + (fileName || ("Table_" + (loadedTables.length + 1))),
+        doc: doc,
+        classification: cls,
+        sourceFileName: fileName || null,
+        relativePath: null,
+        fileHandle: null
+      }, extra || {});
+      if (entry.savedSnapshot === undefined) entry.savedSnapshot = JSON.stringify(doc); // loaded from disk/ZIP: clean
+      loadedTables.push(entry);
+      syncModeFromLoaded();
+      return entry;
+    }
+
+    function ingestDocument(doc, fileName) {
+      doc = normalizeDoc(doc, fileName);
+      const val = validateBEJSON(doc);
+      const entry = pushLoadedTable(doc, fileName);
+      activeTableId = entry.id;
+      currentDoc = doc;
+      fieldMapCache.clear();
+      renderTableSelect();
+      unlockTabs();
+      switchTab('tab-grid');
+
+      if (!val.valid) {
+        console.warn("Imported .bejson document has validation alerts:", val.errors);
+      }
+    }
+
+    function handleFileImport(file) {
+      if (!file) return;
+      if (file.size > MAX_FILE_BYTES) { alert('"' + file.name + '" is ' + Math.round(file.size / 1048576) + ' MB; the editor limit is ' + (MAX_FILE_BYTES / 1048576) + ' MB per file.'); return; }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          let rawText = ev.target.result;
+          if (typeof rawText === 'string') {
+            rawText = rawText.replace(/^\uFEFF/, '').trim();
+          }
+          const doc = JSON.parse(rawText);
+          ingestDocument(doc, file.name);
+        } catch(err) {
+          alert("Error importing .bejson file: " + err.message);
+        }
+      };
+      reader.onerror = () => {
+        alert("Failed to read file: " + file.name);
+      };
+      reader.readAsText(file);
+    }
+
+    // --- Phase 2: Broadened Manual Loading (multiple files / whole folder) ---
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        if (file.size > MAX_FILE_BYTES) { reject(new Error('"' + file.name + '" exceeds the ' + (MAX_FILE_BYTES / 1048576) + ' MB per-file limit.')); return; }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          let text = ev.target.result;
+          if (typeof text === 'string') text = text.replace(/^\uFEFF/, '').trim();
+          resolve(text);
+        };
+        reader.onerror = () => reject(new Error("Failed to read file: " + file.name));
+        reader.readAsText(file);
+      });
+    }
+
+    async function ingestMultipleFiles(fileList) {
+      const files = Array.from(fileList).filter(f => /\.(bejson|json)$/i.test(f.name));
+      if (files.length === 0) {
+        alert("No .bejson or .json files found in the selection.");
+        return;
+      }
+      const loadedEntries = [];
+      const failures = [];
+      for (const file of files) {
+        try {
+          const text = await readFileAsText(file);
+          const doc = normalizeDoc(JSON.parse(text), file.name);
+          const relPath = file.webkitRelativePath && file.webkitRelativePath.trim() !== '' ? file.webkitRelativePath : null;
+          const entry = pushLoadedTable(doc, file.name, { relativePath: relPath });
+          loadedEntries.push(entry);
+        } catch (err) {
+          failures.push(file.name + ": " + err.message);
+        }
+      }
+      fieldMapCache.clear();
+      renderTableSelect();
+      if (loadedEntries.length > 0) {
+        activeTableId = loadedEntries[0].id;
+        currentDoc = loadedEntries[0].doc;
+        unlockTabs();
+        switchTab('tab-grid');
+      }
+      const summary = resolveMfdbLinks();
+      let msg = "Loaded " + loadedEntries.length + " of " + files.length + " file(s).";
+      if (failures.length > 0) msg += "\n\nFailed to load:\n" + failures.join("\n");
+      if (summary.length > 0) msg += "\n\n" + summary.join("\n");
+      alert(msg);
+    }
+
+    // Matches every loaded Manifest's declared entities against currently loaded tables,
+    // by entity_name/Records_Type match (primary) and by relative-path basename (secondary).
+    // Renames manifest table entries to show "(x/y resolved)" and returns a summary array.
+    function resolveMfdbLinks() {
+      const summaryLines = [];
+      const manifests = loadedTables.filter(t => t.classification === 'Manifest' || classifyBejsonDoc(t.doc) === 'Manifest');
+      manifests.forEach(manifestEntry => {
+        const doc = manifestEntry.doc;
+        const map = getFieldMap(doc);
+        const entityNameIdx = ('entity_name' in map) ? map['entity_name'] : 0;
+        const filePathIdx = ('file_path' in map) ? map['file_path'] : 1;
+        if (!Array.isArray(doc.Values) || doc.Values.length === 0) return;
+        let resolvedCount = 0;
+        const unresolvedNames = [];
+        doc.Values.forEach(row => {
+          const declaredName = row[entityNameIdx];
+          const declaredPath = row[filePathIdx];
+          const declaredBasename = typeof declaredPath === 'string' ? declaredPath.split('/').pop() : null;
+          const match = loadedTables.find(t => {
+            if (t === manifestEntry) return false;
+            if (t.doc && Array.isArray(t.doc.Records_Type) && t.doc.Records_Type[0] === declaredName) return true;
+            if (t.sourceFileName && declaredBasename && t.sourceFileName === declaredBasename) return true;
+            if (t.relativePath && declaredPath && t.relativePath.endsWith(declaredPath)) return true;
+            return false;
+          });
+          if (match) {
+            resolvedCount++;
+            match.resolvedAgainstManifestId = manifestEntry.id;
+          } else {
+            unresolvedNames.push(declaredName);
+          }
+        });
+        const baseName = manifestEntry.name.replace(/\s*\(\d+\/\d+ resolved\)\s*$/, '');
+        manifestEntry.name = baseName + " (" + resolvedCount + "/" + doc.Values.length + " resolved)";
+        if (unresolvedNames.length > 0) {
+          summaryLines.push(manifestEntry.name + " -- missing: " + unresolvedNames.join(", "));
+        } else {
+          summaryLines.push(manifestEntry.name + " -- all entities loaded.");
+        }
+      });
+      renderTableSelect();
+      return summaryLines;
+    }
+
+    function triggerMultiFileInput() {
+      const tempInput = document.createElement('input');
+      tempInput.type = 'file';
+      tempInput.multiple = true;
+      tempInput.style.display = 'none';
+      tempInput.onchange = (e) => {
+        if (e.target.files && e.target.files.length > 0) ingestMultipleFiles(e.target.files);
+      };
+      document.body.appendChild(tempInput);
+      tempInput.click();
+      setTimeout(() => { try { document.body.removeChild(tempInput); } catch(e) {} }, 60000);
+    }
+
+    function triggerFolderInput() {
+      const tempInput = document.createElement('input');
+      tempInput.type = 'file';
+      tempInput.multiple = true;
+      tempInput.webkitdirectory = true;
+      tempInput.style.display = 'none';
+      tempInput.onchange = (e) => {
+        if (e.target.files && e.target.files.length > 0) ingestMultipleFiles(e.target.files);
+      };
+      document.body.appendChild(tempInput);
+      tempInput.click();
+      setTimeout(() => { try { document.body.removeChild(tempInput); } catch(e) {} }, 60000);
+    }
+
+    const btnLoadMultiFiles = document.getElementById('btnLoadMultiFiles');
+    if (btnLoadMultiFiles) btnLoadMultiFiles.addEventListener('click', triggerMultiFileInput);
+    const btnLoadMfdbFolder = document.getElementById('btnLoadMfdbFolder');
+    if (btnLoadMfdbFolder) btnLoadMfdbFolder.addEventListener('click', triggerFolderInput);
+    const btnLoadMfdbFolderHeader = document.getElementById('btnLoadMfdbFolderHeader');
+    if (btnLoadMfdbFolderHeader) btnLoadMfdbFolderHeader.addEventListener('click', triggerFolderInput);
+
+    // --- Phase 3: True Mount via the File System Access API (Chromium-first, feature-detected) ---
+    const btnMountMfdbFolder = document.getElementById('btnMountMfdbFolder');
+    if ('showDirectoryPicker' in window && btnMountMfdbFolder) {
+      btnMountMfdbFolder.classList.remove('hidden');
+    }
+
+    async function readFileFromHandle(fileHandle) {
+      const file = await fileHandle.getFile();
+      return await file.text();
+    }
+
+    // Resolves a relative path like "data/users.bejson" against a root directory handle,
+    // walking subfolders as needed. Returns the FileSystemFileHandle, or null if not found.
+    async function resolvePathInDirectory(rootHandle, relativePath) {
+      const parts = relativePath.split('/').filter(p => p && p !== '.');
+      let dirHandle = rootHandle;
+      try {
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (parts[i] === '..') continue; // manifest-relative paths may step up; root is our best-effort anchor
+          dirHandle = await dirHandle.getDirectoryHandle(parts[i]);
+        }
+        return await dirHandle.getFileHandle(parts[parts.length - 1]);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function mountMfdbFolder() {
+      const statusEl = document.getElementById('mfdbMountStatus');
+      if (!('showDirectoryPicker' in window)) {
+        alert("The File System Access API is not available in this browser. Use Chrome or Edge, or use \"Load MFDB Folder\" instead (works everywhere, but won't save back to the same files).");
+        return;
+      }
+      let dirHandle;
+      try {
+        dirHandle = await window.showDirectoryPicker();
+      } catch (e) {
+        return; // user cancelled the picker
+      }
+
+      let manifestHandle = null;
+      try {
+        manifestHandle = await dirHandle.getFileHandle('104a.mfdb.bejson');
+      } catch (e) {
+        alert("No \"104a.mfdb.bejson\" manifest found in the selected folder's root. Mount cancelled.");
+        return;
+      }
+
+      let manifestDoc;
+      try {
+        manifestDoc = normalizeDoc(JSON.parse(await readFileFromHandle(manifestHandle)), '104a.mfdb.bejson');
+      } catch (e) {
+        alert("Failed to parse the manifest: " + e.message);
+        return;
+      }
+
+      const manifestEntry = pushLoadedTable(manifestDoc, '104a.mfdb.bejson', { fileHandle: manifestHandle, relativePath: '104a.mfdb.bejson', mountRoot: dirHandle });
+
+      const map = getFieldMap(manifestDoc);
+      const entityNameIdx = ('entity_name' in map) ? map['entity_name'] : 0;
+      const filePathIdx = ('file_path' in map) ? map['file_path'] : 1;
+
+      let resolvedCount = 0;
+      const missing = [];
+      for (const row of (manifestDoc.Values || [])) {
+        const entityName = row[entityNameIdx];
+        const filePath = row[filePathIdx];
+        if (typeof filePath !== 'string') { missing.push(entityName); continue; }
+        const fileHandle = await resolvePathInDirectory(dirHandle, filePath);
+        if (!fileHandle) { missing.push(entityName + " (" + filePath + ")"); continue; }
+        try {
+          const entityDoc = normalizeDoc(JSON.parse(await readFileFromHandle(fileHandle)), filePath.split('/').pop());
+          pushLoadedTable(entityDoc, filePath.split('/').pop(), { fileHandle: fileHandle, relativePath: filePath, resolvedAgainstManifestId: manifestEntry.id });
+          resolvedCount++;
+        } catch (e) {
+          missing.push(entityName + " (parse error: " + e.message + ")");
+        }
+      }
+
+      manifestEntry.name = "[Manifest] 104a.mfdb.bejson (" + resolvedCount + "/" + (manifestDoc.Values || []).length + " resolved, mounted)";
+      fieldMapCache.clear();
+      renderTableSelect();
+      activeTableId = manifestEntry.id;
+      currentDoc = manifestDoc;
+      unlockTabs();
+      switchTab('tab-grid');
+
+      if (statusEl) {
+        statusEl.textContent = "Mounted \"" + (dirHandle.name || "folder") + "\" -- " + resolvedCount + "/" + (manifestDoc.Values || []).length + " entities resolved. Saves to mounted tables now write directly back to disk.";
+      }
+      if (missing.length > 0) {
+        alert("Mounted with " + missing.length + " unresolved entit" + (missing.length === 1 ? "y" : "ies") + ":\n" + missing.join("\n"));
+      }
+    }
+
+    if (btnMountMfdbFolder) btnMountMfdbFolder.addEventListener('click', mountMfdbFolder);
+
+    // --- Phase 4: Export all loaded tables as a ZIP (hand-rolled, store-only, no dependency) ---
+    const CRC_TABLE = (() => {
+      let c, table = [];
+      for (let n = 0; n < 256; n++) {
+        c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[n] = c >>> 0;
+      }
+      return table;
+    })();
+    function crc32(bytes) {
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < bytes.length; i++) {
+        crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+    function u16(n) { return [n & 0xFF, (n >> 8) & 0xFF]; }
+    function u32(n) { return [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF]; }
+    function dosDateTime() {
+      const d = new Date();
+      const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (Math.floor(d.getSeconds() / 2));
+      const dosDate = (((d.getFullYear() - 1980) & 0x7F) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+      return { dosTime, dosDate };
+    }
+    // Builds a minimal, valid, uncompressed (store-method) ZIP from [{name, content}] entries.
+    function buildStoreZip(entries) {
+      const encoder = new TextEncoder();
+      const { dosTime, dosDate } = dosDateTime();
+      let localParts = [];
+      let centralParts = [];
+      let offset = 0;
+      entries.forEach(({ name, content }) => {
+        const nameBytes = Array.from(encoder.encode(name));
+        const dataBytes = Array.from(encoder.encode(content));
+        const crc = crc32(dataBytes);
+        const size = dataBytes.length;
+
+        const localHeader = [
+          0x50, 0x4B, 0x03, 0x04, // local file header signature
+          20, 0,                  // version needed
+          0, 0,                   // flags
+          0, 0,                   // method = 0 (store)
+          ...u16(dosTime), ...u16(dosDate),
+          ...u32(crc), ...u32(size), ...u32(size),
+          ...u16(nameBytes.length), ...u16(0),
+          ...nameBytes
+        ];
+        localParts.push(localHeader, dataBytes);
+
+        const centralHeader = [
+          0x50, 0x4B, 0x01, 0x02, // central directory signature
+          20, 0, 20, 0,
+          0, 0,
+          0, 0,
+          ...u16(dosTime), ...u16(dosDate),
+          ...u32(crc), ...u32(size), ...u32(size),
+          ...u16(nameBytes.length), ...u16(0), ...u16(0),
+          0, 0, 0, 0,
+          ...u32(0),
+          ...u32(offset),
+          ...nameBytes
+        ];
+        centralParts.push(centralHeader);
+
+        offset += localHeader.length + dataBytes.length;
+      });
+
+      const centralStart = offset;
+      let centralSize = 0;
+      centralParts.forEach(p => centralSize += p.length);
+
+      const endRecord = [
+        0x50, 0x4B, 0x05, 0x06,
+        0, 0, 0, 0,
+        ...u16(entries.length), ...u16(entries.length),
+        ...u32(centralSize),
+        ...u32(centralStart),
+        ...u16(0)
+      ];
+
+      const allBytes = [].concat(...localParts, ...centralParts, endRecord);
+      return new Uint8Array(allBytes);
+    }
+
+    // --- MFDB helpers: path matching, record_count sync, export layout, validation, ZIP load, Save All ---
+    function normalizeRel(p) {
+      return String(p || '').replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '');
+    }
+
+    // Finds the loaded table a manifest row points at. Returns { table, by } or null.
+    // Path match is the strongest signal; Records_Type match is the fallback for loose files.
+    function findEntityMatch(manifestEntry, row) {
+      const c = manifestCols(manifestEntry.doc);
+      const name = row[c.name];
+      const path = normalizeRel(row[c.path]);
+      const base = path.split('/').pop();
+      const cands = loadedTables.filter(t => t !== manifestEntry && classifyBejsonDoc(t.doc) !== 'Manifest');
+      let t = cands.find(x => x.relativePath && path && normalizeRel(x.relativePath).endsWith(path));
+      if (t) return { table: t, by: 'path' };
+      t = cands.find(x => x.sourceFileName && base && x.sourceFileName === base);
+      if (t) return { table: t, by: 'filename' };
+      t = cands.find(x => Array.isArray(x.doc.Records_Type) && x.doc.Records_Type[0] === name);
+      if (t) return { table: t, by: 'name' };
+      return null;
+    }
+    function findEntityTableForRow(manifestEntry, row) {
+      const m = findEntityMatch(manifestEntry, row);
+      return m ? m.table : null;
+    }
+
+    // record_count is advisory, but tooling is expected to keep it in sync.
+    function syncManifestRecordCounts() {
+      loadedTables.forEach(t => {
+        if (classifyBejsonDoc(t.doc) !== 'Manifest') return;
+        const map = getFieldMap(t.doc);
+        if (!('record_count' in map)) return;
+        (t.doc.Values || []).forEach(row => {
+          const hit = findEntityTableForRow(t, row);
+          if (hit) row[map['record_count']] = (hit.doc.Values || []).length;
+        });
+      });
+    }
+
+    // A table is dirty when it differs from what was last loaded or saved (new tables have no snapshot).
+    function markTableSaved(t) { if (t) t.savedSnapshot = JSON.stringify(t.doc); }
+    function isTableDirty(t) { return t.savedSnapshot !== JSON.stringify(t.doc); }
+    function dirtyTables() { return loadedTables.filter(isTableDirty); }
+    window.addEventListener('beforeunload', e => {
+      if (dirtyTables().length > 0) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    function tableDisplayFilename(t) {
+      return t.sourceFileName || (t.name.replace(/^\[(Manifest|Entity)\]\s*/, '').replace(/\s*\(\d+\/\d+ resolved.*\)\s*$/, '')) || (t.id + '.bejson');
+    }
+
+    // ZIP layout follows the MFDB rules: manifest at the root, entities at their declared file_path,
+    // regardless of how they were loaded (files, folder with a wrapper directory, ZIP, mount, Hub create).
+    function buildExportLayout() {
+      const pathById = {};
+      const unsafeDeclared = [];
+      const manifests = loadedTables.filter(t => classifyBejsonDoc(t.doc) === 'Manifest');
+      manifests.forEach((m, i) => { pathById[m.id] = (i === 0) ? MFDB_MANIFEST_NAME : tableDisplayFilename(m); });
+      const first = manifests[0];
+      if (first) {
+        const c = manifestCols(first.doc);
+        (first.doc.Values || []).forEach(row => {
+          const declared = normalizeRel(row[c.path]);
+          if (!declared) return;
+          if (hasUnsafePath(row[c.path])) { unsafeDeclared.push(String(row[c.path])); return; }
+          const hit = findEntityTableForRow(first, row);
+          if (hit && !pathById[hit.id]) pathById[hit.id] = declared;
+        });
+      }
+      if (unsafeDeclared.length > 0) return { error: 'Export blocked -- the manifest declares file path(s) outside the database root: ' + unsafeDeclared.join(', ') };
+      const used = {};
+      const entries = [];
+      for (const t of loadedTables) {
+        let name = pathById[t.id];
+        if (!name) {
+          const base = tableDisplayFilename(t).split('/').pop();
+          name = (classifyBejsonDoc(t.doc) === 'Entity') ? 'data/' + base : base;
+        }
+        if (used[name]) return { error: 'Export blocked -- two loaded tables would be written to the same path: ' + name + '.' };
+        used[name] = true;
+        entries.push({ name: name, content: JSON.stringify(t.doc, null, 2) });
+      }
+      return { entries: entries };
+    }
+
+    function flashStatus(html) {
+      const banner = document.getElementById('statusBanner');
+      const msgSpan = document.getElementById('statusMessage');
+      if (!banner || !msgSpan) return;
+      banner.className = 'status-banner valid';
+      banner.classList.remove('hidden');
+      msgSpan.innerHTML = html;
+      setTimeout(() => { if (currentDoc) renderStatusBanner(); }, 3500);
+    }
+
+    // ---- Validate MFDB (spec Levels 1-3) ----
+    function runMfdbValidation() {
+      const lines = [];
+      const add = (level, text) => lines.push({ level: level, text: text });
+      const manifests = loadedTables.filter(t => classifyBejsonDoc(t.doc) === 'Manifest');
+      if (manifests.length === 0) { add('ERR', 'No MFDB manifest (104a.mfdb.bejson) is loaded.'); return lines; }
+      if (manifests.length > 1) add('ERR', 'More than one manifest is loaded (' + manifests.length + '). One manifest per database is the invariant.');
+      const matched = new Set();
+      manifests.forEach(m => {
+        const label = tableDisplayFilename(m);
+        const doc = m.doc;
+        const v = validateBEJSON(doc);
+        v.errors.forEach(e => add('ERR', label + ': ' + e));
+        if (doc.Format_Version !== '104a') add('ERR', label + ': manifest Format_Version must be "104a".');
+        if (typeof doc.MFDB_Version !== 'string' || !doc.MFDB_Version) add('ERR', label + ': required header MFDB_Version is missing.');
+        if (typeof doc.DB_Name !== 'string' || !doc.DB_Name) add('ERR', label + ': required header DB_Name is missing.');
+        const c = manifestCols(doc);
+        if (c.name === undefined || c.path === undefined) {
+          add('ERR', label + ': manifest Fields must include entity_name and file_path.');
+          return;
+        }
+        const pkIdx = getFieldMap(doc)['primary_key'];
+        const rcIdx = getFieldMap(doc)['record_count'];
+        const names = new Set(), paths = new Set();
+        const primaryKeys = new Set();
+        (doc.Values || []).forEach((row, i) => {
+          const n = row[c.name], pth = row[c.path];
+          const tag = label + ' record ' + (i + 1) + (n ? ' (' + n + ')' : '');
+          if (n === null || n === undefined || n === '') { add('ERR', tag + ': entity_name is null.'); return; }
+          if (pth === null || pth === undefined || pth === '') { add('ERR', tag + ': file_path is null.'); return; }
+          if (hasUnsafePath(pth)) { add('ERR', tag + ': file_path "' + pth + '" escapes the database root (.. or absolute path).'); return; }
+          if (names.has(n)) add('ERR', tag + ': duplicate entity_name.'); names.add(n);
+          if (paths.has(pth)) add('ERR', tag + ': duplicate file_path ' + pth + '.'); paths.add(pth);
+          if (pkIdx !== undefined && row[pkIdx]) primaryKeys.add(row[pkIdx]);
+          const hit = findEntityMatch(m, row);
+          if (!hit) { add('ERR', tag + ': entity file "' + pth + '" is not loaded.'); return; }
+          const t = hit.table;
+          matched.add(t.id);
+          const ed = t.doc;
+          if (hit.by === 'name') add('WARN', tag + ': matched by Records_Type only; loaded file path does not confirm "' + pth + '".');
+          const ev = validateBEJSON(ed);
+          ev.errors.forEach(e => add('ERR', pth + ': ' + e));
+          if (ed.Format_Version !== '104') add('ERR', pth + ': entity Format_Version must be "104".');
+          if (!Array.isArray(ed.Records_Type) || ed.Records_Type.length !== 1) add('ERR', pth + ': Records_Type must contain exactly one entry.');
+          else if (ed.Records_Type[0] !== n) add('ERR', pth + ': Records_Type "' + ed.Records_Type[0] + '" does not match manifest entity_name "' + n + '".');
+          if (typeof ed.Parent_Hierarchy !== 'string' || ed.Parent_Hierarchy.trim() === '') {
+            add('ERR', pth + ': Parent_Hierarchy is missing.');
+          } else {
+            const depth = normalizeRel(pth).split('/').length - 1;
+            const mBase = (m.relativePath ? normalizeRel(m.relativePath).split('/').pop() : null) || MFDB_MANIFEST_NAME;
+            const expected = '../'.repeat(depth) + mBase;
+            if (normalizeRel(ed.Parent_Hierarchy) !== expected) add('ERR', pth + ': Parent_Hierarchy "' + ed.Parent_Hierarchy + '" should be "' + expected + '" from this file\'s folder.');
+          }
+          if (rcIdx !== undefined && row[rcIdx] !== null && row[rcIdx] !== (ed.Values || []).length) {
+            add('WARN', tag + ': record_count is ' + row[rcIdx] + ' but the file has ' + (ed.Values || []).length + ' (synced on Save All / Export ZIP).');
+          }
+        });
+        // FK convention check (warning only)
+        (doc.Values || []).forEach(row => {
+          const hit = findEntityTableForRow(m, row);
+          if (!hit) return;
+          (hit.doc.Fields || []).forEach(f => {
+            if (f && typeof f.name === 'string' && /_fk$/.test(f.name)) {
+              const target = f.name.slice(0, -3);
+              if (!primaryKeys.has(target)) add('WARN', row[c.name] + '.' + f.name + ': no manifest primary_key "' + target + '" found.');
+            }
+          });
+        });
+      });
+      loadedTables.forEach(t => {
+        if (classifyBejsonDoc(t.doc) === 'Entity' && !matched.has(t.id)) add('ERR', tableDisplayFilename(t) + ': orphan entity file -- not registered in any loaded manifest.');
+      });
+      return lines;
+    }
+
+    window.validateMfdb = function() {
+      const lines = runMfdbValidation();
+      const errs = lines.filter(l => l.level === 'ERR').length;
+      const warns = lines.filter(l => l.level === 'WARN').length;
+      document.getElementById('mfdbReportSummary').textContent = errs === 0
+        ? (warns === 0 ? '✓ Valid MFDB -- no errors or warnings.' : '✓ Valid MFDB -- ' + warns + ' warning(s).')
+        : '✗ ' + errs + ' error(s), ' + warns + ' warning(s).';
+      document.getElementById('mfdbReportBody').textContent = lines.length
+        ? lines.map(l => (l.level === 'ERR' ? '✗ ERROR  ' : '⚠ WARN   ') + l.text).join('\n')
+        : 'Manifest, entity files, Parent_Hierarchy links and record counts all check out.';
+      document.getElementById('modalMfdbReport').classList.remove('hidden');
+    };
+
+    // ---- Load MFDB ZIP (store + deflate; no dependency) ----
+    // Inflate with a hard output cap so a small hostile archive cannot expand to gigabytes.
+    async function inflateRawCapped(raw, cap, label) {
+      const reader = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+      const chunks = []; let total = 0;
+      for (;;) {
+        const r = await reader.read();
+        if (r.done) break;
+        total += r.value.length;
+        if (total > cap) { try { await reader.cancel(); } catch (e) {} throw new Error(label + ' expands beyond the ' + Math.round(cap / 1048576) + ' MB entry limit (possible ZIP bomb).'); }
+        chunks.push(r.value);
+      }
+      const out = new Uint8Array(total); let off = 0;
+      chunks.forEach(c => { out.set(c, off); off += c.length; });
+      return out;
+    }
+
+    function hasUnsafePath(p) {
+      const segs = String(p).replace(/\\/g, '/').split('/');
+      return segs.some(seg => seg === '..') || /^([A-Za-z]:|\/)/.test(String(p).replace(/\\/g, '/'));
+    }
+
+    async function readZipEntries(arrayBuffer) {
+      if (arrayBuffer.byteLength > MAX_ZIP_BYTES) throw new Error('ZIP is ' + Math.round(arrayBuffer.byteLength / 1048576) + ' MB; the limit is ' + (MAX_ZIP_BYTES / 1048576) + ' MB.');
+      const u8 = new Uint8Array(arrayBuffer);
+      const dv = new DataView(arrayBuffer);
+      let eocd = -1;
+      for (let i = u8.length - 22; i >= Math.max(0, u8.length - 22 - 65535); i--) {
+        if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error('Not a valid ZIP file (no end-of-central-directory record).');
+      const total = dv.getUint16(eocd + 10, true);
+      const cdOffset = dv.getUint32(eocd + 16, true);
+      if (total === 0xFFFF || cdOffset === 0xFFFFFFFF) throw new Error('ZIP64 archives are not supported.');
+      if (total > MAX_ZIP_ENTRIES) throw new Error('ZIP has ' + total + ' entries; the limit is ' + MAX_ZIP_ENTRIES + '.');
+      if (cdOffset >= u8.length) throw new Error('Corrupt ZIP (central directory offset out of range).');
+      let inflatedTotal = 0;
+      const dec = new TextDecoder();
+      const out = [];
+      let p = cdOffset;
+      for (let n = 0; n < total; n++) {
+        if (p + 46 > u8.length || dv.getUint32(p, true) !== 0x02014b50) throw new Error('Corrupt ZIP central directory.');
+        const flags = dv.getUint16(p + 8, true);
+        const method = dv.getUint16(p + 10, true);
+        const csize = dv.getUint32(p + 20, true);
+        const usize = dv.getUint32(p + 24, true);
+        const nlen = dv.getUint16(p + 28, true);
+        const elen = dv.getUint16(p + 30, true);
+        const clen = dv.getUint16(p + 32, true);
+        const lho = dv.getUint32(p + 42, true);
+        const name = dec.decode(u8.subarray(p + 46, p + 46 + nlen));
+        p += 46 + nlen + elen + clen;
+        if (name.endsWith('/')) continue;
+        if (flags & 1) throw new Error('Encrypted ZIP entries are not supported: ' + name);
+        if (usize > MAX_ZIP_ENTRY_BYTES) throw new Error(name + ' is declared as ' + Math.round(usize / 1048576) + ' MB; the entry limit is ' + (MAX_ZIP_ENTRY_BYTES / 1048576) + ' MB.');
+        if (lho + 30 > u8.length || dv.getUint32(lho, true) !== 0x04034b50) throw new Error('Corrupt ZIP (bad local header for ' + name + ').');
+        const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+        if (start + csize > u8.length) throw new Error('Corrupt ZIP (entry data out of range for ' + name + ').');
+        const raw = u8.subarray(start, start + csize);
+        let bytes;
+        if (method === 0) {
+          bytes = raw;
+        } else if (method === 8) {
+          if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot decompress ZIP entries (no DecompressionStream). Use a current Chrome, Edge, Firefox or Safari.');
+          bytes = await inflateRawCapped(raw, MAX_ZIP_ENTRY_BYTES, name);
+        } else {
+          throw new Error('Unsupported ZIP compression method ' + method + ' for ' + name);
+        }
+        inflatedTotal += bytes.length;
+        if (inflatedTotal > MAX_ZIP_TOTAL_BYTES) throw new Error('ZIP expands beyond the ' + (MAX_ZIP_TOTAL_BYTES / 1048576) + ' MB total limit.');
+        out.push({ name: name, bytes: bytes });
+      }
+      return out;
+    }
+
+    async function loadMfdbZip(file) {
+      let entries;
+      try {
+        entries = await readZipEntries(await file.arrayBuffer());
+      } catch (err) {
+        alert('Could not read ZIP: ' + err.message);
+        return;
+      }
+      const blockedPaths = entries.filter(e => hasUnsafePath(e.name)).map(e => e.name);
+      entries = entries
+        .filter(e => !hasUnsafePath(e.name))
+        .map(e => ({ name: normalizeRel(e.name), bytes: e.bytes }))
+        .filter(e => /\.(bejson|json)$/i.test(e.name) && e.name.indexOf('__MACOSX/') === -1 && !e.name.split('/').pop().startsWith('._'));
+      if (entries.length === 0) { alert('No .bejson or .json files found in that ZIP.' + (blockedPaths.length ? '\n\nBlocked unsafe paths: ' + blockedPaths.join(', ') : '')); return; }
+      // If the archive wraps everything in one folder, re-root at the manifest so paths match file_path.
+      const manifestEntries = entries.filter(e => /\.mfdb\.bejson$/i.test(e.name)).sort((a, b) => a.name.split('/').length - b.name.split('/').length);
+      if (manifestEntries.length > 0) {
+        const mp = manifestEntries[0].name;
+        const prefix = mp.slice(0, mp.length - mp.split('/').pop().length);
+        if (prefix) entries.forEach(e => { if (e.name.indexOf(prefix) === 0) e.name = e.name.slice(prefix.length); });
+      }
+      const loaded = [], failures = [];
+      for (const e of entries) {
+        try {
+          let text = new TextDecoder().decode(e.bytes).replace(/^\uFEFF/, '').trim();
+          const doc = normalizeDoc(JSON.parse(text), e.name.split('/').pop());
+          loaded.push(pushLoadedTable(doc, e.name.split('/').pop(), { relativePath: e.name }));
+        } catch (err) {
+          failures.push(e.name + ': ' + err.message);
+        }
+      }
+      fieldMapCache.clear();
+      if (loaded.length > 0) {
+        const mEntry = loaded.find(t => t.classification === 'Manifest') || loaded[0];
+        activeTableId = mEntry.id;
+        currentDoc = mEntry.doc;
+        unlockTabs();
+      }
+      const summary = resolveMfdbLinks();
+      renderTableSelect();
+      if (loaded.length > 0) switchTab('tab-grid');
+      let msg = 'Loaded ' + loaded.length + ' of ' + entries.length + ' file(s) from ' + file.name + '.';
+      if (failures.length > 0) msg += '\n\nFailed to load:\n' + failures.join('\n');
+      if (blockedPaths.length > 0) msg += '\n\nBlocked ' + blockedPaths.length + ' entr' + (blockedPaths.length === 1 ? 'y' : 'ies') + ' with unsafe paths (.. or absolute):\n' + blockedPaths.join('\n');
+      if (summary.length > 0) msg += '\n\n' + summary.join('\n');
+      alert(msg);
+    }
+
+    function triggerZipInput() {
+      const tempInput = document.createElement('input');
+      tempInput.type = 'file';
+      tempInput.accept = '.zip,application/zip';
+      tempInput.style.display = 'none';
+      tempInput.onchange = (e) => { if (e.target.files && e.target.files[0]) loadMfdbZip(e.target.files[0]); };
+      document.body.appendChild(tempInput);
+      tempInput.click();
+      setTimeout(() => { try { document.body.removeChild(tempInput); } catch(e) {} }, 60000);
+    }
+
+    // ---- Save All (MFDB) ----
+    async function saveAllMfdb() {
+      if (loadedTables.length === 0) { alert('No tables are loaded.'); return; }
+      const mounted = loadedTables.filter(t => t.fileHandle);
+      if (mounted.length === 0) { exportLoadedTablesAsZip(); return; } // nothing mounted: ZIP is the only way to persist everything
+      const fails = [];
+      loadedTables.forEach(t => {
+        const r = validateBEJSON(t.doc);
+        if (!r.valid) fails.push(t.name + ':\n  - ' + r.errors.join('\n  - '));
+      });
+      if (fails.length > 0) { alert('Save All blocked -- these tables failed validation:\n\n' + fails.join('\n\n')); return; }
+      syncManifestRecordCounts();
+      let ok = 0; const errs = [];
+      for (const t of mounted) {
+        try { await writeDocToHandle(t.fileHandle, t.doc); markTableSaved(t); ok++; }
+        catch (e) { errs.push(tableDisplayFilename(t) + ': ' + e.message); }
+      }
+      const unmounted = loadedTables.length - mounted.length;
+      if (errs.length > 0) alert('Saved ' + ok + ' table(s). Failed:\n' + errs.join('\n'));
+      else flashStatus('💾 <strong>Saved ' + ok + ' table(s)</strong> to the mounted folder.' + (unmounted > 0 ? ' ' + unmounted + ' unmounted table(s) not written -- use Export ZIP.' : ''));
+    }
+
+    // ---- Close file / table / all ----
+    function lockTabs() {
+      ['navTabGrid', 'navTabSchema', 'navTabRawSchema'].forEach(id => {
+        const b = document.getElementById(id);
+        b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'not-allowed';
+      });
+    }
+    function afterTablesChanged() {
+      fieldMapCache.clear();
+      if (loadedTables.length === 0) {
+        activeTableId = null; currentDoc = null;
+        renderTableSelect(); lockTabs(); updateEntityButtons();
+        switchTab('tab-hub');
+        return;
+      }
+      loadedTables.filter(t => classifyBejsonDoc(t.doc) === 'Manifest').forEach(refreshManifestLabel);
+      if (!loadedTables.some(t => t.id === activeTableId)) { activeTableId = loadedTables[0].id; }
+      currentDoc = loadedTables.find(t => t.id === activeTableId).doc;
+      syncModeFromLoaded();
+      renderVisibleTabs();
+    }
+    function closeActiveTable() {
+      const t = loadedTables.find(x => x.id === activeTableId);
+      if (!t) return;
+      if (isTableDirty(t) && !confirm('"' + tableDisplayFilename(t) + '" has unsaved changes. Close it anyway? Nothing is deleted on disk.')) return;
+      loadedTables.splice(loadedTables.indexOf(t), 1);
+      afterTablesChanged();
+    }
+    function closeAllTables() {
+      if (loadedTables.length === 0) return;
+      const nDirty = dirtyTables().length;
+      if (nDirty > 0 && !confirm(nDirty + ' of ' + loadedTables.length + ' table(s) have unsaved changes. Close everything anyway? Nothing is deleted on disk.')) return;
+      loadedTables.length = 0;
+      afterTablesChanged();
+    }
+
+    // ---- Save As (Standard) ----
+    async function saveActiveAs() {
+      if (!currentDoc) { alert('No active document loaded to save.'); return; }
+      const tbl = loadedTables.find(t => t.id === activeTableId);
+      let def = tbl ? tableDisplayFilename(tbl).split('/').pop() : ((currentDoc.Records_Type && currentDoc.Records_Type[0]) || 'document') + '.bejson';
+      if (!/\.(bejson|json)$/i.test(def)) def += '.bejson';
+      if ('showSaveFilePicker' in window) {
+        try {
+          const h = await window.showSaveFilePicker({ suggestedName: def, types: [{ description: 'BEJSON', accept: { 'application/json': ['.bejson', '.json'] } }] });
+          await writeDocToHandle(h, currentDoc);
+          if (tbl) { tbl.fileHandle = h; tbl.sourceFileName = h.name; markTableSaved(tbl); }
+          flashStatus('💾 <strong>Saved as ' + escapeHTML(h.name) + '</strong>. Save now writes to this file.');
+          return;
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+          // any other failure: fall through to the download path
+        }
+      }
+      let name = prompt('Save as (file name):', def);
+      if (!name) return;
+      name = name.trim().replace(/[\\/:*?"<>|]/g, '_');
+      if (!/\.(bejson|json)$/i.test(name)) name += '.bejson';
+      const blob = new Blob([JSON.stringify(currentDoc, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(e) {} }, 300);
+      if (tbl) { tbl.sourceFileName = name; markTableSaved(tbl); }
+      flashStatus('💾 <strong>Saved as ' + escapeHTML(name) + '</strong> to downloads.');
+    }
+
+    function exportLoadedTablesAsZip() {
+      if (loadedTables.length === 0) {
+        alert("No tables are loaded to export.");
+        return;
+      }
+      // Pre-export validation pass across every loaded table.
+      const validationFailures = [];
+      loadedTables.forEach(t => {
+        const result = validateBEJSON(t.doc);
+        if (!result.valid) validationFailures.push(t.name + ":\n  - " + result.errors.join("\n  - "));
+      });
+      if (validationFailures.length > 0) {
+        alert("Export blocked -- the following loaded tables failed validation:\n\n" + validationFailures.join("\n\n"));
+        return;
+      }
+
+      syncManifestRecordCounts();
+      const layout = buildExportLayout();
+      if (layout.error) { alert(layout.error); return; }
+      const entries = layout.entries;
+      loadedTables.forEach(markTableSaved);
+
+      const zipBytes = buildStoreZip(entries);
+      const blob = new Blob([zipBytes], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'BEJSON_Export-PKG' + PACKAGE_VERSION + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(e) {} }, 300);
+    }
+
+    const wire = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+    wire('btnLoadMultiFilesHeader', triggerMultiFileInput);
+    wire('btnLoadMfdbZip', triggerZipInput);
+    wire('btnLoadMfdbZipHeader', triggerZipInput);
+    wire('btnMountMfdbFolderHeader', mountMfdbFolder);
+    wire('btnValidateMfdb', validateMfdb);
+    wire('btnSaveAllMfdb', saveAllMfdb);
+    wire('btnCloseTable', closeActiveTable);
+    wire('btnCloseAllMfdb', closeAllTables);
+    wire('btnSaveAs', saveActiveAs);
+    const btnExportMfdbZip = document.getElementById('btnExportMfdbZip');
+    if (btnExportMfdbZip) btnExportMfdbZip.addEventListener('click', exportLoadedTablesAsZip);
+    const btnExportMfdbZipHeader = document.getElementById('btnExportMfdbZipHeader');
+    if (btnExportMfdbZipHeader) btnExportMfdbZipHeader.addEventListener('click', exportLoadedTablesAsZip);
+
+    function openPasteModal() {
+      const modal = document.getElementById('modalPasteBejson');
+      const ta = document.getElementById('pasteBejsonTextarea');
+      if (ta) ta.value = '';
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    const dropPasteBtn = document.getElementById('btnDropZonePaste');
+    if (dropPasteBtn) dropPasteBtn.addEventListener('click', openPasteModal);
+    const headerPasteBtn = document.getElementById('btnPasteHeader');
+    if (headerPasteBtn) headerPasteBtn.addEventListener('click', openPasteModal);
+
+    const btnLoadPasted = document.getElementById('btnLoadPastedBejson');
+    if (btnLoadPasted) {
+      btnLoadPasted.addEventListener('click', () => {
+        const ta = document.getElementById('pasteBejsonTextarea');
+        const text = (ta ? ta.value : '').trim();
+        if (!text) {
+          alert("Please paste BEJSON or JSON text first.");
+          return;
+        }
+        try {
+          const cleanText = text.replace(/^\uFEFF/, '').trim();
+          const doc = JSON.parse(cleanText);
+          ingestDocument(doc, "Pasted_BEJSON_" + (loadedTables.length + 1) + ".bejson");
+          closeModal('modalPasteBejson');
+        } catch(err) {
+          alert("Error parsing pasted BEJSON: " + err.message);
+        }
+      });
+    }
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFileImport(file);
+    });
+
+    // Drag-and-drop on Hub Drop Zone
+    const dropZone = document.getElementById('hubDropZone');
+    if (dropZone) {
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.style.borderColor = '#DE2626';
+          dropZone.style.backgroundColor = 'rgba(222, 38, 38, 0.06)';
+        }, false);
+      });
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.style.borderColor = '';
+          dropZone.style.backgroundColor = '';
+        }, false);
+      });
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        if (dt && dt.files && dt.files.length > 0) {
+          if (/\.zip$/i.test(dt.files[0].name)) loadMfdbZip(dt.files[0]);
+          else handleFileImport(dt.files[0]);
+        }
+      }, false);
+    }
+
+    // Global drag-and-drop support across the editor window
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    }, false);
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (/\.zip$/i.test(file.name)) { loadMfdbZip(file); return; }
+        if (file.name.endsWith('.bejson') || file.name.endsWith('.json') || file.type.includes('json') || file.type.includes('text')) {
+          handleFileImport(file);
+        }
+      }
+    }, false);
+
+    document.getElementById('btnCreateCustom').addEventListener('click', () => {
+      const mode = document.querySelector('input[name="modeSelect"]:checked').value;
+      const stdFormat = document.querySelector('input[name="formatSelectRadio"]:checked').value;
+      const formatVer = mode === 'mfdb' ? 'mfdb' : stdFormat;
+      
+      const dbNameInput = document.getElementById("hubDbName")?.value.trim();
+      const entityNameInput = document.getElementById("hubEntityName").value.trim();
+      let entityTitle = entityNameInput || (mode === 'mfdb' ? 'Users' : 'NewRecord');
+      const fieldsText = document.getElementById("hubFieldsText").value;
+      
+      let parsedFields = [{ name: "unnamed_field", type: "string" }];
+      if (fieldsText && fieldsText.trim()) {
+        const parts = fieldsText.split(",").map(s => s.trim()).filter(s => s);
+        if (parts.length > 0) {
+          parsedFields = parts.map((p, i) => {
+            const f = { name: p, type: "string" };
+            return f;
+            
+          });
+        }
+      }
+
+      if (formatVer === 'mfdb') {
+        const cleanDbName = dbNameInput || 'NewDatabase';
+        const entityFileSlug = entityTitle.toLowerCase();
+        const nowIso = new Date().toISOString();
+        const manifestDoc = {
+          Format: "BEJSON", Format_Version: "104a", Format_Creator: "Elton Boehnen", MFDB_Version: "1.31",
+          DB_Name: cleanDbName, DB_Description: `${cleanDbName} MFDB database`, Author: "Elton Boehnen",
+          Created_At: nowIso, Network_Role: "Master", Records_Type: ["mfdb"],
+          Fields: [
+            { name: "entity_name", type: "string" }, { name: "file_path", type: "string" },
+            { name: "description", type: "string" }, { name: "record_count", type: "integer" },
+            { name: "schema_version", type: "string" }, { name: "primary_key", type: "string" }
+          ],
+          Values: [[entityTitle, `data/${entityFileSlug}.bejson`, `${entityTitle} Entity Table`, 0, "1.0.0", parsedFields[0] ? parsedFields[0].name : "unnamed_field"]]
+        };
+        const entityDoc = {
+          Format: "BEJSON", Format_Version: "104", Format_Creator: "Elton Boehnen",
+          Parent_Hierarchy: "../104a.mfdb.bejson", Records_Type: [entityTitle],
+          Fields: parsedFields, Values: []
+        };
+        
+        const manifestId = "mfdb-manifest-" + Date.now();
+        loadedTables.push({ id: manifestId, name: '[Manifest] ' + MFDB_MANIFEST_NAME + ' (1/1 resolved)', doc: manifestDoc, classification: 'Manifest', sourceFileName: MFDB_MANIFEST_NAME, relativePath: MFDB_MANIFEST_NAME, fileHandle: null });
+        const entityId = "mfdb-entity-" + Date.now();
+        loadedTables.push({ id: entityId, name: '[Entity] ' + entityFileSlug + '.bejson', doc: entityDoc, classification: 'Entity', sourceFileName: entityFileSlug + '.bejson', relativePath: 'data/' + entityFileSlug + '.bejson', resolvedAgainstManifestId: manifestId, fileHandle: null });
+        
+        activeTableId = entityId;
+        currentDoc = entityDoc;
+      } else {
+        const newDoc = {
+          Format: "BEJSON", Format_Version: formatVer, Format_Creator: "Elton Boehnen", 
+          Records_Type: [entityTitle], Fields: parsedFields, Values: []
+        };
+        
+        const newId = "tbl_" + Date.now();
+        loadedTables.push({ id: newId, name: `${entityTitle}.${formatVer}.bejson`, doc: newDoc, classification: classifyBejsonDoc(newDoc), sourceFileName: null, relativePath: null, fileHandle: null });
+        activeTableId = newId;
+        currentDoc = newDoc;
+      }
+      
+      fieldMapCache.clear();
+      unlockTabs();
+      switchTab("tab-grid");
+    });
+
+    document.getElementById('tableSelector').addEventListener('change', (e) => {
+      activeTableId = e.target.value;
+      const tbl = loadedTables.find(t => t.id === activeTableId);
+      if (tbl) {
+        currentDoc = tbl.doc;
+        fieldMapCache.clear();
+        if (!document.getElementById('tab-grid').classList.contains('hidden')) renderTable();
+        if (!document.getElementById('tab-schema').classList.contains('hidden')) renderSchema();
+        if (!document.getElementById('tab-raw-schema').classList.contains('hidden')) renderRawSchema();
+      }
+    });
+
+    let searchTimeout;
+    document.getElementById('searchInput').addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(renderTable, 300);
+    });
+
+    // Immediate Save File Function
+    async function saveActiveBejsonFile() {
+      if (!currentDoc) {
+        alert("No active document loaded to save.");
+        return;
+      }
+
+      const activeTbl = loadedTables.find(t => t.id === activeTableId);
+      let filename = "document.bejson";
+      if (activeTbl) {
+        filename = activeTbl.sourceFileName
+          || (activeTbl.relativePath ? activeTbl.relativePath.split('/').pop() : null)
+          || activeTbl.name.replace(/^\[(Manifest|Entity)\]\s*/, '').replace(/\s*\(\d+\/\d+ resolved.*\)\s*$/, '');
+        if (!filename.endsWith('.bejson') && !filename.endsWith('.json')) {
+          filename += '.bejson';
+        }
+      } else if (currentDoc.Records_Type && currentDoc.Records_Type.length > 0) {
+        filename = currentDoc.Records_Type[0] + ".bejson";
+      }
+
+      const preSave = validateBEJSON(currentDoc);
+      if (!preSave.valid && !confirm('This document has ' + preSave.errors.length + ' validation error(s):\n\n- ' + preSave.errors.slice(0, 5).join('\n- ') + (preSave.errors.length > 5 ? '\n- ...' : '') + '\n\nSave anyway?')) return;
+      const str = JSON.stringify(currentDoc, null, 2);
+      const banner = document.getElementById("statusBanner");
+      const msgSpan = document.getElementById("statusMessage");
+
+      // Phase 3: if this table is mounted (has a live FileSystemFileHandle), write back directly.
+      if (activeTbl && activeTbl.fileHandle) {
+        try {
+          const writable = await activeTbl.fileHandle.createWritable();
+          await writable.write(str);
+          await writable.close();
+          markTableSaved(activeTbl);
+          if (banner && msgSpan) {
+            banner.className = "status-banner valid";
+            banner.classList.remove("hidden");
+            msgSpan.innerHTML = "💾 <strong>Saved " + escapeHTML(filename) + "</strong> directly to the mounted file on disk.";
+            setTimeout(() => { renderStatusBanner(); }, 3500);
+          }
+          return;
+        } catch (e) {
+          alert("Could not write to the mounted file (" + e.message + "). Falling back to a normal download.");
+          // fall through to the download path below
+        }
+      }
+
+      const blob = new Blob([str], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        try {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch(e) {}
+      }, 300);
+
+      markTableSaved(activeTbl);
+      // Flash status feedback
+      if (banner && msgSpan) {
+        banner.className = "status-banner valid";
+        banner.classList.remove("hidden");
+        msgSpan.innerHTML = "💾 <strong>Saved " + escapeHTML(filename) + "</strong> immediately to downloads.";
+        setTimeout(() => {
+          renderStatusBanner();
+        }, 3500);
+      }
+    }
+
+    const saveHeaderBtn = document.getElementById('btnSaveFile');
+    if (saveHeaderBtn) saveHeaderBtn.addEventListener('click', saveActiveBejsonFile);
+    const saveGridBtn = document.getElementById('btnSaveFileGrid');
+    if (saveGridBtn) saveGridBtn.addEventListener('click', saveActiveBejsonFile);
+    const saveSchemaBtn = document.getElementById('btnSaveFileSchema');
+    if (saveSchemaBtn) saveSchemaBtn.addEventListener('click', saveActiveBejsonFile);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const open = Array.from(document.querySelectorAll('.modal-overlay:not(.hidden)'));
+      if (open.length === 0) return;
+      const top = open[open.length - 1];
+      if (top.id === 'modalCryptoPassword') cancelCryptoPassword(); else closeModal(top.id);
+    });
+
+    // Immediate Save Keyboard Shortcut: Ctrl+S / Cmd+S
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveActiveBejsonFile();
+      }
+    });
+
+
+    // Theme logic
+    let isVanillaDark = true;
+    function toggleVanillaTheme() {
+      isVanillaDark = !isVanillaDark;
+      document.body.classList.toggle("dark-theme", isVanillaDark);
+      document.getElementById("themeIcon").textContent = isVanillaDark ? "☀️" : "🌙";
+      document.getElementById("themeLabel").textContent = isVanillaDark ? "Light" : "Dark";
+      safeStorageSet("bejson_vanilla_theme", isVanillaDark ? "dark" : "light");
+    }
+    document.getElementById("btnToggleTheme").addEventListener("click", toggleVanillaTheme);
+    if (safeStorageGet("bejson_vanilla_theme") === "light") {
+      toggleVanillaTheme(); // switch to light since default is dark
+    }
+
+    // Populate the About tab's version display from the single VERSION/PACKAGE_VERSION source
+    const aboutVersionEl = document.getElementById('aboutVersionSpan');
+    if (aboutVersionEl) aboutVersionEl.textContent = `${VERSION} (Pkg ${PACKAGE_VERSION})`;
+
+  </script>
+</body>
+</html>

@@ -20,5 +20,11 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "b3beaaff-a4d5-41ec-b78d-ad51543e6eee",
+      "github",
+      "https://github.com/boehnenelton"
+    ]
+  ]
 }

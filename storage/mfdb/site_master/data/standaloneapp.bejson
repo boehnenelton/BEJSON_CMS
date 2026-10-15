@@ -36,5 +36,15 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "2b6faeda-e723-41ae-820e-783df16d8daf",
+      "BEJSON Editor",
+      "bejson-editor",
+      "",
+      "Modern_BEJSON_Editor_104_ONLY.html",
+      "default_page_image.webp",
+      "2026-10-14"
+    ]
+  ]
 }

@@ -2,10 +2,26 @@
 Library:         BEJSON_CMS_Media
 Family:          BEJSON_CMS
 Description:     Media Cube: gallery, uploads, background thumbnail worker, external media links. In-process serial worker thread by design (no multiprocessing) — see comment block below.
-Version:         18.32
-Library_Version: 58
-Date:            2026-09-20
-RELATIONAL_ID:   78da8c87-9b66-4843-9d80-df1412affdb6
+Version:         18.33
+Library_Version: 59
+Date:            2026-10-11
+RELATIONAL_ID:   d3b7a1f0-52c4-4e8a-9a61-7c0f2e5b9d18
+CHANGE (2026-10-11): PKG144 -- import-freeze fix + Media Library sections.
+(1) ROOT CAUSE of the long-standing import freeze: every upload used the
+browser's native file chooser (<input type=file>), which sends the browser/
+app to the background on Android; the OS then killed the backgrounded process.
+Uploads now go through the in-app server-side picker (BEJSON_CMS_FileBrowser.py
++ fb_assets/becss-filepicker.*): the page never leaves the foreground and the
+chosen files are copied by this process straight from disk. New routes
+POST /assets/import_server {paths, kind} and POST /assets/replace_server/<f>
+{path}; both validate every path through FileBrowser.resolve_pick(). The
+legacy multipart routes (/assets/upload, /assets/replace/<f>) are left in
+place but no longer linked from any page.
+(2) The Media Library used to blend every uploaded file into one "Files"
+list (PDFs, video and audio mixed in with images). It is now split into
+sections selected by ?type=: Images / Video / Audio / Documents / YouTube /
+Links, each with its own count, pagination and bulk-select. Sidebar
+children link to each section.
 CHANGE (2026-09-20): PKG140 -- found while continuing the sweep right after
 pkg139 shipped: the CSP/upload-sanitization work only covered serve_asset()
 and the upload handler. Two more gaps in the SAME file, same attack class:
@@ -97,6 +113,10 @@ from BEJSON_CMS_Shared import (
 )
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
 from lib_bejson_Core_svg_sanitizer import sanitize_svg
+from BEJSON_CMS_FileBrowser import (
+    resolve_pick, resolve_picks, PickError, copy_file_chunked, guess_mime,
+    IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, DOCUMENT_EXTENSIONS,
+)
 
 try:
     from PIL import Image
@@ -114,6 +134,30 @@ ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
 # saved in any form.
 
 media_cube = Blueprint('media', __name__)
+
+# Media Library sections (pkg144): ?type=<key>. File sections hold MediaAsset
+# rows by extension; youtube/links hold ExternalMedia rows.
+_FILE_VIEWS = ('images', 'video', 'audio', 'docs')
+_ASSET_VIEWS = _FILE_VIEWS + ('youtube', 'links')
+_VIEW_TITLES = {'images': 'Images', 'video': 'Video', 'audio': 'Audio', 'docs': 'Documents',
+                'youtube': 'YouTube', 'links': 'Links'}
+_VIEW_PICKER_KIND = {'images': 'image', 'video': 'video', 'audio': 'audio', 'docs': 'document'}
+_VIEW_EMPTY_TEXT = {'images': 'No images yet.', 'video': 'No video files yet.',
+                    'audio': 'No audio files yet.', 'docs': 'No documents yet.'}
+_PICKER_KIND_FOR_IMPORT = ('image', 'video', 'audio', 'document', 'media')
+_MAX_SVG_BYTES = 5 * 1024 * 1024
+
+
+def _asset_category(filename: str) -> str:
+    """Section a stored asset belongs to: images / video / audio / docs."""
+    extension = Path(filename or '').suffix.lower()
+    if extension in IMAGE_EXTENSIONS:
+        return 'images'
+    if extension in VIDEO_EXTENSIONS:
+        return 'video'
+    if extension in AUDIO_EXTENSIONS:
+        return 'audio'
+    return 'docs'   # PDFs and anything unrecognised
 
 # ─── Background thumbnail engine ────────────────────────────────────────────
 # =============================================================================
@@ -245,6 +289,39 @@ def _asset_worker():
 
 _threading.Thread(target=_asset_worker, daemon=True).start()
 
+
+def _queue_asset_from_path(source_path: Path):
+    """Copy ONE already-validated server file into the asset store and queue it
+    for the serial background worker (hash/dedupe/DB/thumbnail). Same rules as
+    assets_upload(): extension allowlist, SVG sanitising, chunked copy. Returns
+    None on success or a user-facing error string."""
+    extension = source_path.suffix.lower()
+    if extension not in ALLOWED_ASSET_EXTENSIONS:
+        return f'"{source_path.name}" skipped — file type not allowed.'
+    stored_name = f"{uuid.uuid4().hex}{extension}"
+    destination_path = ASSETS_DIR / stored_name
+    try:
+        if extension == '.svg':
+            if source_path.stat().st_size > _MAX_SVG_BYTES:
+                return f'"{source_path.name}" skipped — SVG larger than {_MAX_SVG_BYTES // (1024 * 1024)} MB.'
+            sanitized_svg = sanitize_svg(source_path.read_bytes())
+            if sanitized_svg is None:
+                return f'"{source_path.name}" skipped — not a valid/safe SVG file.'
+            with open(destination_path, 'wb') as output_handle:
+                output_handle.write(sanitized_svg)
+        else:
+            copy_file_chunked(source_path, destination_path)
+        _asset_process_queue.put({
+            "stored_name": stored_name,
+            "asset_original_name": source_path.name,
+            "asset_mime_type": guess_mime(source_path),
+        })
+    except Exception as error:  # noqa: BLE001
+        destination_path.unlink(missing_ok=True)
+        logging.error(f"[ASSETS] import_server failed for {source_path.name}: {error}")
+        return f'Error saving "{source_path.name}": {error}'
+    return None
+
 # ─── Routes ──────────────────────────────────────────────────────────────────
 ASSETS_PER_PAGE = 24
 
@@ -317,7 +394,21 @@ def assets_gallery():
     all_assets = db.get_records("MediaAsset")
     all_assets.sort(key=lambda a: a.get('asset_uploaded_at') or '', reverse=True)
 
-    page = max(1, int(request.args.get('page', 1) or 1))
+    # pkg144: sectioned library -- Images / Video / Audio / Documents are
+    # MediaAsset rows split by extension; YouTube / Links are ExternalMedia.
+    view = request.args.get('type', 'images')
+    if view not in _ASSET_VIEWS:
+        view = 'images'
+    category_counts = {key: 0 for key in _FILE_VIEWS}
+    for asset_row in all_assets:
+        category_counts[_asset_category(asset_row.get('asset_filename', ''))] += 1
+    grand_total = len(all_assets)
+    all_assets = [a for a in all_assets if _asset_category(a.get('asset_filename', '')) == view] if view in _FILE_VIEWS else []
+
+    try:
+        page = max(1, int(request.args.get('page', 1) or 1))
+    except ValueError:
+        page = 1
     total = len(all_assets)
     total_pages = max(1, (total + ASSETS_PER_PAGE - 1) // ASSETS_PER_PAGE)
     page = min(page, total_pages)
@@ -362,10 +453,7 @@ def assets_gallery():
           <div class="media-row-details">
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('/assets/{fname}')">Copy Path</button>
             <button type="button" class="btn btn-secondary btn-sm rename-asset-btn" data-fname="{fname}" data-name="{display_name}">Rename</button>
-            <form method="post" action="/assets/replace/{fname}" enctype="multipart/form-data" class="media-replace-form">
-              <input type="file" name="file" required>
-              <button type="submit" class="btn btn-secondary btn-sm">Replace</button>
-            </form>
+            <button type="button" class="btn btn-secondary btn-sm replace-asset-btn" data-fname="{fname}" data-kind="{_VIEW_PICKER_KIND.get(view, 'media')}">Replace&hellip;</button>
             <form method="post" action="/assets/delete/{fname}" onsubmit="return confirm('Remove this file?')">
               <button type="submit" class="btn btn-danger btn-sm">Remove</button>
             </form>
@@ -418,7 +506,7 @@ def assets_gallery():
     if total_pages > 1:
         for p in range(1, total_pages + 1):
             active = 'btn-primary' if p == page else 'btn-secondary'
-            pagination += f'<a href="/assets?page={p}" class="btn {active} btn-sm" style="margin-right:4px;">{p}</a>'
+            pagination += f'<a href="/assets?type={view}&page={p}" class="btn {active} btn-sm" style="margin-right:4px;">{p}</a>'
 
     processing_banner = ''
     if pending_count > 0:
@@ -433,22 +521,28 @@ def assets_gallery():
             '<script>setTimeout(function(){ location.reload(); }, 2000);</script>'
         )
 
+    tab_counts = dict(category_counts)
+    tab_counts['youtube'] = len(youtube_links)
+    tab_counts['links'] = len(other_externals)
+    tabs_html = ''.join(
+        f'<a class="media-tab{" active" if key == view else ""}" href="/assets?type={key}">{_VIEW_TITLES[key]}'
+        f'{(" (" + str(tab_counts[key]) + ")") if tab_counts.get(key) else ""}</a>'
+        for key in _ASSET_VIEWS
+    )
+
     html = f'''
-    <div class="page-header"><h1>Media Library</h1><p>{total} file(s) &mdash; page {page} of {total_pages}</p></div>
+    <div class="page-header"><h1>Media Library &mdash; {_VIEW_TITLES[view]}</h1><p>{(str(total) + ' file(s) &mdash; page ' + str(page) + ' of ' + str(total_pages) + ' &middot; ') if view in _FILE_VIEWS else ''}{grand_total} stored file(s) in total</p></div>
 
     <div class="media-tabs">
-      <button type="button" class="media-tab active" id="tab-btn-files" onclick="switchMediaTab('files')">Files</button>
-      <button type="button" class="media-tab" id="tab-btn-youtube" onclick="switchMediaTab('youtube')">YouTube{(' (' + str(len(youtube_links)) + ')') if youtube_links else ''}</button>
-      <button type="button" class="media-tab" id="tab-btn-links" onclick="switchMediaTab('links')">Links{(' (' + str(len(other_externals)) + ')') if other_externals else ''}</button>
+      {tabs_html}
     </div>
 
-    <div id="tab-panel-files" class="media-tab-panel">
+    <div id="tab-panel-files" class="media-tab-panel" style="{'' if view in _FILE_VIEWS else 'display:none;'}">
       <div class="card">
-        <div class="card-header"><span class="card-title">Upload Files</span></div>
-        <form method="post" action="/assets/upload" enctype="multipart/form-data">
-          <input type="file" name="files" multiple accept="image/*,.pdf,.mp4,.mp3,.ogg,.webm" class="form-control" style="margin-bottom:12px;">
-          <button type="submit" class="btn btn-primary">Upload</button>
-        </form>
+        <div class="card-header"><span class="card-title">Import {_VIEW_TITLES.get(view, 'Files')}</span></div>
+        <p style="color:var(--text-secondary);font-size:.85rem;margin-bottom:12px;">Browse the device inside the app &mdash; nothing is uploaded through the browser, so the page never leaves the foreground.</p>
+        <button type="button" class="btn btn-primary" id="media-import-btn" data-kind="{_VIEW_PICKER_KIND.get(view, 'media')}">&#128193; Browse &amp; Import {_VIEW_TITLES.get(view, 'Files')}&hellip;</button>
+        <span id="media-import-status" style="margin-left:10px;font-size:.85rem;color:var(--text-secondary);"></span>
       </div>
 
       {processing_banner}
@@ -465,12 +559,12 @@ def assets_gallery():
       </div>
 
       <div class="media-list">
-        {rows if rows else '<div class="card empty-state"><p>No files uploaded yet.</p></div>'}
+        {rows if rows else '<div class="card empty-state"><p>' + _VIEW_EMPTY_TEXT.get(view, 'No files yet.') + '</p></div>'}
       </div>
       <div style="margin-bottom:30px;">{pagination}</div>
     </div>
 
-    <div id="tab-panel-youtube" class="media-tab-panel" style="display:none;">
+    <div id="tab-panel-youtube" class="media-tab-panel" style="{'' if view == 'youtube' else 'display:none;'}">
       <div class="card">
         <div class="card-header"><span class="card-title">Add YouTube Video</span></div>
         <form method="post" action="/assets/external/add" onsubmit="return prepYtSubmit(this)">
@@ -485,7 +579,7 @@ def assets_gallery():
       </div>
     </div>
 
-    <div id="tab-panel-links" class="media-tab-panel" style="display:none;">
+    <div id="tab-panel-links" class="media-tab-panel" style="{'' if view == 'links' else 'display:none;'}">
       <div class="card">
         <div class="card-header"><span class="card-title">Add External Media Link</span></div>
         <form method="post" action="/assets/external/add">
@@ -515,8 +609,8 @@ def assets_gallery():
     </div>
 
     <style>
-    .media-tabs {{ display:flex; gap:4px; margin:20px 0 16px; border-bottom:1px solid var(--border); }}
-    .media-tab {{ background:none; border:none; padding:10px 18px; font-size:.9rem; font-weight:600; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; }}
+    .media-tabs {{ display:flex; gap:4px; margin:20px 0 16px; border-bottom:1px solid var(--border); overflow-x:auto; white-space:nowrap; scrollbar-width:none; }}
+    .media-tab {{ display:inline-block; text-decoration:none; background:none; border:none; padding:12px 16px; font-size:.9rem; font-weight:600; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; flex-shrink:0; }}
     .media-tab.active {{ color:var(--accent); border-bottom-color:var(--accent); }}
     .yt-card-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-top:20px; }}
     .yt-card {{ background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; overflow:hidden; }}
@@ -539,8 +633,6 @@ def assets_gallery():
     .media-row.expanded .media-row-chevron {{ transform:rotate(90deg); }}
     .media-row-details {{ display:none; padding:0 14px 14px 70px; gap:10px; flex-wrap:wrap; align-items:center; }}
     .media-row.expanded .media-row-details {{ display:flex; }}
-    .media-replace-form {{ display:flex; align-items:center; gap:6px; }}
-    .media-replace-form input[type=file] {{ max-width:180px; font-size:.78rem; }}
     .media-lightbox {{ display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; text-align:center; cursor:zoom-out; }}
     .media-lightbox.open {{ display:flex; flex-direction:column; align-items:center; justify-content:center; }}
     .media-lightbox img {{ max-width:92vw; max-height:82vh; object-fit:contain; box-shadow:0 0 40px rgba(0,0,0,0.6); }}
@@ -549,13 +641,30 @@ def assets_gallery():
     </style>
 
     <script>
-    function switchMediaTab(name) {{
-        document.getElementById('tab-panel-files').style.display = (name === 'files') ? '' : 'none';
-        document.getElementById('tab-panel-youtube').style.display = (name === 'youtube') ? '' : 'none';
-        document.getElementById('tab-panel-links').style.display = (name === 'links') ? '' : 'none';
-        document.getElementById('tab-btn-files').classList.toggle('active', name === 'files');
-        document.getElementById('tab-btn-youtube').classList.toggle('active', name === 'youtube');
-        document.getElementById('tab-btn-links').classList.toggle('active', name === 'links');
+    // pkg144: server-side picker replaces the native file chooser (see
+    // BEJSON_CMS_FileBrowser.py). The picker returns SERVER paths; the
+    // routes below copy them in directly -- nothing is uploaded.
+    function mediaImportFinish(statusEl, text) {{ if (statusEl) {{ statusEl.textContent = text; }} }}
+    function mediaImportRun(url, body, statusEl) {{
+        mediaImportFinish(statusEl, 'Importing...');
+        return CMSFilePicker.postJSON(url, body).then(function (data) {{
+            mediaImportFinish(statusEl, 'Done - refreshing...');
+            window.location.reload();
+        }}).catch(function (err) {{
+            mediaImportFinish(statusEl, '');
+            alert(err.message || 'Import failed.');
+            window.location.reload();
+        }});
+    }}
+    var mediaImportBtn = document.getElementById('media-import-btn');
+    if (mediaImportBtn) {{
+        mediaImportBtn.addEventListener('click', function () {{
+            var kind = mediaImportBtn.dataset.kind || 'media';
+            CMSFilePicker.open({{ kind: kind, multiple: true }}).then(function (result) {{
+                if (!result) {{ return; }}
+                mediaImportRun('/assets/import_server', {{ paths: result.paths, kind: kind }}, document.getElementById('media-import-status'));
+            }});
+        }});
     }}
     function ytIdFromUrl(raw) {{
         // Same rule as BEJSON_CMS_PageEditorV2.py's ytIdFromUrlV2() and
@@ -635,9 +744,16 @@ def assets_gallery():
     // here rather than per-row, so it also covers rows added later without
     // re-binding.
     document.body.addEventListener('click', function(ev) {{
-        var t = ev.target.closest('.lightbox-trigger, .rename-asset-btn, .rename-ext-btn, .yt-thumb-link, .copy-url-btn');
+        var t = ev.target.closest('.lightbox-trigger, .rename-asset-btn, .rename-ext-btn, .yt-thumb-link, .copy-url-btn, .replace-asset-btn');
         if (!t) return;
-        if (t.classList.contains('lightbox-trigger')) {{
+        if (t.classList.contains('replace-asset-btn')) {{
+            ev.stopPropagation();
+            var replaceName = t.dataset.fname;
+            CMSFilePicker.open({{ kind: t.dataset.kind || 'media', multiple: false, title: 'Choose the replacement file', confirmLabel: 'Replace' }}).then(function (result) {{
+                if (!result) {{ return; }}
+                mediaImportRun('/assets/replace_server/' + encodeURIComponent(replaceName), {{ path: result.paths[0] }}, null);
+            }});
+        }} else if (t.classList.contains('lightbox-trigger')) {{
             ev.stopPropagation();
             openLightbox(t.dataset.src, t.dataset.caption);
         }} else if (t.classList.contains('rename-asset-btn')) {{
@@ -712,6 +828,94 @@ def assets_upload():
         flash(f'No files queued — {skipped_count} skipped.', 'error')
 
     return redirect('/assets')
+
+
+@media_cube.route('/assets/import_server', methods=['POST'])
+def assets_import_server():
+    """pkg144: import files the in-app picker chose. JSON body
+    {"paths": [absolute server paths], "kind": image|video|audio|document|media}.
+    Every path is validated by FileBrowser.resolve_pick() (root containment,
+    symlink resolution, extension + size caps) before anything is copied."""
+    db.mount()
+    payload = request.get_json(silent=True) or {}
+    kind = payload.get('kind', 'media')
+    if kind not in _PICKER_KIND_FOR_IMPORT:
+        return jsonify({"ok": False, "error": "Unknown import kind."}), 400
+    try:
+        valid_paths, rejected = resolve_picks(payload.get('paths'), kind)
+    except PickError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+
+    skipped_messages = [item['error'] for item in rejected]
+    queued_count = 0
+    for source_path in valid_paths:
+        failure = _queue_asset_from_path(source_path)
+        if failure:
+            skipped_messages.append(failure)
+        else:
+            queued_count += 1
+
+    want_flash = payload.get('flash', True) is not False
+    for message in (skipped_messages[:10] if want_flash else []):
+        flash(message, 'error')
+    if queued_count and want_flash:
+        flash(f'{queued_count} file(s) queued for processing.' + (f' Skipped {len(skipped_messages)}.' if skipped_messages else ''), 'success')
+    return jsonify({
+        "ok": queued_count > 0,
+        "queued": queued_count,
+        "skipped": skipped_messages,
+        "pending": _asset_process_queue.qsize(),
+        "error": '; '.join(skipped_messages[:3]) if not queued_count else "",
+    }), (200 if queued_count else 400)
+
+
+@media_cube.route('/assets/replace_server/<path:filename>', methods=['POST'])
+def assets_replace_server(filename):
+    """pkg144: replace an asset's content from a server path the picker chose.
+    Same guarantees as assets_replace() (stored filename + DB record kept, so
+    page references stay valid; SVG sanitised; hash/size/thumbnail refreshed),
+    plus: the new file must be the same kind as the old one (SVG<->SVG,
+    image<->image, video<->video ...), so a PDF can't silently replace a PNG."""
+    db.mount()
+    filename = secure_filename(filename)
+    existing = next((a for a in db.get_records("MediaAsset") if a.get('asset_filename') == filename), None)
+    if not existing:
+        return jsonify({"ok": False, "error": "File not found in Media Library."}), 404
+    payload = request.get_json(silent=True) or {}
+    old_extension = Path(filename).suffix.lower()
+    section = _asset_category(filename)
+    try:
+        source_path = resolve_pick(payload.get('path'), _VIEW_PICKER_KIND.get(section, 'document'))
+    except PickError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    if (source_path.suffix.lower() == '.svg') != (old_extension == '.svg'):
+        return jsonify({"ok": False, "error": "Replace an SVG only with an SVG (and a non-SVG only with a non-SVG)."}), 400
+
+    destination_path = ASSETS_DIR / filename
+    try:
+        if old_extension == '.svg':
+            if source_path.stat().st_size > _MAX_SVG_BYTES:
+                return jsonify({"ok": False, "error": "SVG is too large."}), 400
+            sanitized_svg = sanitize_svg(source_path.read_bytes())
+            if sanitized_svg is None:
+                return jsonify({"ok": False, "error": "Replacement file is not a valid/safe SVG — not replaced."}), 400
+            with open(destination_path, 'wb') as output_handle:
+                output_handle.write(sanitized_svg)
+        else:
+            copy_file_chunked(source_path, destination_path)
+        db.update_record("MediaAsset", "asset_filename", filename, {
+            "asset_file_hash": _get_file_hash(destination_path),
+            "asset_file_size": destination_path.stat().st_size,
+            "asset_mime_type": guess_mime(source_path) or existing.get("asset_mime_type", ""),
+            "asset_uploaded_at": datetime.utcnow().isoformat(),
+        })
+        if old_extension in _THUMBABLE_EXT:
+            _make_thumbnail(filename)
+    except Exception as error:  # noqa: BLE001
+        logging.error(f"[ASSETS] replace_server failed for {filename}: {error}")
+        return jsonify({"ok": False, "error": f"Replace failed: {error}"}), 500
+    flash('File replaced.', 'success')
+    return jsonify({"ok": True})
 
 
 @media_cube.route('/assets/delete/<path:filename>', methods=['POST'])

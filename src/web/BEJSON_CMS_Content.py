@@ -2,10 +2,21 @@
 Library:         BEJSON_CMS_Content
 Family:          BEJSON_CMS
 Description:     Content Cube: Page/Link CRUD, Category management, Author profiles, Standalone Apps, HTML import pipeline. Uses CMSCore (lib_bejson_CMS_cms_core), the same data layer as the rest of the Flask app — NOT lib_bejson_CMS_cms_mfdb (that manager is CLI-only, used by cms-manage.py, and is a different schema/data layer).
-Version:         18.30
-Library_Version: 58
-Date:            2026-09-20
-RELATIONAL_ID:   303520e3-1cd8-4ac0-8ee8-bc2ee9bb2596
+Version:         18.31
+Library_Version: 59
+Date:            2026-10-11
+RELATIONAL_ID:   5b8e3c72-1d94-4f06-a8b7-3e9d0c4a6f21
+CHANGE (2026-10-11): PKG144 -- import-freeze fix. Every file import in this
+module (featured image on the page editor, Standalone App new/edit/scan, HTML
+Import) used the browser's native file chooser, which sends the browser/app to
+the background on Android where the OS kills it -- the long-standing "import
+freezes" bug. All of them now use the in-app server-side picker
+(BEJSON_CMS_FileBrowser.py): the page never leaves the foreground, and the
+chosen files are read straight from disk by this process. Forms carry a hidden
+`app_file_path` / `html_paths` field instead of a multipart upload; every path is
+validated by FileBrowser.resolve_pick(). The legacy multipart request fields
+(`app_file`, `html_files`) are still honoured server-side so nothing that
+posts them breaks, but no page offers them any more.
 CHANGE (2026-09-20): PKG139 -- deferred-item sweep decisions (Elton: "add
 app_created_at field" -- audit L-4). apps_new()'s StandaloneApp
 add_record() call now includes app_created_at (today's date) -- see
@@ -57,6 +68,9 @@ from BEJSON_CMS_Shared import (
     UPLOAD_TMP,
 )
 from lib_bejson_Core_bejson_path_guard import safe_extract_zip
+from BEJSON_CMS_FileBrowser import (
+    resolve_pick, resolve_picks, PickError, PickedFile, parse_path_list, copy_file_chunked,
+)
 
 try:
     from bs4 import BeautifulSoup
@@ -99,13 +113,17 @@ def pages_list():
     items = db.get_records("PageRecord")
     categories = db.get_records("Category")
     
-    pages = [p for p in items if p.get('page_type') != 'external_link']
+    # Task 5 (pkg145): standalone pages (page_is_standalone_flag True) are
+    # category-less and listed on their own tab, separate from feed posts.
+    pages = [p for p in items if p.get('page_type') != 'external_link' and p.get('page_is_standalone_flag') is not True]
+    standalone_pages = [p for p in items if p.get('page_type') != 'external_link' and p.get('page_is_standalone_flag') is True]
     links = [p for p in items if p.get('page_type') == 'external_link']
 
     html = '''
     <div class="page-header"><h1>Pages</h1><p>Manage your website pages and articles</p></div>
     <div class="tabs">
-        <button class="tab active" data-tab="tab-pages">Pages ({{ pages|length }})</button>
+        <button class="tab active" data-tab="tab-pages">Posts ({{ pages|length }})</button>
+        <button class="tab" data-tab="tab-standalone">Standalone Pages ({{ standalone_pages|length }})</button>
         <button class="tab" data-tab="tab-links">External Links ({{ links|length }})</button>
         <button class="tab" data-tab="tab-categories">Categories ({{ categories|length }})</button>
     </div>
@@ -116,6 +134,13 @@ def pages_list():
         {% for p in pages %}<tr><td><a href="/edit/{{ p.page_uuid }}" class="btn btn-primary btn-sm">Edit</a></td><td>{{ p.page_title }}</td><td>{{ p.page_cat_name or \'Uncategorized\' }}</td><td>{{ p.page_author_name or \'—\' }}</td><td><span class="badge badge-page">{{ p.page_type or \'page\' }}</span></td><td>{{ p.page_created_at or \'N/A\' }}</td>
         <td><form method="post" action="/pages/duplicate/{{ p.page_uuid }}" style="display:inline;"><button type="submit" class="btn btn-secondary btn-sm">Duplicate</button></form> <form method="post" action="/pages/delete/{{ p.page_uuid }}" style="display:inline;" onsubmit="return confirm(\'Delete this page?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form></td></tr>{% endfor %}
         </tbody></table></div>{% else %}<div class="empty-state"><h3>No pages yet</h3><a href="/pages/new" class="btn btn-primary">Create your first page</a></div>{% endif %}</div>
+    </div>
+    <div id="tab-standalone" class="tab-content">
+        <div class="toolbar"><a href="/pages/new?standalone=1" class="btn btn-primary">+ New Standalone Page</a></div>
+        <div class="card">{% if standalone_pages %}<div class="table-container"><table><thead><tr><th>Edit</th><th>Title</th><th>Slug</th><th>Author</th><th>Date</th><th>Actions</th></tr></thead><tbody>
+        {% for p in standalone_pages %}<tr><td><a href="/edit/{{ p.page_uuid }}" class="btn btn-primary btn-sm">Edit</a></td><td>{{ p.page_title }}</td><td><code>pages/{{ p.page_slug }}/</code></td><td>{{ p.page_author_name or \'—\' }}</td><td>{{ p.page_created_at or \'N/A\' }}</td>
+        <td><form method="post" action="/pages/duplicate/{{ p.page_uuid }}" style="display:inline;"><button type="submit" class="btn btn-secondary btn-sm">Duplicate</button></form> <form method="post" action="/pages/delete/{{ p.page_uuid }}" style="display:inline;" onsubmit="return confirm(\'Delete this page?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form></td></tr>{% endfor %}
+        </tbody></table></div>{% else %}<div class="empty-state"><h3>No standalone pages yet</h3><p>Standalone pages have no category. They show up in the site navigation and sidebar, not in feeds.</p><a href="/pages/new?standalone=1" class="btn btn-primary">Create a standalone page</a></div>{% endif %}</div>
     </div>
     <div id="tab-links" class="tab-content">
         <div class="toolbar"><a href="/links/new" class="btn btn-primary">+ Add External Link</a></div>
@@ -136,7 +161,7 @@ def pages_list():
         <td>{% if c.cat_name != \'Uncategorized\' %}<form method="post" action="/categories/delete/{{ c.cat_name }}" style="display:inline;" onsubmit="return confirm(\'Delete category?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form>{% endif %}</td></tr>{% endfor %}
         </tbody></table></div></div>
     </div>'''
-    return R(html, pages=pages, links=links, categories=categories,
+    return R(html, pages=pages, standalone_pages=standalone_pages, links=links, categories=categories,
              breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
 
@@ -150,9 +175,12 @@ def page_new():
         title = request.form.get('title', '').strip()
         category = request.form.get('category', '').strip()
         author = request.form.get('author', '')
+        is_standalone = request.form.get('page_is_standalone_flag') == '1'
         if not title:
             return "Title required", 400
-        if not category:
+        if is_standalone:
+            category = None          # standalone pages are category-less
+        elif not category:
             return "Category required", 400
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
@@ -162,7 +190,8 @@ def page_new():
             "page_cat_name": category, "page_type": "page", "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE,
             "page_template_key": "blank", "page_featured_video_url": None,
-            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid})
+            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid,
+            "page_is_standalone_flag": is_standalone})
         
         pfile = os.path.join(PAGES_DB_DIR, f"{new_uuid}.json")
         New_Page_Content_Doc = {
@@ -193,13 +222,23 @@ def page_new():
     <div class="page-header"><h1>Create New Page</h1><p>Add a new page to your website</p></div>
     <form method="POST" class="card">
         <div class="form-group"><label class="form-label">Page Title *</label><input type="text" name="title" class="form-control" required autofocus></div>
+        <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" name="page_is_standalone_flag" value="1" id="standalone_flag" {% if standalone_default %}checked{% endif %} onchange="syncStandaloneCategory()"> Standalone page (no category &mdash; shown in site navigation and sidebar instead of feeds)</label></div>
         <div class="grid grid-2">
-            <div class="form-group"><label class="form-label">Category *</label><select name="category" class="form-control" required><option value="" disabled selected>-- Select Category --</option>{% for c in categories %}<option value="{{ c.cat_name }}">{{ c.cat_name }}</option>{% endfor %}</select></div>
+            <div class="form-group"><label class="form-label">Category *</label><select name="category" id="category_select" class="form-control" required><option value="" disabled selected>-- Select Category --</option>{% for c in categories %}<option value="{{ c.cat_name }}">{{ c.cat_name }}</option>{% endfor %}</select></div>
             <div class="form-group"><label class="form-label">Author</label><select name="author" class="form-control"><option value="">-- Select author --</option>{% for a in authors %}<option value="{{ a.author_display_name }}">{{ a.author_display_name }}</option>{% endfor %}</select></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:30px;"><button type="submit" class="btn btn-primary">Create Page</button><a href="/pages" class="btn btn-secondary">Cancel</a></div>
-    </form>'''
-    return R(html, categories=categories, authors=authors,
+    </form>
+    <script>
+    function syncStandaloneCategory() {
+        var standalone = document.getElementById('standalone_flag').checked;
+        var categorySelect = document.getElementById('category_select');
+        categorySelect.disabled = standalone;
+        categorySelect.required = !standalone;
+    }
+    document.addEventListener('DOMContentLoaded', syncStandaloneCategory);
+    </script>'''
+    return R(html, categories=categories, authors=authors, standalone_default=request.args.get('standalone') == '1',
              breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
 
@@ -221,6 +260,10 @@ def edit_content(page_uuid):
         featured_img = request.form.get('page_featured_img', page.get('page_featured_img', ''))
         author = request.form.get('page_author_name', page.get('page_author_name', ''))
         category = request.form.get('page_cat_name', page.get('page_cat_name', ''))
+        # Task 5 (pkg145): this form always renders the checkbox, so absent == unchecked.
+        is_standalone = request.form.get('page_is_standalone_flag') == '1'
+        if is_standalone:
+            category = None
         # Update content file
         try:
             import lib_bejson_Core_bejson_core as Core
@@ -240,7 +283,8 @@ def edit_content(page_uuid):
         cat_uuid, author_uuid = _resolve_page_fk_uuids(category, author)
         db.update_record("PageRecord", "page_uuid", page_uuid, {
             "page_title": title, "page_featured_img": featured_img, "page_author_name": author, "page_cat_name": category,
-            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid
+            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid,
+            "page_is_standalone_flag": is_standalone
         })
         flash("Changes saved successfully!", "success")
         return redirect(f"/edit/{page_uuid}")
@@ -285,6 +329,7 @@ def edit_content(page_uuid):
     <form method="POST">
         <div class="card">
             <div class="form-group"><label class="form-label">Title</label><input type="text" name="title" class="form-control" value="{{ page.page_title }}"></div>
+            <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" name="page_is_standalone_flag" value="1" {% if page.page_is_standalone_flag %}checked{% endif %} onchange="document.getElementById(\'category_select\').disabled=this.checked;"> Standalone page (no category &mdash; shown in site navigation and sidebar instead of feeds)</label></div>
             <div class="grid grid-2">
                 <div class="form-group">
                     <label class="form-label">Featured Image</label>
@@ -293,8 +338,7 @@ def edit_content(page_uuid):
                         {% for a in media_assets %}<option value="{{ a.asset_filename }}" {% if a.asset_filename == page.page_featured_img and page.page_featured_img and page.page_featured_img != 'None' %}selected{% endif %}>{{ a.asset_original_name or a.asset_filename }}</option>{% endfor %}
                     </select>
                     <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-                        <input type="file" id="featured_img_upload" accept="image/*" style="flex:1; font-size:0.8rem;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="uploadFeaturedImage()">&#8593; Upload New</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="pickFeaturedImage()">&#128193; Browse device &amp; import&hellip;</button>
                     </div>
                     <div id="featured_img_upload_status" style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;"></div>
                     <div id="featured_img_preview" style="margin-top:8px;">{% if page.page_featured_img and page.page_featured_img != 'None' %}<img src="/assets/{{ page.page_featured_img }}" style="max-height:80px;border-radius:6px;border:1px solid var(--border);" alt="current">{% endif %}</div>
@@ -306,7 +350,7 @@ def edit_content(page_uuid):
                         {% for a in authors %}<option value="{{ a.author_display_name }}" {% if a.author_display_name == page.page_author_name %}selected{% endif %}>{{ a.author_display_name }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="form-group"><label class="form-label">Category</label><select name="page_cat_name" class="form-control">{% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name == page.page_cat_name %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label class="form-label">Category</label><select name="page_cat_name" id="category_select" class="form-control" {% if page.page_is_standalone_flag %}disabled{% endif %}>{% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name == page.page_cat_name %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}</select></div>
             </div>
         </div>
         <div class="card">
@@ -315,33 +359,29 @@ def edit_content(page_uuid):
             <textarea id="html-editor" name="html_content" class="editor-area"></textarea>
             <script>document.addEventListener('DOMContentLoaded',function(){document.getElementById('html-editor').value={{ html_content | tojson }};});</script>
             <script>
-            function uploadFeaturedImage() {
-                var input = document.getElementById('featured_img_upload');
+            // pkg144: the image is chosen with the in-app picker and copied in by
+            // the server (no browser upload, so the page never leaves the foreground).
+            function pickFeaturedImage() {
                 var statusEl = document.getElementById('featured_img_upload_status');
-                if (!input.files || !input.files[0]) {
-                    statusEl.textContent = 'Choose a file first.';
-                    return;
-                }
-                var select = document.getElementById('featured_img_select');
-                var before = new Set();
-                for (var i = 0; i < select.options.length; i++) { before.add(select.options[i].value); }
-
-                var fd = new FormData();
-                fd.append('files', input.files[0]);
-                statusEl.textContent = 'Uploading...';
-
-                fetch('/assets/upload', { method: 'POST', body: fd })
-                    .then(function() {
-                        statusEl.textContent = 'Processing...';
-                        pollForNewAsset(before, 0);
-                    })
-                    .catch(function() { statusEl.textContent = 'Upload failed.'; });
+                CMSFilePicker.open({ kind: 'image', multiple: false, title: 'Choose a featured image' }).then(function(result) {
+                    if (!result) { return; }
+                    var select = document.getElementById('featured_img_select');
+                    var before = new Set();
+                    for (var i = 0; i < select.options.length; i++) { before.add(select.options[i].value); }
+                    statusEl.textContent = 'Importing...';
+                    CMSFilePicker.postJSON('/assets/import_server', { paths: result.paths, kind: 'image', flash: false })
+                        .then(function() {
+                            statusEl.textContent = 'Processing...';
+                            pollForNewAsset(before, 0);
+                        })
+                        .catch(function(err) { statusEl.textContent = (err && err.message) || 'Import failed.'; });
+                });
             }
 
             function pollForNewAsset(before, attempt) {
                 var statusEl = document.getElementById('featured_img_upload_status');
                 if (attempt > 15) {
-                    statusEl.textContent = 'Still processing -- reload the page in a moment and select it from the dropdown.';
+                    statusEl.textContent = 'No new image appeared -- it may already be in the Media Library (duplicates are skipped), or is still processing. Check the dropdown.';
                     return;
                 }
                 fetch('/assets/list.json')
@@ -358,8 +398,7 @@ def edit_content(page_uuid):
                             select.value = newFile.asset_filename;
                             document.getElementById('featured_img_preview').innerHTML =
                                 '<img src="/assets/' + newFile.asset_filename + '" style="max-height:80px;border-radius:6px;border:1px solid var(--border);" alt="new">';
-                            statusEl.textContent = 'Uploaded and selected.';
-                            document.getElementById('featured_img_upload').value = '';
+                            statusEl.textContent = 'Imported and selected.';
                         } else {
                             setTimeout(function() { pollForNewAsset(before, attempt + 1); }, 600);
                         }
@@ -478,6 +517,7 @@ def duplicate_page(page_uuid):
         # verbatim preserves an orphan (None) state faithfully too, if the
         # source page had one.
         "page_cat_uuid": source.get("page_cat_uuid"), "page_author_uuid": source.get("page_author_uuid"),
+        "page_is_standalone_flag": source.get("page_is_standalone_flag") is True,
     })
 
     src_file = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
@@ -535,7 +575,7 @@ def link_new():
             "page_cat_name": category, "page_type": "external_link", "page_external_url": Submitted_External_Link_Url,
             "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_author_name": "", "page_featured_img": "",
             "page_template_key": None, "page_featured_video_url": None,
-            "page_cat_uuid": cat_uuid, "page_author_uuid": None})
+            "page_cat_uuid": cat_uuid, "page_author_uuid": None, "page_is_standalone_flag": False})
         
         flash('External link added.', 'success')
         return redirect('/links')
@@ -627,6 +667,33 @@ def apps_list():
     return R(html, apps=Standalone_App_Records, breadcrumbs=get_breadcrumbs(request.path), active_section='apps')
 
 
+_MAX_APP_EXTRACTED_BYTES = 300 * 1024 * 1024  # same decompression-bomb cap as the legacy upload path
+
+
+def _install_app_from_path(source_path, app_dir):
+    """Install a picked HTML file or ZIP into app_dir (pkg144). Returns
+    (error_message_or_None, entry_file_or_None). ZIPs are opened straight from
+    their on-disk location -- no temp copy -- and extracted with the same size
+    cap + safe_extract_zip() traversal guard as the legacy upload path."""
+    if source_path.suffix.lower() == '.zip':
+        try:
+            with zipfile.ZipFile(source_path, 'r') as archive:
+                total_uncompressed = sum(info.file_size for info in archive.infolist())
+                if total_uncompressed > _MAX_APP_EXTRACTED_BYTES:
+                    return (f'App ZIP rejected — {total_uncompressed // (1024 * 1024)}MB uncompressed exceeds the '
+                            f'{_MAX_APP_EXTRACTED_BYTES // (1024 * 1024)}MB safety cap.'), None
+                safe_extract_zip(archive, app_dir)
+        except zipfile.BadZipFile:
+            return 'That file is not a valid ZIP archive.', None
+        except ValueError as error:
+            return f'App ZIP rejected — contains a member that would extract outside the app folder ({error}).', None
+        gc.collect()
+        return None, None
+    safe_name = secure_filename(source_path.name) or 'index.html'
+    copy_file_chunked(source_path, os.path.join(app_dir, safe_name))
+    return None, safe_name
+
+
 @content_cube.route('/apps/new', methods=['GET', 'POST'])
 def app_new():
     assets = get_image_assets()
@@ -638,12 +705,32 @@ def app_new():
         if not name:
             return "App name required", 400
         uploaded_file = request.files.get('app_file')
+        picked_app_path = request.form.get('app_file_path', '').strip()
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', name.lower()).strip('-')
         app_dir = os.path.join(APPS_STORAGE, new_uuid)
         os.makedirs(app_dir, exist_ok=True)
         _t0 = time.perf_counter()
-        if uploaded_file and uploaded_file.filename:
+        if picked_app_path and not (uploaded_file and uploaded_file.filename):
+            # pkg144: file chosen with the in-app picker -- read from disk, no upload.
+            try:
+                picked_source = resolve_pick(picked_app_path, 'app')
+                install_error, installed_entry = _install_app_from_path(picked_source, app_dir)
+            except PickError as _e:
+                install_error, installed_entry = str(_e), None
+            except OSError as _e:
+                install_error, installed_entry = f'Could not read the chosen file: {_e}', None
+            if install_error:
+                shutil.rmtree(app_dir, ignore_errors=True)
+                flash(install_error, 'error')
+                return redirect('/apps/new')
+            if installed_entry:
+                entry_file = installed_entry
+        elif not (uploaded_file and uploaded_file.filename):
+            shutil.rmtree(app_dir, ignore_errors=True)
+            flash('Choose an HTML file or ZIP to import.', 'error')
+            return redirect('/apps/new')
+        if uploaded_file and uploaded_file.filename and not picked_app_path:
             filename = secure_filename(uploaded_file.filename)
             if filename.endswith('.zip'):
                 zip_path = os.path.join(app_dir, 'temp.zip')
@@ -684,7 +771,7 @@ def app_new():
         return redirect('/apps')
     html = '''
     <div class="page-header"><h1>Import Application</h1><p>Add a standalone application</p></div>
-    <form method="POST" enctype="multipart/form-data" class="card" id="appForm">
+    <form method="POST" class="card" id="appForm" onsubmit="return appFormCheck()">
         <div class="form-group"><label class="form-label">App Name *</label><input type="text" name="name" class="form-control" required></div>
         <div class="form-group"><label class="form-label">Description</label><textarea name="desc" class="form-control"></textarea></div>
         <div class="form-group">
@@ -700,10 +787,12 @@ def app_new():
         <div class="form-group"><label class="form-label">Featured Image</label><select name="app_featured_img" class="form-control"><option value="">-- No image --</option>{% for a in assets %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select></div>
         <div class="form-group">
             <label class="form-label">App File (HTML or ZIP) *</label>
-            <div style="display:flex;gap:10px;">
-                <input type="file" name="app_file" id="appFileInput" class="form-control" accept=".html,.htm,.zip" required onchange="handleFileChange()">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary" id="appPickBtn" data-fb-pick data-fb-kind="app" data-fb-title="Choose an HTML file or ZIP" data-fb-target="#appFilePath" data-fb-summary="#appFileSummary">&#128193; Browse device&hellip;</button>
                 <button type="button" class="btn btn-secondary" id="scanBtn" onclick="scanZip()" style="display:none;">Scan ZIP</button>
             </div>
+            <input type="hidden" name="app_file_path" id="appFilePath">
+            <div id="appFileSummary" class="becss-fb-summary"></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:30px;"><button type="submit" class="btn btn-primary">Import App</button><a href="/apps" class="btn btn-secondary">Cancel</a></div>
     </form>
@@ -724,32 +813,38 @@ def app_new():
         }
     }
 
-    function handleFileChange() {
-        const fileIn = document.getElementById('appFileInput');
-        const scanBtn = document.getElementById('scanBtn');
-        const sel = document.getElementById('entryFileSelect');
-        
-        if (fileIn.files.length > 0) {
-            const file = fileIn.files[0];
-            if (file.name.toLowerCase().endsWith('.zip')) {
-                scanBtn.style.display = 'block';
-            } else {
-                scanBtn.style.display = 'none';
-                // Auto-populate for single HTML
-                if (file.name.toLowerCase().match(/\\.html?$/)) {
-                    sel.innerHTML = `<option value="${file.name}">${file.name}</option>`;
-                }
-            }
+    // pkg144: the file is chosen with the in-app picker (data-fb-pick); the
+    // hidden #appFilePath holds the SERVER path, so nothing is uploaded.
+    function appFormCheck() {
+        if (!document.getElementById('appFilePath').value.trim()) {
+            alert('Choose an HTML file or ZIP first.');
+            return false;
         }
+        return true;
     }
 
+    document.getElementById('appPickBtn').addEventListener('fb:picked', function (ev) {
+        const scanBtn = document.getElementById('scanBtn');
+        const sel = document.getElementById('entryFileSelect');
+        const picked = ev.detail.files[0];
+        if (!picked) return;
+        if (picked.name.toLowerCase().endsWith('.zip')) {
+            scanBtn.style.display = 'block';
+            scanZip();
+        } else {
+            scanBtn.style.display = 'none';
+            sel.innerHTML = '';
+            const opt = document.createElement('option');
+            opt.value = picked.name;
+            opt.textContent = picked.name;
+            sel.appendChild(opt);
+        }
+    });
+
     async function scanZip() {
-        const fileIn = document.getElementById('appFileInput');
-        if (fileIn.files.length === 0) return;
-        
-        const formData = new FormData();
-        formData.append('app_file', fileIn.files[0]);
-        
+        const pickedPath = document.getElementById('appFilePath').value.trim();
+        if (!pickedPath) return;
+
         const scanBtn = document.getElementById('scanBtn');
         scanBtn.disabled = true;
         scanBtn.textContent = 'Scanning...';
@@ -757,7 +852,8 @@ def app_new():
         try {
             const res = await fetch('/api/apps/scan_zip', {
                 method: 'POST',
-                body: formData
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: pickedPath })
             });
             const data = await res.json();
             if (data.success) {
@@ -809,7 +905,25 @@ def app_edit(app_uuid):
             return "App name required", 400
 
         uploaded_file = request.files.get('app_file')
-        if uploaded_file and uploaded_file.filename:
+        picked_app_path = request.form.get('app_file_path', '').strip()
+        if picked_app_path and not (uploaded_file and uploaded_file.filename):
+            # pkg144: replacement chosen with the in-app picker. Validate BEFORE
+            # wiping the old payload so a bad pick can never destroy a working app.
+            try:
+                picked_source = resolve_pick(picked_app_path, 'app')
+            except PickError as _e:
+                flash(str(_e), 'error')
+                return redirect(f'/apps/edit/{app_uuid}')
+            if os.path.exists(app_dir):
+                shutil.rmtree(app_dir)
+            os.makedirs(app_dir, exist_ok=True)
+            install_error, installed_entry = _install_app_from_path(picked_source, app_dir)
+            if install_error:
+                flash(install_error, 'error')
+                return redirect(f'/apps/edit/{app_uuid}')
+            if installed_entry:
+                entry_file = installed_entry
+        elif uploaded_file and uploaded_file.filename:
             # Replacing the app payload: wipe the old files and re-extract, same
             # logic as app_new(), so a wrong upload can be fully corrected.
             if os.path.exists(app_dir):
@@ -849,7 +963,7 @@ def app_edit(app_uuid):
     )
     html = f'''
     <div class="page-header"><h1>Edit Application</h1><p>Update this application\\'s details, image, or replace its file</p></div>
-    <form method="POST" enctype="multipart/form-data" class="card">
+    <form method="POST" class="card">
         <div class="form-group"><label class="form-label">App Name *</label><input type="text" name="name" class="form-control" value="{_html_escape.escape(app_data.get("app_name",""))}" required></div>
         <div class="form-group"><label class="form-label">Description</label><textarea name="desc" class="form-control">{_html_escape.escape(app_data.get("app_description") or "")}</textarea></div>
         <div class="form-group">
@@ -859,7 +973,9 @@ def app_edit(app_uuid):
         <div class="form-group"><label class="form-label">Featured Image</label><select name="app_featured_img" class="form-control">{image_options}</select></div>
         <div class="form-group">
             <label class="form-label">Replace App File (optional — HTML or ZIP)</label>
-            <input type="file" name="app_file" class="form-control" accept=".html,.htm,.zip">
+            <button type="button" class="btn btn-secondary" data-fb-pick data-fb-kind="app" data-fb-title="Choose the replacement HTML file or ZIP" data-fb-target="#appFilePathEdit" data-fb-summary="#appFileSummaryEdit">&#128193; Browse device&hellip;</button>
+            <input type="hidden" name="app_file_path" id="appFilePathEdit">
+            <div id="appFileSummaryEdit" class="becss-fb-summary"></div>
             <p style="color:var(--text-secondary);font-size:.8rem;margin-top:6px;">Leave blank to keep the currently imported file(s). Uploading a new file replaces everything currently stored for this app.</p>
         </div>
         <div style="display:flex;gap:10px;margin-top:30px;"><button type="submit" class="btn btn-primary">Save Changes</button><a href="/apps" class="btn btn-secondary">Cancel</a></div>
@@ -871,7 +987,14 @@ def app_edit(app_uuid):
 @require_auth
 def api_apps_scan_zip():
     file = request.files.get('app_file')
-    if not file or not file.filename.endswith('.zip'):
+    picked_zip_path = (request.get_json(silent=True) or {}).get('path')
+    if picked_zip_path:
+        # pkg144: scan a ZIP chosen with the in-app picker, straight from disk.
+        try:
+            file = resolve_pick(picked_zip_path, 'zip')
+        except PickError as _e:
+            return jsonify({"success": False, "error": str(_e)})
+    elif not file or not file.filename.endswith('.zip'):
         return jsonify({"success": False, "error": "No ZIP file uploaded"})
     
     html_files = []
@@ -1224,6 +1347,7 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
         "page_featured_video_url": None,
         "page_cat_uuid": cat_uuid,
         "page_author_uuid": author_uuid,
+        "page_is_standalone_flag": False,
     }, sync_count=sync_count)
     _t_add1 = time.perf_counter()
     
@@ -1280,21 +1404,17 @@ def import_index():
     {bs4_warn}
     <div class="page-header"><h1>HTML Import</h1>
     <p>Upload HTML files and import them as CMS pages. Word artefacts and AI watermarks are stripped automatically.</p></div>
-    <form action="/import/preview" method="POST" enctype="multipart/form-data">
+    <form action="/import/preview" method="POST" onsubmit="if(!document.getElementById('htmlPaths').value.trim()){{alert('Choose at least one HTML file first.');return false;}}return true;">
       <div class="card">
         <div class="card-header"><span class="card-title">📂 Select HTML Files</span></div>
-        <div id="dropZone" onclick="document.getElementById('fileInput').click()"
-             style="border:2px dashed var(--border);border-radius:8px;padding:48px 24px;text-align:center;cursor:pointer;transition:.2s;"
-             ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
-             ondragleave="this.style.borderColor='var(--border)'"
-             ondrop="event.preventDefault();this.style.borderColor='var(--border)';document.getElementById('fileInput').files=event.dataTransfer.files;showFiles(document.getElementById('fileInput'))">
+        <div style="border:2px dashed var(--border);border-radius:8px;padding:40px 24px;text-align:center;">
           <div style="font-size:2.5rem;margin-bottom:12px;">📄</div>
-          <p style="color:var(--text-secondary);margin-bottom:14px;">Click to browse or drag &amp; drop .html / .htm files</p>
-          <input type="file" id="fileInput" name="html_files" multiple accept=".html,.htm"
-                 style="display:none" onchange="showFiles(this)">
-          <span class="btn btn-secondary">Browse Files</span>
+          <p style="color:var(--text-secondary);margin-bottom:14px;">Browse the device inside the app &mdash; pick one or many .html / .htm files, from any folder.</p>
+          <button type="button" class="btn btn-primary" data-fb-pick data-fb-kind="html" data-fb-multiple="1"
+                  data-fb-title="Select HTML files to import" data-fb-target="#htmlPaths" data-fb-summary="#fileList">&#128193; Browse Files&hellip;</button>
+          <input type="hidden" name="html_paths" id="htmlPaths">
         </div>
-        <div id="fileList" style="margin-top:16px;"></div>
+        <div id="fileList" class="becss-fb-summary" style="margin-top:16px;"></div>
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">⚙️ Import Settings</span></div>
@@ -1322,29 +1442,22 @@ def import_index():
         <button type="submit" class="btn btn-primary">🔍 Preview &amp; Review →</button>
       </div>
     </form>
-    <script>
-    function showFiles(inp) {{
-      const list = document.getElementById('fileList');
-      list.innerHTML = '';
-      if (!inp.files.length) return;
-      const hdr = document.createElement('p');
-      hdr.style = 'font-size:.85rem;color:var(--text-secondary);margin-bottom:8px;font-weight:600;';
-      hdr.textContent = inp.files.length + ' file(s) selected:';
-      list.appendChild(hdr);
-      for (const f of inp.files) {{
-        const item = document.createElement('div');
-        item.style = 'background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px;';
-        item.innerHTML = '<span style="font-size:1.4rem;">📄</span><div><div style="font-weight:600;font-size:.9rem;">' + f.name + '</div><div style="font-size:.78rem;color:var(--text-secondary);">' + (f.size/1024).toFixed(1) + ' KB</div></div>';
-        list.appendChild(item);
-      }}
-    }}
-    </script>'''
+'''
     return R(html, breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
 
 @content_cube.route('/import/preview', methods=['POST'])
 def import_preview():
     files    = request.files.getlist('html_files')
+    # pkg144: files chosen with the in-app picker arrive as server paths, not uploads.
+    # PickedFile duck-types the FileStorage bits used below (.filename / .read()).
+    try:
+        picked_html_paths, rejected_picks = resolve_picks(parse_path_list(request.form.get('html_paths')), 'html')
+    except PickError as _e:
+        picked_html_paths, rejected_picks = [], [{'path': '', 'error': str(_e)}]
+    for rejected in rejected_picks:
+        flash(rejected['error'], 'error')
+    files = [f for f in files if f.filename] + [PickedFile(path) for path in picked_html_paths]
     category = request.form.get('category', '').strip()
     author   = request.form.get('author', '').strip()
     skip_preview = request.form.get('skip_preview') == 'on'

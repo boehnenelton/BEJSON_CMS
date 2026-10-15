@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditorV2
-SCRIPT_VERSION: 18.8
-RELATIONAL_ID:  8a4ff525-7b7b-4ac5-8720-585974579d54
+SCRIPT_VERSION: 18.9
+RELATIONAL_ID:  f6a3c821-0d57-4b9e-8c14-2a9e7b5d0f73
+CHANGE (2026-10-11): PKG144 -- import-freeze fix: native file choosers replaced by the
+in-app server-side picker (BEJSON_CMS_FileBrowser.py). Key-registry import uses the
+picker + /api/settings/import_keys_path; defines the previously-missing importKeys().
 AUTHOR:         Elton Boehnen
 CHANGE (2026-09-25): PKG142 -- api_generate_plan()/api_execute_task() (the
 /api/tasking/* routes) used to each do their own single-shot
@@ -132,6 +135,8 @@ app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set
 
 from BEJSON_CMS_Shared import _check_auth, _unauthorized
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
+from BEJSON_CMS_FileBrowser import filebrowser_cube, PICKER_HEAD_TAGS, resolve_pick, PickError, copy_file_chunked
+app.register_blueprint(filebrowser_cube)   # pkg144: in-app server-side file picker (/fb/*)
 
 
 @app.before_request
@@ -433,6 +438,7 @@ def api_save():
             "page_featured_video_url": featured_video,
             "page_cat_uuid": cat_uuid,
             "page_author_uuid": author_uuid,
+            "page_is_standalone_flag": False,
         }
         db.add_record("PageRecord", rec)
     
@@ -635,6 +641,33 @@ def api_import_keys():
         return jsonify({"ok": False, "error": (e.stderr or str(e)).strip()[-500:]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+
+@app.route('/api/settings/import_keys_path', methods=['POST'])
+def api_import_keys_path():
+    """pkg144: same as /api/settings/import_keys but the key file is chosen with
+    the in-app picker and read from disk (no upload). resolve_pick(kind='keys')
+    is the only kind allowed to read from a .env/secure folder."""
+    try:
+        picked = resolve_pick((request.get_json(silent=True) or {}).get('path'), 'keys')
+    except PickError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    tmp_path = os.path.join(PROJECT_ROOT, "storage", "tmp", "import_keys_upload.bejson")
+    try:
+        import subprocess
+        os.makedirs(os.path.dirname(tmp_path), exist_ok=True)
+        copy_file_chunked(picked, tmp_path)
+        subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--import-keys", tmp_path],
+                       check=True, capture_output=True, text=True)
+        return jsonify({"ok": True, "msg": "Keys imported successfully."})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"ok": False, "error": (e.stderr or str(e)).strip()[-500:]})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+    finally:
+        try:
+            os.remove(tmp_path)   # never leave a copy of the key registry lying around
+        except OSError:
+            pass
 
 @app.route('/api/debug_keys')
 def debug_keys():
@@ -915,8 +948,8 @@ _SHELL = """
                 <label>Key Registry</label>
                 <div class="flex-row toolbar-row">
                     <button class="btn btn-black btn-sm" onclick="exportKeyTemplate()">Export</button>
-                    <input type="file" id="key_import_file" accept=".bejson" style="max-width:200px; padding:5px; flex-shrink:0;">
-                    <button class="btn btn-black btn-sm" onclick="importKeys()">Import</button>
+                    <button class="btn btn-black btn-sm" onclick="importKeys()">&#128193; Import&hellip;</button>
+                    <span id="key_import_status" style="font-size:.78rem; color:var(--muted);"></span>
                 </div>
             </div>
         </div>
@@ -1467,6 +1500,20 @@ function setFeaturedVideo(url, label) {
     document.getElementById('edit_featured_video_url').value = url;
     document.getElementById('featured-video-current').textContent = url ? ('Selected: ' + label) : 'None selected';
 }
+// pkg144: key-registry import via the in-app server-side picker. (importKeys() was
+// referenced by the Import button but never defined before this -- the button threw
+// a ReferenceError. The picker also replaces the native file chooser that
+// backgrounded the app on Android.)
+function importKeys() {
+    var statusEl = document.getElementById('key_import_status');
+    CMSFilePicker.open({kind: 'keys', multiple: false, title: 'Choose a key registry (.bejson)'}).then(function(result) {
+        if (!result) { return; }
+        statusEl.textContent = 'Importing...';
+        CMSFilePicker.postJSON('/api/settings/import_keys_path', {path: result.paths[0]})
+            .then(function(d) { statusEl.textContent = d.msg || 'Keys imported.'; })
+            .catch(function(err) { statusEl.textContent = err.message || 'Import failed.'; });
+    });
+}
 </script>
 
 <div id="media-modal-v2" class="media-modal-overlay" onclick="if(event.target===this) closeMediaPickerV2()">
@@ -1542,6 +1589,7 @@ function setFeaturedVideo(url, label) {
 </body>
 </html>
 """
+_SHELL = _SHELL.replace('</head>', PICKER_HEAD_TAGS + '\n</head>', 1)   # pkg144: server-side file picker
 
 @app.route('/')
 def main_v2():

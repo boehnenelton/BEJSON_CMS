@@ -4,6 +4,26 @@ Full, unabridged change history (every verification step, every file touched)
 lives in `.bejson_project.json` at the project root — this file is a
 readable summary. Newest at top, oldest at bottom.
 
+## pkg145 (in progress) — Task 5: real standalone pages
+
+Pages can now be **standalone**: they have no category and live in the site navigation and sidebar instead of the feeds.
+
+- **Data:** new `PageRecord.page_is_standalone_flag` (boolean), added as the last field (positional integrity kept); existing rows backfilled `false`. Both schema copies in `BEJSON_CMS_System.py` updated.
+- **Admin:** `/pages` is split into **Posts** and **Standalone Pages** tabs. Standalone pages are created from `/pages/new?standalone=1` or with the checkbox, which disables the category field. The flag can be turned on or off from `/edit/<uuid>`, and Duplicate keeps it.
+- **Publisher:** standalone pages are built at `pages/<slug>/index.html` and linked from the top nav (`{{standalone_nav_links}}`) and a sidebar "Pages" block (`{{sidebar_standalone_pages}}`) on every page. They're left out of the home feed, category feeds, and related blocks, and kept in `sitemap.xml`. `resources/templates/Global_Skeleton.html` was updated by hand because SkeletonBuilder doesn't overwrite existing skeletons.
+
+Tests: 73/73; isolated end-to-end script (admin create/edit/duplicate + full publish build) passes. No `src/lib/` edits.
+
+## pkg144 — Import freeze fixed: in-app file picker; Media Library sections
+
+**Root cause (found by Elton):** every import used the browser's native file chooser, which sends the browser/app to the background on Android, where the OS kills it. Earlier passes chased memory and threading; none could work because the process was being killed by the chooser itself.
+
+**Fix:** a server-side file browser (`BEJSON_CMS_FileBrowser.py` + `fb_assets/becss-filepicker.*`). The picker browses the device through Flask, so the page never leaves the foreground, and the import routes read the chosen paths directly from disk — nothing is uploaded through the browser. Used by Media import/replace, page featured image, Standalone App import/replace, HTML Import, and the code/Markdown/key imports in both page editors.
+
+**Media Library** is now sectioned: Images / Video / Audio / Documents / YouTube / Links.
+
+Tests: 73/73 (34 new). Live-tested on a scratch project and in headless Chromium; not yet on a real Android device. See `docs/file-browser.md`.
+
 ## pkg143 — Library sync against CLI_AI-V16-PKG30
 
 Scanned every file in the newest CLI_AI zip (nested archives included) against the CMS's `src/lib`. Two real updates: the validator (2.1.0 → 2.2.1, a corrective release) and `source_env()` in the env library (adds JSON secure-env loading, no `exec` for `.json`). Left alone on purpose: `path_guard`, where the CMS is *ahead* of the zip and overwriting would break zip-extraction safety. The rest were identical or not successors. The decisions are tabled in `docs/architecture.md`.

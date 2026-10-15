@@ -5,10 +5,12 @@ Description:     Main admin app entry point. Registers the four BEJSON_CMS
                  blueprints (System, Content, Media, Interface) and starts
                  the Flask dev server. Route logic itself lives in the
                  blueprint files, not here.
-Version:         18.23
-Library_Version: 57
-Date:            2026-08-05
-RELATIONAL_ID:   92a355a8-4e01-4931-b359-275920b91a2c
+Version:         18.24
+Library_Version: 58
+Date:            2026-10-11
+RELATIONAL_ID:   b04d6f17-9e3a-42c8-8a51-d7e2f0a93c48
+CHANGE (2026-10-11): PKG144 -- import-freeze fix: native file choosers replaced by the
+in-app server-side picker (BEJSON_CMS_FileBrowser.py). Registers filebrowser_cube.
 """
 
 import os
@@ -23,6 +25,7 @@ from BEJSON_CMS_System import system_cube
 from BEJSON_CMS_Content import content_cube
 from BEJSON_CMS_Media import media_cube
 from BEJSON_CMS_Interface import interface_cube
+from BEJSON_CMS_FileBrowser import filebrowser_cube
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
@@ -32,6 +35,7 @@ app.register_blueprint(system_cube)
 app.register_blueprint(content_cube)
 app.register_blueprint(media_cube)
 app.register_blueprint(interface_cube)
+app.register_blueprint(filebrowser_cube)   # pkg144: in-app server-side file picker (/fb/*)
 
 
 @app.before_request

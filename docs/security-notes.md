@@ -306,6 +306,16 @@ on-disk content came out completely inert; confirmed both files'
 real SVG request; confirmed a non-`.svg` asset is unaffected by any of
 the three changes. All test data cleaned up after.
 
+## pkg144 — Server-side file browser (`BEJSON_CMS_FileBrowser.py`)
+
+New attack surface: an API that lists the device filesystem and accepts server paths for import. Controls, all in `resolve_pick()` / the `/fb` guard:
+
+1. **Root containment** — every path is `realpath()`-resolved and must sit under a browse root (storage volumes, home, CMS project, `config.json` `filebrowser_roots`). `..` and symlink escapes are rejected (tested).
+2. **Secrets** — anything under a `.env/secure` directory is denied. The only exception is `kind="keys"` (key-registry import, `.bejson` only).
+3. **Allowlists** — per-kind extension allowlist and size cap; SVGs still go through `sanitize_svg()`; app ZIPs still go through the size cap + `safe_extract_zip()`.
+4. **Local-only** — requests must come from loopback and not be `Sec-Fetch-Site: cross-site`, unless `CMS_FILEBROWSER_ALLOW_REMOTE=1`. Basic auth still applies on every app.
+5. **Residual risk** — an authenticated local user can import any allowed-type file under the roots into the CMS (by design). The Page Editor V2 app sends `Access-Control-Allow-Origin: *`; the cross-site guard above is what stops a hostile page from using the browse API.
+
 ---
 
 *Add new entries above this line, newest first. Each entry should state

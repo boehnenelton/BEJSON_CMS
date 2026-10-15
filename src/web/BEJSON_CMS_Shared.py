@@ -2,10 +2,13 @@
 Library:         BEJSON_CMS_Shared
 Family:          BEJSON_CMS
 Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB handle, base template/render helper, nav structure, auth guard.
-Version:         18.24
-Library_Version: 57
-Date:            2026-09-18
-RELATIONAL_ID:   c711bf54-404d-45ac-a8cb-8d6d99d24b19
+Version:         18.25
+Library_Version: 58
+Date:            2026-10-11
+RELATIONAL_ID:   7c2e9a40-3b1f-4d85-a6e0-91f4b8d2c637
+CHANGE (2026-10-11): PKG144 -- import-freeze fix: native file choosers replaced by the
+in-app server-side picker (BEJSON_CMS_FileBrowser.py). BASE_TEMPLATE now loads the
+picker JS/CSS; Media Library nav gained Images/Video/Audio/Documents/YouTube/Links children.
 CHANGE (2026-09-18): PKG138 -- deferred-item sweep (Elton: "fix anything and
 finish anything deferred... if it's common sense just fix it"). Two real
 bugs found in the original pkg132 audit's LOW section, fixed:
@@ -185,7 +188,14 @@ NAV_SECTIONS = {
         'icon': '🖼️',
         'label': 'Media Library',
         'href': '/assets',
-        'children': []
+        'children': [
+            {'icon': '🖼️', 'label': 'Images', 'href': '/assets?type=images'},
+            {'icon': '🎬', 'label': 'Video', 'href': '/assets?type=video'},
+            {'icon': '🎵', 'label': 'Audio', 'href': '/assets?type=audio'},
+            {'icon': '📄', 'label': 'Documents', 'href': '/assets?type=docs'},
+            {'icon': '▶️', 'label': 'YouTube', 'href': '/assets?type=youtube'},
+            {'icon': '🔗', 'label': 'Links', 'href': '/assets?type=links'},
+        ]
     },
     'site': {
         'icon': '⚙️',
@@ -527,7 +537,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     </a>
                     <div class="nav-children {% if active_section == section_id %}expanded{% endif %}" id="children-{{ section_id }}">
                         {% for child in section.children %}
-                        <a href="{{ child.href }}" class="nav-item nav-child {% if request.path == child.href %}active{% endif %}">
+                        <a href="{{ child.href }}" class="nav-item nav-child {% if request.path == child.href or request.full_path.rstrip(\'?\') == child.href %}active{% endif %}">
                             <span class="icon">{{ child.icon }}</span>
                             <span>{{ child.label }}</span>
                         </a>
@@ -758,6 +768,12 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
     </script>
 </body>
 </html>'''
+
+# pkg144: server-side file picker (replaces every native <input type=file> chooser,
+# which backgrounded the app on Android and got it killed). Tags are injected into
+# <head> once, so every admin page can open CMSFilePicker / use data-fb-pick.
+from BEJSON_CMS_FileBrowser import PICKER_HEAD_TAGS as _PICKER_HEAD_TAGS
+BASE_TEMPLATE = BASE_TEMPLATE.replace('</head>', _PICKER_HEAD_TAGS + '\n</head>', 1)
 
 # ─── Render helpers ─────────────────────────────────────────────────────────
 def R(content, **kwargs):

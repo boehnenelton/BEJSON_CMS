@@ -1,0 +1,146 @@
+/*
+File:          src/web/fb_assets/becss-filepicker.css
+Description:   Styles for the in-app (server-side) file picker. becss-BEM naming,
+               tri-colour palette (black / white / #DE2626). Self-contained: tokens
+               live on the block, so it cannot collide with the host app's CSS.
+Version:       18.29
+Author:        Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
+RELATIONAL_ID: 746b4d5d-2354-4989-bd5b-c495deb6e2fb
+*/
+/* NOTE: deliberately NOT wrapped in @layer -- host-page rules are unlayered and
+   would beat layered picker styles regardless of specificity. */
+.becss-filepicker {
+    --becss-fp-bg: #0a0a0a;
+    --becss-fp-surface: #141414;
+    --becss-fp-surface-hover: #1e1e1e;
+    --becss-fp-border: #2e2e2e;
+    --becss-fp-text: #ffffff;
+    --becss-fp-muted: #9a9a9a;
+    --becss-fp-accent: #DE2626;
+    --becss-fp-accent-soft: rgba(222, 38, 38, 0.16);
+    --becss-fp-radius: 10px;
+    --becss-fp-row-height: 54px;
+    position: fixed; inset: 0; z-index: 10000;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.78);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--becss-fp-text);
+  }
+  .becss-filepicker--open { display: flex; }
+  .becss-filepicker *, .becss-filepicker *::before, .becss-filepicker *::after { box-sizing: border-box; }
+
+  .becss-filepicker__panel {
+    display: flex; flex-direction: column;
+    width: min(880px, 96vw); height: min(780px, 92vh);
+    background: var(--becss-fp-bg); border: 1px solid var(--becss-fp-border);
+    border-radius: var(--becss-fp-radius); overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  }
+  .becss-filepicker__header {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--becss-fp-border);
+  }
+  .becss-filepicker__title { flex: 1; margin: 0; font-size: 1.05rem; font-weight: 700; }
+  .becss-filepicker__subtitle { display: block; font-size: .72rem; font-weight: 400; color: var(--becss-fp-muted); margin-top: 2px; }
+  .becss-filepicker__close {
+    width: 44px; height: 44px; border: 0; background: transparent; color: var(--becss-fp-text);
+    font-size: 1.7rem; line-height: 1; cursor: pointer; border-radius: 8px;
+  }
+  .becss-filepicker__close:hover { background: var(--becss-fp-accent-soft); color: var(--becss-fp-accent); }
+
+  .becss-filepicker__locations {
+    display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; flex-shrink: 0;
+    border-bottom: 1px solid var(--becss-fp-border); scrollbar-width: thin;
+  }
+  .becss-filepicker__chip {
+    flex-shrink: 0; min-height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+    background: var(--becss-fp-surface); color: var(--becss-fp-text);
+    border: 1px solid var(--becss-fp-border); font-size: .82rem; font-weight: 600; white-space: nowrap;
+  }
+  .becss-filepicker__chip:hover { border-color: var(--becss-fp-accent); color: var(--becss-fp-accent); }
+  .becss-filepicker__chip--shortcut { font-weight: 500; color: var(--becss-fp-muted); }
+
+  .becss-filepicker__pathbar {
+    display: flex; align-items: center; gap: 6px; padding: 8px 16px; flex-shrink: 0;
+    border-bottom: 1px solid var(--becss-fp-border);
+  }
+  .becss-filepicker__crumbs { display: flex; align-items: center; gap: 2px; flex: 1; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+  .becss-filepicker__crumb {
+    border: 0; background: transparent; color: var(--becss-fp-muted); cursor: pointer;
+    min-height: 36px; padding: 0 8px; border-radius: 6px; font-size: .85rem;
+  }
+  .becss-filepicker__crumb:hover { color: var(--becss-fp-accent); background: var(--becss-fp-surface); }
+  .becss-filepicker__crumb--current { color: var(--becss-fp-text); font-weight: 700; }
+  .becss-filepicker__crumb-sep { color: var(--becss-fp-muted); }
+
+  .becss-filepicker__tools {
+    display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px; flex-shrink: 0;
+    border-bottom: 1px solid var(--becss-fp-border); align-items: center;
+  }
+  .becss-filepicker__search, .becss-filepicker__select {
+    min-height: 40px; padding: 0 10px; border-radius: 8px; font-size: 16px;
+    background: var(--becss-fp-surface); color: var(--becss-fp-text); border: 1px solid var(--becss-fp-border);
+  }
+  .becss-filepicker__search { flex: 1 1 160px; min-width: 120px; }
+  .becss-filepicker__toggle { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--becss-fp-muted); cursor: pointer; min-height: 40px; }
+  .becss-filepicker__toggle input { accent-color: var(--becss-fp-accent); width: 18px; height: 18px; }
+
+  .becss-filepicker__btn {
+    min-height: 44px; padding: 0 18px; border-radius: 8px; cursor: pointer; font-size: .9rem; font-weight: 700;
+    border: 1px solid var(--becss-fp-border); background: var(--becss-fp-surface); color: var(--becss-fp-text);
+  }
+  .becss-filepicker__btn:hover:not(:disabled) { border-color: var(--becss-fp-accent); }
+  .becss-filepicker__btn--primary { background: var(--becss-fp-accent); border-color: var(--becss-fp-accent); color: #fff; }
+  .becss-filepicker__btn--primary:hover:not(:disabled) { background: #b91c1c; }
+  .becss-filepicker__btn--small { min-height: 38px; padding: 0 12px; font-size: .8rem; }
+  .becss-filepicker__btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .becss-filepicker__list { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 6px 8px; -webkit-overflow-scrolling: touch; }
+  .becss-filepicker__list--grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; align-content: start; padding: 10px; }
+
+  .becss-filepicker__row {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--becss-fp-row-height);
+    padding: 6px 10px; border: 1px solid transparent; border-radius: 8px; background: transparent;
+    color: var(--becss-fp-text); text-align: left; cursor: pointer; font-size: .9rem;
+  }
+  .becss-filepicker__row:hover { background: var(--becss-fp-surface-hover); }
+  .becss-filepicker__row--selected { background: var(--becss-fp-accent-soft); border-color: var(--becss-fp-accent); }
+  .becss-filepicker__row--disabled { opacity: .35; cursor: default; }
+  .becss-filepicker__row--grid { flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 4px; min-height: 0; padding: 6px; text-align: center; }
+
+  .becss-filepicker__icon {
+    flex-shrink: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; border-radius: 6px; background: var(--becss-fp-surface); overflow: hidden;
+  }
+  .becss-filepicker__icon--grid { width: 100%; height: 84px; font-size: 2.2rem; }
+  .becss-filepicker__thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .becss-filepicker__meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .becss-filepicker__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .becss-filepicker__name--wrap { white-space: normal; word-break: break-all; font-size: .72rem; line-height: 1.25; max-height: 2.5em; }
+  .becss-filepicker__detail { font-size: .72rem; color: var(--becss-fp-muted); }
+  .becss-filepicker__check {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--becss-fp-border);
+    display: flex; align-items: center; justify-content: center; font-size: .8rem; color: transparent;
+  }
+  .becss-filepicker__row--selected .becss-filepicker__check { background: var(--becss-fp-accent); border-color: var(--becss-fp-accent); color: #fff; }
+
+  .becss-filepicker__message { padding: 28px 16px; text-align: center; color: var(--becss-fp-muted); font-size: .9rem; }
+  .becss-filepicker__message--error { color: var(--becss-fp-accent); }
+  .becss-filepicker__more { display: block; margin: 10px auto; }
+
+  .becss-filepicker__footer {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; flex-shrink: 0;
+    border-top: 1px solid var(--becss-fp-border); background: var(--becss-fp-surface);
+  }
+  .becss-filepicker__summary { flex: 1 1 140px; font-size: .82rem; color: var(--becss-fp-muted); }
+  .becss-filepicker__summary strong { color: var(--becss-fp-text); }
+
+  @media (max-width: 700px) {
+    .becss-filepicker__panel { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; }
+    .becss-filepicker__footer .becss-filepicker__btn { flex: 1 1 auto; }
+  }
+
+/* Host-page helper classes for the declarative data-fb-pick binder. */
+.becss-fb-summary { margin-top: 8px; font-size: .82rem; color: #9a9a9a; word-break: break-all; }
+.becss-fb-summary__item { display: block; padding: 2px 0; }
+body.becss-filepicker-lock { overflow: hidden; }

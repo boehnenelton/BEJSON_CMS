@@ -265,6 +265,7 @@ class SkeletonBuilder:
                             </ul>
                         </li>
                         <li><a href="{{rel_prefix}}apps/index.html">Applications</a></li>
+                        {{standalone_nav_links}}
                         {{custom_nav_links}}
                     </ul>
                 </nav>
@@ -289,6 +290,7 @@ class SkeletonBuilder:
                 </div>
             </div>
 
+            {{sidebar_standalone_pages}}
             <div class="sidebar-collapsible" id="collapse-social">
                 <button class="collapse-trigger" onclick="toggleCollapse('collapse-social')">
                     Connect <span class="chevron">▼</span>
@@ -823,6 +825,46 @@ def _get_sidebar_html(categories, rel_prefix):
             html += f'<li><a href="{rel_prefix}category/{c_slug}/index.html">{c_name}</a></li>'
     return html
 
+def _is_standalone_page(item):
+    """Task 5 (pkg145): a PageRecord is a standalone page when its
+    page_is_standalone_flag is True. Rows written before the field existed
+    read back as None and are treated as normal feed posts."""
+    return item.get("page_is_standalone_flag") is True
+
+
+def _standalone_page_permalink(item):
+    """Build-relative path of a standalone page: pages/<slug>/index.html
+    (2 levels deep -> rel_prefix "../../"). Category-less by design."""
+    return f"pages/{item.get('page_slug', 'unknown')}/index.html"
+
+
+def _get_standalone_nav_html(standalone_items):
+    """Top-nav <li> links for standalone pages. Links carry a literal
+    {{rel_prefix}} placeholder which the second _apply_tags() pass over the
+    wrapper resolves per output depth (every wrapper render is double-applied)."""
+    return "".join(
+        f'<li><a href="{{{{rel_prefix}}}}{_standalone_page_permalink(i)}">{_html_escape.escape(i.get("page_title") or "Page")}</a></li>'
+        for i in standalone_items
+    )
+
+
+def _get_sidebar_standalone_html(standalone_items):
+    """Sidebar "Pages" collapsible block; empty string when there are no
+    standalone pages so no empty box renders."""
+    if not standalone_items:
+        return ""
+    links = "".join(
+        f'<li><a href="{{{{rel_prefix}}}}{_standalone_page_permalink(i)}">{_html_escape.escape(i.get("page_title") or "Page")}</a></li>'
+        for i in standalone_items
+    )
+    return (
+        '<div class="sidebar-collapsible active" id="collapse-pages">'
+        '<button class="collapse-trigger" onclick="toggleCollapse(\'collapse-pages\')">'
+        'Pages <span class="chevron">\u25bc</span></button>'
+        f'<div class="collapse-content"><ul class="category-list">{links}</ul></div></div>'
+    )
+
+
 def _generate_excerpt(html_content, word_limit=30):
     """Plain-text excerpt from an HTML body: strips tags, collapses
     whitespace, takes the first word_limit words, adds a trailing ellipsis
@@ -897,7 +939,7 @@ def _write_sitemap_and_robots(output_dir, base_url, feed_items, categories):
         urls.append((f"{base}/category/{c_slug}/", None))
 
     for x in feed_items:
-        if x["type"] not in ("page", "app"):
+        if x["type"] not in ("page", "standalone", "app"):
             continue                                          # external_link points off-site, not our URL to index
         link = x["link"]
         if link.endswith("index.html"):
@@ -929,7 +971,7 @@ def _write_sitemap_and_robots(output_dir, base_url, feed_items, categories):
 
 def _generate_related_block(items, current_item, default_author, categories):
     rel_cat = current_item.get('page_cat_name')
-    related = [i for i in items if i.get('page_cat_name') == rel_cat and i.get('page_uuid') != current_item.get('page_uuid')]
+    related = [i for i in items if i.get('page_cat_name') == rel_cat and i.get('page_uuid') != current_item.get('page_uuid') and not _is_standalone_page(i)]
     if not related: return ""
     
     random.shuffle(related)
@@ -1006,6 +1048,8 @@ def _execute():
     custom_nav_html = "".join([f"<li><a href='{n.get('nav_target_url', '#')}'>{n.get('nav_display_label', 'Link')}</a></li>" for n in nav_records])
     social_html     = "".join([f"<a href='{s.get('social_target_url', '#')}' target='_blank' class='social-btn'>{s.get('social_platform_name', 'Social')}</a>" for s in social_records])
 
+    standalone_pages = [i for i in items if _is_standalone_page(i) and i.get("page_type", "page") != "external_link"]
+
     wrapper_skel = _read_skel("Global_Skeleton.html")
     feed_items   = []
 
@@ -1016,6 +1060,8 @@ def _execute():
         "current_year": datetime.now().year,
         "social_media_links": social_html,
         "custom_nav_links": custom_nav_html,
+        "standalone_nav_links": _get_standalone_nav_html(standalone_pages),
+        "sidebar_standalone_pages": _get_sidebar_standalone_html(standalone_pages),
     }
 
     # --- PROCESS PAGES ---
@@ -1035,10 +1081,18 @@ def _execute():
             continue
 
         _log(f"Building Page: {item['page_title']}")
+        is_standalone = _is_standalone_page(item)
         cat_obj  = next((c for c in categories if c.get("cat_name") == item.get("page_cat_name")), None)
         cat_slug = cat_obj["cat_slug"] if cat_obj and cat_obj.get("cat_slug") else "uncategorized" 
 
-        target_dir = os.path.join(output_dir, itype, cat_slug, item["page_slug"])
+        if is_standalone:
+            page_link  = _standalone_page_permalink(item)
+            page_rel   = "../../"
+            target_dir = os.path.join(output_dir, "pages", item["page_slug"])
+        else:
+            page_link  = f"{itype}/{cat_slug}/{item['page_slug']}/index.html"
+            page_rel   = "../../../"
+            target_dir = os.path.join(output_dir, itype, cat_slug, item["page_slug"])
         os.makedirs(target_dir, exist_ok=True)
 
         src_file = os.path.join(PAGES_DB_DIR, f"{item['page_uuid']}.json")
@@ -1067,12 +1121,12 @@ def _execute():
             
             # Handle missing or "None" images with the seeded default image
             if not f_img or str(f_img).lower() == "none":
-                feat_img_html = f"<img src='../../../assets/{DEFAULT_FEATURED_IMAGE}' class='article-featured-image'>"
+                feat_img_html = f"<img src='{page_rel}assets/{DEFAULT_FEATURED_IMAGE}' class='article-featured-image'>"
             else:
-                feat_img_html = f"<img src='../../../assets/{f_img}' class='article-featured-image'>"
+                feat_img_html = f"<img src='{page_rel}assets/{f_img}' class='article-featured-image'>"
             
-            related_html = _generate_related_block(items, item, default_author, categories)
-            ad_html      = _generate_ad_block(ad_units, "../../../")
+            related_html = "" if is_standalone else _generate_related_block(items, item, default_author, categories)
+            ad_html      = _generate_ad_block(ad_units, page_rel)
 
             # Render page content via strategy renderer dispatch
             from BEJSON_CMS_Renderers import render_page
@@ -1082,16 +1136,17 @@ def _execute():
             page_tags = base_tags.copy()
             page_tags.update({
                 "page_title": item.get("page_title", ""),
-                "rel_prefix": "../../../",
-                "sidebar_categories": _get_sidebar_html(categories, "../../../"),
-                "breadcrumb_html": f"<a href='../../../category/{cat_slug}/index.html'>{item.get('page_cat_name', 'Uncategorized')}</a> <span>/</span> {item['page_title']}",
+                "rel_prefix": page_rel,
+                "sidebar_categories": _get_sidebar_html(categories, page_rel),
+                "breadcrumb_html": (f"<a href='{page_rel}index.html'>Home</a> <span>/</span> {item['page_title']}" if is_standalone
+                                    else f"<a href='../../../category/{cat_slug}/index.html'>{item.get('page_cat_name', 'Uncategorized')}</a> <span>/</span> {item['page_title']}"),
                 "seo_description": p_desc or site_desc,
                 "seo_author": p_author,
                 "seo_image": f"{base_url.rstrip('/')}/assets/{f_img}" if f_img else "",
                 "current_url": "",
                 # Inner Tags
                 "article_title": item.get("page_title", ""),
-                "category": item.get("page_cat_name", "Uncategorized"),
+                "category": "Page" if is_standalone else item.get("page_cat_name", "Uncategorized"),
                 "article_body": rendered_article_content,
                 "featured_image_html": feat_img_html,
                 "related_content_section": related_html + ad_html,
@@ -1107,7 +1162,9 @@ def _execute():
             final = _apply_tags(final, page_tags) 
 
             with open(os.path.join(target_dir, "index.html"), "w", encoding="utf-8") as f: f.write(final)
-            feed_items.append({"date": p_date, "item": item, "link": f"{itype}/{cat_slug}/{item['page_slug']}/index.html", "type": "page", "desc": p_desc})
+            # Standalone pages get their own feed type so home/category feeds
+            # (which select type "page") skip them while the sitemap keeps them.
+            feed_items.append({"date": p_date, "item": item, "link": page_link, "type": "standalone" if is_standalone else "page", "desc": p_desc})
         except Exception as e:
             _log(f"Error processing {item['page_title']}: {e}")
 
@@ -1130,7 +1187,7 @@ def _execute():
 
     # --- BUILD HOME ---
     _log("Generating Home Feed...")
-    recent = sorted(feed_items, key=lambda k: k["date"] or "", reverse=True)[:15]
+    recent = sorted([x for x in feed_items if x["type"] != "standalone"], key=lambda k: k["date"] or "", reverse=True)[:15]
     home_grid = "".join([_generate_card_html(x["item"], x["link"], x.get("target_attr", ""), x["type"].upper(), x["date"], default_author, "", x.get("desc", "")) for x in recent])
     
     home_tags = base_tags.copy()

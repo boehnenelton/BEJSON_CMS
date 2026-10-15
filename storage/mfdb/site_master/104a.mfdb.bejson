@@ -43,7 +43,7 @@
       "Category",
       "data/category.bejson",
       null,
-      2,
+      3,
       "1.0",
       "cat_uuid"
     ],
@@ -51,7 +51,7 @@
       "PageRecord",
       "data/pagerecord.bejson",
       null,
-      0,
+      3,
       "1.0",
       "page_uuid"
     ],
@@ -59,7 +59,7 @@
       "StandaloneApp",
       "data/standaloneapp.bejson",
       null,
-      0,
+      1,
       "1.0",
       "app_uuid"
     ],
@@ -67,7 +67,7 @@
       "AuthorProfile",
       "data/authorprofile.bejson",
       null,
-      1,
+      2,
       "1.0",
       "author_uuid"
     ],
@@ -91,7 +91,7 @@
       "SocialLink",
       "data/sociallink.bejson",
       null,
-      0,
+      1,
       "1.0",
       "social_uuid"
     ],
@@ -131,7 +131,7 @@
       "MediaAsset",
       "data/mediaasset.bejson",
       null,
-      4,
+      8,
       "1.0",
       "asset_uuid"
     ],

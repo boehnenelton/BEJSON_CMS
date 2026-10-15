@@ -1,24 +1,20 @@
 """
 Name:            advanced_launcher.py
 Family:          BEJSON_CMS
-Description:     Advanced interactive launcher menu for the BEJSON CMS service
+Description:     Compact interactive launcher menu for the BEJSON CMS service
                  family. Replaces cms_launcher.sh's "kill-everything-then-
                  block" model with persistent, backgrounded subprocesses:
                  each service is started via subprocess.Popen, watched by its
                  own thread, and tracked by PID in a small on-disk registry
                  so it can be force-closed individually later -- including
                  from a different launcher session. Explicitly supports
-                 running Admin and Publisher at the same time (they default
-                 to the same port, 5001 -- this launcher assigns Publisher an
-                 alternate port automatically when Admin is already up, via
-                 the CMS_PUBLISHER_PORT env override added alongside this
-                 file). Styled to the #DE2626 BECSS accent, with a typewriter
-                 effect on headers and status transitions.
-Version:         1
+                 running Admin and Publisher at the same time. Styled to the
+                 #DE2626 BECSS accent with a compact, space-efficient menu.
+Version:         2
 Date created:    2026-08-07
 Author:          Elton Boehnen
 Contact:         boehnenelton2024@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
-RELATIONAL_ID:   2f6a9e2e-1b6c-4b3e-8b0e-6a7b6b4f0a1c
+RELATIONAL_ID:   3f65e649-2cfe-49e8-b333-58c06f424626
 """
 
 import os
@@ -31,7 +27,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
-VERSION = 1
+VERSION = 2
 
 
 # ─── Self-locating path resolution (per System Development Policy §3.5/§8) ──
@@ -65,15 +61,15 @@ import lib_bejson_CMS_cms_ports as CMSPorts  # noqa: E402
 CONFIG_PATH = SCRIPT_PATH / "config.json"
 
 SERVICES = {
-    "1": {"key": "admin", "label": "Admin (Dashboard)", "file": "BEJSON_CMS_Admin.py",
+    "1": {"key": "admin", "label": "Dashboard", "file": "BEJSON_CMS_Admin.py",
           "port_env": "CMS_ADMIN_PORT", "setting_name": "admin_port"},
     "2": {"key": "editor", "label": "Page Editor (V1)", "file": "BEJSON_CMS_PageEditor.py",
           "port_env": "CMS_PAGEEDITOR_PORT", "setting_name": "pageeditor_port"},
-    "3": {"key": "editorv2", "label": "Page Editor V2", "file": "BEJSON_CMS_PageEditorV2.py",
+    "3": {"key": "editorv2", "label": "Page Editor (V2)", "file": "BEJSON_CMS_PageEditorV2.py",
           "port_env": "CMS_PAGEEDITORV2_PORT", "setting_name": "pageeditorv2_port"},
-    "4": {"key": "publisher", "label": "Static Site Publisher", "file": "BEJSON_CMS_Publisher.py",
+    "4": {"key": "publisher", "label": "Publisher", "file": "BEJSON_CMS_Publisher.py",
           "port_env": "CMS_PUBLISHER_PORT", "setting_name": "publisher_port"},
-    "5": {"key": "profiles", "label": "Persona Hub (Profile Manager)", "file": "BEJSON_CMS_ProfileManager.py",
+    "5": {"key": "profiles", "label": "Persona Hub", "file": "BEJSON_CMS_ProfileManager.py",
           "port_env": "CMS_PROFILES_PORT", "setting_name": "profiles_port"},
 }
 # Ports are resolved lazily per-launch (see launch_service()) via
@@ -258,9 +254,13 @@ def force_close(key: str, label: str):
 def force_close_all():
     with _lock:
         keys = list(_running.keys())
+    if not keys:
+        line(" No services currently running.", DIM)
+        return
     for key in keys:
-        entry = next(e for e in SERVICES.values() if e["key"] == key)
-        force_close(key, entry["label"])
+        entry = next((e for e in SERVICES.values() if e["key"] == key), None)
+        if entry:
+            force_close(key, entry["label"])
 
 
 def tail_log(entry: dict, n: int = 20):
@@ -279,39 +279,37 @@ def tail_log(entry: dict, n: int = 20):
 def status_block():
     with _lock:
         snapshot = dict(_running)
-    if not snapshot:
-        line(" No services currently running.", DIM)
-        return
+    active = []
     for entry in SERVICES.values():
         info = snapshot.get(entry["key"])
         if info and _pid_alive(info["pid"]):
             uptime = datetime.now() - datetime.fromisoformat(info["started"])
             mins, secs = divmod(int(uptime.total_seconds()), 60)
-            line(f"  [{GREEN}RUNNING{RESET}{WHITE}] {entry['label']:<28} pid {info['pid']:<7} "
-                 f"port {info['port']:<5} up {mins:02d}:{secs:02d}", WHITE)
+            active.append((entry["label"], str(info["pid"]), str(info["port"]), f"{mins:02d}:{secs:02d}"))
+
+    col1_w = max(11, max((len(item[0]) for item in active), default=11))
+    pad = " " * (col1_w - 9)
+    line(f"[{GREEN}RUNNING{RESET}{WHITE}]{pad}{'PID':<7}{'PORT':<7}UPTIME", WHITE)
+    for label, pid, port, upt in active:
+        line(f"{label:<{col1_w}}{pid:<7}{port:<7}{upt}", WHITE)
 
 
 def print_menu():
     os.system("clear" if os.name != "nt" else "cls")
-    line("=" * 68, RED)
-    typewrite(" BEJSON ECOSYSTEM: ADVANCED CMS LAUNCHER", color=RED, delay=0.008)
-    line("=" * 68, RED)
-    line(" Persistent, multi-threaded, PID-tracked. Services keep running", DIM)
-    line(" after you pick another menu option -- nothing is auto-killed.", DIM)
+    line(f"{RED}: BEJSON CMS LAUNCHER          ==========================={RESET}")
+    line(f"{WHITE}Kill: {RED}k){RESET} Single {RED}a){RESET} All")
+    line(f"{WHITE}Logs: {RED}l){RESET}")
     print()
     status_block()
-    print()
+    line("-------------------------------", RED)
+    line("LAUNCH:", WHITE)
     for num, entry in SERVICES.items():
         configured_port = CMSPorts.get_port(str(CONFIG_PATH), entry["setting_name"], entry["port_env"])
-        line(f"  {num}) Launch {entry['label']:<28} [:{configured_port}]", WHITE)
-    line("  (Ports come from config.json — edit it to change any service's default.)", DIM)
-    line("", WHITE)
-    line("  l) View recent log for a service", WHITE)
-    line("  k) Force-close one running service", WHITE)
-    line("  a) Force-close ALL services", WHITE)
-    line("  q) Quit menu (services keep running in background)", WHITE)
-    line("  x) Quit menu AND stop everything", WHITE)
-    line("=" * 68, RED)
+        line(f"  {RED}{num}){RESET} {entry['label']} {DIM}[:{configured_port}]{RESET}")
+    print()
+    line(f"  {RED}q){RESET} Quit {DIM}(Run In Background){RESET}")
+    line(f"  {RED}x){RESET} Exit {DIM}(Kill Services){RESET}")
+    line("===========================", RED)
 
 
 def _pick_running_service() -> dict | None:
@@ -322,7 +320,7 @@ def _pick_running_service() -> dict | None:
         return None
     entries = [e for e in SERVICES.values() if e["key"] in keys]
     for i, e in enumerate(entries, 1):
-        line(f"  {i}) {e['label']}", WHITE)
+        line(f"  {RED}{i}){RESET} {e['label']}", WHITE)
     choice = input(f"{RED} Select: {RESET}").strip()
     try:
         return entries[int(choice) - 1]
@@ -345,11 +343,15 @@ def main():
             if entry:
                 tail_log(entry)
                 input(f"{DIM} Press [Enter] to continue...{RESET}")
+            else:
+                time.sleep(1)
         elif choice == "k":
             entry = _pick_running_service()
             if entry:
                 force_close(entry["key"], entry["label"])
                 input(f"{DIM} Press [Enter] to continue...{RESET}")
+            else:
+                time.sleep(1)
         elif choice == "a":
             force_close_all()
             input(f"{DIM} Press [Enter] to continue...{RESET}")

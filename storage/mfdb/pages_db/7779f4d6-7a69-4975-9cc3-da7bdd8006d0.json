@@ -1,0 +1,54 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string"
+    },
+    {
+      "name": "html_body",
+      "type": "string"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string"
+    },
+    {
+      "name": "source_code",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "Remediate",
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "<h2>Remediate</h2><p>\r\n\r\n<b>media selection and renaming</b>\r\nWhen you rename a file in the media gallery it might change its file name I'm not sure because when you're in the page editor or the app importer and you click the combo box to attach me to the page, still shows the original names... so it either did not rename it or it's the combo box is referencing a database entry that doesn't reflect its current file. <br><br>\r\n\r\nI suggest you make a reusable media selector, or whenever you need to select a media file that's already imported into the gallery such as the one on the page editor or the app importer importer, or when you simply add media to a page and the page editor. I need a single button pop up media selector for media that's already been imported so whenever you have just like media that's already been imported we need to reusable model for that as well and just like we have a reasonable model for importing file so and media.\r\n</p>\r\n\r\n2.  <b>generic background card images</b> Should be used as a default page image and a default feed image for any post that do not have the defined image set So instead of using that same default image we would have a card template image would be up like an image to play that we write text directly on top of and we would write the page or app title directly on top of it It would be generated and used by the default\r\n\r\n3. <b>authors</b> always always when it tells you to select an author for anything you should always try from the pool of existing authors\r\n\r\n4. pronounce supposed to be importing videos and shit directly into the CMS we're supposed to be treating video links from YouTube like media assets but they're just remote media assets so we would import the link into the meteority but it's only just don't link it would resolve into a video",
+      "",
+      ""
+    ]
+  ],
+  "_bejson_field_map": {
+    "Record_Type_Parent": 0,
+    "meta_title": 1,
+    "html_body": 2,
+    "markdown_body": 3,
+    "source_code": 4
+  }
+}

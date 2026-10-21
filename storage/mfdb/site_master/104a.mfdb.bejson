@@ -43,7 +43,7 @@
       "Category",
       "data/category.bejson",
       null,
-      3,
+      5,
       "1.0",
       "cat_uuid"
     ],
@@ -131,7 +131,7 @@
       "MediaAsset",
       "data/mediaasset.bejson",
       null,
-      8,
+      17,
       "1.0",
       "asset_uuid"
     ],

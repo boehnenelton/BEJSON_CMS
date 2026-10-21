@@ -42,6 +42,18 @@
       "Remediate",
       "remediate",
       false
+    ],
+    [
+      "1e4aadb4-bceb-44db-aec5-99473aee3d36",
+      "Projects",
+      "projects",
+      null
+    ],
+    [
+      "2a19efde-f08b-496b-96dd-deda25893d18",
+      "Agentic",
+      "agentic",
+      null
     ]
   ]
 }

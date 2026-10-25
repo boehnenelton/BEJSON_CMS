@@ -3,16 +3,19 @@ Library:        lib_cms_persona_writer.py
 Family:         CMS
 Description:    PersonaWriter - used by Page_Editor_v2.py for AI-assisted
                  content generation (Gemini-backed persona/task workflow).
-Version:        1.1
-Date:           2026-07-27
+Version:        1.2
+Date:           2026-10-25
 Author:         Elton Boehnen
-RELATIONAL_ID:  d65523ca-19c2-4cb8-afd2-873e9ef973af
+RELATIONAL_ID:  e76634db-20d3-4dc9-b8e3-984f0fa084bg
 """
 import os
 import sys
 import json
+import logging
 import requests
 import time
+
+VERSION = 12
 
 # Ensure Core libraries are accessible
 LIB_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,8 +29,10 @@ except ImportError:
 
 try:
     import lib_bejson_CMS_cms_core as CMSCore
+    from lib_bejson_Core_bejson_core import bejson_core_get_field_map
 except ImportError:
     CMSCore = None
+    bejson_core_get_field_map = None
 
 class PersonaWriter:
     def __init__(self, manifest_path):
@@ -45,13 +50,20 @@ class PersonaWriter:
         try:
             with open(key_path, "r") as f:
                 data = json.load(f)
-            # BEJSON 104a format: row[1] is typically the key
-            valid_keys = [row[1] for row in data.get("Values", []) if len(row) > 1 and row[1] and row[1] != "[REDACTED]"]
+            field_map = bejson_core_get_field_map(data) if bejson_core_get_field_map else {}
+            key_col_idx = next((field_map[col_name] for col_name in ("key", "api_key", "setting_value", "value") if col_name in field_map), None)
+            if key_col_idx is None:
+                return []
+            valid_keys = [
+                row[key_col_idx]
+                for row in data.get("Values", [])
+                if len(row) > key_col_idx and row[key_col_idx] and row[key_col_idx] != "[REDACTED]"
+            ]
             import random
             random.shuffle(valid_keys)
             return valid_keys
         except (json.JSONDecodeError, KeyError, IOError) as e:
-            print(f"[PersonaWriter] Error loading keys: {e}")
+            logging.error("[PersonaWriter] Error loading keys: %s", e)
             return []
 
     def _get_key(self):

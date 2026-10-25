@@ -2,11 +2,13 @@
 Library:         BEJSON_CMS_Content
 Family:          BEJSON_CMS
 Description:     Content Cube: Page/Link CRUD, Category management, Author profiles, Standalone Apps, HTML import pipeline. Uses CMSCore (lib_bejson_CMS_cms_core), the same data layer as the rest of the Flask app — NOT lib_bejson_CMS_cms_mfdb (that manager is CLI-only, used by cms-manage.py, and is a different schema/data layer).
-Version:         18.27
-Library_Version: 58
-Date:            2026-08-05
-RELATIONAL_ID:   8f4684ed-8a3a-469b-870b-f6d16b606f2f
+Version:         18.28
+Library_Version: 59
+Date:            2026-10-25
+RELATIONAL_ID:   2a8d4c19-7e3f-4b65-9a02-5c1e8b3f7d64
 """
+
+VERSION = 1828
 
 import os
 import gc
@@ -28,6 +30,7 @@ from BEJSON_CMS_Shared import (
     UPLOAD_TMP,
 )
 from lib_bejson_Core_bejson_path_guard import safe_extract_zip
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 
 try:
     from bs4 import BeautifulSoup
@@ -433,13 +436,13 @@ def duplicate_page(page_uuid):
         # Update the copy's own PageMeta title to match; leave the actual
         # body content (html_body/markdown_body/source_code) untouched --
         # that's the whole point of duplicating.
-        fields = [fld["name"] for fld in content_data.get("Fields", [])]
-        title_idx = fields.index("meta_title") if "meta_title" in fields else -1
+        content_field_map_cache = bejson_core_get_field_map(content_data) if content_data.get("Fields") else {}
+        parent_type_col_idx = content_field_map_cache.get("Record_Type_Parent", 0)
+        title_idx = content_field_map_cache.get("meta_title", -1)
         for row in content_data.get("Values", []):
-            if row and row[0] == "PageMeta" and title_idx != -1:
+            if row and row[parent_type_col_idx] == "PageMeta" and title_idx != -1:
                 row[title_idx] = new_title
-        with open(new_file, 'w') as f:
-            json.dump(content_data, f, indent=2)
+        bejson_core_atomic_write(new_file, content_data)
 
     flash(f'Duplicated as "{new_title}". Edit the copy below.', 'success')
     return redirect(f'/edit/{new_uuid}')

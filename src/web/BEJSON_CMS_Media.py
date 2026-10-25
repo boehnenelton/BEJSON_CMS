@@ -2,10 +2,11 @@
 Library:         BEJSON_CMS_Media
 Family:          BEJSON_CMS
 Description:     Media Cube: gallery, uploads, background thumbnail worker, external media links. In-process serial worker thread by design (no multiprocessing) — see comment block below.
-Version:         18.28
-Library_Version: 58
-Date:            2026-08-06
-RELATIONAL_ID:   7c3e4a12-9f6d-4b8e-9a1c-2d5f8e0b6c47
+Version:         18.29
+Library_Version: 59
+Date:            2026-10-25
+RELATIONAL_ID:   4b9a6e21-5d8c-4f37-8a1e-9c2d7b4f6e83
+CHANGE (2026-10-25): Centralized /assets and /assets/thumb route handlers in BEJSON_CMS_Shared.
 CHANGE (2026-08-06): PKG74 - added "PDF" as a selectable Type on the
 External Media Link form (was Image/Video/Other only), so an external
 PDF URL can be tagged and picked up by the new Insert-PDF picker in
@@ -16,6 +17,8 @@ non-thumbable file falls back to serving the raw original bytes as an
 "image" (broken icon in the browser). Now renders a file-type badge
 (📄/🎬/🎵/📦) instead for any extension outside _THUMBABLE_EXT.
 """
+
+VERSION = 1829
 
 import os
 import re
@@ -34,7 +37,7 @@ from werkzeug.utils import secure_filename
 
 from BEJSON_CMS_Shared import (
     db, R, get_breadcrumbs, require_auth,
-    ASSETS_DIR, THUMBS_DIR,
+    ASSETS_DIR, THUMBS_DIR, serve_shared_asset, serve_shared_thumb,
 )
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
 
@@ -182,25 +185,8 @@ _threading.Thread(target=_asset_worker, daemon=True).start()
 # ─── Routes ──────────────────────────────────────────────────────────────────
 ASSETS_PER_PAGE = 24
 
-@media_cube.route('/assets/<path:filename>')
-def serve_asset(filename):
-    try:
-        safe_path = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    return send_file(safe_path)
-
-
-@media_cube.route('/assets/thumb/<path:filename>')
-def serve_thumb(filename):
-    try:
-        safe_name = bejson_safe_join(str(THUMBS_DIR), Path(filename).stem + ".jpg")
-        safe_orig = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    if os.path.exists(safe_name):
-        return send_file(safe_name)
-    return send_file(safe_orig)  # fallback: original, until thumb generation catches up
+media_cube.add_url_rule('/assets/<path:filename>', 'serve_asset', serve_shared_asset)
+media_cube.add_url_rule('/assets/thumb/<path:filename>', 'serve_thumb', serve_shared_thumb)
 
 
 @media_cube.route('/assets/list.json', methods=['GET'])

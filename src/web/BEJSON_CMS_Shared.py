@@ -1,11 +1,11 @@
 """
 Library:         BEJSON_CMS_Shared
 Family:          BEJSON_CMS
-Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB handle, base template/render helper, nav structure, auth guard.
-Version:         18.23
-Library_Version: 57
-Date:            2026-08-05
-RELATIONAL_ID:   b8e14c52-46ea-4b2e-af32-b4c2bcc1698b
+Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB handle, base template/render helper, nav structure, auth guard, and shared media asset serving.
+Version:         18.24
+Library_Version: 58
+Date:            2026-10-25
+RELATIONAL_ID:   c9f25d63-57fb-4c3f-b943-c5d3cdd2709c
 """
 
 import os
@@ -13,7 +13,9 @@ import sys
 import logging
 import logging.handlers
 from pathlib import Path
-from flask import request, render_template_string
+from flask import request, render_template_string, send_file
+
+VERSION = 1824
 
 # ─── HTTP Basic Auth ────────────────────────────────────────────────────────
 import functools
@@ -39,6 +41,15 @@ def require_auth(f):
             return _unauthorized()
         return f(*args, **kwargs)
     return decorated
+
+def enforce_auth_everywhere():
+    Request_Basic_Auth_Header = request.authorization
+    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
+        return _unauthorized()
+
+def register_auth_guard(flask_app):
+    """Registers the canonical HTTP Basic Auth before_request gate on a Flask app."""
+    flask_app.before_request(enforce_auth_everywhere)
 
 # ─── Script path resolution + BEJSON library imports ───────────────────────
 def get_script_path() -> Path:
@@ -781,6 +792,30 @@ def get_image_assets():
     return [a['asset_filename'] for a in assets if (a.get('asset_mime_type') or '').startswith('image/')]
 
 
+from lib_bejson_Core_bejson_path_guard import bejson_safe_join
+
+
+def serve_shared_asset(filename: str):
+    """Shared route handler for serving media assets across Admin/Media and PageEditorV2."""
+    try:
+        resolved_asset_target_path = bejson_safe_join(str(ASSETS_DIR), filename)
+    except ValueError:
+        return "Not found", 404
+    return send_file(resolved_asset_target_path)
+
+
+def serve_shared_thumb(filename: str):
+    """Shared route handler for serving media thumbnails with fallback to original asset."""
+    try:
+        resolved_thumb_target_path = bejson_safe_join(str(THUMBS_DIR), Path(filename).stem + ".jpg")
+        resolved_orig_target_path = bejson_safe_join(str(ASSETS_DIR), filename)
+    except ValueError:
+        return "Not found", 404
+    if os.path.exists(resolved_thumb_target_path):
+        return send_file(resolved_thumb_target_path)
+    return send_file(resolved_orig_target_path)
+
+
 _LEGACY_WEB_FILES = [
     "Flask_CMS.py", "Flask_CMS_Publisher.py", "Flask_Page_Editor.py",
     "Flask_Profile_Manager.py", "Page_Editor_v2.py",
@@ -803,7 +838,7 @@ def warn_about_legacy_files():
     web_dir = os.path.dirname(os.path.abspath(__file__))
     found = [f for f in _LEGACY_WEB_FILES if os.path.exists(os.path.join(web_dir, f))]
     if found:
-        print(f'''
+        logging.warning(f'''
     !! WARNING: Found old pre-rename file(s) still present: {", ".join(found)}
     !! These are leftovers from before the Blueprint split and should not
     !! exist any more -- they were replaced by BEJSON_CMS_Admin.py,
@@ -813,4 +848,5 @@ def warn_about_legacy_files():
     !! you will get old, unfixed behavior (this exact scenario has already
     !! caused real bugs). Delete them: they are not needed for anything.
         ''')
+
 

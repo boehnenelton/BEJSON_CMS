@@ -4,6 +4,26 @@ Full, unabridged change history (every verification step, every file touched)
 lives in `.bejson_project.json` at the project root — this file is a
 readable summary. Newest at top, oldest at bottom.
 
+## pkg130 — Redundancy Elimination, Field Map Cache Refactoring & Full Verification
+
+- **Duplicate Server Module Consolidated (`src/lib/cli/bejson_server.py`)**: Replaced the 648-line byte-identical duplicate of `src/lib/bejson_server.py` with a thin CLI wrapper importing and re-exporting from `src/lib/bejson_server.py` (eliminating 9 duplicate functions/classes and 1 duplicate asset finding).
+- **Centralized Auth Guard (`src/web/BEJSON_CMS_Shared.py`)**: Extracted the 5 verbatim copies of `_enforce_auth_everywhere()` across `BEJSON_CMS_Admin.py`, `BEJSON_CMS_PageEditor.py`, `BEJSON_CMS_PageEditorV2.py`, `BEJSON_CMS_ProfileManager.py`, and `BEJSON_CMS_Publisher.py` into `BEJSON_CMS_Shared.enforce_auth_everywhere()` and `register_auth_guard(flask_app)`.
+- **Centralized Asset & Thumbnail Serving (`src/web/BEJSON_CMS_Shared.py`)**: Consolidated duplicate `serve_asset`/`serve_thumb` and `serve_asset_v2`/`serve_thumb_v2` routes in `BEJSON_CMS_Media.py` and `BEJSON_CMS_PageEditorV2.py` into `serve_shared_asset(filename)` and `serve_shared_thumb(filename)`.
+- **Dead Code Removed (`src/web/BEJSON_CMS_Publisher.py`)**: Removed unreferenced `_safe_slug()` helper and documented in `dev/dead_code.md`, `.bejson_project.json`, and inline per Policy §1.3.
+- **BEJSON Field Map Cache & Atomic Write Compliance**: Replaced all remaining positional `row[i]` indexing and manual `.tmp` writes in non-Core modules (`lib_bejson_CMS_cms_ports.py`, `lib_cms_persona_writer.py`, `BEJSON_CMS_PageEditorV2.py`, `BEJSON_CMS_Publisher.py`, `BEJSON_CMS_Content.py`, `BEJSON_CMS_System.py`) with `bejson_core_get_field_map()` O(1) cache lookups and `bejson_core_atomic_write()`.
+
+## pkg129 — Advanced Launcher v2 TUI Redesign, Core Library Sync & System Audit
+
+- **`advanced_launcher.py` (v2)**: Restructured per `bejson-tui-menu-builder` skill and `Advanced Launcher Redesign Proposal.md`:
+  - 57-column hard viewport ceiling strictly verified across all dividers, telemetry strips, tables, and action grids.
+  - Pre-render console clear (`\033[2J\033[H`) before drawing frames.
+  - State persistence migrated to atomic BEJSON 104a (`storage/tmp/launcher_registry.104a.bejson`) with Field Map Cache lookups and backward-compatible fallback for legacy JSON.
+  - Merged separate status and launch menus into a unified 5-row Positional Service Table (`ID`, `STATE`, `PID`, `PORT`, `UPTIME`, `SERVICE_NAME`).
+  - Decoupled 3-column action grid with `#DE2626` option numbers/keys (`[1-5]`, `[R]`, `[S]`, `[K]`, `[Z]`, `[L]`, `[P]`, `[O]`, `[C]`, `[E]`, `[Q]`, `[X]`).
+  - Compound command grammar (`r1`-`r5`, `k1`-`k5`, `l1`-`l5`, `o1`-`o5`) and direct actions: HTTP TCP port probe (`[P]`), start-all (`[S]`), kill-all (`[Z]`), and instant status ticker (`[LAST]`).
+- **Core Library Sync**: Verified and synchronized vendored Core libraries (`lib_bejson_Core_*.py`) with the latest canonical versions from `libraries_104/Lib_PY/Core/` while preserving library immutability. All 21 test cases passed.
+- **System Audits Executed**: Executed `policy-bejson-auditor` AST verification gate and `audit-efficiency-auditor` multi-pass efficiency probe across the repository.
+
 ## pkg128 — Two audit reports: real security fixes, plus a data-loss incident during testing
 
 **Incident, disclosed in full:** while verifying an audit finding, a test

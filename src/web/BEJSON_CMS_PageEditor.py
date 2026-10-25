@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditor
-SCRIPT_VERSION: 16.2
-RELATIONAL_ID:  1a9d7e63-4c2f-4b91-8e0a-6f3b2c9d5e18
+SCRIPT_VERSION: 16.3
+RELATIONAL_ID:  5c8e3f19-7a2b-4d64-9e08-2b4f7c1d8a35
 AUTHOR:         Elton Boehnen
 EMAIL:          boehnenelton2024@gmail.com
 GITHUB:         github.com/boehnenelton
+CHANGE (2026-10-25): Centralized authentication guard via BEJSON_CMS_Shared.register_auth_guard.
 CHANGE (2026-08-06): PKG74 - added an Insert PDF toolbar button (new
 pdfModal, mirrors the existing YouTube/Code File modal pattern). Lets
 you pick an already-uploaded PDF from the Media Library, pick a saved
@@ -26,6 +27,8 @@ DESCRIPTION:    Dedicated page creation and editing tool for the BEJSON CMS.
 
 RUNS ON: http://localhost:5003
 """
+
+VERSION = 163
 
 from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify, Response
 import json
@@ -66,17 +69,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 
-from BEJSON_CMS_Shared import _check_auth, _unauthorized
+from BEJSON_CMS_Shared import register_auth_guard
 
-
-@app.before_request
-def _enforce_auth_everywhere():
-    # SECURITY FIX: this standalone editor (create/edit/delete pages) had
-    # zero authentication -- every route completely open. Matches the same
-    # before_request gate BEJSON_CMS_Admin.py enforces on its blueprints.
-    Request_Basic_Auth_Header = request.authorization
-    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
-        return _unauthorized()
+register_auth_guard(app)
 
 
 # =============================================================================

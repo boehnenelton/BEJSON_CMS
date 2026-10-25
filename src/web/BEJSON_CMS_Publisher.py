@@ -1,8 +1,10 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_Publisher
-SCRIPT_VERSION: 16.4
-RELATIONAL_ID:  b386633b-f4ea-4910-9f37-aa2f7acc7ae6
+SCRIPT_VERSION: 16.5
+RELATIONAL_ID:  9e4c7b18-2f5a-4d39-8c16-7a2e5f9b4d31
 AUTHOR:         Elton Boehnen
+CHANGE (2026-10-25): Centralized authentication guard via BEJSON_CMS_Shared.register_auth_guard,
+converted CF_KEYS BEJSON lookup to field_map cache, and removed dead _safe_slug() function.
 CHANGE (2026-08-05): Variable naming remediation pass (Part 2/Part 3 items
 13,14,27,31,34,35,36,37,43,44,45) - renamed generic single/short-letter
 locals (out, css, env, apps, cats, body, link, text, path, unit, line, cmd)
@@ -56,6 +58,8 @@ REQUIRES (same directory or on sys.path):
 RUNS ON: http://localhost:5001
 """
 
+VERSION = 165
+
 import os
 import re
 import json
@@ -65,21 +69,9 @@ import threading
 import http.server
 import socketserver
 import subprocess
+import sys
 from datetime import datetime
 from flask import Flask, request, redirect, url_for, jsonify, render_template_string
-
-# ==============================================================================
-# CLOUDFLARE CONFIG
-# ==============================================================================
-CF_KEYS = {"ACCOUNT_ID": "", "API_TOKEN": ""}
-CF_KEYS_PATH = os.path.expanduser("~/.env/cloudflare_keys.bejson")
-if os.path.exists(CF_KEYS_PATH):
-    try:
-        with open(CF_KEYS_PATH, "r") as f:
-            cf_data = json.load(f)
-            CF_KEYS = {row[0]: row[1] for row in cf_data["Values"]}
-    except Exception:
-        pass
 
 # ==============================================================================
 # PATHS  (identical to the originals)
@@ -111,13 +103,28 @@ for d in [MFDB_DIR, PAGES_DB_DIR, APPS_STORAGE, ASSETS_SRC, EXPORTS_DIR, DEFAULT
 
 # Import BEJSON Libraries
 # Import New MFDB Orchestrator
-import sys
-# (Duplicate PROJECT_ROOT removed by patch_cms.py)
 LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map
+
+# ==============================================================================
+# CLOUDFLARE CONFIG
+# ==============================================================================
+CF_KEYS = {"ACCOUNT_ID": "", "API_TOKEN": ""}
+CF_KEYS_PATH = os.path.expanduser("~/.env/cloudflare_keys.bejson")
+if os.path.exists(CF_KEYS_PATH):
+    try:
+        with open(CF_KEYS_PATH, "r") as f:
+            cf_data = json.load(f)
+            cf_field_map_cache = bejson_core_get_field_map(cf_data) if cf_data.get("Fields") else {}
+            cf_key_col_idx = cf_field_map_cache.get("key", cf_field_map_cache.get("name", 0))
+            cf_val_col_idx = cf_field_map_cache.get("value", 1)
+            CF_KEYS = {row[cf_key_col_idx]: row[cf_val_col_idx] for row in cf_data.get("Values", [])}
+    except Exception:
+        pass
 
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER_PORT")
@@ -129,26 +136,12 @@ PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER
 app = Flask(__name__)
 db = CMSCore.CMSCore(MANIFEST_PATH)
 
-from BEJSON_CMS_Shared import _check_auth, _unauthorized
+from BEJSON_CMS_Shared import register_auth_guard
 
+register_auth_guard(app)
 
-@app.before_request
-def _enforce_auth_everywhere():
-    # SECURITY FIX: this standalone app (factory reset, live publish/build,
-    # preview server control) had zero authentication -- every route
-    # completely open, including /reset/confirm which wipes the live
-    # database. Matches the same before_request gate BEJSON_CMS_Admin.py
-    # already enforces on its four blueprints.
-    Request_Basic_Auth_Header = request.authorization
-    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
-        return _unauthorized()
-
-
-def _safe_slug(value, fallback="unknown"):
-    """Guard against None values becoming the literal string 'None' in path components."""
-    if value is None or str(value).lower() == "none" or str(value).strip() == "":
-        return fallback
-    return str(value).strip()
+# [DEAD CODE REMOVED 2026-10-25]: _safe_slug() was unreferenced across the entire
+# codebase (documented in dev/dead_code.md and .bejson_project.json).
 
 if os.path.exists(MANIFEST_PATH): db.mount()
 app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var

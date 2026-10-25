@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditorV2
-SCRIPT_VERSION: 18.3
-RELATIONAL_ID:  9b4f2d81-3e7c-4a95-b6d0-8c1f5a2e9d63
+SCRIPT_VERSION: 18.4
+RELATIONAL_ID:  6f1b8c32-4e9d-4a71-8c05-3e7a9d2f4b18
 AUTHOR:         Elton Boehnen
 DESCRIPTION:    Editor v2 with Stabilized Sidebar, Tasking Workflow, and Gemini Config.
                 Unified with CMS Data Model and Storage Format.
+CHANGE (2026-10-25): Centralized authentication guard and asset routes via BEJSON_CMS_Shared;
+converted storage config BEJSON reads/writes to use field_map cache and atomic_write.
 CHANGE (2026-08-06): PKG74 - added an Insert PDF button next to the
 existing Media button. Opens its own modal (separate from the Image
 picker so PDFs don't clutter/break that grid's thumbnails) fed by the
@@ -31,6 +33,8 @@ updates now omit them entirely so they're preserved. Verified with a live
 round-trip test (external-link page survives a V2 edit intact).
 """
 
+VERSION = 184
+
 from flask import Flask, render_template_string, request, redirect, flash, jsonify, send_file, Response
 import os, re, uuid, json, sys, html as _html, io
 from datetime import datetime
@@ -50,6 +54,7 @@ LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
 if LIB_DIR not in sys.path: sys.path.append(LIB_DIR)
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PAGEEDITORV2_PORT = CMSPorts.get_port(CONFIG_PATH, "pageeditorv2_port", "CMS_PAGEEDITORV2_PORT")
 ADMIN_PORT = CMSPorts.get_port(CONFIG_PATH, "admin_port", "CMS_ADMIN_PORT")
@@ -76,18 +81,11 @@ STORAGE_CONFIG_PATH = resolve_path("{INTERNAL_STORAGE}/Admin/resources/Flask_Com
 app = Flask(__name__)
 app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 
-from BEJSON_CMS_Shared import _check_auth, _unauthorized
+from BEJSON_CMS_Shared import register_auth_guard, serve_shared_asset, serve_shared_thumb
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
 
+register_auth_guard(app)
 
-@app.before_request
-def _enforce_auth_everywhere():
-    # SECURITY FIX: this standalone editor had zero authentication -- every
-    # route completely open. Matches the same before_request gate
-    # BEJSON_CMS_Admin.py enforces on its blueprints.
-    Request_Basic_Auth_Header = request.authorization
-    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
-        return _unauthorized()
 
 @app.after_request
 def add_cors_headers(response):
@@ -109,35 +107,54 @@ def load_storage_config():
         with open(STORAGE_CONFIG_PATH, "r") as f: return json.load(f)
     except: return {}
 
-def save_storage_config(data):
+def save_storage_config(storage_config_document):
     os.makedirs(os.path.dirname(STORAGE_CONFIG_PATH), exist_ok=True)
-    temp_path = STORAGE_CONFIG_PATH + ".tmp"
-    with open(temp_path, "w") as f: json.dump(data, f, indent=2)
-    os.replace(temp_path, STORAGE_CONFIG_PATH)
+    bejson_core_atomic_write(STORAGE_CONFIG_PATH, storage_config_document)
+
+def _resolve_storage_field_indices(storage_config_document):
+    """Resolve label, path, and enabled column indices via BEJSON field_map cache."""
+    storage_field_map_cache = bejson_core_get_field_map(storage_config_document) if storage_config_document.get("Fields") else {}
+    label_column_index = storage_field_map_cache.get("label", storage_field_map_cache.get("name", 0))
+    path_column_index = storage_field_map_cache.get("path", 1)
+    enabled_column_index = storage_field_map_cache.get("enabled", 2)
+    return label_column_index, path_column_index, enabled_column_index
 
 @app.route("/api/storage/config", methods=["GET", "POST"])
 def api_storage_config():
     if request.method == "POST":
-        data = request.json
-        config = load_storage_config()
-        new_values = []
-        for row in config.get("Values", []):
-            label = row[0]
-            if label in data:
-                new_values.append([label, data[label]["path"], data[label]["enabled"]])
-            else: new_values.append(row)
-        config["Values"] = new_values
-        save_storage_config(config)
+        request_storage_payload = request.json
+        storage_config_document = load_storage_config()
+        label_idx, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+        updated_storage_rows = []
+        for storage_row in storage_config_document.get("Values", []):
+            storage_row_label = storage_row[label_idx]
+            if storage_row_label in request_storage_payload:
+                updated_row = list(storage_row)
+                updated_row[path_idx] = request_storage_payload[storage_row_label]["path"]
+                updated_row[enabled_idx] = request_storage_payload[storage_row_label]["enabled"]
+                updated_storage_rows.append(updated_row)
+            else:
+                updated_storage_rows.append(storage_row)
+        storage_config_document["Values"] = updated_storage_rows
+        save_storage_config(storage_config_document)
         return jsonify({"ok": True})
     
-    config = load_storage_config()
-    paths = {v[0]: {"path": v[1], "enabled": v[2]} for v in config.get("Values", [])}
+    storage_config_document = load_storage_config()
+    label_idx, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+    paths = {
+        storage_row[label_idx]: {"path": storage_row[path_idx], "enabled": storage_row[enabled_idx]}
+        for storage_row in storage_config_document.get("Values", [])
+    }
     return jsonify({"ok": True, "paths": paths})
 
 @app.route("/api/storage/list_files")
 def api_list_files():
-    config = load_storage_config()
-    enabled_path = next((v[1] for v in config.get("Values", []) if v[2]), os.path.expanduser("~"))
+    storage_config_document = load_storage_config()
+    _, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+    enabled_path = next(
+        (storage_row[path_idx] for storage_row in storage_config_document.get("Values", []) if storage_row[enabled_idx]),
+        os.path.expanduser("~")
+    )
     try:
         files = sorted([f for f in os.listdir(enabled_path) if os.path.isfile(os.path.join(enabled_path, f))])
         return jsonify({"ok": True, "files": files, "path": enabled_path})
@@ -158,8 +175,12 @@ def api_upload_context():
     except Exception as e: return jsonify({"ok": False, "error": str(e)})
 
 def get_context_content(filenames):
-    config = load_storage_config()
-    enabled_path = next((v[1] for v in config.get("Values", []) if v[2]), CONTEXT_DIR)
+    storage_config_document = load_storage_config()
+    _, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+    enabled_path = next(
+        (storage_row[path_idx] for storage_row in storage_config_document.get("Values", []) if storage_row[enabled_idx]),
+        CONTEXT_DIR
+    )
     content = ""
     for f in filenames:
         path = os.path.join(enabled_path, f)
@@ -380,25 +401,8 @@ def api_save():
 # route uses.
 # =============================================================================
 
-@app.route('/assets/<path:filename>')
-def serve_asset_v2(filename):
-    try:
-        safe_path = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    return send_file(safe_path)
-
-@app.route('/assets/thumb/<path:filename>')
-def serve_thumb_v2(filename):
-    stem = os.path.splitext(filename)[0]
-    try:
-        safe_thumb = bejson_safe_join(str(THUMBS_DIR), stem + ".jpg")
-        safe_orig = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    if os.path.exists(safe_thumb):
-        return send_file(safe_thumb)
-    return send_file(safe_orig)
+app.add_url_rule('/assets/<path:filename>', 'serve_asset_v2', serve_shared_asset)
+app.add_url_rule('/assets/thumb/<path:filename>', 'serve_thumb_v2', serve_shared_thumb)
 
 @app.route('/api/media/list')
 def api_media_list():

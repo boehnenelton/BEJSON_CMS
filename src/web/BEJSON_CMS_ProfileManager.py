@@ -1,12 +1,14 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_ProfileManager
-SCRIPT_VERSION: 1.1
-DATE:           2026-08-05
-RELATIONAL_ID:  a7c2e9f4-3b81-4d6a-9e05-6c1f8a2b3d94
+SCRIPT_VERSION: 1.2
+DATE:           2026-10-25
+RELATIONAL_ID:  3d9b1e74-6c52-4a89-b1f0-7e4c9a2d5b81
 AUTHOR:         Elton Boehnen
 DESCRIPTION:    Persona Hub - manages AI_Profile records (BEJSON 104 persona
                  format). Standalone admin app, port 5004.
 """
+
+VERSION = 12
 
 import os
 import sys
@@ -24,17 +26,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 db = CMSCore.CMSCore(MANIFEST_PATH)
 
-from BEJSON_CMS_Shared import _check_auth, _unauthorized
+from BEJSON_CMS_Shared import register_auth_guard
 
-
-@app.before_request
-def _enforce_auth_everywhere():
-    # SECURITY FIX: this standalone app (create/delete personas) had zero
-    # authentication -- every route completely open. Matches the same
-    # before_request gate BEJSON_CMS_Admin.py enforces on its blueprints.
-    Request_Basic_Auth_Header = request.authorization
-    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
-        return _unauthorized()
+register_auth_guard(app)
 
 
 _T = """

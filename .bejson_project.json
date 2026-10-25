@@ -3,11 +3,11 @@
   "Format_Version": "104a",
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
-  "Project_Version": "18.28",
-  "Package_Version": "128",
-  "Project_Modified_Date": "2026-08-26T08:16:27.067728+00:00",
+  "Project_Version": "18.29",
+  "Package_Version": "130",
+  "Project_Modified_Date": "2026-10-25T05:57:00.000000+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
-  "Schema_Version": "1.0.0",
+  "Schema_Version": "1.8.0",
   "Records_Type": [
     "RootPackage"
   ],
@@ -445,6 +445,19 @@
       "pkg128 -- Two audit reports verified and largely fixed. IMPORTANT INCIDENT during verification: while confirming M-4 (app_delete()'s missing app_uuid validation), a test using CMS_DATA_ROOT to point at an isolated /tmp directory was NOT actually isolated -- discovered that APPS_STORAGE (Content.py, via Shared.py) and MANIFEST_PATH (System.py, found earlier this session) both hardcode paths relative to PROJECT_ROOT and do not read CMS_DATA_ROOT at all; only cms-manage.py's CLI actually respects it. The test call genuinely deleted the real project's entire live storage/mfdb/ directory (all pages, authors, categories, config) via shutil.rmtree(). Caught and fully restored within the same turn from the already-delivered pkg127.zip (packaged before the incident) -- verified byte-identical against the restored data and confirmed the app boots and serves correctly against it. All further destructive testing this pass used a full project directory copy in /tmp instead of env-var overrides, so PROJECT_ROOT itself resolves outside the real project regardless of which files respect CMS_DATA_ROOT. FIXES: M-4 was reproduced safely in an isolated full-copy and confirmed far more severe than either audit rated it -- not 'inconsistent behavior' but a single authenticated POST (app_uuid='..') that recursively deletes the ENTIRE mfdb/ tree, not just one app's folder (shutil.rmtree walks and clears everything inside before failing on the final directory-removal step). Fixed by adding uuid.UUID() validation to app_delete() and serve_app(), matching serve_app_static()'s existing correct pattern; re-verified the same exact attack now fails safely and confirmed legitimate deletion with a real UUID still works. H-1 (Content.py): 3 onclick sites (not 2 as one audit stated -- found a third, pdf_assets, that report missed) rebuilt as data-* attributes + a new delegated listener in Shared.py. H-2 (Media.py): the YouTube card thumbnail's onclick -- a gap in my own pkg124 delegation fix, not caught by that session's own verification -- added to the existing delegation selector. H-3 + M-1 (Shared.py insertYt()/insertPdf(), shared by every editor's picker): added a new escapeHtml() JS helper (standard textContent->innerHTML DOM technique) and applied it to both label and src before HTML-attribute interpolation; also capped insertYt()'s width to the same canonical 800px pattern already used elsewhere. Given 2 backslash-escaping mistakes earlier this session, verified the source-to-rendered-output transformation rule empirically (source \\' -> literal ', source \\\\n -> literal \\n) by rendering before touching anything, then re-rendered after every edit to confirm byte-correctness rather than trusting source-level visual inspection.",
       "2026-08-26",
       "Incident: confirmed real live data was fully restored -- read back category.bejson and authorprofile.bejson post-restore and matched them against known pkg127 content exactly (2 categories, 1 author, same values). Booted the real Admin app against restored data and confirmed /site/authors renders the real author correctly. M-4: reproduced the exact destructive attack (app_uuid='..') in a properly isolated full-project /tmp copy both before the fix (confirmed the entire mfdb/ tree including a canary file was wiped) and after (confirmed everything survives, request now redirects with a flash error instead of 500ing mid-deletion). Confirmed serve_app() and serve_app_static() both correctly 400 on invalid UUIDs. Confirmed legitimate app deletion with a real UUID still works against real live data. H-1/H-2/H-3/M-1: created real ExternalMedia records with apostrophes in their names/labels, rendered the actual edit-page and media-library pages live, confirmed zero remaining inline onclick calls for any of the fixed patterns, confirmed correctly-escaped data-* attributes present, confirmed the new delegated listeners are present in the rendered output. Full project-wide py_compile sweep after all edits: clean, zero warnings. Final sanity boot of every touched route (/, /pages/new, /site/authors, /site/ads, /assets, /apps, /publish): all 200. All test data (pages, external media records) deleted before packaging."
+    ],
+    [
+      "pkg129 -- Restructured advanced_launcher.py to v2 per bejson-tui-menu-builder skill and Advanced Launcher Redesign Proposal.md; synchronized vendored lib_bejson_Core_*.py with canonical libraries_104/Lib_PY/Core/.",
+      "2026-10-25",
+      "Verified <= 57-column hard viewport ceiling across all dividers, telemetry strips, tables, and action grids; migrated state to atomic BEJSON 104a (storage/tmp/launcher_registry.104a.bejson) with Field Map Cache lookups; merged status and launch menus into a unified 5-row Positional Service Table; added compound command grammar (r1-r5, k1-k5, l1-l5, o1-o5) and TCP port probe [P]. All 21 pytest cases pass."
+    ],
+    [
+      "pkg130 -- Redundancy & Efficiency Audit Refactoring across non-Core modules (src/web/ and src/lib/ non-Core files).",
+      "2026-10-25",
+      "1. Consolidated byte-identical duplicate src/lib/cli/bejson_server.py into a thin re-export wrapper over src/lib/bejson_server.py (eliminated 9 duplicate functions/classes and 1 duplicate asset finding). 2. Centralized _enforce_auth_everywhere() across all 5 web apps (Admin, PageEditor, PageEditorV2, ProfileManager, Publisher) into BEJSON_CMS_Shared.register_auth_guard(app). 3. Centralized duplicate /assets/<filename> and /assets/thumb/<filename> route handlers from BEJSON_CMS_Media.py and BEJSON_CMS_PageEditorV2.py into BEJSON_CMS_Shared.serve_shared_asset and serve_shared_thumb. 4. Removed dead function _safe_slug() from BEJSON_CMS_Publisher.py (documented in dev/dead_code.md and inline). 5. Replaced all remaining raw positional BEJSON indexing in non-Core modules (lib_bejson_CMS_cms_ports.py, lib_cms_persona_writer.py, BEJSON_CMS_PageEditorV2.py, BEJSON_CMS_Publisher.py, BEJSON_CMS_Content.py, BEJSON_CMS_System.py) with bejson_core_get_field_map() cache lookups and bejson_core_atomic_write(). Verified with py_compile, pytest (21/21 pass), Flask test_client smoke tests across all 5 web apps, and probe_efficiency.py."
     ]
-  ]
+  ],
+  "Type": "python",
+  "Status": "Active",
+  "Versioned_UUID": "a1fd4ded-aece-4654-b693-3c8cb613c49c"
 }

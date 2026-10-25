@@ -2,17 +2,20 @@
 Library:         BEJSON_CMS_System
 Family:          BEJSON_CMS
 Description:     System Cube (Foundation): self-heal/seed lifecycle (init_master_db, _ensure_uncategorized_category, _migrate_db, _seed_default_brand_and_author), Site Config, DB/asset export, Factory Reset. Imports _make_thumbnail from BEJSON_CMS_Media to regenerate the default brand thumbnail during seeding/reset.
-Version:         18.23
-Library_Version: 57
-Date:            2026-08-05
-RELATIONAL_ID:   d9d9ce8f-ab86-4ea4-8f20-bfc4d35bd956
+Version:         18.24
+Library_Version: 58
+Date:            2026-10-25
+RELATIONAL_ID:   1c5b9e32-8d4a-4f71-9b06-4e2a7c8d3f91
 """
+
+VERSION = 1824
 
 import os
 import mimetypes
 import json
 import shutil
 import zipfile
+import logging
 from datetime import datetime
 from flask import Blueprint, request, redirect, flash, send_file
 
@@ -24,6 +27,7 @@ from BEJSON_CMS_Shared import (
 )
 from BEJSON_CMS_Media import _make_thumbnail, _get_file_hash, _THUMBABLE_EXT
 import lib_bejson_Core_mfdb_core as MFDBCore
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 
 system_cube = Blueprint('system', __name__)
 
@@ -437,8 +441,11 @@ def _migrate_db():
         with open(MANIFEST_PATH, 'r', encoding='utf-8') as fh:
             manifest = json.load(fh)
 
-        # entity_name is always position 0 in each manifest value row
-        existing = {row[0] for row in manifest.get("Values", [])}
+        manifest_field_map_cache = bejson_core_get_field_map(manifest) if manifest.get("Fields") else {}
+        manifest_entity_name_col_idx = manifest_field_map_cache.get("entity_name", 0)
+        manifest_file_path_col_idx = manifest_field_map_cache.get("file_path", 1)
+
+        existing = {row[manifest_entity_name_col_idx] for row in manifest.get("Values", [])}
         site_dir  = os.path.dirname(MANIFEST_PATH)
         added     = []
 
@@ -460,10 +467,7 @@ def _migrate_db():
                 "Fields":           spec["fields"],
                 "Values":           [],
             }
-            tmp = abs_path + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as fh:
-                json.dump(entity_doc, fh, indent=2)
-            os.replace(tmp, abs_path)
+            bejson_core_atomic_write(abs_path, entity_doc)
 
             # Append row to manifest Values
             # Manifest fields: entity_name, file_path, description,
@@ -489,39 +493,33 @@ def _migrate_db():
             name = spec["name"]
             if name not in existing:
                 continue  # just-created above, already has every field
-            entity_row = next((v for v in manifest["Values"] if v[0] == name), None)
+            entity_row = next((v for v in manifest["Values"] if v[manifest_entity_name_col_idx] == name), None)
             if not entity_row:
                 continue
-            fp_rel = entity_row[1]
+            fp_rel = entity_row[manifest_file_path_col_idx]
             abs_path = os.path.join(site_dir, fp_rel)
             if not os.path.exists(abs_path):
                 continue
             with open(abs_path, 'r', encoding='utf-8') as fh:
                 entity_doc = json.load(fh)
-            current_field_names = [f["name"] for f in entity_doc.get("Fields", [])]
-            missing_fields = [f for f in spec["fields"] if f["name"] not in current_field_names]
+            entity_field_map_cache = bejson_core_get_field_map(entity_doc) if entity_doc.get("Fields") else {}
+            missing_fields = [f for f in spec["fields"] if f["name"] not in entity_field_map_cache]
             if not missing_fields:
                 continue
             entity_doc["Fields"] = entity_doc.get("Fields", []) + missing_fields
             entity_doc["Values"] = [row + [None] * len(missing_fields) for row in entity_doc.get("Values", [])]
-            tmp = abs_path + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as fh:
-                json.dump(entity_doc, fh, indent=2)
-            os.replace(tmp, abs_path)
+            bejson_core_atomic_write(abs_path, entity_doc)
             field_migrated.append(f"{name}(+{len(missing_fields)} fields)")
 
         if field_migrated:
-            print(f"[CMS] Migration: backfilled fields on existing entities {field_migrated}")
+            logging.info(f"[CMS] Migration: backfilled fields on existing entities {field_migrated}")
 
         if added:
-            Manifest_Temp_Write_Path = str(MANIFEST_PATH) + ".tmp"
-            with open(Manifest_Temp_Write_Path, 'w', encoding='utf-8') as fh:
-                json.dump(manifest, fh, indent=2)
-            os.replace(Manifest_Temp_Write_Path, MANIFEST_PATH)
-            print(f"[CMS] Migration: added missing entities {added}")
+            bejson_core_atomic_write(str(MANIFEST_PATH), manifest)
+            logging.info(f"[CMS] Migration: added missing entities {added}")
 
     except Exception as exc:
-        print(f"[CMS] Migration warning (non-fatal): {exc}")
+        logging.warning(f"[CMS] Migration warning (non-fatal): {exc}")
 
 
 # ─── Routes ──────────────────────────────────────────────────────────────────

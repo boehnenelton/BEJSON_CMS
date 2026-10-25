@@ -1,35 +1,24 @@
 """
-Library:        lib_bejson_Core_mfdb_core.py
-Family:         Core
-Description:    Multi-file database orchestrator managing manifests and entity synchronization.
-Version:        2.3.0
-Date:           2026-07-31
-Author:         Elton Boehnen
-Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
-Format_Creator: Elton Boehnen
-RELATIONAL_ID:  6e1a9c47-4d2f-4b83-a5c0-8f3b7e2d1a96
+Library:         lib_bejson_Core_mfdb_core.py
+Family:          Core
+Module Purpose:  Multi-file database orchestrator managing manifests and entity synchronization.
+Architecture:    MFDB (a database architecture layered on BEJSON, not a BEJSON format version): one BEJSON 104a manifest (104a.mfdb.bejson, Records_Type ["mfdb"]) registers many BEJSON 104 entity files, one entity per file, dense records, each with Parent_Hierarchy pointing back to the manifest. It is not 104db and uses no null-padding.
+Format_Scope:    MFDB only (104a manifest + 104 entity files; NOT 104db)
+Glossary:        BEJSON 104, 104a and 104db are the three file formats (Format_Version). 104db = ONE file holding 2+ entity types
+                 (Record_Type_Parent discriminator, null-padding). MFDB is NOT a format and NOT 104db: it is a layer made of one 104a manifest
+                 (104a.mfdb.bejson) plus dense 104 entity files linked by Parent_Hierarchy. MFDB-132 = an MFDB packed into one Chunked-104a document.
+Version:         2.3.5
 Release_Version: 300
-
-FEATURE (2026-07-31): Meta-GUID debug entity system. Every MFDB optionally
-carries a meta-{uuid4} entity that logs every write operation with entity,
-field, field_exists flag, row_index, success, duration_ms, pid, and notes.
-Gated by Debug_Mode manifest header — zero overhead when off. Auto-trims at
-Debug_Row_Cap rows. Debug_Reads flag adds read-path audit. Schema snapshot
-on enable; mfdb_core_detect_schema_drift diffs live fields against snapshot.
-mfdb_core_debug_summary and mfdb_core_get_failed_ops surface aggregated view.
-
-FEATURE (2026-07-30): Step 5 (1.32 finalization) — ResilientPIDLock wired
-around all 4 critical read-modify-write cycles.
-
-FEATURE (2026-07-29): Federated Master/Slave node system.
-mfdb_federation_push_config (Master→Slave atomic drop-zone push),
-mfdb_federation_poll_dropzone (Slave polls its own dir for incoming configs),
-and mfdb_federation_distill_logs (Slave truncates overflow rows and pushes
-distilled metrics to Master's poll dir). Network_Role was already emitted on
-manifest creation (2.0.1) — federation functions now wire the full protocol.
+Date:            2026-10-17
+Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
+Format_Creator:  Elton Boehnen
+RELATIONAL_ID:   4f8b2d19-6c3a-4e7f-9b5d-1a2c8e4f7b31
 """
 
-# v1.21 adds Dynamic Recovery and Self-Healing.
+# Dynamic recovery and self-healing: deep_verify findings are healed one finding at a time.
+
+VERSION = "2.3.5"
+RELATIONAL_ID = "4f8b2d19-6c3a-4e7f-9b5d-1a2c8e4f7b31"
 
 import json
 import os
@@ -87,6 +76,7 @@ except ImportError as e:
 
 class MFDBCoreError(Exception):
     """Raised when an MFDB core operation fails."""
+    # Exception type for MFDB-layer failures. `code` is the numeric E_MFDB_* value from the shared error registry.
     def __init__(self, message: str, code: int):
         super().__init__(message)
         self.code = code
@@ -95,10 +85,13 @@ class MFDBCoreError(Exception):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+# Reads the 104a manifest and returns one dict per registered entity (field-name keyed rows of the manifest's Values).
+# Valid input: an MFDB manifest (Format_Version 104a, Records_Type ["mfdb"]). Not a 104db file.
 def _get_manifest_entries(manifest_path: str) -> list[dict]:
     doc = _load_json(manifest_path)
     return _rows_as_dicts(doc)
 
+# Finds the manifest row whose entity_name matches. Raises MFDBCoreError if the entity is not registered.
 def _get_manifest_entry(manifest_path: str, entity_name: str) -> dict:
     entries = _get_manifest_entries(manifest_path)
     entry   = next((e for e in entries if e.get("entity_name") == entity_name), None)
@@ -109,6 +102,7 @@ def _get_manifest_entry(manifest_path: str, entity_name: str) -> dict:
         )
     return entry
 
+# Reads a text file, or a single file inside a .mfdb.zip archive (an MFDB-132 style package). Returns None on failure.
 def _read_file_content(path: str) -> Optional[str]:
     """Reads file content, supporting .mfdb.zip archives."""
     p = Path(path)
@@ -136,10 +130,13 @@ def _read_file_content(path: str) -> Optional[str]:
     except Exception:
         return None
 
+# Resolves an entity's file_path (stored relative to the manifest) to an absolute path.
 def _get_entity_path(manifest_path: str, entity_name: str) -> str:
     entry = _get_manifest_entry(manifest_path, entity_name)
     return _resolve_entity_path(manifest_path, entry["file_path"])
 
+# Loads and validates one entity file as a BEJSON 104 document (one entity type, dense rows, Parent_Hierarchy header).
+# Entity files are plain 104 -- no Record_Type_Parent column and no null-padding (those exist only in 104db).
 def _load_entity_doc(manifest_path: str, entity_name: str) -> dict:
     """Load and validate the raw BEJSON 104 doc for an entity."""
     entity_path = _get_entity_path(manifest_path, entity_name)
@@ -158,14 +155,22 @@ def _load_entity_doc(manifest_path: str, entity_name: str) -> dict:
         )
     return doc
 
+# Atomically writes an entity file (temp file + rename, lock-protected). Raises MFDBCoreError(E_MFDB_CORE_WRITE_FAILED) on failure.
 def _write_entity_doc(doc: dict, entity_path: str) -> None:
     if not bejson_core_atomic_write(entity_path, doc):
         raise MFDBCoreError(f"Failed to write entity doc to {entity_path}", E_MFDB_CORE_WRITE_FAILED)
 
+# Atomically writes the 104a manifest. Raises MFDBCoreError(E_MFDB_CORE_WRITE_FAILED) on failure.
 def _write_manifest_doc(doc: dict, manifest_path: str) -> None:
     if not bejson_core_atomic_write(manifest_path, doc):
         raise MFDBCoreError(f"Failed to write manifest doc to {manifest_path}", E_MFDB_CORE_WRITE_FAILED)
 
+# Atomically writes a generic BEJSON document (meta/debug docs, etc.) and raises MFDBCoreError(E_MFDB_CORE_WRITE_FAILED) on failure.
+def _write_checked(doc: dict, path: str, label: str = "file") -> None:
+    if not bejson_core_atomic_write(path, doc):
+        raise MFDBCoreError(f"Failed to write {label} to {path}", E_MFDB_CORE_WRITE_FAILED)
+
+# Writes a corrected record_count for ONE entity into the manifest row. The manifest's record_count is a convention that must match the entity file's real row count.
 def _update_manifest_record_count(
     manifest_path: str, entity_name: str, count: int
 ) -> None:
@@ -182,6 +187,7 @@ def _update_manifest_record_count(
             break
     _write_manifest_doc(doc, manifest_path)
 
+# SHA-256 of a file, used for archive integrity checks (corruption detection, not a signature).
 def _calculate_file_hash(file_path: str) -> str:
     """Generate SHA-256 hash for archive integrity checks."""
     sha256 = hashlib.sha256()
@@ -201,6 +207,8 @@ class MFDBArchive:
     Enhanced for CoreEvolution with sticky mounting and validation safety.
     """
 
+    # MFDB archive step: extracts a .mfdb.zip (a whole MFDB -- manifest + entity files -- packed in one archive) into a workspace directory and writes a session lock (.mfdb_lock).
+    # sticky=True reuses already-extracted valid files. The workspace is an ordinary MFDB directory; the archive is only a container.
     @staticmethod
     def mount(archive_path: str, target_dir: str, force: bool = False, sticky: bool = True) -> str:
         """
@@ -280,6 +288,7 @@ class MFDBArchive:
 
         return str(manifest_path.absolute())
 
+    # Repacks the mounted workspace into the .mfdb.zip atomically. With validate=True it refuses to write when MFDB validation fails.
     @staticmethod
     def commit(mount_dir: str, archive_path: Optional[str] = None, validate: bool = True) -> str:
         """
@@ -338,6 +347,7 @@ class MFDBArchive:
 
         return dest_path
 
+    # Recovery helper: pulls one file (e.g. a missing or corrupt entity file) back out of the .mfdb.zip into the mounted workspace.
     @staticmethod
     def resurrect_file(mount_dir: str, relative_path: str) -> bool:
         """
@@ -366,6 +376,7 @@ class MFDBArchive:
             pass
         return False
 
+    # Releases the session lock and, with cleanup=True, deletes the extracted workspace.
     @staticmethod
     def unmount(mount_dir: str, cleanup: bool = True):
         """Release the lock and optionally delete the workspace."""
@@ -380,6 +391,8 @@ class MFDBArchive:
 # Discovery
 # ---------------------------------------------------------------------------
 
+# Classifies any file by its MFDB role: 'manifest' (104a named *.mfdb.bejson), 'entity' (104 with Parent_Hierarchy), 'archive' (.mfdb.zip) or 'standalone' (anything else, including a 104db file).
+# A 104db file is never reported as 'manifest' or 'entity'.
 def mfdb_core_discover(file_path: str) -> str:
     """
     Identify the MFDB role of any file.
@@ -409,6 +422,8 @@ def mfdb_core_discover(file_path: str) -> str:
 # Recovery & Repair (v1.21 Feature)
 # ---------------------------------------------------------------------------
 
+# Full audit of an MFDB: manifest valid, every entity file present and valid, Parent_Hierarchy pointing back to the manifest, record_count matching real rows, and orphan files.
+# Returns a list of finding dicts; an empty list means the MFDB is healthy.
 def mfdb_core_deep_verify(manifest_path: str) -> List[Dict[str, Any]]:
     """
     Performs a deep audit of the entire MFDB database.
@@ -475,6 +490,7 @@ def mfdb_core_deep_verify(manifest_path: str) -> List[Dict[str, Any]]:
             
     return findings
 
+# Applies safe automatic fixes for deep_verify findings, one finding at a time (re-sync record counts, repair Parent_Hierarchy, etc.). Returns a result dict describing what was fixed and what failed.
 def mfdb_core_self_heal(manifest_path: str) -> Dict[str, Any]:
     """
     Attempts to fix common issues identified by deep_verify.
@@ -493,14 +509,7 @@ def mfdb_core_self_heal(manifest_path: str) -> Dict[str, Any]:
         entity = f.get("entity")
         try:
             if f.get("warning") == "COUNT_MISMATCH":
-                # FIX (N1): was f["actual"] - direct bracket access while
-                # every other field in this loop uses .get(). A malformed
-                # deep_verify() finding missing "actual" (or a race between
-                # verify and heal) raised an unhandled KeyError that aborted
-                # the whole self-heal pass mid-loop, leaving already-healed
-                # findings healed but everything after silently unprocessed.
-                # Now: skip this one finding and keep going, same as any
-                # other per-finding failure below.
+                # 'actual' may be absent from a finding; skip that finding and continue the pass.
                 actual = f.get("actual")
                 if actual is None:
                     report["remaining_errors"].append(
@@ -525,7 +534,7 @@ def mfdb_core_self_heal(manifest_path: str) -> Dict[str, Any]:
                             doc["Values"][i] = row[:field_count]
                             repaired += 1
                     if repaired > 0:
-                        bejson_core_atomic_write(entity_path, doc)
+                        _write_entity_doc(doc, entity_path)
                         report["actions"].append(f"Repaired {repaired} positional violations in {entity}")
                 except Exception as e:
                     report["remaining_errors"].append(f"Failed to repair {entity}: {str(e)}")
@@ -545,23 +554,23 @@ def mfdb_core_self_heal(manifest_path: str) -> Dict[str, Any]:
             elif f.get("error"):
                 report["remaining_errors"].append(f"{entity}: {f.get('error')} - {f.get('message', '')}")
         except Exception as e:
-            # FIX (N1, extended): any other unexpected shape of a single
-            # finding can no longer abort the batch either - captured and
-            # reported like any other heal failure, and the loop continues.
+            # An unexpected finding shape is reported as a heal failure and the loop continues.
             report["remaining_errors"].append(f"Unexpected error healing finding for {entity}: {e}")
 
     return report
 
+# Rewrites only the Parent_Hierarchy header of a BEJSON 104 entity file so it points at the manifest again.
 def _mfdb_core_repair_hierarchy(entity_path: str, new_hierarchy: str) -> bool:
     """Surgically update the Parent_Hierarchy header in a BEJSON 104 file."""
     try:
         doc = bejson_core_load_file(entity_path)
         doc["Parent_Hierarchy"] = new_hierarchy
-        bejson_core_atomic_write(entity_path, doc)
+        _write_entity_doc(doc, entity_path)
         return True
     except Exception:
         return False
 
+# Tries to repair the workspace from a specific MFDBValidationError (e.g. wrong Parent_Hierarchy, stale record_count). Returns True if a repair was applied.
 def mfdb_core_smart_repair(manifest_path: str, error: MFDBValidationError) -> bool:
     """
     Attempt to automatically repair the MFDB workspace based on a validation error.
@@ -594,6 +603,7 @@ def mfdb_core_smart_repair(manifest_path: str, error: MFDBValidationError) -> bo
 # Read operations
 # ---------------------------------------------------------------------------
 
+# Validates and loads the 104a manifest; returns every registered-entity row as a field-name keyed dict.
 def mfdb_core_load_manifest(manifest_path: str) -> list[dict]:
     """
     Validate and load the manifest.
@@ -605,6 +615,7 @@ def mfdb_core_load_manifest(manifest_path: str) -> list[dict]:
         raise MFDBCoreError(f"Failed to load manifest: {manifest_path} (not a dict)", E_MFDB_CORE_MANIFEST_NOT_FOUND)
     return _rows_as_dicts(doc)
 
+# Loads all records of one entity as field-name keyed dicts. Rows are dense (no null-padding, no Record_Type_Parent) because an entity file is a single-type BEJSON 104 document.
 def mfdb_core_load_entity(manifest_path: str, entity_name: str) -> list[dict]:
     """
     Load all records for a named entity.
@@ -626,10 +637,12 @@ def mfdb_core_load_entity(manifest_path: str, entity_name: str) -> list[dict]:
     )
     return result
 
+# Returns the raw BEJSON 104 document (dict) of an entity file, for callers that need Fields/Values directly.
 def mfdb_core_get_entity_doc(manifest_path: str, entity_name: str) -> dict:
     """Return the raw BEJSON 104 document dict for a named entity."""
     return _load_entity_doc(manifest_path, entity_name)
 
+# Summary of the whole MFDB: entity count, record counts per entity, sizes. Read-only.
 def mfdb_core_get_stats(manifest_path: str) -> dict:
     """Return a summary statistics dict for the entire MFDB."""
     doc     = _load_json(manifest_path)
@@ -665,6 +678,7 @@ def mfdb_core_get_stats(manifest_path: str) -> dict:
 # Query operations
 # ---------------------------------------------------------------------------
 
+# Returns the entity rows (as dicts) for which predicate(row) is True. Single-entity filter; no cross-entity logic.
 def mfdb_core_query_entity(
     manifest_path: str,
     entity_name: str,
@@ -674,6 +688,7 @@ def mfdb_core_query_entity(
     records = mfdb_core_load_entity(manifest_path, entity_name)
     return [r for r in records if predicate(r)]
 
+# Builds an in-memory lookup {field value -> row} over one field of one entity for fast access. Not persisted.
 def mfdb_core_build_index(
     manifest_path: str,
     entity_name: str,
@@ -683,6 +698,7 @@ def mfdb_core_build_index(
     records = mfdb_core_load_entity(manifest_path, entity_name)
     return {r[field_name]: r for r in records if r.get(field_name) is not None}
 
+# Application-level join of two entities on a *_fk-style field. MFDB does not enforce foreign keys; this reads both entity files and matches values.
 def mfdb_core_join(
     manifest_path: str,
     from_entity:   str,
@@ -709,6 +725,7 @@ def mfdb_core_join(
 # Write operations
 # ---------------------------------------------------------------------------
 
+# Appends one row (list matching the entity's Fields order) to an entity file, then syncs the manifest record_count. Row length must equal the field count.
 def mfdb_core_add_entity_record(
     manifest_path: str,
     entity_name:   str,
@@ -738,6 +755,7 @@ def mfdb_core_add_entity_record(
             notes="" if _success else "add_record returned False",
         )
 
+# Removes the row at record_index from an entity file and syncs the manifest record_count.
 def mfdb_core_remove_entity_record(
     manifest_path: str,
     entity_name:   str,
@@ -767,6 +785,7 @@ def mfdb_core_remove_entity_record(
             notes="",
         )
 
+# Updates a single field of one row (by field name) in an entity file. The name is resolved through the field map -- no hardcoded positions.
 def mfdb_core_update_entity_record(
     manifest_path: str,
     entity_name:   str,
@@ -799,6 +818,7 @@ def mfdb_core_update_entity_record(
             notes="" if _field_exists else f"SCHEMA DRIFT: field '{field_name}' not in Fields[]",
         )
 
+# Updates several fields of one row in a single atomic write. Takes a field-name -> value mapping.
 def mfdb_core_update_entity_record_bulk(
     manifest_path: str,
     entity_name:   str,
@@ -838,6 +858,7 @@ def mfdb_core_update_entity_record_bulk(
 # Manifest sync
 # ---------------------------------------------------------------------------
 
+# Counts the real rows of one entity file and writes that number into the manifest. Returns the count.
 def mfdb_core_sync_manifest_count(manifest_path: str, entity_name: str) -> int:
     """Re-count actual rows in an entity file and update the manifest."""
     entity_path = _get_entity_path(manifest_path, entity_name)
@@ -846,6 +867,7 @@ def mfdb_core_sync_manifest_count(manifest_path: str, entity_name: str) -> int:
     _update_manifest_record_count(manifest_path, entity_name, count)
     return count
 
+# Runs sync_manifest_count for every entity in the manifest. Returns {entity_name: count}.
 def mfdb_core_sync_all_counts(manifest_path: str) -> dict:
     """Sync record_count for every entity listed in the manifest."""
     entries = _get_manifest_entries(manifest_path)
@@ -859,6 +881,7 @@ def mfdb_core_sync_all_counts(manifest_path: str) -> dict:
 # Database creation
 # ---------------------------------------------------------------------------
 
+# Creates a new empty entity file (BEJSON 104, one Records_Type, Parent_Hierarchy back to the manifest) and registers it in the manifest.
 def mfdb_core_create_entity_file(
     manifest_path:  str,
     entity_name:    str,
@@ -889,7 +912,7 @@ def mfdb_core_create_entity_file(
         "Fields":           fields,
         "Values":           [],
     }
-    bejson_core_atomic_write(resolved, entity_doc)
+    _write_entity_doc(entity_doc, resolved)
 
     manifest_doc = _load_json(manifest_path)
     fn_list      = [f["name"] for f in manifest_doc["Fields"]]
@@ -909,6 +932,8 @@ def mfdb_core_create_entity_file(
 
     return resolved
 
+# Creates a new MFDB on disk: the 104a manifest (104a.mfdb.bejson) plus one 104 entity file per entry in `entities`, each with Parent_Hierarchy.
+# Result is a layer of ordinary 104a + 104 files; no new Format_Version is introduced.
 def mfdb_core_create_database(
     root_dir:       str,
     db_name:        str,
@@ -972,7 +997,7 @@ def mfdb_core_create_database(
         "Values":          manifest_values,
     }
 
-    bejson_core_atomic_write(manifest_path, manifest_doc)
+    _write_manifest_doc(manifest_doc, manifest_path)
 
     for entity_name, fp_rel, fields in entity_defs_to_file:
         resolved   = os.path.normpath(os.path.join(root_dir, fp_rel))
@@ -990,13 +1015,14 @@ def mfdb_core_create_database(
             "Fields":           fields,
             "Values":           [],
         }
-        bejson_core_atomic_write(resolved, entity_doc)
+        _write_entity_doc(entity_doc, resolved)
 
     if debug_mode:
         mfdb_core_enable_debug(manifest_path, row_cap=debug_row_cap, debug_reads=debug_reads)
 
     return manifest_path
 
+# Expands {INTERNAL_STORAGE}/{ADMIN_ROOT}/{PROJECTS_ROOT}-style placeholders through lib_bejson_Core_bejson_env so no absolute path is hardcoded.
 def mfdb_core_resolve_path(path_str: str) -> str:
     """
     Hardening: Resolve system placeholders in paths using lib_bejson_Core_bejson_env.
@@ -1031,6 +1057,7 @@ CONNECTED_SLAVE_SCHEMA: List[Dict[str, str]] = [
 ]
 
 
+# Federation: on a Master manifest (Network_Role 'Master') registers a ConnectedSlave entity and creates its entity file. Raises if the node is not a Master.
 def mfdb_core_create_connected_slave_entity(manifest_path: str) -> str:
     """
     Register a ConnectedSlave entity in the Master manifest and create its
@@ -1053,6 +1080,7 @@ def mfdb_core_create_connected_slave_entity(manifest_path: str) -> str:
     )
 
 
+# Federation: Master -> Slave config push. Atomically drops config_doc (a BEJSON 104a document) into the slave's drop-zone path.
 def mfdb_federation_push_config(config_doc: dict, slave_target_path: str) -> bool:
     """
     Master → Slave atomic drop-zone push.
@@ -1080,6 +1108,7 @@ def mfdb_federation_push_config(config_doc: dict, slave_target_path: str) -> boo
         return False
 
 
+# Federation: polls a drop-zone directory and calls callback(path, doc) for each new document, then consumes it. Blocking loop.
 def mfdb_federation_poll_dropzone(
     dropzone_dir: str,
     callback: Callable[[str, dict], None],
@@ -1112,6 +1141,7 @@ def mfdb_federation_poll_dropzone(
     return processed
 
 
+# Federation: compacts a slave entity's log rows and delivers them to the master's poll directory.
 def mfdb_federation_distill_logs(
     slave_manifest_path: str,
     entity_name: str,
@@ -1159,7 +1189,7 @@ def mfdb_federation_distill_logs(
 
         # Truncate local entity to max_rows
         doc["Values"] = kept
-        bejson_core_atomic_write(entity_path, doc)
+        _write_entity_doc(doc, entity_path)
 
         # Update record count in manifest
         manifest_doc = _load_json(slave_manifest_path)
@@ -1169,7 +1199,7 @@ def mfdb_federation_distill_logs(
             if row[fm.get("entity_name", 0)] == entity_name and "record_count" in fm:
                 row[fm["record_count"]] = len(kept)
                 break
-        bejson_core_atomic_write(slave_manifest_path, manifest_doc)
+        _write_manifest_doc(manifest_doc, slave_manifest_path)
 
         return True
 
@@ -1198,6 +1228,7 @@ META_DEBUG_FIELDS: List[Dict[str, str]] = [
 ]
 
 
+# True when the manifest header Debug_Mode is 'true'. Debug state lives in manifest headers (a 104a feature), not in a new format.
 def _mfdb_debug_is_enabled(manifest_path: str) -> bool:
     """Return True if Debug_Mode is 'true' in the manifest headers."""
     try:
@@ -1207,6 +1238,7 @@ def _mfdb_debug_is_enabled(manifest_path: str) -> bool:
         return False
 
 
+# True when Debug_Reads is also 'true' (separate switch for read auditing).
 def _mfdb_debug_reads_enabled(manifest_path: str) -> bool:
     """Return True if Debug_Reads is also 'true' (separate flag for read audit)."""
     try:
@@ -1216,6 +1248,7 @@ def _mfdb_debug_reads_enabled(manifest_path: str) -> bool:
         return False
 
 
+# Returns the name of the debug/meta entity declared in the manifest headers, or None.
 def _mfdb_debug_get_meta_entity_name(manifest_path: str) -> Optional[str]:
     """Return the meta entity name from the manifest header, or None."""
     try:
@@ -1226,6 +1259,7 @@ def _mfdb_debug_get_meta_entity_name(manifest_path: str) -> Optional[str]:
         return None
 
 
+# Appends one operation record (operation, target entity, success flag, details) to the debug meta entity -- itself a normal 104 entity file.
 def _mfdb_meta_log(
     manifest_path: str,
     operation:     str,
@@ -1271,7 +1305,7 @@ def _mfdb_meta_log(
         with ResilientPIDLock(meta_path, timeout_seconds=5):
             doc = _load_json(meta_path)
             doc.setdefault("Values", []).append(row)
-            bejson_core_atomic_write(meta_path, doc)
+            _write_checked(doc, meta_path, "debug meta log")
 
         # Auto-trim if over cap
         _mfdb_meta_auto_trim(manifest_path, meta_name, meta_path)
@@ -1280,6 +1314,7 @@ def _mfdb_meta_log(
         logging.debug(f"[MFDB_DEBUG] meta log write failed (non-fatal): {e}")
 
 
+# Keeps the meta entity at or below Debug_Row_Cap rows by deleting the oldest rows first.
 def _mfdb_meta_auto_trim(manifest_path: str, meta_name: str, meta_path: str) -> None:
     """Trim meta entity to Debug_Row_Cap rows when exceeded. Oldest rows removed first."""
     try:
@@ -1289,12 +1324,13 @@ def _mfdb_meta_auto_trim(manifest_path: str, meta_name: str, meta_path: str) -> 
         rows = doc.get("Values", [])
         if len(rows) > cap:
             doc["Values"] = rows[-cap:]
-            bejson_core_atomic_write(meta_path, doc)
+            _write_checked(doc, meta_path, "debug meta log")
             _update_manifest_record_count(manifest_path, meta_name, len(doc["Values"]))
     except Exception:
         pass
 
 
+# Logs a SCHEMA_SNAPSHOT row for every registered entity; the baseline used by detect_schema_drift.
 def _mfdb_debug_schema_snapshot(manifest_path: str, meta_name: str) -> None:
     """
     Log a SCHEMA_SNAPSHOT entry for every registered entity.
@@ -1326,6 +1362,7 @@ def _mfdb_debug_schema_snapshot(manifest_path: str, meta_name: str) -> None:
 
 # ── Public Debug API ───────────────────────────────────────────────────────────
 
+# Turns on Debug_Mode in the manifest, creates the meta entity if needed and records the schema snapshot. Options: row_cap, debug_reads.
 def mfdb_core_enable_debug(
     manifest_path:  str,
     row_cap:        int  = 500,
@@ -1351,7 +1388,7 @@ def mfdb_core_enable_debug(
     doc["Debug_Meta_Entity"] = meta_name
     doc["Debug_Row_Cap"]     = str(row_cap)
     doc["Debug_Reads"]       = "true" if debug_reads else "false"
-    bejson_core_atomic_write(manifest_path, doc)
+    _write_manifest_doc(doc, manifest_path)
 
     # Create meta entity file if it doesn't exist
     meta_fp_rel  = f"data/{meta_name}.bejson"
@@ -1370,7 +1407,7 @@ def mfdb_core_enable_debug(
             "Fields":           META_DEBUG_FIELDS,
             "Values":           [],
         }
-        bejson_core_atomic_write(meta_abs, meta_doc)
+        _write_checked(meta_doc, meta_abs, "debug meta entity")
 
         # Register in manifest if not already there
         entries = _get_manifest_entries(manifest_path)
@@ -1379,20 +1416,22 @@ def mfdb_core_enable_debug(
             doc2.setdefault("Values", []).append(
                 [meta_name, meta_fp_rel, "Debug audit log (auto-generated)", 0, "1.0", None]
             )
-            bejson_core_atomic_write(manifest_path, doc2)
+            _write_manifest_doc(doc2, manifest_path)
 
     # Initial schema snapshot as drift baseline
     _mfdb_debug_schema_snapshot(manifest_path, meta_name)
     return meta_name
 
 
+# Sets Debug_Mode to false. The meta entity and its rows are kept.
 def mfdb_core_disable_debug(manifest_path: str) -> None:
     """Set Debug_Mode=false. Meta entity and its data are preserved."""
     doc = _load_json(manifest_path)
     doc["Debug_Mode"] = "false"
-    bejson_core_atomic_write(manifest_path, doc)
+    _write_manifest_doc(doc, manifest_path)
 
 
+# Returns all meta-entity rows as dicts (empty list when debug is off or the meta entity is missing).
 def mfdb_core_get_debug_log(manifest_path: str) -> List[Dict[str, Any]]:
     """
     Return all meta entity rows as list-of-dicts keyed by META_DEBUG_FIELDS.
@@ -1412,6 +1451,7 @@ def mfdb_core_get_debug_log(manifest_path: str) -> List[Dict[str, Any]]:
         return []
 
 
+# Returns only the failed operations (success False) from the debug log, oldest first.
 def mfdb_core_get_failed_ops(manifest_path: str) -> List[Dict[str, Any]]:
     """
     Return only failed (success=False) operations from the debug log,
@@ -1424,6 +1464,7 @@ def mfdb_core_get_failed_ops(manifest_path: str) -> List[Dict[str, Any]]:
     )
 
 
+# Deletes every row of the meta entity (schema kept). Returns the number of rows removed.
 def mfdb_core_clear_debug_log(manifest_path: str) -> int:
     """
     Wipe all rows from the meta entity. Schema is preserved.
@@ -1438,13 +1479,14 @@ def mfdb_core_clear_debug_log(manifest_path: str) -> int:
             doc  = _load_json(meta_path)
             deleted = len(doc.get("Values", []))
             doc["Values"] = []
-            bejson_core_atomic_write(meta_path, doc)
+            _write_checked(doc, meta_path, "debug meta log")
         _update_manifest_record_count(manifest_path, meta_name, 0)
         return deleted
     except Exception:
         return 0
 
 
+# Aggregates the debug log: total ops, failures, per-operation and per-entity counts.
 def mfdb_core_debug_summary(manifest_path: str) -> Dict[str, Any]:
     """
     Aggregate view of the debug log:
@@ -1487,6 +1529,7 @@ def mfdb_core_debug_summary(manifest_path: str) -> Dict[str, Any]:
     }
 
 
+# Compares each entity's current Fields[] with the SCHEMA_SNAPSHOT baseline from enable_debug() and reports entities whose schema changed.
 def mfdb_core_detect_schema_drift(manifest_path: str) -> Dict[str, Dict[str, Any]]:
     """
     Compare each entity's live Fields[] against the SCHEMA_SNAPSHOT baseline

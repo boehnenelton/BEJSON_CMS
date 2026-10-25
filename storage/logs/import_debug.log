@@ -2316,3 +2316,63 @@ FileNotFoundError: [Errno 2] No such file or directory: '/home/claude/pkg74/BEJS
 2026-08-26 08:15:25,712 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
 2026-08-26 08:15:31,682 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
 2026-08-26 08:15:54,552 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 22:58:44,575 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 22:59:30,573 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 22:59:54,860 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 23:05:51,507 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 23:05:51,641 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://10.183.118.144:5002
+2026-10-24 23:05:51,642 INFO [33mPress CTRL+C to quit[0m
+2026-10-24 23:05:51,751 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 23:05:51,968 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 23:05:52,001 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5004
+ * Running on http://10.183.118.144:5004
+2026-10-24 23:05:52,002 INFO [33mPress CTRL+C to quit[0m
+2026-10-24 23:05:52,160 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-10-24 23:05:52,181 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-10-24 23:05:52,181 INFO [33mPress CTRL+C to quit[0m
+2026-10-24 23:05:52,431 INFO 127.0.0.1 - - [24/Oct/2026 23:05:52] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:05:52,439 INFO 127.0.0.1 - - [24/Oct/2026 23:05:52] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:05:52,449 INFO 127.0.0.1 - - [24/Oct/2026 23:05:52] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:05:53,608 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-24 23:05:53,650 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5005
+ * Running on http://10.183.118.144:5005
+2026-10-24 23:05:53,651 INFO [33mPress CTRL+C to quit[0m
+2026-10-24 23:05:53,667 INFO 127.0.0.1 - - [24/Oct/2026 23:05:53] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:05:54,589 INFO 127.0.0.1 - - [24/Oct/2026 23:05:54] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:05:54,742 INFO 127.0.0.1 - - [24/Oct/2026 23:05:54] "GET / HTTP/1.1" 200 -
+2026-10-24 23:05:55,903 INFO 127.0.0.1 - - [24/Oct/2026 23:05:55] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-10-24 23:05:56,688 INFO 127.0.0.1 - - [24/Oct/2026 23:05:56] "GET /pages HTTP/1.1" 200 -
+2026-10-24 23:05:58,137 INFO 127.0.0.1 - - [24/Oct/2026 23:05:58] "GET /assets HTTP/1.1" 200 -
+2026-10-24 23:05:58,457 INFO 127.0.0.1 - - [24/Oct/2026 23:05:58] "GET /assets/thumb/bejson_brand_1.jpeg HTTP/1.1" 200 -
+2026-10-24 23:05:58,458 INFO 127.0.0.1 - - [24/Oct/2026 23:05:58] "GET /assets/thumb/bejson_brand_4.webp HTTP/1.1" 200 -
+2026-10-24 23:05:58,460 INFO 127.0.0.1 - - [24/Oct/2026 23:05:58] "GET /assets/thumb/default_page_image.webp HTTP/1.1" 200 -
+2026-10-24 23:05:58,460 INFO 127.0.0.1 - - [24/Oct/2026 23:05:58] "GET /assets/thumb/bejson_brand_3_icon.jpeg HTTP/1.1" 200 -
+2026-10-24 23:05:59,410 INFO 127.0.0.1 - - [24/Oct/2026 23:05:59] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:05:59,451 INFO 127.0.0.1 - - [24/Oct/2026 23:05:59] "GET / HTTP/1.1" 200 -
+2026-10-24 23:06:00,004 INFO 127.0.0.1 - - [24/Oct/2026 23:06:00] "GET /api/settings/models HTTP/1.1" 200 -
+2026-10-24 23:06:00,016 INFO 127.0.0.1 - - [24/Oct/2026 23:06:00] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-10-24 23:06:00,781 INFO 127.0.0.1 - - [24/Oct/2026 23:06:00] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:06:00,808 INFO 127.0.0.1 - - [24/Oct/2026 23:06:00] "GET / HTTP/1.1" 200 -
+2026-10-24 23:06:01,221 INFO 127.0.0.1 - - [24/Oct/2026 23:06:01] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-10-24 23:06:02,051 INFO 127.0.0.1 - - [24/Oct/2026 23:06:02] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-24 23:06:02,089 INFO 127.0.0.1 - - [24/Oct/2026 23:06:02] "GET / HTTP/1.1" 200 -
+2026-10-24 23:06:02,435 INFO 127.0.0.1 - - [24/Oct/2026 23:06:02] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -

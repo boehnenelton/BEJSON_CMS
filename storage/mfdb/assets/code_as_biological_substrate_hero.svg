@@ -1,0 +1,134 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="substrateGlow" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#1a0404" stop-opacity="0.95" />
+      <stop offset="50%" stop-color="#08080c" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="1" />
+    </radialGradient>
+    <linearGradient id="nucleusTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E0E0E0" />
+    </linearGradient>
+    <linearGradient id="nucleusLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#888888" />
+      <stop offset="100%" stop-color="#333333" />
+    </linearGradient>
+    <linearGradient id="nucleusRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#666666" />
+      <stop offset="100%" stop-color="#1a1a1a" />
+    </linearGradient>
+    <filter id="membraneGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Deep Background Substrate -->
+  <rect width="1280" height="640" fill="#000000" />
+  <rect width="1280" height="640" fill="url(#substrateGlow)" />
+
+  <!-- Cellular Cytoplasm Grid (32px quantization) -->
+  <g stroke="#DE2626" stroke-width="0.5" opacity="0.12">
+    <line x1="0" y1="64" x2="1280" y2="64" />
+    <line x1="0" y1="128" x2="1280" y2="128" />
+    <line x1="0" y1="192" x2="1280" y2="192" />
+    <line x1="0" y1="256" x2="1280" y2="256" />
+    <line x1="0" y1="320" x2="1280" y2="320" />
+    <line x1="0" y1="384" x2="1280" y2="384" />
+    <line x1="0" y1="448" x2="1280" y2="448" />
+    <line x1="0" y1="512" x2="1280" y2="512" />
+    <line x1="0" y1="576" x2="1280" y2="576" />
+    <line x1="160" y1="0" x2="160" y2="640" />
+    <line x1="320" y1="0" x2="320" y2="640" />
+    <line x1="480" y1="0" x2="480" y2="640" />
+    <line x1="640" y1="0" x2="640" y2="640" />
+    <line x1="800" y1="0" x2="800" y2="640" />
+    <line x1="960" y1="0" x2="960" y2="640" />
+    <line x1="1120" y1="0" x2="1120" y2="640" />
+  </g>
+
+  <!-- Header Branding Strip -->
+  <rect x="0" y="0" width="1280" height="48" fill="#08080a" />
+  <line x1="0" y1="48" x2="1280" y2="48" stroke="#DE2626" stroke-width="1.5" />
+  <text x="32" y="30" fill="#DE2626" font-size="13" font-family="monospace" font-weight="700" letter-spacing="2">BEJSON CMS // BIOLOGICAL SUBSTRATE</text>
+  <text x="640" y="30" fill="#888899" font-size="11" font-family="monospace" text-anchor="middle" letter-spacing="1">HOMEOSTATIC CELLULAR DAEMONS &#8226; GENETIC POSITIONAL CODONS</text>
+  <text x="1248" y="30" fill="#AAAAAA" font-size="12" font-family="monospace" text-anchor="end" font-weight="600">BEJSON 104a &#8226; MFDB v1.32</text>
+
+  <!-- Protective Cellular Membrane (Outer Envelope Ring) -->
+  <ellipse cx="640" cy="320" rx="460" ry="240" fill="none" stroke="#DE2626" stroke-width="1.5" stroke-dasharray="8,6" opacity="0.4" filter="url(#membraneGlow)" />
+  <ellipse cx="640" cy="320" rx="440" ry="225" fill="none" stroke="#DE2626" stroke-width="0.8" opacity="0.25" />
+
+  <!-- Neural Signaling Pathways (Laser Rays to Organelles) -->
+  <g stroke="#DE2626" stroke-width="1.5" opacity="0.75" filter="url(#membraneGlow)">
+    <line x1="280" y1="180" x2="560" y2="290" />
+    <line x1="280" y1="440" x2="560" y2="350" />
+    <line x1="1000" y1="180" x2="720" y2="290" />
+    <line x1="1000" y1="440" x2="720" y2="350" />
+  </g>
+
+  <!-- ORGANELLE 1 (Top-Left): Cellular Membrane / Kernel Lock -->
+  <g transform="translate(180, 130)">
+    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
+    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">MEMBRANE ENVELOPE</text>
+    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">POSIX flock(LOCK_EX)</text>
+    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Non-blocking Isolation</text>
+    <circle cx="180" cy="24" r="4" fill="#DE2626" />
+  </g>
+
+  <!-- ORGANELLE 2 (Bottom-Left): Ribosome / Field Map Cache -->
+  <g transform="translate(180, 390)">
+    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
+    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">RIBOSOME TRANSLATOR</text>
+    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">FieldMapCache O(1)</text>
+    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Policy &#167;6.2 Compliance</text>
+    <circle cx="180" cy="24" r="4" fill="#DE2626" />
+  </g>
+
+  <!-- ORGANELLE 3 (Top-Right): Mitochondria / Compute Daemons -->
+  <g transform="translate(900, 130)">
+    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
+    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">MITOCHONDRIA WORKER</text>
+    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">Detached setsid()</text>
+    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Survives PTY Dropouts</text>
+    <circle cx="180" cy="24" r="4" fill="#DE2626" />
+  </g>
+
+  <!-- ORGANELLE 4 (Bottom-Right): Epimorphic Blastema / Shards -->
+  <g transform="translate(900, 390)">
+    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
+    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">BLASTEMA RECOVERY</text>
+    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">Epimorphic Healing</text>
+    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Resurrects from Shards</text>
+    <circle cx="180" cy="24" r="4" fill="#DE2626" />
+  </g>
+
+  <!-- CENTRAL NUCLEUS NODE (BEJSON 104 Isometric Cube) -->
+  <g transform="translate(640, 320)">
+    <!-- Central Glow Pulse -->
+    <circle cx="0" cy="0" r="110" fill="#DE2626" opacity="0.12" filter="url(#membraneGlow)" />
+    
+    <!-- Isometric Cube: Top Face -->
+    <polygon points="0,-75 85,-32 0,11 -85,-32" fill="url(#nucleusTop)" stroke="#FFFFFF" stroke-width="1.5" />
+    
+    <!-- Isometric Cube: Left Face -->
+    <polygon points="-85,-32 0,11 0,98 -85,55" fill="url(#nucleusLeft)" stroke="#AAAAAA" stroke-width="1.5" />
+    
+    <!-- Isometric Cube: Right Face -->
+    <polygon points="0,11 85,-32 85,55 0,98" fill="url(#nucleusRight)" stroke="#666666" stroke-width="1.5" />
+
+    <!-- Red Laser Core Ring -->
+    <ellipse cx="0" cy="11" rx="92" ry="46" fill="none" stroke="#DE2626" stroke-width="2" filter="url(#membraneGlow)" />
+    
+    <!-- Nucleus Center Label -->
+    <text x="0" y="-8" fill="#DE2626" font-size="13" font-family="monospace" font-weight="900" text-anchor="middle" letter-spacing="2">CELL NUCLEUS</text>
+    <text x="0" y="8" fill="#000000" font-size="10" font-family="monospace" font-weight="700" text-anchor="middle">BEJSON 104 MATRIX</text>
+  </g>
+
+  <!-- Footer Banner Title & Subtitle -->
+  <text x="640" y="475" fill="#FFFFFF" font-size="24" font-family="sans-serif" font-weight="900" text-anchor="middle" letter-spacing="1">CODE AS BIOLOGICAL SUBSTRATE</text>
+  <text x="640" y="505" fill="#DE2626" font-size="14" font-family="monospace" font-weight="700" text-anchor="middle" letter-spacing="2">THE LIVING ARCHITECTURE OF RESILIENT AUTONOMOUS SYSTEMS</text>
+  <text x="640" y="530" fill="#888899" font-size="11" font-family="monospace" text-anchor="middle" letter-spacing="1">ELTON BOEHNEN &#8226; ZERO-SQL CELLULAR RUNTIME</text>
+
+  <!-- Bottom Accent Status Line -->
+  <line x1="0" y1="636" x2="1280" y2="636" stroke="#DE2626" stroke-width="4" />
+</svg>

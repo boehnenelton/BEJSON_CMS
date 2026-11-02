@@ -52,5 +52,84 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "ea793f4c-89b8-4bb2-b551-53e915b40596",
+      "Autonomous Tooling on Linux: Dissecting NewAgent's Runtime Engine",
+      "autonomous-tooling-on-linux--dissecting-newagent-s-runtime-engine",
+      "BEJSON",
+      "blog",
+      "2026-10-25",
+      null,
+      "boehnenelton2024",
+      "newagent_runtime_hero.svg",
+      null,
+      null
+    ],
+    [
+      "20c6daac-6ed5-4f4b-b2d9-02616065bb24",
+      "Positional Telemetry: Zero-Overhead Memory Matrices in BEJSON 104",
+      "positional-telemetry--zero-overhead-memory-matrices-in-bejson-104",
+      "BEJSON",
+      "blog",
+      "2026-10-25",
+      null,
+      "boehnenelton2024",
+      "bejson_104_telemetry_hero.svg",
+      null,
+      null
+    ],
+    [
+      "aca3c7db-b1d6-4d44-9710-d8cbf266a27e",
+      "Code as Biological Substrate: The Living Architecture of Resilient Autonomous Systems",
+      "code-as-biological-substrate--the-living-architecture-of-resilient-autonomous-systems",
+      "BEJSON",
+      "blog",
+      "2026-10-25",
+      null,
+      "boehnenelton2024",
+      "code_as_biological_substrate_hero.svg",
+      null,
+      null
+    ],
+    [
+      "01cb009f-7f30-4c83-b219-b54e126f0bfa",
+      "Code as a Biological Substrate: The Self-Regulating Ecosystem of Antigravity CLI",
+      "code-as-a-biological-substrate--the-self-regulating-ecosystem-of-antigravity-cli",
+      "BEJSON",
+      "blog",
+      "2026-10-25",
+      null,
+      "boehnenelton2024",
+      "antigravity_biological_substrate_hero.svg",
+      null,
+      null
+    ],
+    [
+      "e2dfa590-833d-410f-b3b8-70d85913ea29",
+      "Zero-SQL Archiving & Deterministic Snapshots: Dissecting Project Chunker's Ecosystem",
+      "zero-sql-archiving---deterministic-snapshots--dissecting-project-chunker-s-ecosystem",
+      "Projects",
+      "blog",
+      "2026-11-01",
+      null,
+      "boehnenelton2024",
+      "default_page_image.webp",
+      null,
+      null
+    ],
+    [
+      "5a65064e-53a5-4b74-93b9-b76df0a1207f",
+      "The Integrity Era: Architectural Deep Dive into BEJSON 105 Core Libraries & MFDB v1.40",
+      "the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40",
+      "Projects",
+      "blog",
+      "2026-11-01",
+      null,
+      "boehnenelton2024",
+      "default_page_image.webp",
+      null,
+      null
+    ]
+  ]
 }

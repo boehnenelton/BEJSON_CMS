@@ -31,6 +31,7 @@ from BEJSON_CMS_Shared import (
 )
 from lib_bejson_Core_bejson_path_guard import safe_extract_zip
 from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
+from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
 
 try:
     from bs4 import BeautifulSoup
@@ -48,6 +49,7 @@ def content_hub():
         <a href="/pages" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128196;</div><h3>Pages</h3><p style="color:var(--text-secondary);">Create and edit pages</p></div></a>
         <a href="/links" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128279;</div><h3>External Links</h3><p style="color:var(--text-secondary);">Manage external link references</p></div></a>
         <a href="/categories" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128193;</div><h3>Categories</h3><p style="color:var(--text-secondary);">Organize content by category</p></div></a>
+        <a href="/import" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128229;</div><h3>HTML / MD Import</h3><p style="color:var(--text-secondary);">Import HTML or Markdown articles</p></div></a>
     </div>'''
     return R(html, breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
@@ -159,6 +161,25 @@ def page_new():
              breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
 
+@content_cube.route('/api/md2html', methods=['POST'])
+@require_auth
+def api_md2html():
+    payload = request.get_json(silent=True) or {}
+    md_text = payload.get('markdown', '')
+    fallback_title = payload.get('fallback_title', 'Untitled Document')
+    parsed = convert_markdown_to_cms_article(md_text, fallback_title)
+    wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
+    return jsonify({
+        "ok": True,
+        "success": True,
+        "title": parsed["title"],
+        "slug": parsed["slug"],
+        "html": wrapped_html,
+        "html_body": wrapped_html,
+        "excerpt": parsed["excerpt"],
+    })
+
+
 @content_cube.route('/edit/<page_uuid>', methods=['GET', 'POST'])
 def edit_content(page_uuid):
     pfile = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
@@ -173,43 +194,65 @@ def edit_content(page_uuid):
 
     if request.method == 'POST':
         html_content = request.form.get('html_content', '')
+        markdown_content = request.form.get('markdown_content', None)
+        convert_md_on_save = request.form.get('convert_md_on_save') == 'on'
         title = request.form.get('title', page['page_title'])
         featured_img = request.form.get('page_featured_img', page.get('page_featured_img', ''))
         author = request.form.get('page_author_name', page.get('page_author_name', ''))
         category = request.form.get('page_cat_name', page.get('page_cat_name', ''))
+        page_type = request.form.get('page_type', page.get('page_type', 'page'))
+
+        if markdown_content and (convert_md_on_save or not html_content.strip()):
+            parsed_md = convert_markdown_to_cms_article(markdown_content, title)
+            html_content = f'<article class="bejson-cms-article">\n{parsed_md["html_body"]}\n</article>'
+
         # Update content file
         try:
-            import lib_bejson_Core_bejson_core as Core
             with open(pfile, "r") as f: data = json.load(f)
-            field_map = Core.bejson_core_get_field_map(data)
+            field_map = bejson_core_get_field_map(data)
             p_idx = field_map.get("Record_Type_Parent", -1)
             h_idx = field_map.get("html_body", -1)
+            md_idx = field_map.get("markdown_body", -1)
             m_idx = field_map.get("meta_title", -1)
             for row in data.get("Values", []):
                 if p_idx != -1:
-                    if row[p_idx] == "Content" and h_idx != -1: row[h_idx] = html_content
-                    if row[p_idx] == "PageMeta" and m_idx != -1: row[m_idx] = title
-            with open(pfile, "w") as f: json.dump(data, f, indent=2)
+                    if row[p_idx] == "Content":
+                        if h_idx != -1:
+                            row[h_idx] = html_content
+                        if md_idx != -1 and markdown_content is not None:
+                            row[md_idx] = markdown_content
+                    if row[p_idx] == "PageMeta" and m_idx != -1:
+                        row[m_idx] = title
+            bejson_core_atomic_write(pfile, data)
         except Exception as err: print(f"Content write error: {err}")
 
         # Update Master Record
         db.update_record("PageRecord", "page_uuid", page_uuid, {
-            "page_title": title, "page_featured_img": featured_img, "page_author_name": author, "page_cat_name": category
+            "page_title": title,
+            "page_featured_img": featured_img,
+            "page_author_name": author,
+            "page_cat_name": category,
+            "page_type": page_type,
+            "page_is_standalone_flag": (page_type == "page"),
         })
         flash("Changes saved successfully!", "success")
         return redirect(f"/edit/{page_uuid}")
 
     # GET - Load content
     html_content = ""
+    markdown_content = ""
     try:
-        import lib_bejson_Core_bejson_core as Core
         with open(pfile, "r") as f: data = json.load(f)
-        field_map = Core.bejson_core_get_field_map(data)
+        field_map = bejson_core_get_field_map(data)
         p_idx = field_map.get("Record_Type_Parent", -1)
         h_idx = field_map.get("html_body", -1)
+        md_idx = field_map.get("markdown_body", -1)
         for row in data.get("Values", []):
-            if p_idx != -1 and row[p_idx] == "Content" and h_idx != -1:
-                html_content = row[h_idx] or ""
+            if p_idx != -1 and row[p_idx] == "Content":
+                if h_idx != -1:
+                    html_content = row[h_idx] or ""
+                if md_idx != -1:
+                    markdown_content = row[md_idx] or ""
                 break
     except Exception: pass
     
@@ -238,7 +281,7 @@ def edit_content(page_uuid):
     <div class="page-header"><h1>Edit: {{ page.page_title }}</h1><p>UUID: {{ page_uuid }}</p></div>
     <form method="POST">
         <div class="card">
-            <div class="form-group"><label class="form-label">Title</label><input type="text" name="title" class="form-control" value="{{ page.page_title }}"></div>
+            <div class="form-group"><label class="form-label">Title</label><input type="text" name="title" id="page-title-input" class="form-control" value="{{ page.page_title }}"></div>
             <div class="grid grid-2">
                 <div class="form-group">
                     <label class="form-label">Featured Image</label>
@@ -261,13 +304,71 @@ def edit_content(page_uuid):
                     </select>
                 </div>
                 <div class="form-group"><label class="form-label">Category</label><select name="page_cat_name" class="form-control">{% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name == page.page_cat_name %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}</select></div>
+                <div class="form-group">
+                    <label class="form-label">Page Type</label>
+                    <select name="page_type" class="form-control">
+                        <option value="page" {% if (page.page_type or 'page') == 'page' %}selected{% endif %}>page</option>
+                        <option value="blog" {% if page.page_type == 'blog' %}selected{% endif %}>blog</option>
+                        <option value="article" {% if page.page_type == 'article' %}selected{% endif %}>article</option>
+                    </select>
+                </div>
             </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">&#128221; Markdown Source (MD_To_HTML)</span>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <label style="font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;">
+                        <input type="checkbox" name="convert_md_on_save" id="convert_md_on_save" style="accent-color:var(--accent);"> Re-compile HTML on Save
+                    </label>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="convertMarkdownToHtml()">&#9889; Convert Markdown &rarr; HTML</button>
+                </div>
+            </div>
+            <textarea id="md-editor" name="markdown_content" class="editor-area" style="min-height:180px;" placeholder="Paste or author Markdown here (supports GFM tables, callouts > [!NOTE], task lists, and syntax fenced code)..."></textarea>
+            <div id="md2html-status" style="font-size:0.8rem;color:var(--text-secondary);margin-top:6px;"></div>
         </div>
         <div class="card">
             <div class="card-header"><span class="card-title">HTML Content Editor</span><div><button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'asset-modal\')">&#128444; Insert Image</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'pdf-insert-modal\')">&#128196; Insert PDF</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'yt-insert-modal\')">&#9654; Insert YouTube</button></div></div>
             <div class="editor-toolbar"><button type="button" onclick="insertTag(\'h2\')">H2</button><button type="button" onclick="insertTag(\'h3\')">H3</button><button type="button" onclick="insertTag(\'p\')">P</button><button type="button" onclick="insertTag(\'b\')">Bold</button><button type="button" onclick="insertTag(\'br\')">Break</button><button type="button" onclick="insertTag(\'a\')">Link</button></div>
             <textarea id="html-editor" name="html_content" class="editor-area"></textarea>
-            <script>document.addEventListener('DOMContentLoaded',function(){document.getElementById('html-editor').value={{ html_content | tojson }};});</script>
+            <script>
+            document.addEventListener('DOMContentLoaded',function(){
+                document.getElementById('html-editor').value={{ html_content | tojson }};
+                document.getElementById('md-editor').value={{ markdown_content | tojson }};
+            });
+            async function convertMarkdownToHtml() {
+                var mdText = document.getElementById('md-editor').value;
+                var statusEl = document.getElementById('md2html-status');
+                var titleInput = document.getElementById('page-title-input');
+                if (!mdText.trim()) {
+                    statusEl.textContent = 'Enter Markdown content first.';
+                    return;
+                }
+                statusEl.textContent = 'Converting Markdown to style-agnostic CMS HTML...';
+                try {
+                    var res = await fetch('/api/md2html', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            markdown: mdText,
+                            fallback_title: titleInput ? titleInput.value : 'Untitled Document'
+                        })
+                    });
+                    var data = await res.json();
+                    if (data.success) {
+                        document.getElementById('html-editor').value = data.html_body;
+                        statusEl.style.color = '#10b981';
+                        statusEl.textContent = 'Converted Markdown into <article class="bejson-cms-article"> HTML!';
+                    } else {
+                        statusEl.style.color = '#ef4444';
+                        statusEl.textContent = 'Conversion failed.';
+                    }
+                } catch (e) {
+                    statusEl.style.color = '#ef4444';
+                    statusEl.textContent = 'Error converting Markdown: ' + e;
+                }
+            }
+            </script>
             <script>
             function uploadFeaturedImage() {
                 var input = document.getElementById('featured_img_upload');
@@ -375,7 +476,7 @@ def edit_content(page_uuid):
       </div>
     </div>'''
     breadcrumbs = [{'label': 'Content', 'href': '/content'}, {'label': 'Pages', 'href': '/pages'}, {'label': page['page_title'], 'href': None}]
-    return R(html, page=page, page_uuid=page_uuid, html_content=html_content, media_assets=media_assets,
+    return R(html, page=page, page_uuid=page_uuid, html_content=html_content, markdown_content=markdown_content, media_assets=media_assets,
              pdf_assets=pdf_assets, pdf_links=pdf_links, video_links=video_links,
              categories=categories, authors=authors, breadcrumbs=breadcrumbs, active_section='content')
 
@@ -1132,6 +1233,13 @@ def extract_from_html(html_bytes):
     # Strip Word HTML artefacts + AI watermarks
     Cleaned_Body_Html = _strip_word_html(Parsed_Body_Tag)
 
+    # Ensure all tables are enclosed in horizontal scroll containers (zero page widening)
+    for table_tag in Cleaned_Body_Html.find_all("table"):
+        parent_tag = table_tag.parent
+        if not (parent_tag and parent_tag.name == "div" and any(cls in parent_tag.get("class", []) for cls in ("table-container", "table-responsive", "table-scroll-container"))):
+            wrapper_div = soup.new_tag("div", **{"class": "table-container"})
+            table_tag.wrap(wrapper_div)
+
     body_html = Cleaned_Body_Html.decode_contents().strip()
 
     # Preview text
@@ -1140,7 +1248,26 @@ def extract_from_html(html_bytes):
     return title, body_html, preview
 
 
-def _create_import_page(title, category, body_html, author='', sync_count=True):
+def extract_from_import_file(filename, raw_bytes):
+    """
+    Extract (title, body_html, preview_text, markdown_body, file_kind) from either
+    a Markdown (.md/.markdown) or HTML (.html/.htm) file.
+    """
+    lower_name = (filename or '').lower()
+    if lower_name.endswith(('.md', '.markdown')):
+        md_text = raw_bytes.decode('utf-8', errors='replace')
+        stem = os.path.splitext(os.path.basename(filename))[0]
+        fallback_title = stem.replace('_', ' ').replace('-', ' ').title() or 'Imported Article'
+        parsed = convert_markdown_to_cms_article(md_text, fallback_title)
+        wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
+        preview_text = parsed.get('excerpt') or parsed.get('title') or ''
+        return parsed['title'], wrapped_html, preview_text[:200], md_text, 'markdown'
+    else:
+        title, body_html, preview_text = extract_from_html(raw_bytes)
+        return title, body_html, preview_text, '', 'html'
+
+
+def _create_import_page(title, category, body_html, author='', sync_count=True, markdown_body='', page_type='page'):
     """Register a new PageRecord in the master DB and write the page content file.
 
     sync_count: pass False when calling this in a loop over multiple files;
@@ -1150,6 +1277,7 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
     _t0 = time.perf_counter()
     new_uuid = str(uuid.uuid4())
     slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+    normalized_type = page_type if page_type in ('page', 'blog', 'article') else 'page'
 
     db.mount()
     _t_add0 = time.perf_counter()
@@ -1158,11 +1286,12 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
         "page_title":   title,
         "page_slug":    slug,
         "page_cat_name": category,
-        "page_type":    "page",
+        "page_type":    normalized_type,
         "page_created_at":   datetime.now().strftime("%Y-%m-%d"),
         "page_external_url": None,
         "page_author_name":   author,
         "page_featured_img": DEFAULT_FEATURED_IMAGE,
+        "page_is_standalone_flag": (normalized_type == "page"),
     }, sync_count=sync_count)
     _t_add1 = time.perf_counter()
     
@@ -1182,7 +1311,7 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
         ],
         "Values": [
             ["PageMeta", title, None, None, None],
-            ["Content", None, body_html, "", ""]
+            ["Content", None, body_html, markdown_body or "", ""]
         ]
     }
     _t_file0 = time.perf_counter()
@@ -1192,7 +1321,7 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
     os.replace(tmp, pfile)  # atomic write, matching cms-manage.py's pattern
     _t_file1 = time.perf_counter()
     logging.debug(
-        f"[IMPORT] _create_import_page title={title!r} sync_count={sync_count} "
+        f"[IMPORT] _create_import_page title={title!r} type={normalized_type} sync_count={sync_count} "
         f"add_record_ms={(_t_add1-_t_add0)*1000:.1f} content_file_write_ms={(_t_file1-_t_file0)*1000:.1f} "
         f"total_ms={(time.perf_counter()-_t0)*1000:.1f}"
     )
@@ -1212,24 +1341,24 @@ def import_index():
     <div class="alert alert-error" style="margin-bottom:20px;">
       ⚠ <strong>beautifulsoup4</strong> is not installed.
       Install it with <code>pip install beautifulsoup4</code> for full HTML parsing.
-      Basic extraction will still work without it.
+      Markdown (.md) and basic HTML extraction will still work without it.
     </div>'''
 
     html = f'''
     {bs4_warn}
-    <div class="page-header"><h1>HTML Import</h1>
-    <p>Upload HTML files and import them as CMS pages. Word artefacts and AI watermarks are stripped automatically.</p></div>
+    <div class="page-header"><h1>HTML &amp; Markdown Import</h1>
+    <p>Upload Markdown (<code>.md</code>) or HTML (<code>.html</code>) drops and import them as native CMS articles or pages. Markdown files are converted to style-agnostic <code>&lt;article class="bejson-cms-article"&gt;</code> HTML with responsive tables, callouts, and code blocks.</p></div>
     <form action="/import/preview" method="POST" enctype="multipart/form-data">
       <div class="card">
-        <div class="card-header"><span class="card-title">📂 Select HTML Files</span></div>
+        <div class="card-header"><span class="card-title">📂 Select HTML or Markdown Files</span></div>
         <div id="dropZone" onclick="document.getElementById('fileInput').click()"
              style="border:2px dashed var(--border);border-radius:8px;padding:48px 24px;text-align:center;cursor:pointer;transition:.2s;"
              ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
              ondragleave="this.style.borderColor='var(--border)'"
              ondrop="event.preventDefault();this.style.borderColor='var(--border)';document.getElementById('fileInput').files=event.dataTransfer.files;showFiles(document.getElementById('fileInput'))">
           <div style="font-size:2.5rem;margin-bottom:12px;">📄</div>
-          <p style="color:var(--text-secondary);margin-bottom:14px;">Click to browse or drag &amp; drop .html / .htm files</p>
-          <input type="file" id="fileInput" name="html_files" multiple accept=".html,.htm"
+          <p style="color:var(--text-secondary);margin-bottom:14px;">Click to browse or drag &amp; drop <code>.md</code>, <code>.markdown</code>, <code>.html</code>, or <code>.htm</code> files</p>
+          <input type="file" id="fileInput" name="html_files" multiple accept=".html,.htm,.md,.markdown"
                  style="display:none" onchange="showFiles(this)">
           <span class="btn btn-secondary">Browse Files</span>
         </div>
@@ -1237,7 +1366,7 @@ def import_index():
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">⚙️ Import Settings</span></div>
-        <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
           <div class="form-group">
             <label class="form-label">Target Category *</label>
             <select name="category" class="form-control" required>
@@ -1249,6 +1378,14 @@ def import_index():
             <label class="form-label">Author (optional)</label>
             <select name="author" class="form-control"><option value="">-- Select author --</option>
               {"".join(f'<option value="{_html_escape.escape(a["author_display_name"])}">{_html_escape.escape(a["author_display_name"])}</option>' for a in authors)}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Page Type</label>
+            <select name="page_type" class="form-control">
+              <option value="blog" selected>blog (Article / Post)</option>
+              <option value="article">article</option>
+              <option value="page">page (Standalone Page)</option>
             </select>
           </div>
         </div>
@@ -1271,9 +1408,11 @@ def import_index():
       hdr.textContent = inp.files.length + ' file(s) selected:';
       list.appendChild(hdr);
       for (const f of inp.files) {{
+        const isMd = f.name.toLowerCase().endsWith('.md') || f.name.toLowerCase().endsWith('.markdown');
+        const badge = isMd ? '<span class="badge" style="background:var(--accent);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;">MD</span>' : '<span class="badge" style="background:var(--border);color:var(--text-primary);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;">HTML</span>';
         const item = document.createElement('div');
         item.style = 'background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px;';
-        item.innerHTML = '<span style="font-size:1.4rem;">📄</span><div><div style="font-weight:600;font-size:.9rem;">' + f.name + '</div><div style="font-size:.78rem;color:var(--text-secondary);">' + (f.size/1024).toFixed(1) + ' KB</div></div>';
+        item.innerHTML = '<span style="font-size:1.4rem;">' + (isMd ? '📝' : '📄') + '</span><div><div style="font-weight:600;font-size:.9rem;">' + f.name + badge + '</div><div style="font-size:.78rem;color:var(--text-secondary);">' + (f.size/1024).toFixed(1) + ' KB</div></div>';
         list.appendChild(item);
       }}
     }}
@@ -1286,6 +1425,7 @@ def import_preview():
     files    = request.files.getlist('html_files')
     category = request.form.get('category', '').strip()
     author   = request.form.get('author', '').strip()
+    page_type = request.form.get('page_type', 'blog').strip() or 'blog'
     skip_preview = request.form.get('skip_preview') == 'on'
 
     if not category:
@@ -1293,13 +1433,13 @@ def import_preview():
         return redirect('/import')
 
     if not files or not files[0].filename:
-        flash('Please select at least one HTML file.', 'error')
+        flash('Please select at least one HTML or Markdown file.', 'error')
         return redirect('/import')
 
     if skip_preview:
         success_count = 0
         _batch_t0 = time.perf_counter()
-        logging.debug(f"[IMPORT] html_import skip_preview START file_count={len(files)}")
+        logging.debug(f"[IMPORT] file_import skip_preview START file_count={len(files)}")
         for f in files:
             if not f.filename: continue
             _file_t0 = time.perf_counter()
@@ -1307,24 +1447,24 @@ def import_preview():
                 _t_read0 = time.perf_counter()
                 raw = f.read()
                 _t_read1 = time.perf_counter()
-                title, body_html, _ = extract_from_html(raw)
+                title, body_html, _, md_body, _ = extract_from_import_file(f.filename, raw)
                 _t_extract1 = time.perf_counter()
-                _create_import_page(title, category, body_html, author, sync_count=False)
+                _create_import_page(title, category, body_html, author, sync_count=False, markdown_body=md_body, page_type=page_type)
                 success_count += 1
                 logging.debug(
-                    f"[IMPORT] html_import FILE filename={f.filename} "
+                    f"[IMPORT] file_import FILE filename={f.filename} "
                     f"read_ms={(_t_read1-_t_read0)*1000:.1f} extract_ms={(_t_extract1-_t_read1)*1000:.1f} "
                     f"file_total_ms={(time.perf_counter()-_file_t0)*1000:.1f}"
                 )
             except Exception as e:
                 flash(f'Error importing {f.filename}: {e}', 'error')
-                logging.debug(f"[IMPORT] html_import FILE ERROR filename={f.filename} "
+                logging.debug(f"[IMPORT] file_import FILE ERROR filename={f.filename} "
                               f"file_total_ms={(time.perf_counter()-_file_t0)*1000:.1f} error={e}")
         if success_count > 0:
             _t_sync0 = time.perf_counter()
             db.sync_manifest_count("PageRecord")
-            logging.debug(f"[IMPORT] html_import final sync_manifest_count_ms={(time.perf_counter()-_t_sync0)*1000:.1f}")
-        logging.debug(f"[IMPORT] html_import skip_preview END success={success_count} "
+            logging.debug(f"[IMPORT] file_import final sync_manifest_count_ms={(time.perf_counter()-_t_sync0)*1000:.1f}")
+        logging.debug(f"[IMPORT] file_import skip_preview END success={success_count} "
                       f"batch_total_ms={(time.perf_counter()-_batch_t0)*1000:.1f}")
         flash(f'Successfully imported {success_count} page(s).', 'success')
         return redirect('/pages')
@@ -1334,8 +1474,8 @@ def import_preview():
         if not f.filename:
             continue
         fname = secure_filename(f.filename)
-        if not fname.lower().endswith(('.html', '.htm')):
-            flash(f'{fname} skipped — not an HTML file.', 'error')
+        if not fname.lower().endswith(('.html', '.htm', '.md', '.markdown')):
+            flash(f'{fname} skipped — not an HTML or Markdown file.', 'error')
             continue
         try:
             raw = f.read()
@@ -1343,7 +1483,7 @@ def import_preview():
             # thread on Android; the full bytes are still saved to disk.
             _MAX_PARSE = 2 * 1024 * 1024
             parse_bytes = raw[:_MAX_PARSE]
-            title, _, preview_text = extract_from_html(parse_bytes)
+            title, _, preview_text, _, file_kind = extract_from_import_file(fname, parse_bytes)
             tmp_path = os.path.join(UPLOAD_TMP, fname)
             with open(tmp_path, 'wb') as fh:
                 fh.write(raw)
@@ -1352,19 +1492,21 @@ def import_preview():
                 'title':   title,
                 'preview': preview_text,
                 'size':    f'{len(raw)/1024:.1f} KB',
+                'kind':    file_kind,
             })
         except Exception as e:
             flash(f'Could not parse {f.filename}: {e}', 'error')
 
     if not previews:
-        flash('No valid HTML files found.', 'error')
+        flash('No valid HTML or Markdown files found.', 'error')
         return redirect('/import')
 
     rows = ''
     for p in previews:
+        icon = '📝' if p.get('kind') == 'markdown' else '📄'
         rows += f'''
         <div class="card">
-          <div class="card-header"><span class="card-title">📄 {p["fname"]} <span style="font-weight:400;font-size:.8rem;color:var(--text-secondary);">({p["size"]})</span></span></div>
+          <div class="card-header"><span class="card-title">{icon} {p["fname"]} <span style="font-weight:400;font-size:.8rem;color:var(--text-secondary);">({p["size"]} &middot; {p.get("kind", "html").upper()})</span></span></div>
           <input type="hidden" name="fnames" value="{p["fname"]}">
           <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div class="form-group">
@@ -1387,8 +1529,9 @@ def import_preview():
     <div class="page-header"><h1>Review Import</h1>
     <p>Confirm titles and check which files to import, then click Import All.</p></div>
     <form action="/import/confirm" method="POST">
-      <input type="hidden" name="category" value="{category}">
-      <input type="hidden" name="author"   value="{author}">
+      <input type="hidden" name="category"  value="{_html_escape.escape(category)}">
+      <input type="hidden" name="author"    value="{_html_escape.escape(author)}">
+      <input type="hidden" name="page_type" value="{_html_escape.escape(page_type)}">
       {rows}
       <div class="card" style="padding:16px 22px;">
         <span style="color:var(--text-secondary);font-size:.85rem;">Category:</span>
@@ -1396,6 +1539,9 @@ def import_preview():
         &nbsp;&nbsp;
         <span style="color:var(--text-secondary);font-size:.85rem;">Author:</span>
         <strong style="margin-left:8px;">{_html_escape.escape(author) if author else "—"}</strong>
+        &nbsp;&nbsp;
+        <span style="color:var(--text-secondary);font-size:.85rem;">Type:</span>
+        <strong style="margin-left:8px;">{_html_escape.escape(page_type)}</strong>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
         <button type="submit" class="btn btn-primary">🚀 Import to CMS</button>
@@ -1407,9 +1553,10 @@ def import_preview():
 
 @content_cube.route('/import/confirm', methods=['POST'])
 def import_confirm():
-    category = request.form.get('category', 'Uncategorized')
-    author   = request.form.get('author', '').strip()
-    fnames   = request.form.getlist('fnames')
+    category  = request.form.get('category', 'Uncategorized')
+    author    = request.form.get('author', '').strip()
+    page_type = request.form.get('page_type', 'blog').strip() or 'blog'
+    fnames    = request.form.getlist('fnames')
 
     import_queue = []
     for fname in fnames:
@@ -1451,6 +1598,7 @@ def import_confirm():
     const queue = {json.dumps(import_queue).replace('</', '<\\/')};
     const category = "{_html_escape.escape(category)}";
     const author = "{_html_escape.escape(author)}";
+    const page_type = "{_html_escape.escape(page_type)}";
     const log = document.getElementById('import-log');
     const bar = document.getElementById('progress-bar');
     const pct = document.getElementById('progress-percent');
@@ -1482,7 +1630,8 @@ def import_confirm():
                         fname: item.fname,
                         title: item.title,
                         category: category,
-                        author: author
+                        author: author,
+                        page_type: page_type
                     }})
                 }});
                 const data = await res.json();
@@ -1526,11 +1675,12 @@ def import_confirm():
 @content_cube.route('/api/import/process_item', methods=['POST'])
 @require_auth
 def api_import_process_item():
-    Parsed_Request_Body = request.json
+    Parsed_Request_Body = request.json or {}
     fname = Parsed_Request_Body.get('fname')
     title = Parsed_Request_Body.get('title')
     category = Parsed_Request_Body.get('category')
     author = Parsed_Request_Body.get('author')
+    page_type = Parsed_Request_Body.get('page_type', 'blog')
 
     tmp_path = os.path.join(UPLOAD_TMP, fname)
     if not category:
@@ -1541,11 +1691,10 @@ def api_import_process_item():
     try:
         with open(tmp_path, 'rb') as fh:
             raw = fh.read()
-        _, body_html, _ = extract_from_html(raw)
-        del raw  # release the full file bytes promptly; extract_from_html's BS4
-                  # tree is also out of scope here — don't wait for the next
-                  # automatic GC cycle to reclaim either on a constrained device
-        new_uuid = _create_import_page(title, category, body_html, author)
+        extracted_title, body_html, _, md_body, _ = extract_from_import_file(fname, raw)
+        final_title = title or extracted_title
+        del raw  # release the full file bytes promptly
+        new_uuid = _create_import_page(final_title, category, body_html, author, markdown_body=md_body, page_type=page_type)
         os.remove(tmp_path)
         gc.collect()
         return jsonify({"success": True, "uuid": new_uuid})

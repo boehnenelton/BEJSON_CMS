@@ -3,9 +3,9 @@
   "Format_Version": "104a",
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
-  "Project_Version": "18.29",
-  "Package_Version": "130",
-  "Project_Modified_Date": "2026-10-25T05:57:00.000000+00:00",
+  "Project_Version": "18.30",
+  "Package_Version": "131",
+  "Project_Modified_Date": "2026-11-02T10:37:30.000000+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -455,6 +455,11 @@
       "pkg130 -- Redundancy & Efficiency Audit Refactoring across non-Core modules (src/web/ and src/lib/ non-Core files).",
       "2026-10-25",
       "1. Consolidated byte-identical duplicate src/lib/cli/bejson_server.py into a thin re-export wrapper over src/lib/bejson_server.py (eliminated 9 duplicate functions/classes and 1 duplicate asset finding). 2. Centralized _enforce_auth_everywhere() across all 5 web apps (Admin, PageEditor, PageEditorV2, ProfileManager, Publisher) into BEJSON_CMS_Shared.register_auth_guard(app). 3. Centralized duplicate /assets/<filename> and /assets/thumb/<filename> route handlers from BEJSON_CMS_Media.py and BEJSON_CMS_PageEditorV2.py into BEJSON_CMS_Shared.serve_shared_asset and serve_shared_thumb. 4. Removed dead function _safe_slug() from BEJSON_CMS_Publisher.py (documented in dev/dead_code.md and inline). 5. Replaced all remaining raw positional BEJSON indexing in non-Core modules (lib_bejson_CMS_cms_ports.py, lib_cms_persona_writer.py, BEJSON_CMS_PageEditorV2.py, BEJSON_CMS_Publisher.py, BEJSON_CMS_Content.py, BEJSON_CMS_System.py) with bejson_core_get_field_map() cache lookups and bejson_core_atomic_write(). Verified with py_compile, pytest (21/21 pass), Flask test_client smoke tests across all 5 web apps, and probe_efficiency.py."
+    ],
+    [
+      "pkg131 -- Full MD_To_HTML (lib_bejson_CMS_md2html.py) integration across CLI, Web Content Cube, PageEditorV2, and Theme Stylesheets.",
+      "2026-11-02",
+      "1. Integrated lib_bejson_CMS_md2html.py (convert_markdown_to_cms_article, import_markdown_file_to_cms, batch_import_markdown_directory) and CLI subcommands (page md-import, page import --md) in src/cms-manage.py. 2. Updated resources/styles/dark.css, resources/styles/light.css, and src/web/BEJSON_CMS_Publisher.py (_CSS_SHARED) to style .bejson-cms-article, .callout (.callout-note, .callout-tip, .callout-important, .callout-warning, .callout-caution), .task-list / .task-item, list markers inside .article-body, blockquotes, code blocks, hr, and del. 3. Extended src/web/BEJSON_CMS_Content.py and BEJSON_CMS_Shared.py with HTML / MD Import (.md/.markdown + .html/.htm) in /import, /import/preview, /import/confirm, and /api/import/process_item, /api/md2html conversion endpoint, and Markdown Source editor panel in /edit/<page_uuid> with page_type selector. 4. Fixed src/web/BEJSON_CMS_PageEditorV2.py /api/save to preserve existing markdown_body and source_code in pages_db/<uuid>.json, exposed markdown_body in /api/get/<uuid>, and added /api/md2html. Republished static site to storage/builds/."
     ]
   ],
   "Type": "python",

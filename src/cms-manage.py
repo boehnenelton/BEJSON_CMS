@@ -218,17 +218,30 @@ def cmd_page_import(args):
         if not Path(args.html).exists():
             print(f"Error: file not found: {args.html}")
             return
-        html_body = Path(args.html).read_text()
-        title = args.title or Path(args.html).stem
+        html_bytes = Path(args.html).read_bytes()
+        try:
+            web_dir = str(SCRIPT_PATH / "web")
+            if web_dir not in sys.path:
+                sys.path.insert(0, web_dir)
+            from BEJSON_CMS_Content import extract_from_html
+            extracted_title, html_body, _ = extract_from_html(html_bytes)
+            title = args.title or (extracted_title if extracted_title != "Imported Page" else "") or Path(args.html).stem
+        except Exception:
+            raw_text = html_bytes.decode("utf-8", errors="replace")
+            body_match = re.search(r"<body[^>]*>(.*?)</body>", raw_text, re.DOTALL | re.IGNORECASE)
+            html_body = body_match.group(1).strip() if body_match else raw_text
+            title = args.title or Path(args.html).stem
         db = get_db()
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
+        page_type = getattr(args, "type", "page") or "page"
+        featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
         if db.add_record("PageRecord", {
             "page_uuid": new_uuid, "page_title": title, "page_slug": slug,
-            "page_cat_name": args.category, "page_type": "page",
+            "page_cat_name": args.category, "page_type": page_type,
             "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": None, "page_author_name": args.author or "",
-            "page_featured_img": DEFAULT_FEATURED_IMAGE
+            "page_featured_img": featured_img
         }):
             _write_page_content_file(new_uuid, title, html_body)
             print(f"HTML imported as page: {title} (UUID: {new_uuid})")
@@ -274,8 +287,82 @@ def cmd_page_import(args):
             print(f"  Embed route: /apps/{app_slug}/")
         else:
             print(f"Failed to create page for app: {app_name}")
+    elif getattr(args, "md", None):
+        cmd_page_md_import(argparse.Namespace(
+            target=args.md,
+            category=getattr(args, "category", "Uncategorized"),
+            author=getattr(args, "author", None),
+            type=getattr(args, "type", "blog"),
+            featured_img=getattr(args, "featured_img", None),
+            recursive=False,
+            publish=False
+        ))
     else:
-        print("Error: Specify --html or --app for import.")
+        print("Error: Specify --html, --app, or --md for import.")
+
+def cmd_page_md_import(args):
+    target = Path(args.target).resolve()
+    if not target.exists():
+        print(f"Error: target not found: {args.target}")
+        return
+
+    lib_dir = str(SCRIPT_PATH / "lib")
+    if lib_dir not in sys.path:
+        sys.path.insert(0, lib_dir)
+
+    try:
+        from lib_bejson_CMS_md2html import import_markdown_file_to_cms, batch_import_markdown_directory
+    except ImportError as e:
+        print(f"Error importing lib_bejson_CMS_md2html: {e}")
+        return
+
+    author = getattr(args, "author", None) or "boehnenelton2024"
+    category = getattr(args, "category", None) or "Uncategorized"
+    page_type = getattr(args, "type", None) or "blog"
+    featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
+    cms_root = SCRIPT_PATH.parent
+
+    if target.is_file():
+        if target.suffix.lower() != ".md":
+            print(f"Error: target is not a Markdown file (.md required): {target.name}")
+            return
+        res = import_markdown_file_to_cms(
+            md_path=target,
+            category=category,
+            author=author,
+            page_type=page_type,
+            featured_img=featured_img,
+            cms_root=cms_root,
+        )
+        print(f"[✓] Markdown article imported: '{res['title']}' (UUID: {res['page_uuid']}) -> Category: {res['category']}, Type: {res['page_type']}")
+    elif target.is_dir():
+        results = batch_import_markdown_directory(
+            dir_path=target,
+            category=category,
+            author=author,
+            page_type=page_type,
+            default_featured_img=featured_img,
+            recursive=getattr(args, "recursive", False),
+            cms_root=cms_root,
+        )
+        print(f"\n[✓] Batch imported {len(results)} Markdown article(s) into CMS:")
+        for r in results:
+            print(f"  - '{r['title']}' (UUID: {r['page_uuid']}) [{r['page_type']}]")
+    else:
+        print(f"Error: invalid target: {target}")
+        return
+
+    if getattr(args, "publish", False):
+        print("\nTriggering static site publish...")
+        try:
+            web_dir = str(SCRIPT_PATH / "web")
+            if web_dir not in sys.path:
+                sys.path.insert(0, web_dir)
+            from BEJSON_CMS_Publisher import _execute
+            _execute()
+            print("[✓] Static site successfully republished.")
+        except Exception as err:
+            print(f"Warning: Static site build error: {err}")
 
 def cmd_author_add(args):
     # Live AuthorProfile schema (author_display_name, author_bio,
@@ -901,9 +988,21 @@ def main():
     p_pimp = page_sub.add_parser("import", help="Import a page from HTML or App")
     p_pimp.add_argument("--html", help="HTML file path")
     p_pimp.add_argument("--app", help="App UUID")
+    p_pimp.add_argument("--md", help="Markdown file path to convert and import")
     p_pimp.add_argument("--title", help="Page title (for HTML import)")
     p_pimp.add_argument("--category", default="Uncategorized", help="Category NAME (not slug) -- must match a live Category's cat_name exactly, e.g. 'Uncategorized' or 'BEJSON'. Run 'category list' to see valid names.")
     p_pimp.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
+    p_pimp.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type (default: blog, e.g. blog, article, page)")
+    p_pimp.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets)")
+
+    p_pmd = page_sub.add_parser("md-import", help="Import Markdown file or batch convert directory drops into native CMS articles")
+    p_pmd.add_argument("target", help="Markdown (.md) file path or directory containing .md files")
+    p_pmd.add_argument("--category", default="Uncategorized", help="Category NAME (default: Uncategorized)")
+    p_pmd.add_argument("--author", help="Author NAME (default: boehnenelton2024)")
+    p_pmd.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type: blog (default), article, or page")
+    p_pmd.add_argument("--featured-img", default="default_page_image.webp", help="Featured image filename in storage/mfdb/assets")
+    p_pmd.add_argument("--recursive", "-r", action="store_true", help="Recursively search directory for .md files")
+    p_pmd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after import")
 
     page_sub.add_parser("list", help="List pages")
 
@@ -1066,7 +1165,7 @@ def main():
         "mount": cmd_mount,
         "commit": cmd_commit,
         "repack": cmd_commit,
-        "page": lambda a: {"add": cmd_page_add, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
+        "page": lambda a: {"add": cmd_page_add, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
         "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
         "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,
         "navlink": lambda a: {"add": cmd_nav_add, "delete": cmd_nav_delete, "list": cmd_nav_list}.get(a.op)(a) if a.op else None,

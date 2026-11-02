@@ -24,6 +24,10 @@
     [
       "BEJSON",
       "bejson"
+    ],
+    [
+      "Projects",
+      "projects"
     ]
   ]
 }

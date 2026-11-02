@@ -147,7 +147,7 @@ NAV_SECTIONS = {
             {'icon': '📄', 'label': 'All Pages', 'href': '/pages'},
             {'icon': '🔗', 'label': 'External Links', 'href': '/links'},
             {'icon': '📁', 'label': 'Categories', 'href': '/categories'},
-            {'icon': '📥', 'label': 'HTML Import', 'href': '/import'},
+            {'icon': '📥', 'label': 'HTML / MD Import', 'href': '/import'},
         ]
     },
     'apps': {

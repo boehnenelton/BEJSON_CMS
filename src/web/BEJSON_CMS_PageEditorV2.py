@@ -297,21 +297,35 @@ def api_execute_task():
 # CMS INTEGRATION API
 # =============================================================================
 
+from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
+
+def _get_page_content_fields(page_uuid):
+    """Read html_body, markdown_body, and source_code from pages_db/<uuid>.json via field_map cache."""
+    pfile = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
+    if not os.path.exists(pfile):
+        return "", "", ""
+    try:
+        with open(pfile, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        field_map = bejson_core_get_field_map(data)
+        p_idx = field_map.get("Record_Type_Parent", -1)
+        hb_idx = field_map.get("html_body", -1)
+        mb_idx = field_map.get("markdown_body", -1)
+        sc_idx = field_map.get("source_code", -1)
+        for row in data.get("Values", []):
+            if p_idx != -1 and row[p_idx] == "Content":
+                html_val = (row[hb_idx] if hb_idx != -1 and hb_idx < len(row) else "") or ""
+                md_val = (row[mb_idx] if mb_idx != -1 and mb_idx < len(row) else "") or ""
+                sc_val = (row[sc_idx] if sc_idx != -1 and sc_idx < len(row) else "") or ""
+                return html_val, md_val, sc_val
+        return "", "", ""
+    except Exception:
+        return "", "", ""
+
 def _get_page_body_v1(page_uuid):
     """Read html_body from pages_db/<uuid>.json — returns empty string if missing."""
-    import lib_bejson_Core_bejson_core as Core
-    pfile = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
-    if not os.path.exists(pfile): return ""
-    try:
-        with open(pfile, 'r') as f: data = json.load(f)
-        field_map = Core.bejson_core_get_field_map(data)
-        p_idx   = field_map.get("Record_Type_Parent", -1)
-        hb_idx  = field_map.get("html_body", -1)
-        for row in data.get("Values", []):
-            if p_idx != -1 and hb_idx != -1 and row[p_idx] == "Content":
-                return row[hb_idx] or ""
-        return ""
-    except: return ""
+    html_val, _, _ = _get_page_content_fields(page_uuid)
+    return html_val
 
 @app.route('/api/get/<uuid>')
 def api_get(uuid):
@@ -319,8 +333,25 @@ def api_get(uuid):
     pages = db.get_records("PageRecord")
     p = next((x for x in pages if x['page_uuid'] == uuid), None)
     if not p: return jsonify({"ok": False})
-    content = _get_page_body_v1(uuid)
-    return jsonify({"ok": True, "page": p, "content": content})
+    content, markdown_body, _ = _get_page_content_fields(uuid)
+    return jsonify({"ok": True, "page": p, "content": content, "markdown_body": markdown_body})
+
+@app.route('/api/md2html', methods=['POST'])
+def api_md2html():
+    data = request.get_json(silent=True) or {}
+    md_text = data.get("markdown") if data.get("markdown") is not None else request.form.get("markdown", "")
+    fallback_title = data.get("fallback_title", "Untitled Document")
+    parsed = convert_markdown_to_cms_article(md_text or "", fallback_title)
+    wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
+    return jsonify({
+        "ok": True,
+        "success": True,
+        "title": parsed["title"],
+        "slug": parsed["slug"],
+        "html": wrapped_html,
+        "html_body": wrapped_html,
+        "excerpt": parsed["excerpt"],
+    })
 
 @app.route('/api/save', methods=['POST'])
 def api_save():
@@ -368,9 +399,12 @@ def api_save():
         }
         db.add_record("PageRecord", rec)
     
-    # --- Content file in BEJSON 104db format ---
+    # --- Content file in BEJSON 104db format (preserve existing markdown_body & source_code) ---
     pfile = os.path.join(PAGES_DB_DIR, f"{uuid_val}.json")
     os.makedirs(PAGES_DB_DIR, exist_ok=True)
+    _, existing_md, existing_sc = _get_page_content_fields(uuid_val)
+    markdown_body = data.get("markdown_body", existing_md)
+    source_code = data.get("source_code", existing_sc)
     
     content_doc = {
         "Format": "BEJSON",
@@ -386,10 +420,10 @@ def api_save():
         ],
         "Values": [
             ["PageMeta", title, None, None, None],
-            ["Content", None, content, "", ""]
+            ["Content", None, content, markdown_body, source_code]
         ]
     }
-    with open(pfile, 'w') as f: json.dump(content_doc, f, indent=2)
+    bejson_core_atomic_write(pfile, content_doc)
     return jsonify({"ok": True})
 
 # =============================================================================

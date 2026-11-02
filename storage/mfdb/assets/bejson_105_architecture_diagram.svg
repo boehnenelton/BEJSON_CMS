@@ -1,0 +1,64 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#000000"/>
+  <polygon points="32,24 1248,24 1256,32 1256,688 1248,696 32,696 24,688 24,32" fill="#08080C" stroke="#2A2A38" stroke-width="1.5"/>
+  <text x="64" y="64" fill="#DE2626" font-size="12" font-family="monospace" font-weight="bold" letter-spacing="1.5">01 // ARCHITECTURE &amp; TAXONOMY</text>
+  <text x="64" y="104" fill="#FFFFFF" font-size="32" font-family="monospace" font-weight="bold">BEJSON 105 & MFDB v1.40 ARCHITECTURE</text>
+  <text x="64" y="132" fill="#888899" font-size="16" font-family="monospace">Immutable UUID provenance, federated foreign keys, and loaded chamber logging</text>
+  <g>
+    <rect x="64" y="160" width="360" height="450" rx="4" fill="#0A0A10" stroke="#2A2A38" stroke-width="1.5"/>
+    <rect x="64" y="160" width="360" height="4" fill="#DE2626"/>
+    <text x="88" y="202" fill="#DE2626" font-size="14" font-family="monospace" font-weight="bold">PILLAR // 01</text>
+    <text x="88" y="240" fill="#FFFFFF" font-size="22" font-family="monospace" font-weight="bold">IMMUTABLE UUID CORE</text>
+    <text x="88" y="272" fill="#888899" font-size="14" font-family="monospace">Format 105 Tuple Matrix</text>
+    <line x1="88" y1="296" x2="400" y2="296" stroke="#1C1C28" stroke-width="1"/>
+    <rect x="88" y="330" width="6" height="6" fill="#DE2626"/>
+    <text x="104" y="336" fill="#FFFFFF" font-size="14" font-family="monospace">field_uuid Tracking</text>
+    <rect x="88" y="372" width="6" height="6" fill="#DE2626"/>
+    <text x="104" y="378" fill="#FFFFFF" font-size="14" font-family="monospace">record_uuid Provenance</text>
+    <rect x="88" y="414" width="6" height="6" fill="#DE2626"/>
+    <text x="104" y="420" fill="#FFFFFF" font-size="14" font-family="monospace">POL-002 Primitive Isolation</text>
+    <rect x="88" y="456" width="6" height="6" fill="#DE2626"/>
+    <text x="104" y="462" fill="#FFFFFF" font-size="14" font-family="monospace">O(1) Dynamic Field Map</text>
+    <rect x="88" y="562" width="312" height="28" rx="14" fill="#000000" stroke="#2A2A38" stroke-width="1"/>
+    <text x="244.0" y="580" text-anchor="middle" fill="#888899" font-size="11" font-family="monospace" font-weight="bold" letter-spacing="1.5">FORMAT 105</text>
+  </g>
+  <g>
+    <rect x="460" y="160" width="360" height="450" rx="4" fill="#0A0A10" stroke="#2A2A38" stroke-width="1.5"/>
+    <rect x="460" y="160" width="360" height="4" fill="#DE2626"/>
+    <text x="484" y="202" fill="#DE2626" font-size="14" font-family="monospace" font-weight="bold">PILLAR // 02</text>
+    <text x="484" y="240" fill="#FFFFFF" font-size="22" font-family="monospace" font-weight="bold">MFDB v1.40 GRAPH</text>
+    <text x="484" y="272" fill="#888899" font-size="14" font-family="monospace">Multi-File Federation</text>
+    <line x1="484" y1="296" x2="796" y2="296" stroke="#1C1C28" stroke-width="1"/>
+    <rect x="484" y="330" width="6" height="6" fill="#DE2626"/>
+    <text x="500" y="336" fill="#FFFFFF" font-size="14" font-family="monospace">_fk Cascading Deletes</text>
+    <rect x="484" y="372" width="6" height="6" fill="#DE2626"/>
+    <text x="500" y="378" fill="#FFFFFF" font-size="14" font-family="monospace">Bidirectional Hierarchies</text>
+    <rect x="484" y="414" width="6" height="6" fill="#DE2626"/>
+    <text x="500" y="420" fill="#FFFFFF" font-size="14" font-family="monospace">Encrypted Cell Shards</text>
+    <rect x="484" y="456" width="6" height="6" fill="#DE2626"/>
+    <text x="500" y="462" fill="#FFFFFF" font-size="14" font-family="monospace">Network-Role Federation</text>
+    <rect x="484" y="562" width="312" height="28" rx="14" fill="#000000" stroke="#2A2A38" stroke-width="1"/>
+    <text x="640.0" y="580" text-anchor="middle" fill="#888899" font-size="11" font-family="monospace" font-weight="bold" letter-spacing="1.5">MFDB v1.40</text>
+  </g>
+  <g>
+    <rect x="856" y="160" width="360" height="450" rx="4" fill="#0A0A10" stroke="#2A2A38" stroke-width="1.5"/>
+    <rect x="856" y="160" width="360" height="4" fill="#DE2626"/>
+    <text x="880" y="202" fill="#DE2626" font-size="14" font-family="monospace" font-weight="bold">PILLAR // 03</text>
+    <text x="880" y="240" fill="#FFFFFF" font-size="22" font-family="monospace" font-weight="bold">LOADED CHAMBER LOGS</text>
+    <text x="880" y="272" fill="#888899" font-size="14" font-family="monospace">Zero-Friction Audit Engine</text>
+    <line x1="880" y1="296" x2="1192" y2="296" stroke="#1C1C28" stroke-width="1"/>
+    <rect x="880" y="330" width="6" height="6" fill="#DE2626"/>
+    <text x="896" y="336" fill="#FFFFFF" font-size="14" font-family="monospace">Persistent Context Locking</text>
+    <rect x="880" y="372" width="6" height="6" fill="#DE2626"/>
+    <text x="896" y="378" fill="#FFFFFF" font-size="14" font-family="monospace">Global Daily Partitioning</text>
+    <rect x="880" y="414" width="6" height="6" fill="#DE2626"/>
+    <text x="896" y="420" fill="#FFFFFF" font-size="14" font-family="monospace">Dual-Path Redaction</text>
+    <rect x="880" y="456" width="6" height="6" fill="#DE2626"/>
+    <text x="896" y="462" fill="#FFFFFF" font-size="14" font-family="monospace">E90-E95 Integrity Gates</text>
+    <rect x="880" y="562" width="312" height="28" rx="14" fill="#000000" stroke="#2A2A38" stroke-width="1"/>
+    <text x="1036.0" y="580" text-anchor="middle" fill="#888899" font-size="11" font-family="monospace" font-weight="bold" letter-spacing="1.5">STANDARDS</text>
+  </g>
+  <line x1="64" y1="664" x2="1216" y2="664" stroke="#2A2A38" stroke-width="1"/>
+  <text x="64" y="688" fill="#888899" font-size="12" font-family="monospace">ELTON BOEHNEN BEJSON ECOSYSTEM · RELEASE 300</text>
+  <text x="1216" y="688" text-anchor="end" fill="#888899" font-size="12" font-family="monospace">CONFIDENTIAL // SPECIFICATION SLIDE</text>
+</svg>

@@ -211,8 +211,8 @@ async def run_full_verification():
 
             # --- Target 4: Page Editor V2 -> AI Content Architect Tab (#t-tasking) ---
             print("[*] [4/6] Activating AI Content Architect tab in Page Editor V2...")
-            # Click the tab button
-            await page.click('button[onclick="showTab(\'tasking\')"]')
+            # Activate tab via showTab
+            await page.evaluate("() => showTab('tasking')")
             await page.wait_for_selector('#t-tasking', state="visible", timeout=5000)
             await asyncio.sleep(1)  # Allow dynamic dropdowns and cards to render
             ai_tab_shot = SCREENSHOT_DIR / "04_playwright_editor_ai_architect_tab.png"
@@ -231,7 +231,7 @@ async def run_full_verification():
             report["pages_verified"].append({"url": "http://localhost:8080/", "title": title, "screenshot": str(pub_home_shot)})
 
             # --- Target 6: Published Article (Port 8080) Desktop + Mobile ---
-            article_url = "http://localhost:8080/blog/bejson/the-integrity-era-architectural-deep-dive-into-bejson-105-core-libraries-mfdb-v140/index.html"
+            article_url = "http://localhost:8080/blog/projects/the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40/index.html"
             print(f"[*] [6/6] Navigating to Published Article ({article_url})...")
             await page.goto(article_url, timeout=30000, wait_until="networkidle")
             title = await page.title()

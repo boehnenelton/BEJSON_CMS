@@ -870,6 +870,25 @@ _SHELL = """
             .flex-row:not(.toolbar-row) { flex-wrap: wrap; }
             .flex-row:not(.toolbar-row) > .fg { min-width: 100%; }
         }
+
+        /* Responsive grid & workflow bar helpers for Editor V2 and AI Content Architect */
+        .editor-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .editor-grid-3 { display: grid; grid-template-columns: 1.2fr 0.9fr 1.2fr; gap: 15px; }
+        .workflow-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .workflow-bar .btn { flex-shrink: 0; }
+
+        @media (max-width: 860px) {
+            .editor-grid-3 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            .header { padding: 0 20px 0 60px; }
+            .container { padding: 0 10px; margin: 15px auto; }
+            .editor-wrap { padding: 14px; }
+            .editor-grid-2 { grid-template-columns: 1fr; }
+            .editor-grid-3 { grid-template-columns: 1fr; }
+            .side-menu { width: 260px; }
+            .workflow-bar .btn { width: 100%; text-align: center; }
+        }
         
         .status-bar { margin-top: 15px; display: flex; justify-content: space-between; font-size: 0.7rem; font-family: var(--mono); color: var(--muted); }
         
@@ -1032,7 +1051,7 @@ _SHELL = """
             </div>
 
             <!-- Saved Jobs + Target Post Row -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px; background:#080808; padding:15px; border-radius:10px; border:1px solid var(--border);">
+            <div class="editor-grid-2" style="margin-bottom:15px; background:#080808; padding:15px; border-radius:10px; border:1px solid var(--border);">
                 <div class="fg" style="margin-bottom:0;">
                     <label>Saved BKS-1 Blog Post Jobs</label>
                     <div style="display:flex; gap:8px;">
@@ -1052,7 +1071,7 @@ _SHELL = """
             </div>
 
             <!-- Template + AI Provider + Model Row -->
-            <div style="display:grid; grid-template-columns:1.2fr 0.9fr 1.2fr; gap:15px; margin-bottom:15px;">
+            <div class="editor-grid-3" style="margin-bottom:15px;">
                 <div class="fg" style="margin-bottom:0;">
                     <label>Blog Post Job Template (BookType)</label>
                     <select id="bks_template_select"></select>
@@ -1078,7 +1097,7 @@ _SHELL = """
             </div>
 
             <!-- Workflow Action Bar -->
-            <div class="flex-row toolbar-row" style="margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+            <div class="workflow-bar" style="margin-bottom:20px;">
                 <button class="btn btn-green" onclick="generateTaskPlan()">1. Generate 4-Part Plan &amp; Job</button>
                 <button class="btn btn-black" onclick="saveBksPlanEdits()">Save Plan Edits</button>
                 <button class="btn" onclick="runNextBksPart()">2a. Execute Next Part</button>
@@ -1098,19 +1117,19 @@ _SHELL = """
                         <h3 style="font-size:1rem; margin-bottom:4px;">Merged 4-Part Blog Post Preview</h3>
                         <div id="bks_merged_stats" style="font-size:0.75rem; color:var(--muted);">4 parts merged into unified Markdown + BEJSON CMS HTML</div>
                     </div>
-                    <div style="display:flex; gap:10px;">
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-green btn-sm" onclick="approveAndOverwriteTargetPost()">&#10003; Approve &amp; Overwrite Target Post</button>
                         <button class="btn btn-black btn-sm" onclick="importPlanToEditor()">Load Merged HTML into Editor</button>
                     </div>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                <div class="editor-grid-2" style="gap:15px;">
                     <div>
                         <label>Merged 4-Part Markdown</label>
                         <textarea id="bks_merged_md" style="min-height:280px; font-size:0.78rem;"></textarea>
                     </div>
                     <div>
                         <label>Rendered CMS Article HTML Preview</label>
-                        <div id="bks_merged_html_preview" style="min-height:280px; max-height:420px; overflow-y:auto; background:#0e0e0e; border:1px solid var(--border); border-radius:8px; padding:15px; font-size:0.85rem; line-height:1.6;"></div>
+                        <div id="bks_merged_html_preview" style="min-height:280px; max-height:420px; overflow-y:auto; overflow-x:auto; max-width:100%; background:#0e0e0e; border:1px solid var(--border); border-radius:8px; padding:15px; font-size:0.85rem; line-height:1.6;"></div>
                     </div>
                 </div>
             </div>
@@ -1161,15 +1180,24 @@ function toggleMenu() {
     document.getElementById('m-overlay').classList.toggle('active');
 }
 
+function closeMenu() {
+    const sMenu = document.getElementById('s-menu');
+    const mOver = document.getElementById('m-overlay');
+    if (sMenu) sMenu.classList.remove('open');
+    if (mOver) mOver.classList.remove('active');
+}
+
 function showTab(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
-    document.getElementById('t-' + id).classList.add('active');
-    document.getElementById('l-' + id).classList.add('active');
+    const targetTab = document.getElementById('t-' + id);
+    const targetLink = document.getElementById('l-' + id);
+    if(targetTab) targetTab.classList.add('active');
+    if(targetLink) targetLink.classList.add('active');
     if(id === 'settings') loadModels();
     if(id === 'context') initStorage();
     if(id === 'tasking') refreshBksBootstrap();
-    toggleMenu();
+    closeMenu();
 }
 
 function filterPages() {
@@ -1431,12 +1459,12 @@ function renderPlan() {
         const div = document.createElement('div');
         div.className = 'task-card';
         div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
-                <div style="display:flex; align-items:center; gap:10px; flex:1;">
-                    <span style="font-family:var(--mono); font-size:0.75rem; background:#151515; padding:4px 8px; border-radius:4px; border:1px solid var(--border);">PART ${partIdx}/4</span>
-                    <input type="text" id="bks-part-title-${i}" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700; padding:6px 10px; font-size:0.9rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:200px;">
+                    <span style="font-family:var(--mono); font-size:0.75rem; background:#151515; padding:4px 8px; border-radius:4px; border:1px solid var(--border); flex-shrink:0;">PART ${partIdx}/4</span>
+                    <input type="text" id="bks-part-title-${i}" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700; padding:6px 10px; font-size:0.9rem; flex:1; min-width:0;">
                 </div>
-                <div style="display:flex; align-items:center; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <span id="task-res-${i}" style="font-family:var(--mono); font-size:0.72rem; color:${statusColor};">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
                     <button type="button" class="btn btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
                 </div>

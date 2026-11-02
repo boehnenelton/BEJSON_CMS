@@ -1816,7 +1816,7 @@ def bks_jobs_studio():
             </div>
             <div>
                 <label class="form-label">Rendered CMS Article HTML Preview</label>
-                <div id="bks_merged_html_preview" style="min-height:320px;max-height:480px;overflow-y:auto;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;"></div>
+                <div id="bks_merged_html_preview" style="min-height:320px;max-height:480px;overflow-y:auto;overflow-x:auto;max-width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;"></div>
             </div>
         </div>
     </div>
@@ -1941,12 +1941,12 @@ def bks_jobs_studio():
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">
-                    <div style="display:flex;align-items:center;gap:10px;flex:1;">
-                        <span class="badge badge-page">PART ${partIdx}/4</span>
-                        <input type="text" id="bks-part-title-${i}" class="form-control" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
+                        <span class="badge badge-page" style="flex-shrink:0;">PART ${partIdx}/4</span>
+                        <input type="text" id="bks-part-title-${i}" class="form-control" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700;flex:1;min-width:0;">
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <span id="bks-part-status-${i}" style="font-family:monospace;font-size:0.8rem;">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
                         <button type="button" class="btn btn-primary btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
                     </div>

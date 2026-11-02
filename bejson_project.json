@@ -4,8 +4,8 @@
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
   "Project_Version": "18.31",
-  "Package_Version": "133",
-  "Project_Modified_Date": "2026-11-02T11:31:20.372330+00:00",
+  "Package_Version": "135",
+  "Project_Modified_Date": "2026-11-02T18:46:32.932827+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -470,9 +470,19 @@
       "pkg133 -- Environment definitions.json support in Core env, vendored Core modules, live ai_dispatch key rotation verification, and Playwright verification suite.",
       "2026-11-02",
       "1. Updated lib_bejson_Core_bejson_env.py to prioritize DEFINITIONS_FILE / definitions.json (Policy \u00a74.5) in source_env() and source_env_fill() alongside secureenv_file.json. 2. Vendored missing Core dependencies (lib_bejson_Core_bejson_schema.py, lib_bejson_Core_bejson_chunking.py, lib_bejson_Core_bejson_parse.py, lib_bejson_Core_bejson_provider.py, lib_bejson_Core_bejson_state_management.py, lib_bejson_Core_bejson_static_backend.py, lib_bejson_Core_bejson_104db_parser.py) into src/lib/. 3. Verified live ai_dispatch_call() across providers with multi-slot round-robin key rotation from secure env. 4. Created storage/tmp/playwright_cms_verify.py verification suite and re-compiled static builds in storage/builds/."
+    ],
+    [
+      "pkg134 -- Resolved Playwright page width blowout, non-responsive grid squishing, drawer trap, and button overflow across PageEditorV2 and BKS Job Studio.",
+      "2026-11-02",
+      "1. Replaced hardcoded inline grid columns in PageEditorV2.py (#t-tasking) and Content.py (/jobs) with responsive .editor-grid-2, .editor-grid-3, and .workflow-bar with mobile breakpoints (max-width: 860px/640px). 2. Fixed showTab() drawer trap bug in PageEditorV2.py (replaced toggleMenu() with closeMenu()). 3. Added flex-wrap: wrap and min-width constraints to 4-part plan card headers in both editors so title inputs do not collapse on mobile. 4. Added overflow-x: auto and max-width: 100% to merged HTML preview panels. 5. Fixed tab activator and published article URL in playwright_cms_verify.py and verified 0-overflow across desktop, tablet, and mobile viewports with Playwright."
+    ],
+    [
+      "pkg135 -- Generated consistent Graphics 105 vector hero banners, architectural diagrams, and high-DPI Playwright raster captures across all CMS articles, registered 24 media assets, updated page records, and re-compiled static builds.",
+      "2026-11-02",
+      "1. Leveraged libraries_105/Lib_PY/Graphics (lib_bejson_Graphics_graphics_core.py, render_still_frame, render_branding_architecture_slide_svg) and bejson-cms-canvas-illustrator skill to author 1280x640 Policy \u00a78.1 Tri-Color hero banners (project_chunker_ecosystem_hero.svg, bejson_105_integrity_era_hero.svg) and 1280x720 architecture diagrams (project_chunker_architecture_diagram.svg, bejson_105_architecture_diagram.svg). 2. Rendered high-DPI raster captures via Playwright (termux_playwright) and compiled WebP variants for all 6 articles and architecture blueprints. 3. Registered 24 media assets in mediaasset.bejson with SHA-256 hashes, file sizes, and MIME types. 4. Updated pagerecord.bejson and pages_db (e2dfa590-833d-410f-b3b8-70d85913ea29, 5a65064e-53a5-4b74-93b9-b76df0a1207f) linking featured images and embedding architecture diagrams. 5. Re-compiled static distribution in storage/builds/ via BEJSON_CMS_Publisher._execute() and verified 0-overflow across desktop/mobile with Playwright."
     ]
   ],
   "Type": "python",
   "Status": "Active",
-  "Versioned_UUID": "98a70544-1d63-4eac-a8c2-d8ff89ac5028"
+  "Versioned_UUID": "9937f4aa-637b-436c-a5d3-7795fccccd8a"
 }

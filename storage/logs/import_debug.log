@@ -2607,3 +2607,153 @@ lib_bejson_Core_bejson_core.BEJSONCoreError: Failed to update field 'page_is_sta
 2026-11-02 03:13:33,971 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
 2026-11-02 03:13:34,077 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 4)
 2026-11-02 03:13:34,123 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 4)
+2026-11-02 03:23:23,632 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:23:31,942 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:25:17,743 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:25:41,862 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:27:10,250 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:27:10,291 DEBUG Using selector: EpollSelector
+2026-11-02 03:27:10,320 DEBUG Starting new HTTPS connection (1): api.groq.com:443
+2026-11-02 03:27:12,086 DEBUG https://api.groq.com:443 "POST /openai/v1/chat/completions HTTP/1.1" 200 None
+2026-11-02 03:27:13,606 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:27:13,815 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:27:13,924 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5010
+ * Running on http://10.8.0.172:5010
+2026-11-02 03:27:13,924 INFO [33mPress CTRL+C to quit[0m
+2026-11-02 03:27:14,023 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-11-02 03:27:14,023 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-11-02 03:27:14,063 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-11-02 03:27:14,064 INFO [33mPress CTRL+C to quit[0m
+2026-11-02 03:27:21,651 INFO 127.0.0.1 - - [02/Nov/2026 03:27:21] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-02 03:27:21,821 INFO 127.0.0.1 - - [02/Nov/2026 03:27:21] "GET / HTTP/1.1" 200 -
+2026-11-02 03:27:24,736 INFO 127.0.0.1 - - [02/Nov/2026 03:27:24] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-02 03:27:25,757 INFO 127.0.0.1 - - [02/Nov/2026 03:27:25] "GET /jobs HTTP/1.1" 200 -
+2026-11-02 03:27:26,614 INFO 127.0.0.1 - - [02/Nov/2026 03:27:26] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-02 03:27:32,199 DEBUG waitpid on PID 1051 (grandchild): [Errno 10] No child processes
+2026-11-02 03:27:32,200 DEBUG waitpid polling on PID 1051: [Errno 10] No child processes
+2026-11-02 03:27:32,212 DEBUG waitpid polling on PID 1051: [Errno 10] No child processes
+2026-11-02 03:27:32,224 DEBUG waitpid polling on PID 1051: [Errno 10] No child processes
+2026-11-02 03:27:32,235 DEBUG waitpid polling on PID 1051: [Errno 10] No child processes
+2026-11-02 03:27:32,246 DEBUG waitpid polling on PID 1051: [Errno 10] No child processes
+2026-11-02 03:27:32,256 DEBUG final waitpid on PID 1051: [Errno 10] No child processes
+2026-11-02 03:28:24,653 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:28:24,703 DEBUG Using selector: EpollSelector
+2026-11-02 03:28:24,727 DEBUG Starting new HTTPS connection (1): api.groq.com:443
+2026-11-02 03:28:25,881 DEBUG https://api.groq.com:443 "POST /openai/v1/chat/completions HTTP/1.1" 200 None
+2026-11-02 03:28:27,367 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:28:27,610 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:28:27,715 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5010
+ * Running on http://10.8.0.172:5010
+2026-11-02 03:28:27,716 INFO [33mPress CTRL+C to quit[0m
+2026-11-02 03:28:27,845 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-11-02 03:28:27,846 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-11-02 03:28:27,888 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-11-02 03:28:27,888 INFO [33mPress CTRL+C to quit[0m
+2026-11-02 03:28:31,869 INFO Auto-recovered and reaped dead session '2b003f20' from previous crash.
+2026-11-02 03:28:34,448 INFO 127.0.0.1 - - [02/Nov/2026 03:28:34] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-02 03:28:34,669 INFO 127.0.0.1 - - [02/Nov/2026 03:28:34] "GET / HTTP/1.1" 200 -
+2026-11-02 03:28:37,539 INFO 127.0.0.1 - - [02/Nov/2026 03:28:37] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-02 03:28:38,449 INFO 127.0.0.1 - - [02/Nov/2026 03:28:38] "GET /jobs HTTP/1.1" 200 -
+2026-11-02 03:28:39,531 INFO 127.0.0.1 - - [02/Nov/2026 03:28:39] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-02 03:28:40,499 DEBUG waitpid on PID 3846 (grandchild): [Errno 10] No child processes
+2026-11-02 03:28:40,500 DEBUG waitpid polling on PID 3846: [Errno 10] No child processes
+2026-11-02 03:28:40,510 DEBUG waitpid polling on PID 3846: [Errno 10] No child processes
+2026-11-02 03:28:40,521 DEBUG waitpid polling on PID 3846: [Errno 10] No child processes
+2026-11-02 03:28:40,532 DEBUG waitpid polling on PID 3846: [Errno 10] No child processes
+2026-11-02 03:28:40,542 DEBUG waitpid polling on PID 3846: [Errno 10] No child processes
+2026-11-02 03:28:40,553 DEBUG final waitpid on PID 3846: [Errno 10] No child processes
+2026-11-02 03:28:54,439 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:28:54,557 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5010
+ * Running on http://10.8.0.172:5010
+2026-11-02 03:28:54,557 INFO [33mPress CTRL+C to quit[0m
+2026-11-02 03:29:24,926 INFO 127.0.0.1 - - [02/Nov/2026 03:29:24] "HEAD / HTTP/1.1" 200 -
+2026-11-02 03:29:57,390 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:29:57,440 DEBUG Using selector: EpollSelector
+2026-11-02 03:29:57,465 DEBUG Starting new HTTPS connection (1): api.groq.com:443
+2026-11-02 03:29:58,553 DEBUG https://api.groq.com:443 "POST /openai/v1/chat/completions HTTP/1.1" 200 None
+2026-11-02 03:30:00,196 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:30:00,373 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:30:00,462 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5010
+ * Running on http://10.8.0.172:5010
+2026-11-02 03:30:00,462 INFO [33mPress CTRL+C to quit[0m
+2026-11-02 03:30:00,625 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-11-02 03:30:00,625 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-11-02 03:30:00,659 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-11-02 03:30:00,660 INFO [33mPress CTRL+C to quit[0m
+2026-11-02 03:30:04,502 INFO Auto-recovered and reaped dead session '208f9332' from previous crash.
+2026-11-02 03:30:06,992 INFO 127.0.0.1 - - [02/Nov/2026 03:30:06] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-02 03:30:07,186 INFO 127.0.0.1 - - [02/Nov/2026 03:30:07] "GET / HTTP/1.1" 200 -
+2026-11-02 03:30:09,567 INFO 127.0.0.1 - - [02/Nov/2026 03:30:09] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-02 03:30:10,469 INFO 127.0.0.1 - - [02/Nov/2026 03:30:10] "GET /jobs HTTP/1.1" 200 -
+2026-11-02 03:30:11,409 INFO 127.0.0.1 - - [02/Nov/2026 03:30:11] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-02 03:30:12,305 INFO 127.0.0.1 - - [02/Nov/2026 03:30:12] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-02 03:30:12,372 INFO 127.0.0.1 - - [02/Nov/2026 03:30:12] "GET / HTTP/1.1" 200 -
+2026-11-02 03:30:13,439 INFO 127.0.0.1 - - [02/Nov/2026 03:30:13] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-02 03:30:13,494 INFO 127.0.0.1 - - [02/Nov/2026 03:30:13] "GET /api/settings/models HTTP/1.1" 200 -
+2026-11-02 03:30:13,736 INFO 127.0.0.1 - - [02/Nov/2026 03:30:13] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-02 03:30:44,692 DEBUG waitpid on PID 5523 (grandchild): [Errno 10] No child processes
+2026-11-02 03:30:44,695 DEBUG waitpid polling on PID 5523: [Errno 10] No child processes
+2026-11-02 03:30:44,706 DEBUG waitpid polling on PID 5523: [Errno 10] No child processes
+2026-11-02 03:30:44,717 DEBUG waitpid polling on PID 5523: [Errno 10] No child processes
+2026-11-02 03:30:44,727 DEBUG waitpid polling on PID 5523: [Errno 10] No child processes
+2026-11-02 03:30:44,738 DEBUG waitpid polling on PID 5523: [Errno 10] No child processes
+2026-11-02 03:30:44,749 DEBUG final waitpid on PID 5523: [Errno 10] No child processes

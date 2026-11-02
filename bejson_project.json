@@ -4,8 +4,8 @@
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
   "Project_Version": "18.31",
-  "Package_Version": "132",
-  "Project_Modified_Date": "2026-11-02T11:15:00.000000+00:00",
+  "Package_Version": "133",
+  "Project_Modified_Date": "2026-11-02T11:31:20.372330+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -464,10 +464,15 @@
     [
       "pkg132 -- Integrated Standardized Book/Blog Job System (BKS-1) and CLI_AI 48 AI Libraries (lib_bejson_AI_*) with 4-part blog post templates, plan generation, sequential 4-part execution, merged post preview, and target post overwrite on approve.",
       "2026-11-02",
-      "1. Vendored BKS-1 Writing family (lib_bejson_Writing_bks_*.py, lib_bejson_Core_bejson_list_validator.py) and CLI_AI 48 AI libraries (/storage/emulated/0/cli ai 48/lib/AI/lib_bejson_AI_*.py, config/*.bejson, lib_ai_model_registry.py) into src/lib/. 2. Created src/lib/lib_bejson_AI_ai_writing.py (BKS-1 §1 #6 / §15 AI writing module) routing all outline/plan and part/chapter generation through CLI_AI 48 ai_dispatch_call(), and upgraded src/lib/lib_cms_persona_writer.py to use ai_writing_call(). 3. Created src/lib/lib_bejson_CMS_bks_blog_jobs.py implementing 4-part blog post BookTypes (blog_post_4part, technical_deep_dive_4part, tutorial_guide_4part), 104a JobMaker templates (storage/mfdb/bks_jobs/templates/*.bejson), 104db registry (registry.bejson), CMS job links (cms_job_links.104a.bejson), 4-part plan generation, per-part and all-4-part execution with BKS-1 gates, 4-part Markdown + BEJSON CMS HTML merging, and atomic target post overwrite on approve (cms_bks_approve_and_overwrite_post). 4. Upgraded src/web/BEJSON_CMS_PageEditorV2.py (#t-tasking and /api/bks/*), src/web/BEJSON_CMS_Content.py (/jobs studio and /api/bks/*), src/web/BEJSON_CMS_Shared.py, and src/cms-manage.py (job templates, list, create, run, merge, approve)."
+      "1. Vendored BKS-1 Writing family (lib_bejson_Writing_bks_*.py, lib_bejson_Core_bejson_list_validator.py) and CLI_AI 48 AI libraries (/storage/emulated/0/cli ai 48/lib/AI/lib_bejson_AI_*.py, config/*.bejson, lib_ai_model_registry.py) into src/lib/. 2. Created src/lib/lib_bejson_AI_ai_writing.py (BKS-1 \u00a71 #6 / \u00a715 AI writing module) routing all outline/plan and part/chapter generation through CLI_AI 48 ai_dispatch_call(), and upgraded src/lib/lib_cms_persona_writer.py to use ai_writing_call(). 3. Created src/lib/lib_bejson_CMS_bks_blog_jobs.py implementing 4-part blog post BookTypes (blog_post_4part, technical_deep_dive_4part, tutorial_guide_4part), 104a JobMaker templates (storage/mfdb/bks_jobs/templates/*.bejson), 104db registry (registry.bejson), CMS job links (cms_job_links.104a.bejson), 4-part plan generation, per-part and all-4-part execution with BKS-1 gates, 4-part Markdown + BEJSON CMS HTML merging, and atomic target post overwrite on approve (cms_bks_approve_and_overwrite_post). 4. Upgraded src/web/BEJSON_CMS_PageEditorV2.py (#t-tasking and /api/bks/*), src/web/BEJSON_CMS_Content.py (/jobs studio and /api/bks/*), src/web/BEJSON_CMS_Shared.py, and src/cms-manage.py (job templates, list, create, run, merge, approve)."
+    ],
+    [
+      "pkg133 -- Environment definitions.json support in Core env, vendored Core modules, live ai_dispatch key rotation verification, and Playwright verification suite.",
+      "2026-11-02",
+      "1. Updated lib_bejson_Core_bejson_env.py to prioritize DEFINITIONS_FILE / definitions.json (Policy \u00a74.5) in source_env() and source_env_fill() alongside secureenv_file.json. 2. Vendored missing Core dependencies (lib_bejson_Core_bejson_schema.py, lib_bejson_Core_bejson_chunking.py, lib_bejson_Core_bejson_parse.py, lib_bejson_Core_bejson_provider.py, lib_bejson_Core_bejson_state_management.py, lib_bejson_Core_bejson_static_backend.py, lib_bejson_Core_bejson_104db_parser.py) into src/lib/. 3. Verified live ai_dispatch_call() across providers with multi-slot round-robin key rotation from secure env. 4. Created storage/tmp/playwright_cms_verify.py verification suite and re-compiled static builds in storage/builds/."
     ]
   ],
   "Type": "python",
   "Status": "Active",
-  "Versioned_UUID": "a1fd4ded-aece-4654-b693-3c8cb613c49c"
+  "Versioned_UUID": "98a70544-1d63-4eac-a8c2-d8ff89ac5028"
 }

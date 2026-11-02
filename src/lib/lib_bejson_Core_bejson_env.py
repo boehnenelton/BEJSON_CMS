@@ -73,17 +73,20 @@ def source_env(override_path: str = None) -> bool:
         Path("/storage/emulated/0/.env/secure/secureenv_file.json"),
     ]
     user_candidates = [
+        Path(os.environ.get("DEFINITIONS_FILE", "")) if os.environ.get("DEFINITIONS_FILE") else None,
+        Path("/storage/emulated/0/.env/user/definitions.json"),
+        Path("/storage/emulated/0/.env/user/definitions.py"),
         Path("/storage/emulated/0/.env/user/paths.py"),
         Path("/storage/emulated/0/.env/user/paths.json"),
     ]
 
     loaded_any = False
     for p in secure_candidates:
-        if p.exists() and _load_env_file(p):
+        if p and p.exists() and _load_env_file(p):
             loaded_any = True
             break
     for p in user_candidates:
-        if p.exists() and _load_env_file(p):
+        if p and p.exists() and _load_env_file(p):
             loaded_any = True
             break
     if loaded_any:
@@ -227,8 +230,11 @@ def source_env_fill(include_paths: bool = False, force: bool = False) -> dict:
     secure = [os.environ.get("SECUREENV_FILE"),
               "/storage/emulated/0/.env/secure/secureenv_file.json",
               os.path.join(os.path.expanduser("~"), ".env", "secure", "secureenv_file.json")]
-    paths = [os.environ.get("BEJSON_PATHS_FILE"),
+    paths = [os.environ.get("DEFINITIONS_FILE"),
+             "/storage/emulated/0/.env/user/definitions.json",
+             os.environ.get("BEJSON_PATHS_FILE"),
              "/storage/emulated/0/.env/user/paths.json",
+             os.path.join(os.path.expanduser("~"), ".env", "user", "definitions.json"),
              os.path.join(os.path.expanduser("~"), ".env", "user", "paths.json")]
     tiers = [secure] + ([paths] if include_paths else [])
 

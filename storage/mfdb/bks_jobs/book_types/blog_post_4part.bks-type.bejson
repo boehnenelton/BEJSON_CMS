@@ -1,0 +1,133 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "745924fa-9b9a-53f8-b159-66e8ff8727bc",
+      "blog_post_4part",
+      "4-Part Technical Blog Post",
+      "Standard 4-part technical blog post: Foundations, Architecture, Implementation, and Verification.",
+      "technical",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a 4-part technical blog post. Each chapter represents one of the 4 parts, with a clear title (no numbering) and a 2-4 sentence brief detailing what that part must cover and how it transitions to the next part.",
+      "You are a senior systems architect writing a rigorous, high-signal 4-part technical blog post for Elton Boehnen's BEJSON CMS. Define technical terms inline on first use, include concrete tables and runnable code blocks, and maintain zero filler.",
+      [
+        {
+          "title": "Foundations, Context & Problem Statement",
+          "brief": "Establish the core engineering problem, architectural motivation, and foundational concepts. Define key terminology inline.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Core Architecture, Schema & Structural Invariants",
+          "brief": "Dissect the underlying data structures, schema contracts, state machines, and architectural invariants.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Implementation Mechanics & Code Walkthrough",
+          "brief": "Walk through concrete, production-grade implementation patterns, code signatures, and execution flows.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Verification, Edge Cases & Operational Takeaways",
+          "brief": "Examine verification gates, failure modes, performance characteristics, and key engineering takeaways.",
+          "kind": "chapter"
+        }
+      ],
+      null,
+      4,
+      4,
+      4,
+      150,
+      "standard",
+      [
+        "md",
+        "html"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

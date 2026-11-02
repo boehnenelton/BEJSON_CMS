@@ -3,9 +3,9 @@
   "Format_Version": "104a",
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
-  "Project_Version": "18.30",
-  "Package_Version": "131",
-  "Project_Modified_Date": "2026-11-02T10:37:30.000000+00:00",
+  "Project_Version": "18.31",
+  "Package_Version": "132",
+  "Project_Modified_Date": "2026-11-02T11:15:00.000000+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -460,6 +460,11 @@
       "pkg131 -- Full MD_To_HTML (lib_bejson_CMS_md2html.py) integration across CLI, Web Content Cube, PageEditorV2, and Theme Stylesheets.",
       "2026-11-02",
       "1. Integrated lib_bejson_CMS_md2html.py (convert_markdown_to_cms_article, import_markdown_file_to_cms, batch_import_markdown_directory) and CLI subcommands (page md-import, page import --md) in src/cms-manage.py. 2. Updated resources/styles/dark.css, resources/styles/light.css, and src/web/BEJSON_CMS_Publisher.py (_CSS_SHARED) to style .bejson-cms-article, .callout (.callout-note, .callout-tip, .callout-important, .callout-warning, .callout-caution), .task-list / .task-item, list markers inside .article-body, blockquotes, code blocks, hr, and del. 3. Extended src/web/BEJSON_CMS_Content.py and BEJSON_CMS_Shared.py with HTML / MD Import (.md/.markdown + .html/.htm) in /import, /import/preview, /import/confirm, and /api/import/process_item, /api/md2html conversion endpoint, and Markdown Source editor panel in /edit/<page_uuid> with page_type selector. 4. Fixed src/web/BEJSON_CMS_PageEditorV2.py /api/save to preserve existing markdown_body and source_code in pages_db/<uuid>.json, exposed markdown_body in /api/get/<uuid>, and added /api/md2html. Republished static site to storage/builds/."
+    ],
+    [
+      "pkg132 -- Integrated Standardized Book/Blog Job System (BKS-1) and CLI_AI 48 AI Libraries (lib_bejson_AI_*) with 4-part blog post templates, plan generation, sequential 4-part execution, merged post preview, and target post overwrite on approve.",
+      "2026-11-02",
+      "1. Vendored BKS-1 Writing family (lib_bejson_Writing_bks_*.py, lib_bejson_Core_bejson_list_validator.py) and CLI_AI 48 AI libraries (/storage/emulated/0/cli ai 48/lib/AI/lib_bejson_AI_*.py, config/*.bejson, lib_ai_model_registry.py) into src/lib/. 2. Created src/lib/lib_bejson_AI_ai_writing.py (BKS-1 §1 #6 / §15 AI writing module) routing all outline/plan and part/chapter generation through CLI_AI 48 ai_dispatch_call(), and upgraded src/lib/lib_cms_persona_writer.py to use ai_writing_call(). 3. Created src/lib/lib_bejson_CMS_bks_blog_jobs.py implementing 4-part blog post BookTypes (blog_post_4part, technical_deep_dive_4part, tutorial_guide_4part), 104a JobMaker templates (storage/mfdb/bks_jobs/templates/*.bejson), 104db registry (registry.bejson), CMS job links (cms_job_links.104a.bejson), 4-part plan generation, per-part and all-4-part execution with BKS-1 gates, 4-part Markdown + BEJSON CMS HTML merging, and atomic target post overwrite on approve (cms_bks_approve_and_overwrite_post). 4. Upgraded src/web/BEJSON_CMS_PageEditorV2.py (#t-tasking and /api/bks/*), src/web/BEJSON_CMS_Content.py (/jobs studio and /api/bks/*), src/web/BEJSON_CMS_Shared.py, and src/cms-manage.py (job templates, list, create, run, merge, approve)."
     ]
   ],
   "Type": "python",

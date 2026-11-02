@@ -1,0 +1,118 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "Constant"
+  ],
+  "Fields": [
+    {
+      "name": "constant_name",
+      "type": "string"
+    },
+    {
+      "name": "defined_value",
+      "type": "string"
+    },
+    {
+      "name": "default_value",
+      "type": "string"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "max_context_tokens",
+      null,
+      "8000",
+      "Total token budget for the assembled context bubble"
+    ],
+    [
+      "chars_per_token",
+      null,
+      "4",
+      "Chars-per-token estimate for all budget arithmetic"
+    ],
+    [
+      "pct_persistent_policy",
+      null,
+      "0.2",
+      "Share of budget for the persistent system/policy block"
+    ],
+    [
+      "pct_active_tasks",
+      null,
+      "0.2",
+      "Share of budget for active-task context"
+    ],
+    [
+      "pct_keyword_triggers",
+      null,
+      "0.3",
+      "Share of budget for keyword-triggered context injections"
+    ],
+    [
+      "pct_knowledge_pool",
+      null,
+      "0.15",
+      "Share of budget for knowledge-pool drip entries"
+    ],
+    [
+      "pct_cwd_context",
+      null,
+      "0.1",
+      "Share of budget for working-directory context.bejson"
+    ],
+    [
+      "pct_env_file",
+      null,
+      "0.05",
+      "Share of budget for live environment variable drip"
+    ],
+    [
+      "pct_imported_files",
+      null,
+      "0.15",
+      "Share of budget for the chat client's user-imported context files"
+    ],
+    [
+      "knowledge_drip_interval",
+      null,
+      "5",
+      "Turns between knowledge-pool injections (0 = every turn)"
+    ],
+    [
+      "env_drip_interval",
+      null,
+      "5",
+      "Turns between env-file drip injections (0 = every turn)"
+    ],
+    [
+      "global_default_cooldown",
+      null,
+      "300",
+      "Default keyword-trigger cooldown in seconds"
+    ],
+    [
+      "observer_enabled",
+      null,
+      "False",
+      "Enable automatic bubble compression when over budget"
+    ],
+    [
+      "observer_refinement_interval",
+      null,
+      "7",
+      "Turns between automatic Observer compression checks"
+    ],
+    [
+      "pct_staged_chunk",
+      null,
+      "0.15",
+      "Share of budget for the chat client's persistent saved-chunk context (Attach tab Save button)"
+    ]
+  ]
+}

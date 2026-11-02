@@ -1,0 +1,35 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "GroqTranscribeModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "Whisper Large v3 Turbo",
+      "whisper-large-v3-turbo",
+      true
+    ],
+    [
+      "Whisper Large v3",
+      "whisper-large-v3",
+      false
+    ]
+  ],
+  "Config_Version": 1
+}

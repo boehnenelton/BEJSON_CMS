@@ -1,0 +1,134 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "ed2ffac9-9238-529b-9f5c-cecddd23fbeb",
+      "technical_manual",
+      "Technical Manual",
+      "A practical, example-driven manual for practitioners.",
+      "technical",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a practical technical manual. Each chapter has a title (no numbering) and a 2-4 sentence brief saying what it must cover and how it connects to the previous chapter. Group chapters into at most four parts.",
+      "You are a senior practitioner writing a precise, example-driven technical manual. Define terms on first use, show runnable examples, and end every chapter with a '## Summary' section.",
+      [
+        {
+          "title": "Foundations",
+          "brief": "Core concepts and the smallest working example.",
+          "kind": "chapter",
+          "part": "Foundations"
+        },
+        {
+          "title": "Building Blocks",
+          "brief": "The main components and how they compose.",
+          "kind": "chapter",
+          "part": "Foundations"
+        },
+        {
+          "title": "Testing and Delivery",
+          "brief": "Verifying and packaging the result.",
+          "kind": "chapter",
+          "part": "Delivery"
+        }
+      ],
+      [
+        "Summary"
+      ],
+      4,
+      40,
+      8,
+      600,
+      "strict",
+      [
+        "md",
+        "html",
+        "md_zip"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

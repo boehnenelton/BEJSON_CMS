@@ -32,6 +32,8 @@ from BEJSON_CMS_Shared import (
 from lib_bejson_Core_bejson_path_guard import safe_extract_zip
 from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
+import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+import lib_bejson_AI_ai_writing as AIWriting
 
 try:
     from bs4 import BeautifulSoup
@@ -47,6 +49,7 @@ def content_hub():
     <div class="page-header"><h1>Content Management</h1><p>Manage all your website content</p></div>
     <div class="grid grid-3">
         <a href="/pages" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128196;</div><h3>Pages</h3><p style="color:var(--text-secondary);">Create and edit pages</p></div></a>
+        <a href="/jobs" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128218;</div><h3>Blog Post Jobs (BKS-1)</h3><p style="color:var(--text-secondary);">4-part blog post plans, CLI_AI 48 execution, merge &amp; approve overwrite</p></div></a>
         <a href="/links" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128279;</div><h3>External Links</h3><p style="color:var(--text-secondary);">Manage external link references</p></div></a>
         <a href="/categories" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128193;</div><h3>Categories</h3><p style="color:var(--text-secondary);">Organize content by category</p></div></a>
         <a href="/import" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128229;</div><h3>HTML / MD Import</h3><p style="color:var(--text-secondary);">Import HTML or Markdown articles</p></div></a>
@@ -1703,6 +1706,602 @@ def api_import_process_item():
 
 
 # =============================================================================
+# BKS-1 STANDARDIZED 4-PART BLOG POST JOB SYSTEM (/jobs & /api/bks/*)
+# =============================================================================
+
+@content_cube.route('/jobs')
+@require_auth
+def bks_jobs_studio():
+    db.mount()
+    pages = [p for p in db.get_records("PageRecord") if p.get("page_type") != "external_link"]
+    categories = db.get_records("Category")
+    authors = db.get_records("AuthorProfile")
+    html = '''
+    <div class="page-header">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+                <h1>Standardized Blog Post Job Studio (BKS-1)</h1>
+                <p>Plan, execute 4-part blog posts via CLI_AI 48, merge into unified CMS HTML, and overwrite target posts on approve</p>
+            </div>
+            <span id="bks_job_badge" class="badge badge-page" style="font-size:0.8rem;padding:6px 12px;">No Active Job</span>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+        <div class="grid grid-2" style="gap:16px;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Saved BKS-1 Blog Post Jobs</label>
+                <div style="display:flex;gap:8px;">
+                    <select id="bks_job_select" class="form-control" onchange="if(this.value) loadBksJob(this.value)">
+                        <option value="">-- New 4-Part Blog Post Job --</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="refreshBksBootstrap()">&#8635;</button>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Target Post to Overwrite on Approve</label>
+                <select id="bks_target_page" class="form-control">
+                    <option value="">-- Create New CMS Post on Approve --</option>
+                    {% for p in pages %}<option value="{{ p.page_uuid }}">[Overwrite] {{ p.page_title }} ({{ p.page_cat_name or 'Uncategorized' }})</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-3" style="gap:16px;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Blog Post Job Template (BookType)</label>
+                <select id="bks_template_select" class="form-control"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">AI Provider (CLI_AI 48)</label>
+                <select id="bks_provider_select" class="form-control" onchange="syncBksModelOptions()"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">AI Model</label>
+                <select id="bks_model_select" class="form-control"></select>
+            </div>
+        </div>
+
+        <div class="grid grid-3" style="gap:16px;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Blog Post Title</label>
+                <input type="text" id="bks_title" class="form-control" placeholder="e.g. Zero-Dependency Local-First Architectures with BEJSON 104">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Category</label>
+                <select id="bks_category" class="form-control">
+                    {% for c in categories %}<option value="{{ c.cat_name }}">{{ c.cat_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Author / Voice Persona</label>
+                <select id="bks_author" class="form-control">
+                    {% for a in authors %}<option value="{{ a.author_display_name }}">{{ a.author_display_name }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Topic / Thesis / Architectural Brief</label>
+            <textarea id="bks_topic" class="form-control" style="min-height:100px;" placeholder="Describe the blog post topic, key arguments, code examples, and target audience..."></textarea>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+            <button type="button" class="btn btn-primary" onclick="generateBksPlan()">1. Generate 4-Part Plan &amp; Job</button>
+            <button type="button" class="btn btn-secondary" onclick="saveBksPlanEdits()">Save Plan Edits</button>
+            <button type="button" class="btn btn-primary" onclick="runNextBksPart()">2a. Execute Next Part</button>
+            <button type="button" class="btn btn-primary" onclick="runAllBksParts()">2b. Execute All 4 Parts &amp; Merge</button>
+            <button type="button" class="btn btn-secondary" onclick="mergeBksParts()">Re-Merge 4 Parts</button>
+            <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite Target Post</button>
+            <span id="bks_status_msg" style="margin-left:auto;font-family:monospace;font-size:0.85rem;color:var(--text-secondary);">READY</span>
+        </div>
+    </div>
+
+    <div id="bks_parts_container" style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;"></div>
+
+    <div id="bks_merged_panel" class="card" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+            <div>
+                <h3 style="margin-bottom:4px;">Merged 4-Part Blog Post Preview</h3>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0;">Unified 4-part Markdown + BEJSON CMS Article HTML ready to overwrite target post on approval</p>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669;" onclick="approveAndOverwriteTargetPost()">&#10003; Approve &amp; Overwrite Target Post</button>
+            </div>
+        </div>
+        <div class="grid grid-2" style="gap:16px;">
+            <div>
+                <label class="form-label">Merged 4-Part Markdown</label>
+                <textarea id="bks_merged_md" class="form-control" style="min-height:320px;font-family:monospace;font-size:0.82rem;"></textarea>
+            </div>
+            <div>
+                <label class="form-label">Rendered CMS Article HTML Preview</label>
+                <div id="bks_merged_html_preview" style="min-height:320px;max-height:480px;overflow-y:auto;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let currentBksJobSlug = '';
+    let currentBksDetail = null;
+    let currentPlan = [];
+    let bksProviderModels = {};
+
+    async function refreshBksBootstrap() {
+        const res = await fetch('/api/bks/bootstrap');
+        const data = await res.json();
+        if(!data.ok) return;
+
+        const tplSel = document.getElementById('bks_template_select');
+        const prevTpl = tplSel.value || 'blog_post_4part';
+        tplSel.innerHTML = '';
+        (data.templates || []).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.type_id;
+            opt.innerText = `${t.display_name} (${t.default_chapter_count} parts, ~${t.target_words_per_chapter}w/part)`;
+            tplSel.appendChild(opt);
+        });
+        if([...tplSel.options].some(o => o.value === prevTpl)) tplSel.value = prevTpl;
+
+        bksProviderModels = (data.ai && data.ai.models_by_provider) ? data.ai.models_by_provider : {};
+        const provSel = document.getElementById('bks_provider_select');
+        const prevProv = provSel.value || (data.ai && data.ai.default_provider) || 'gemini';
+        provSel.innerHTML = '';
+        ((data.ai && data.ai.providers) || ['gemini', 'groq', 'openrouter', 'openai']).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.innerText = p.toUpperCase();
+            provSel.appendChild(opt);
+        });
+        provSel.value = prevProv;
+        syncBksModelOptions((data.ai && data.ai.default_model) || '');
+
+        const jobSel = document.getElementById('bks_job_select');
+        const prevJob = currentBksJobSlug || jobSel.value;
+        jobSel.innerHTML = '<option value="">-- New 4-Part Blog Post Job --</option>';
+        (data.jobs || []).forEach(j => {
+            const opt = document.createElement('option');
+            opt.value = j.job_slug;
+            opt.innerText = `[${j.status.toUpperCase()}] ${j.job_name} (${j.accepted_parts || 0}/${j.chapter_count || 4} parts)`;
+            jobSel.appendChild(opt);
+        });
+        if(prevJob && [...jobSel.options].some(o => o.value === prevJob)) jobSel.value = prevJob;
+    }
+
+    function syncBksModelOptions(preferredModel) {
+        const prov = document.getElementById('bks_provider_select').value || 'gemini';
+        const modSel = document.getElementById('bks_model_select');
+        const prevMod = preferredModel || modSel.value;
+        modSel.innerHTML = '';
+        const list = bksProviderModels[prov] || [];
+        if(!list.length) {
+            const opt = document.createElement('option');
+            opt.value = 'gemini-2.5-flash';
+            opt.innerText = 'Default Model';
+            modSel.appendChild(opt);
+            return;
+        }
+        list.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.model_id;
+            opt.innerText = `${m.friendly_name} (${m.model_id})`;
+            modSel.appendChild(opt);
+        });
+        if(prevMod && [...modSel.options].some(o => o.value === prevMod)) modSel.value = prevMod;
+    }
+
+    async function loadBksJob(jobSlug) {
+        if(!jobSlug) return;
+        document.getElementById('bks_status_msg').innerText = 'LOADING JOB...';
+        const res = await fetch('/api/bks/job/' + encodeURIComponent(jobSlug));
+        const data = await res.json();
+        if(data.ok) {
+            applyBksJobDetail(data);
+            document.getElementById('bks_status_msg').innerText = 'JOB LOADED';
+        }
+    }
+
+    function applyBksJobDetail(data) {
+        currentBksDetail = data;
+        currentBksJobSlug = data.job_slug;
+        const jobSel = document.getElementById('bks_job_select');
+        if(jobSel && [...jobSel.options].some(o => o.value === data.job_slug)) jobSel.value = data.job_slug;
+        if(data.book) {
+            document.getElementById('bks_title').value = data.book.title || '';
+            document.getElementById('bks_topic').value = data.book.topic || data.book.thesis || '';
+            if(data.book.book_type_id) document.getElementById('bks_template_select').value = data.book.book_type_id;
+        }
+        if(data.link) {
+            if(data.link.target_page_uuid) document.getElementById('bks_target_page').value = data.link.target_page_uuid;
+            if(data.link.category_name) document.getElementById('bks_category').value = data.link.category_name;
+            if(data.link.author_name) document.getElementById('bks_author').value = data.link.author_name;
+        }
+        const badge = document.getElementById('bks_job_badge');
+        if(badge && data.book) {
+            badge.innerText = `JOB: ${data.job_slug} | ${(data.book.status || 'planned').toUpperCase()}`;
+        }
+        currentPlan = (data.chapters || []).map((c, idx) => ({
+            index: c.index || (idx + 1),
+            title: c.title,
+            brief: c.brief,
+            status: c.status,
+            content: c.body_md || '',
+            actual_words: c.actual_words || 0,
+            target_words: c.target_words || 450
+        }));
+        renderBksParts();
+        renderMergedPreview(data.merged_md || '', data.merged_html || '');
+    }
+
+    function renderBksParts() {
+        const cont = document.getElementById('bks_parts_container');
+        cont.innerHTML = '';
+        currentPlan.forEach((t, i) => {
+            const partIdx = t.index || (i + 1);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                        <span class="badge badge-page">PART ${partIdx}/4</span>
+                        <input type="text" id="bks-part-title-${i}" class="form-control" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700;">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span id="bks-part-status-${i}" style="font-family:monospace;font-size:0.8rem;">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:8px;">
+                    <label class="form-label" style="font-size:0.75rem;">Part ${partIdx} Brief &amp; Instructions</label>
+                    <textarea id="bks-part-brief-${i}" class="form-control" style="min-height:60px;font-size:0.85rem;">${t.brief || ''}</textarea>
+                </div>
+                <details ${t.content ? 'open' : ''}>
+                    <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">Part ${partIdx} Generated Markdown (${(t.content || '').length} chars)</summary>
+                    <textarea id="bks-part-body-${i}" class="form-control" style="min-height:140px;margin-top:8px;font-family:monospace;font-size:0.82rem;">${t.content || ''}</textarea>
+                </details>
+            `;
+            cont.appendChild(card);
+        });
+    }
+
+    function collectPartEditsFromDom() {
+        const parts = [];
+        for(let i=0; i<currentPlan.length; i++) {
+            const titleEl = document.getElementById(`bks-part-title-${i}`);
+            const briefEl = document.getElementById(`bks-part-brief-${i}`);
+            const bodyEl = document.getElementById(`bks-part-body-${i}`);
+            parts.push({
+                index: currentPlan[i].index || (i + 1),
+                title: titleEl ? titleEl.value : currentPlan[i].title,
+                brief: briefEl ? briefEl.value : currentPlan[i].brief,
+                body_md: bodyEl ? bodyEl.value : (currentPlan[i].content || '')
+            });
+        }
+        return parts;
+    }
+
+    async function generateBksPlan() {
+        const topic = document.getElementById('bks_topic').value;
+        const title = document.getElementById('bks_title').value;
+        if(!topic && !title) { alert('Enter a Topic or Blog Post Title first.'); return; }
+        document.getElementById('bks_status_msg').innerText = 'GENERATING 4-PART PLAN...';
+        const res = await fetch('/api/bks/create_plan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                topic: topic || title,
+                title: title,
+                book_type_id: document.getElementById('bks_template_select').value || 'blog_post_4part',
+                provider: document.getElementById('bks_provider_select').value || 'gemini',
+                model_id: document.getElementById('bks_model_select').value,
+                target_page_uuid: document.getElementById('bks_target_page').value,
+                category_name: document.getElementById('bks_category').value,
+                author_name: document.getElementById('bks_author').value
+            })
+        });
+        const data = await res.json();
+        if(data.ok) {
+            await refreshBksBootstrap();
+            applyBksJobDetail(data);
+            document.getElementById('bks_status_msg').innerText = '4-PART PLAN READY';
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    }
+
+    async function saveBksPlanEdits() {
+        if(!currentBksJobSlug) return;
+        const res = await fetch('/api/bks/update_plan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                job_slug: currentBksJobSlug,
+                title: document.getElementById('bks_title').value,
+                topic: document.getElementById('bks_topic').value,
+                target_page_uuid: document.getElementById('bks_target_page').value,
+                provider: document.getElementById('bks_provider_select').value,
+                model_id: document.getElementById('bks_model_select').value,
+                category_name: document.getElementById('bks_category').value,
+                author_name: document.getElementById('bks_author').value,
+                parts: collectPartEditsFromDom()
+            })
+        });
+        const data = await res.json();
+        if(data.ok) applyBksJobDetail(data);
+    }
+
+    async function runSingleBksPart(partIndex, domIdx) {
+        if(!currentBksJobSlug) {
+            await generateBksPlan();
+            if(!currentBksJobSlug) return;
+        } else {
+            await saveBksPlanEdits();
+        }
+        const st = document.getElementById(`bks-part-status-${domIdx}`);
+        if(st) st.innerText = 'WRITING VIA CLI_AI 48...';
+        document.getElementById('bks_status_msg').innerText = `WRITING PART ${partIndex}/4...`;
+        const res = await fetch('/api/bks/execute_part', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                job_slug: currentBksJobSlug,
+                part_index: partIndex,
+                provider: document.getElementById('bks_provider_select').value || 'gemini',
+                model_id: document.getElementById('bks_model_select').value,
+                author_name: document.getElementById('bks_author').value
+            })
+        });
+        const data = await res.json();
+        if(data.ok && data.detail) {
+            applyBksJobDetail(data.detail);
+            await refreshBksBootstrap();
+            document.getElementById('bks_status_msg').innerText = `PART ${partIndex} COMPLETED`;
+        } else {
+            alert('Part execution error: ' + (data.error || 'Unknown error'));
+        }
+    }
+
+    async function runNextBksPart() {
+        if(!currentBksJobSlug) {
+            await generateBksPlan();
+            if(!currentBksJobSlug) return;
+        }
+        const nextIdx = currentPlan.findIndex(p => p.status !== 'accepted');
+        const targetIdx = nextIdx >= 0 ? nextIdx : 0;
+        await runSingleBksPart(currentPlan[targetIdx].index || (targetIdx + 1), targetIdx);
+    }
+
+    async function runAllBksParts() {
+        if(!currentBksJobSlug) {
+            await generateBksPlan();
+            if(!currentBksJobSlug) return;
+        } else {
+            await saveBksPlanEdits();
+        }
+        for(let i=0; i<currentPlan.length; i++) {
+            await runSingleBksPart(currentPlan[i].index || (i + 1), i);
+        }
+        await mergeBksParts();
+        document.getElementById('bks_status_msg').innerText = 'ALL 4 PARTS EXECUTED & MERGED';
+    }
+
+    async function mergeBksParts() {
+        if(!currentBksJobSlug) return;
+        await saveBksPlanEdits();
+        const res = await fetch('/api/bks/merge', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({job_slug: currentBksJobSlug})
+        });
+        const data = await res.json();
+        if(data.ok) {
+            if(data.detail) applyBksJobDetail(data.detail);
+            renderMergedPreview(data.merged_md || '', data.merged_html || '');
+            document.getElementById('bks_status_msg').innerText = '4 PARTS MERGED';
+        }
+    }
+
+    function renderMergedPreview(mergedMd, mergedHtml) {
+        const panel = document.getElementById('bks_merged_panel');
+        if(!mergedMd && !mergedHtml) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        document.getElementById('bks_merged_md').value = mergedMd || '';
+        document.getElementById('bks_merged_html_preview').innerHTML = mergedHtml || '';
+    }
+
+    async function approveAndOverwriteTargetPost() {
+        if(!currentBksJobSlug) { alert('No active BKS-1 Blog Post Job to approve.'); return; }
+        await saveBksPlanEdits();
+        const target_page_uuid = document.getElementById('bks_target_page').value;
+        const title = document.getElementById('bks_title').value;
+        const msg = target_page_uuid
+            ? `Approve merged 4-part post and OVERWRITE target post (${target_page_uuid})?`
+            : `Approve merged 4-part post and create new CMS post "${title}"?`;
+        if(!confirm(msg)) return;
+        document.getElementById('bks_status_msg').innerText = 'APPROVING & OVERWRITING TARGET POST...';
+        const res = await fetch('/api/bks/approve', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                job_slug: currentBksJobSlug,
+                target_page_uuid: target_page_uuid,
+                title: title,
+                category_name: document.getElementById('bks_category').value,
+                author_name: document.getElementById('bks_author').value
+            })
+        });
+        const data = await res.json();
+        if(data.ok) {
+            document.getElementById('bks_status_msg').innerText = 'APPROVED & TARGET POST OVERWRITTEN';
+            if(confirm(`Approved! Target post "${data.title}" (${data.target_page_uuid}) was overwritten with the merged 4-part post (${data.word_count} words). Open in Page Editor now?`)) {
+                window.location.href = '/edit/' + data.target_page_uuid;
+            } else {
+                await refreshBksBootstrap();
+                await loadBksJob(currentBksJobSlug);
+            }
+        } else {
+            alert('Approve failed: ' + (data.error || 'Unknown error'));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', refreshBksBootstrap);
+    </script>
+    '''
+    return R(html, pages=pages, categories=categories, authors=authors,
+             breadcrumbs=get_breadcrumbs(request.path), active_section='content')
+
+
+@content_cube.route('/api/bks/bootstrap', methods=['GET'])
+@require_auth
+def content_api_bks_bootstrap():
+    try:
+        BKSJobs.cms_bks_bootstrap()
+        templates = BKSJobs.cms_bks_list_templates()
+        jobs = BKSJobs.cms_bks_list_jobs()
+        ai_info = AIWriting.ai_writing_get_providers_and_models()
+        db.mount()
+        pages = [p for p in db.get_records("PageRecord") if p.get("page_type") != "external_link"]
+        return jsonify({
+            "ok": True,
+            "templates": templates,
+            "jobs": jobs,
+            "ai": ai_info,
+            "pages": pages,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/job/<job_slug>', methods=['GET'])
+@require_auth
+def content_api_bks_get_job(job_slug):
+    try:
+        detail = BKSJobs.cms_bks_get_job_detail(job_slug)
+        return jsonify(detail)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/create_plan', methods=['POST'])
+@require_auth
+def content_api_bks_create_plan():
+    try:
+        d = request.json or {}
+        detail = BKSJobs.cms_bks_create_blog_job(
+            topic=d.get("topic") or d.get("prompt") or d.get("title") or "Untitled Blog Post",
+            title=d.get("title") or "",
+            book_type_id=d.get("book_type_id") or "blog_post_4part",
+            target_page_uuid=d.get("target_page_uuid") or "",
+            category_name=d.get("category_name") or "Uncategorized",
+            author_name=d.get("author_name") or "Elton Boehnen",
+            template_key=d.get("template_key") or "blank",
+            provider=d.get("provider") or "gemini",
+            model_id=d.get("model_id") or None,
+            use_ai_plan=bool(d.get("use_ai_plan", True)),
+        )
+        return jsonify(detail)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/update_plan', methods=['POST'])
+@require_auth
+def content_api_bks_update_plan():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        if not job_slug:
+            return jsonify({"ok": False, "error": "job_slug is required"}), 400
+        detail = BKSJobs.cms_bks_update_job_metadata_and_plan(
+            job_slug,
+            title=d.get("title"),
+            topic=d.get("topic"),
+            target_page_uuid=d.get("target_page_uuid"),
+            category_name=d.get("category_name"),
+            author_name=d.get("author_name"),
+            template_key=d.get("template_key"),
+            provider=d.get("provider"),
+            model_id=d.get("model_id"),
+            parts=d.get("parts"),
+        )
+        return jsonify(detail)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/execute_part', methods=['POST'])
+@require_auth
+def content_api_bks_execute_part():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        part_index = int(d.get("part_index") or 1)
+        res = BKSJobs.cms_bks_execute_part(
+            job_slug,
+            part_index,
+            provider=d.get("provider") or None,
+            model_id=d.get("model_id") or None,
+            author_name=d.get("author_name") or None,
+            custom_instructions=d.get("custom_instructions") or "",
+        )
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/execute_all', methods=['POST'])
+@require_auth
+def content_api_bks_execute_all():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        res = BKSJobs.cms_bks_execute_all_parts(
+            job_slug,
+            provider=d.get("provider") or None,
+            model_id=d.get("model_id") or None,
+            author_name=d.get("author_name") or None,
+        )
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/merge', methods=['POST'])
+@require_auth
+def content_api_bks_merge():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        res = BKSJobs.cms_bks_merge_parts(job_slug)
+        res["detail"] = BKSJobs.cms_bks_get_job_detail(job_slug)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/approve', methods=['POST'])
+@require_auth
+def content_api_bks_approve():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        res = BKSJobs.cms_bks_approve_and_overwrite_post(
+            job_slug,
+            target_page_uuid=d.get("target_page_uuid"),
+            title=d.get("title"),
+            category_name=d.get("category_name"),
+            author_name=d.get("author_name"),
+            template_key=d.get("template_key"),
+            merged_md_override=d.get("merged_md"),
+            merged_html_override=d.get("merged_html"),
+        )
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# =============================================================================
 # FACTORY RESET  (merged from Cleanup_Tool.py)
 # =============================================================================
+
 

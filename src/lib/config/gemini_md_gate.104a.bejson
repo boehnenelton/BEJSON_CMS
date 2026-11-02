@@ -1,0 +1,49 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "ScriptConfig"
+  ],
+  "Fields": [
+    {
+      "name": "setting_name",
+      "type": "string"
+    },
+    {
+      "name": "setting_value",
+      "type": "any"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "enabled",
+      true,
+      "Gate. When true and the file exists, its text is injected into the Persistent Policy allotment."
+    ],
+    [
+      "home_subdir",
+      ".gemini",
+      "Folder under the user's home directory (~). Matched case-insensitively (.Gemini, .GEMINI ...)."
+    ],
+    [
+      "file_name",
+      "GEMINI.md",
+      "File inside that folder. Matched case-insensitively (Gemini.md, GeMINI.Md ...)."
+    ],
+    [
+      "heading",
+      "GEMINI.md",
+      "Heading shown above the injected text inside the Persistent Policy allotment."
+    ],
+    [
+      "max_chars",
+      16000,
+      "Source cap in characters. The allotment's own budget still truncates further."
+    ]
+  ]
+}

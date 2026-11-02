@@ -1,0 +1,40 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "OllamaModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "GPT OSS 120B Cloud",
+      "gpt-oss:120b-cloud",
+      true
+    ],
+    [
+      "Qwen3 Coder 480B Cloud",
+      "qwen3-coder:480b-cloud",
+      false
+    ],
+    [
+      "DeepSeek v3.1 671B Cloud",
+      "deepseek-v3.1:671b-cloud",
+      false
+    ]
+  ],
+  "Config_Version": 1
+}

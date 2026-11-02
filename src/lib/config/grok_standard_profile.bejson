@@ -1,0 +1,50 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "AI_Profile"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "Name",
+      "type": "string"
+    },
+    {
+      "name": "Archetype",
+      "type": "string"
+    },
+    {
+      "name": "Persona",
+      "type": "string"
+    },
+    {
+      "name": "SystemInstruction",
+      "type": "string"
+    },
+    {
+      "name": "MaxResponseTokens",
+      "type": "integer"
+    },
+    {
+      "name": "Creativity",
+      "type": "number"
+    }
+  ],
+  "Values": [
+    [
+      "AI_Profile",
+      "Grok_Standard",
+      "Assistant",
+      "A helpful, direct AI assistant.",
+      "You are a helpful assistant. Provide clear, accurate, and concise information.",
+      8192,
+      0.7
+    ]
+  ],
+  "Config_Version": 2
+}

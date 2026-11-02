@@ -1,0 +1,119 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Job Schema",
+  "Schema_Version": "1.0",
+  "Schema_Description": "Custom job schema for the NewAgent task creation and tracking system, managing individual task states and optional auditing. Each task carries its own task_context (embedded, chunked files), task_reference (path-only refs), and task_mandatory (marks a task as a required, built-in step for the job's Job_Type/Job_Subtype). Job_Type/Job_Subtype classify the job; Contextualize_Plan/Contextualize_Last control what each task is injected with at run time. Also reused unmodified as the Template payload shape.",
+  "Job_Goal": "Write the book \"Template: 4-Part Engineering Deep Dive\", in English (en). Goal: Deep-dive architectural dissection across 4 parts: Context, Data Model, Runtime Engine, and Benchmarks.",
+  "Job_Type": "writing",
+  "Job_Subtype": "book",
+  "Contextualize_Plan": true,
+  "Contextualize_Last": true,
+  "Job_Complete": false,
+  "Creation_Date": "2026-11-02",
+  "Completion_Date": "",
+  "Records_Type": [
+    "JobTask"
+  ],
+  "Fields": [
+    {
+      "name": "task_id",
+      "type": "string"
+    },
+    {
+      "name": "task_order",
+      "type": "integer"
+    },
+    {
+      "name": "task_name",
+      "type": "string"
+    },
+    {
+      "name": "task_description",
+      "type": "string"
+    },
+    {
+      "name": "task_completed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_passed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_fail_reason",
+      "type": "string"
+    },
+    {
+      "name": "task_context",
+      "type": "array"
+    },
+    {
+      "name": "task_reference",
+      "type": "array"
+    },
+    {
+      "name": "task_mandatory",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "dd88901b-8068-4500-81a7-c088228f6270",
+      1,
+      "Architectural Context & System Boundaries",
+      "Map the system topology, design constraints, and why conventional approaches fall short.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "78828981-e3b5-4065-a105-d44cd28180d0",
+      2,
+      "Data Model, Memory Layout & Schema Contracts",
+      "Analyze the exact schema definitions, field maps, and persistence invariants.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "c9faf5a2-9340-4b88-b382-983bc4ac8cc5",
+      3,
+      "Runtime Execution Pipeline & Concurrency",
+      "Trace the step-by-step execution lifecycle, atomic file operations, and lock boundaries.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "71be9e4d-f186-4975-b9b7-a4d5955e30b2",
+      4,
+      "Adversarial Testing, Edge Cases & Synthesis",
+      "Evaluate edge-case resilience, invariant enforcement suites, and production conclusions.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ]
+  ]
+}

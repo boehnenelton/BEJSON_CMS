@@ -1,0 +1,200 @@
+{
+  "status": "PASS",
+  "tested_urls": [
+    {
+      "url": "http://127.0.0.1:8088/blog/projects/the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40/index.html",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8088/category/projects/index.html",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8088/index.html",
+      "status": 200
+    }
+  ],
+  "dom_audits": {
+    "post_105_core": {
+      "title": "The Integrity Era: Architectural Deep Dive into BEJSON 105 Core Libraries & MFDB v1.40 | My BEJSON Site",
+      "tableCount": 7,
+      "allTablesWrapped": true,
+      "tableAudits": [
+        {
+          "index": 0,
+          "wrapped": true,
+          "rows": 6
+        },
+        {
+          "index": 1,
+          "wrapped": true,
+          "rows": 5
+        },
+        {
+          "index": 2,
+          "wrapped": true,
+          "rows": 5
+        },
+        {
+          "index": 3,
+          "wrapped": true,
+          "rows": 4
+        },
+        {
+          "index": 4,
+          "wrapped": true,
+          "rows": 7
+        },
+        {
+          "index": 5,
+          "wrapped": true,
+          "rows": 5
+        },
+        {
+          "index": 6,
+          "wrapped": true,
+          "rows": 7
+        }
+      ],
+      "textareaCount": 11,
+      "allTextareasReadOnly": true,
+      "textareaAudits": [
+        {
+          "index": 0,
+          "isReadOnly": true,
+          "valueLength": 849
+        },
+        {
+          "index": 1,
+          "isReadOnly": true,
+          "valueLength": 766
+        },
+        {
+          "index": 2,
+          "isReadOnly": true,
+          "valueLength": 741
+        },
+        {
+          "index": 3,
+          "isReadOnly": true,
+          "valueLength": 1383
+        },
+        {
+          "index": 4,
+          "isReadOnly": true,
+          "valueLength": 848
+        },
+        {
+          "index": 5,
+          "isReadOnly": true,
+          "valueLength": 1006
+        },
+        {
+          "index": 6,
+          "isReadOnly": true,
+          "valueLength": 820
+        },
+        {
+          "index": 7,
+          "isReadOnly": true,
+          "valueLength": 515
+        },
+        {
+          "index": 8,
+          "isReadOnly": true,
+          "valueLength": 454
+        },
+        {
+          "index": 9,
+          "isReadOnly": true,
+          "valueLength": 427
+        },
+        {
+          "index": 10,
+          "isReadOnly": true,
+          "valueLength": 736
+        }
+      ],
+      "tocLinkCount": 42,
+      "brokenTocLinks": [],
+      "headingCount": 47
+    },
+    "category_projects": {
+      "title": "Projects | My BEJSON Site",
+      "articleCardCount": 2,
+      "links": [
+        {
+          "text": "MY BEJSON SITE",
+          "href": "http://127.0.0.1:8088/index.html"
+        },
+        {
+          "text": "HOME",
+          "href": "http://127.0.0.1:8088/index.html"
+        },
+        {
+          "text": "CATEGORIES \u25bc",
+          "href": "http://127.0.0.1:8088/category/projects/index.html#"
+        },
+        {
+          "text": "",
+          "href": "http://127.0.0.1:8088/category/uncategorized/index.html"
+        },
+        {
+          "text": "",
+          "href": "http://127.0.0.1:8088/category/bejson/index.html"
+        },
+        {
+          "text": "",
+          "href": "http://127.0.0.1:8088/category/projects/index.html"
+        },
+        {
+          "text": "APPLICATIONS",
+          "href": "http://127.0.0.1:8088/apps/index.html"
+        },
+        {
+          "text": "PAGE\nZero-SQL Archiving & Deterministic Snapshots: Dissecting Project Chunker's Ecosystem\n\nZero-SQL Archiving & Deterministic Snapshots: Dissecting Project Chunker's Ecosystem Author: Elton Boehnen (boehnenelton2024) \u2022 Category: Projects \u2022 Date: 2026-11-01 \u2022 Standard: BEJSON 104a / MFDB v1.31 \u2022 Architecture: Zero-SQL Deterministic...\n\n2026-11-01",
+          "href": "http://127.0.0.1:8088/blog/projects/zero-sql-archiving---deterministic-snapshots--dissecting-project-chunker-s-ecosystem/index.html"
+        },
+        {
+          "text": "PAGE\nThe Integrity Era: Architectural Deep Dive into BEJSON 105 Core Libraries & MFDB v1.40\n\nBEJSON Architecture Series \u2022 Release 300 Core Family The Integrity Era: Architectural Deep Dive into BEJSON 105 Core Libraries & MFDB v1.40 A complete, end-to-end technical compendium covering the evolution...\n\n2026-11-01",
+          "href": "http://127.0.0.1:8088/blog/projects/the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40/index.html"
+        },
+        {
+          "text": "Uncategorized",
+          "href": "http://127.0.0.1:8088/category/uncategorized/index.html"
+        },
+        {
+          "text": "BEJSON",
+          "href": "http://127.0.0.1:8088/category/bejson/index.html"
+        },
+        {
+          "text": "Projects",
+          "href": "http://127.0.0.1:8088/category/projects/index.html"
+        },
+        {
+          "text": "Home",
+          "href": "http://127.0.0.1:8088/index.html"
+        },
+        {
+          "text": "Apps",
+          "href": "http://127.0.0.1:8088/apps/index.html"
+        }
+      ]
+    }
+  },
+  "viewport_audits": {
+    "post_105_mobile": {
+      "windowInnerWidth": 375,
+      "bodyWidth": 375,
+      "scrollWidth": 375,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "console_errors": [],
+  "screenshots_taken": [
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/post_105_desktop_full.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/post_105_mobile_hero.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/category_projects_desktop.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/home_feed_desktop.png"
+  ]
+}

@@ -936,6 +936,110 @@ def cmd_db_list(args):
         print(f"Note: --filter is not supported for '{args.entity}' -- ignored.")
     print(json.dumps(recs, indent=2))
 
+
+# ─── BKS-1 Standardized Blog Post Job System CLI Commands ─────────────────────
+def cmd_job_templates(args):
+    import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+    BKSJobs.cms_bks_bootstrap()
+    print(json.dumps(BKSJobs.cms_bks_list_templates(), indent=2))
+
+
+def cmd_job_list(args):
+    import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+    BKSJobs.cms_bks_bootstrap()
+    print(json.dumps(BKSJobs.cms_bks_list_jobs(), indent=2))
+
+
+def cmd_job_create(args):
+    import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+    detail = BKSJobs.cms_bks_create_blog_job(
+        topic=args.topic or args.title or "Untitled Blog Post",
+        title=args.title or "",
+        book_type_id=args.template or "blog_post_4part",
+        target_page_uuid=args.target_uuid or "",
+        category_name=args.category or "Uncategorized",
+        author_name=args.author or "Elton Boehnen",
+        provider=args.provider or "gemini",
+        model_id=args.model or None,
+        use_ai_plan=not getattr(args, "no_ai_plan", False),
+    )
+    print(json.dumps({
+        "ok": detail.get("ok"),
+        "job_slug": detail.get("job_slug"),
+        "title": detail.get("book", {}).get("title"),
+        "book_type_id": detail.get("book", {}).get("book_type_id"),
+        "target_page_uuid": detail.get("link", {}).get("target_page_uuid"),
+        "chapters": [
+            {"index": c.get("index"), "title": c.get("title"), "brief": c.get("brief")}
+            for c in detail.get("chapters", [])
+        ],
+    }, indent=2))
+
+
+def cmd_job_run(args):
+    import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+    if getattr(args, "all", False) or not args.part:
+        res = BKSJobs.cms_bks_execute_all_parts(
+            args.job_slug,
+            provider=args.provider or None,
+            model_id=args.model or None,
+            author_name=args.author or None,
+        )
+    else:
+        res = BKSJobs.cms_bks_execute_part(
+            args.job_slug,
+            int(args.part),
+            provider=args.provider or None,
+            model_id=args.model or None,
+            author_name=args.author or None,
+        )
+    print(json.dumps({
+        "ok": res.get("ok"),
+        "job_slug": args.job_slug,
+        "status": res.get("detail", {}).get("book", {}).get("status"),
+        "word_count": res.get("merged", {}).get("word_count") if res.get("merged") else res.get("word_count"),
+    }, indent=2))
+
+
+def cmd_job_merge(args):
+    import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+    res = BKSJobs.cms_bks_merge_parts(args.job_slug)
+    print(json.dumps({
+        "ok": res.get("ok"),
+        "job_slug": args.job_slug,
+        "word_count": res.get("word_count"),
+        "merged_md_path": res.get("merged_md_path"),
+        "merged_html_path": res.get("merged_html_path"),
+    }, indent=2))
+
+
+def cmd_job_approve(args):
+    import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+    res = BKSJobs.cms_bks_approve_and_overwrite_post(
+        args.job_slug,
+        target_page_uuid=args.target_uuid or None,
+        title=args.title or None,
+        category_name=args.category or None,
+        author_name=args.author or None,
+    )
+    if getattr(args, "publish", False):
+        try:
+            sys.path.insert(0, str(SCRIPT_PATH / "web"))
+            import BEJSON_CMS_Publisher as Publisher
+            Publisher._execute()
+            res["published"] = True
+        except Exception as pub_err:
+            res["publish_error"] = str(pub_err)
+    print(json.dumps({
+        "ok": res.get("ok"),
+        "job_slug": res.get("job_slug"),
+        "target_page_uuid": res.get("target_page_uuid"),
+        "title": res.get("title"),
+        "word_count": res.get("word_count"),
+        "published": res.get("published", False),
+    }, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(description=f"BEJSON_CMS CLI Toolkit v{VERSION}")
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
@@ -1005,6 +1109,43 @@ def main():
     p_pmd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after import")
 
     page_sub.add_parser("list", help="List pages")
+
+    # BKS-1 Standardized 4-Part Blog Post Job Management
+    p_job = subparsers.add_parser("job", help="BKS-1 Standardized 4-Part Blog Post Job operations (CLI_AI 48)")
+    job_sub = p_job.add_subparsers(dest="op")
+
+    job_sub.add_parser("templates", help="List BKS-1 BookTypes and 4-Part Blog Post Job templates")
+    job_sub.add_parser("list", help="List all BKS-1 Blog Post Jobs")
+
+    p_jcreate = job_sub.add_parser("create", help="Create a 4-part blog post job & plan")
+    p_jcreate.add_argument("--topic", required=True, help="Blog post topic / thesis / prompt")
+    p_jcreate.add_argument("--title", default="", help="Blog post title (optional)")
+    p_jcreate.add_argument("--template", default="blog_post_4part", help="BookType ID (default: blog_post_4part)")
+    p_jcreate.add_argument("--target-uuid", default="", help="Target CMS page_uuid to overwrite on approve")
+    p_jcreate.add_argument("--category", default="Uncategorized", help="Category name")
+    p_jcreate.add_argument("--author", default="Elton Boehnen", help="Author / voice persona name")
+    p_jcreate.add_argument("--provider", default="gemini", help="CLI_AI 48 provider (gemini, groq, openrouter, openai, etc.)")
+    p_jcreate.add_argument("--model", default="", help="AI model ID")
+    p_jcreate.add_argument("--no-ai-plan", action="store_true", help="Use deterministic 4-part template plan without calling AI")
+
+    p_jrun = job_sub.add_parser("run", help="Execute 1 part or all 4 parts via CLI_AI 48 and merge")
+    p_jrun.add_argument("job_slug", help="Job slug")
+    p_jrun.add_argument("--part", type=int, help="Part index (1..4) to execute")
+    p_jrun.add_argument("--all", action="store_true", help="Execute all 4 parts sequentially and merge")
+    p_jrun.add_argument("--provider", default="", help="CLI_AI 48 provider override")
+    p_jrun.add_argument("--model", default="", help="Model ID override")
+    p_jrun.add_argument("--author", default="", help="Author / voice persona override")
+
+    p_jmerge = job_sub.add_parser("merge", help="Merge the 4 parts into unified Markdown and BEJSON CMS HTML")
+    p_jmerge.add_argument("job_slug", help="Job slug")
+
+    p_japprove = job_sub.add_parser("approve", help="Approve merged 4-part post and overwrite target CMS post")
+    p_japprove.add_argument("job_slug", help="Job slug")
+    p_japprove.add_argument("--target-uuid", default="", help="Target CMS page_uuid to overwrite (overrides job link)")
+    p_japprove.add_argument("--title", default="", help="Post title override")
+    p_japprove.add_argument("--category", default="", help="Category override")
+    p_japprove.add_argument("--author", default="", help="Author override")
+    p_japprove.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after overwriting target post")
 
     # Author Management
     p_author = subparsers.add_parser("author", help="Author operations")
@@ -1166,6 +1307,7 @@ def main():
         "commit": cmd_commit,
         "repack": cmd_commit,
         "page": lambda a: {"add": cmd_page_add, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
+        "job": lambda a: {"templates": cmd_job_templates, "list": cmd_job_list, "create": cmd_job_create, "run": cmd_job_run, "merge": cmd_job_merge, "approve": cmd_job_approve}.get(a.op)(a) if a.op else None,
         "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
         "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,
         "navlink": lambda a: {"add": cmd_nav_add, "delete": cmd_nav_delete, "list": cmd_nav_list}.get(a.op)(a) if a.op else None,
@@ -1188,3 +1330,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

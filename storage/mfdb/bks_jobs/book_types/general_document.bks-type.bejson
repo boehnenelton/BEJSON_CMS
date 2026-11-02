@@ -1,0 +1,128 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "35f5f370-b772-5890-9308-d9961b5d440a",
+      "general_document",
+      "General Document",
+      "A clear, well-organised document on any subject.",
+      "nonfiction",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a general document. Each chapter has a title (no numbering) and a 2-4 sentence brief saying what it must cover and how it connects to the previous chapter.",
+      "You are a clear, careful writer producing a well-organised document. Use plain language and short paragraphs.",
+      [
+        {
+          "title": "Overview",
+          "brief": "What the document covers and who it is for.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Main Content",
+          "brief": "The substance, in logical order.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Conclusion",
+          "brief": "What the reader should take away.",
+          "kind": "chapter"
+        }
+      ],
+      null,
+      1,
+      30,
+      5,
+      200,
+      "standard",
+      [
+        "md",
+        "html"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "AI_Model"
+  ],
+  "Fields": [
+    {
+      "name": "display_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    },
+    {
+      "name": "thinking_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "google_search_enabled",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "Gemini 3.8 Flash",
+      "gemini-3.8-flash",
+      false,
+      true,
+      true
+    ],
+    [
+      "Gemini 3.6 Flash",
+      "gemini-3.6-flash",
+      true,
+      true,
+      true
+    ],
+    [
+      "Gemini 3.1 Pro (Preview)",
+      "gemini-3.1-pro-preview",
+      false,
+      true,
+      true
+    ],
+    [
+      "Gemini 3.1 Flash-Lite",
+      "gemini-3.1-flash-lite",
+      false,
+      false,
+      false
+    ],
+    [
+      "Gemini 2.5 Flash",
+      "gemini-2.5-flash",
+      false,
+      false,
+      false
+    ]
+  ],
+  "Config_Version": 3
+}

@@ -1,0 +1,35 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "CMS_Service_Registry"
+  ],
+  "Fields": [
+    {
+      "name": "service_key",
+      "type": "string"
+    },
+    {
+      "name": "pid",
+      "type": "integer"
+    },
+    {
+      "name": "port",
+      "type": "integer"
+    },
+    {
+      "name": "port_bumped",
+      "type": "boolean"
+    },
+    {
+      "name": "started_iso",
+      "type": "string"
+    },
+    {
+      "name": "log_file",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

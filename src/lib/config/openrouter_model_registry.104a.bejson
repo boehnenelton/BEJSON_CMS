@@ -1,0 +1,198 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "OpenRouterModelRegistry",
+  "Records_Type": [
+    "OpenRouterModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    },
+    {
+      "name": "thinking_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "flag",
+      "type": "string"
+    },
+    {
+      "name": "service",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "Dots Studio: Dots3-Note Preview (free)",
+      "dots-studio/dots-3-note-preview:free",
+      true,
+      true,
+      "",
+      ""
+    ],
+    [
+      "LiquidAI: LFM2.5-2.6B (free)",
+      "liquid/lfm-2.5-2.6b:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "NVIDIA: Nemotron 3.5 Lightning (free)",
+      "nvidia/nemotron-3.5-lightning:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Thinking Machines: Inkling Small (free)",
+      "thinkingmachines/inkling-small:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Poolside: Laguna S 2.1 (free)",
+      "poolside/laguna-s-2.1:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Thinking Machines: Inkling (free)",
+      "thinkingmachines/inkling:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Poolside: Laguna XS 2.1 (free)",
+      "poolside/laguna-xs-2.1:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Cohere: North Mini Code (free)",
+      "cohere/north-mini-code:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Z.ai: GLM 5.2 (free)",
+      "z-ai/glm-5.2:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "NVIDIA: Nemotron 3.5 Content Safety (free)",
+      "nvidia/nemotron-3.5-content-safety:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "NVIDIA: Nemotron 3 Ultra (free)",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "MiniMax: MiniMax M3 (free)",
+      "minimax/minimax-m3:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "NVIDIA: Nemotron 3 Nano Omni (free)",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Google: Gemma 4 26B A4B  (free)",
+      "google/gemma-4-26b-a4b-it:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Google: Gemma 4 31B (free)",
+      "google/gemma-4-31b-it:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Google: Lyria 3 Pro Preview",
+      "google/lyria-3-pro-preview",
+      false,
+      false,
+      "",
+      ""
+    ],
+    [
+      "Google: Lyria 3 Clip Preview",
+      "google/lyria-3-clip-preview",
+      false,
+      false,
+      "",
+      ""
+    ],
+    [
+      "MiniMax: MiniMax M2.7 (free)",
+      "minimax/minimax-m2.7:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "NVIDIA: Nemotron 3 Super (free)",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      false,
+      true,
+      "",
+      ""
+    ],
+    [
+      "Free Models Router",
+      "openrouter/free",
+      false,
+      true,
+      "",
+      ""
+    ]
+  ],
+  "Config_Version": 3
+}

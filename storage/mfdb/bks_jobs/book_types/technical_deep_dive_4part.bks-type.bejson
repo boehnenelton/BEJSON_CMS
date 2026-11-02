@@ -1,0 +1,133 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "1734ecd7-b139-52f2-8c0a-e6da8480f190",
+      "technical_deep_dive_4part",
+      "4-Part Engineering Deep Dive",
+      "Deep-dive architectural dissection across 4 parts: Context, Data Model, Runtime Engine, and Benchmarks.",
+      "analysis",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a 4-part engineering deep dive. Each chapter has a title (no numbering) and a 2-4 sentence brief saying what it must dissect and how it connects to the previous part.",
+      "You are a principal systems engineer authoring a forensic 4-part architectural deep dive. Ground explanations in real data layouts, deterministic state transitions, and empirical verification.",
+      [
+        {
+          "title": "Architectural Context & System Boundaries",
+          "brief": "Map the system topology, design constraints, and why conventional approaches fall short.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Data Model, Memory Layout & Schema Contracts",
+          "brief": "Analyze the exact schema definitions, field maps, and persistence invariants.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Runtime Execution Pipeline & Concurrency",
+          "brief": "Trace the step-by-step execution lifecycle, atomic file operations, and lock boundaries.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Adversarial Testing, Edge Cases & Synthesis",
+          "brief": "Evaluate edge-case resilience, invariant enforcement suites, and production conclusions.",
+          "kind": "chapter"
+        }
+      ],
+      null,
+      4,
+      4,
+      4,
+      150,
+      "standard",
+      [
+        "md",
+        "html"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

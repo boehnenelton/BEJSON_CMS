@@ -37,6 +37,7 @@ VERSION = 184
 
 from flask import Flask, render_template_string, request, redirect, flash, jsonify, send_file, Response
 import os, re, uuid, json, sys, html as _html, io
+from pathlib import Path
 from datetime import datetime
 
 try:
@@ -194,16 +195,42 @@ def get_context_content(filenames):
     return content
 
 # =============================================================================
-# GEMINI & TASKING API
+# CLI_AI 48 & BKS-1 STANDARDIZED BOOK / BLOG JOB API
 # =============================================================================
 
+from lib_bejson_AI_ai_writing import (
+    ai_writing_call,
+    ai_writing_get_providers_and_models,
+    _extract_json_payload,
+    _strip_outer_code_fence,
+)
+from lib_bejson_CMS_bks_blog_jobs import (
+    cms_bks_approve_and_overwrite_post,
+    cms_bks_bootstrap,
+    cms_bks_create_blog_job,
+    cms_bks_execute_all_parts,
+    cms_bks_execute_part,
+    cms_bks_get_job_detail,
+    cms_bks_list_jobs,
+    cms_bks_list_templates,
+    cms_bks_merge_parts,
+    cms_bks_update_job_metadata_and_plan,
+)
+
 def get_gemini_models():
-    if not os.path.exists(MODEL_REGISTRY_PATH): return []
+    info = ai_writing_get_providers_and_models()
+    models = info.get("models", [])
+    if models:
+        return models
+    if not os.path.exists(MODEL_REGISTRY_PATH):
+        return []
     try:
-        with open(MODEL_REGISTRY_PATH, 'r') as f: reg = json.load(f)
+        with open(MODEL_REGISTRY_PATH, 'r') as f:
+            reg = json.load(f)
         fields = [f['name'] for f in reg['Fields']]
         return [dict(zip(fields, row)) for row in reg['Values']]
-    except: return []
+    except Exception:
+        return []
 
 @app.route("/api/ping")
 def api_ping():
@@ -211,87 +238,268 @@ def api_ping():
 
 @app.route('/api/settings/models')
 def api_get_models():
-    return jsonify({"ok": True, "models": get_gemini_models()})
+    info = ai_writing_get_providers_and_models()
+    return jsonify({
+        "ok": True,
+        "models": info.get("models", []),
+        "providers": info.get("providers", []),
+        "models_by_provider": info.get("models_by_provider", {}),
+    })
+
+@app.route('/api/bks/bootstrap')
+def api_bks_bootstrap():
+    db.mount()
+    pages = db.get_records("PageRecord")
+    categories = db.get_records("Category")
+    authors = db.get_records("AuthorProfile")
+    ai_info = ai_writing_get_providers_and_models()
+    return jsonify({
+        "ok": True,
+        "templates": cms_bks_list_templates(Path(PROJECT_ROOT)),
+        "jobs": cms_bks_list_jobs(Path(PROJECT_ROOT)),
+        "pages": pages,
+        "categories": categories,
+        "authors": authors,
+        "ai": ai_info,
+        "providers": ai_info["providers"],
+        "models_by_provider": ai_info["models_by_provider"],
+        "models": ai_info["models"],
+    })
+
+@app.route('/api/bks/job/<job_slug>')
+def api_bks_get_job(job_slug):
+    detail = cms_bks_get_job_detail(Path(PROJECT_ROOT), job_slug)
+    return jsonify(detail)
+
+@app.route('/api/bks/create_plan', methods=['POST'])
+def api_bks_create_plan():
+    data = request.get_json(silent=True) or {}
+    topic = (data.get("topic") or data.get("prompt") or data.get("title") or "").strip()
+    if not topic:
+        return jsonify({"ok": False, "error": "Topic / prompt is required"})
+    title = (data.get("title") or "").strip() or None
+    target_page_uuid = (data.get("target_page_uuid") or "").strip() or None
+    booktype_slug = (data.get("booktype_slug") or data.get("book_type_id") or "blog_post_4part").strip()
+    chapter_count = int(data.get("chapter_count") or 4)
+    category = (data.get("category") or data.get("category_name") or "Uncategorized").strip()
+    author = (data.get("author") or data.get("author_name") or data.get("profile_name") or "boehnenelton2024").strip()
+    page_type = (data.get("page_type") or "blog").strip()
+    provider = (data.get("provider") or "geminirest").strip()
+    model_id = (data.get("model") or data.get("model_id") or "").strip() or None
+    use_ai_plan = data.get("use_ai_plan", True)
+    custom_nodes = data.get("custom_nodes")
+
+    persona = writer.get_persona(author) if author else None
+    persona_inst = writer.assemble_system_instruction(persona) if persona else None
+    ctx_files = data.get("context_files") or []
+    ctx_text = get_context_content(ctx_files) if ctx_files else (data.get("context_text") or "")
+
+    try:
+        detail = cms_bks_create_blog_job(
+            Path(PROJECT_ROOT),
+            topic=topic,
+            title=title,
+            target_page_uuid=target_page_uuid,
+            booktype_slug=booktype_slug,
+            chapter_count=chapter_count,
+            category=category,
+            author=author,
+            page_type=page_type,
+            provider=provider,
+            model_id=model_id,
+            author_system_instruction=persona_inst,
+            context_text=ctx_text,
+            use_ai_plan=bool(use_ai_plan),
+            custom_nodes=custom_nodes,
+        )
+        return jsonify(detail)
+    except Exception as err:
+        return jsonify({"ok": False, "error": str(err)})
+
+@app.route('/api/bks/update_plan', methods=['POST'])
+def api_bks_update_plan():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    detail = cms_bks_update_job_metadata_and_plan(
+        Path(PROJECT_ROOT),
+        job_slug,
+        title=data.get("title"),
+        topic=data.get("topic"),
+        target_page_uuid=data.get("target_page_uuid"),
+        category=data.get("category") or data.get("category_name"),
+        author=data.get("author") or data.get("author_name"),
+        template_key=data.get("template_key"),
+        page_type=data.get("page_type"),
+        provider=data.get("provider"),
+        model_id=data.get("model_id"),
+        parts_updates=data.get("parts"),
+    )
+    return jsonify(detail)
+
+@app.route('/api/bks/execute_part', methods=['POST'])
+def api_bks_execute_part():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    author = data.get("author") or data.get("author_name") or data.get("profile_name")
+    persona = writer.get_persona(author) if author else None
+    persona_inst = writer.assemble_system_instruction(persona) if persona else None
+    ctx_files = data.get("context_files") or []
+    ctx_text = get_context_content(ctx_files) if ctx_files else (data.get("context_text") or "")
+
+    detail = cms_bks_execute_part(
+        Path(PROJECT_ROOT),
+        job_slug,
+        part_index=data.get("part_index"),
+        chapter_uuid=data.get("chapter_uuid"),
+        provider=data.get("provider"),
+        model_id=data.get("model") or data.get("model_id"),
+        author_system_instruction=persona_inst,
+        extra_context=ctx_text,
+        custom_body_md=data.get("custom_body_md"),
+        min_words_override=data.get("min_words_override"),
+    )
+    return jsonify(detail)
+
+@app.route('/api/bks/execute_all', methods=['POST'])
+def api_bks_execute_all():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    author = data.get("author") or data.get("author_name") or data.get("profile_name")
+    persona = writer.get_persona(author) if author else None
+    persona_inst = writer.assemble_system_instruction(persona) if persona else None
+    ctx_files = data.get("context_files") or []
+    ctx_text = get_context_content(ctx_files) if ctx_files else (data.get("context_text") or "")
+
+    detail = cms_bks_execute_all_parts(
+        Path(PROJECT_ROOT),
+        job_slug,
+        provider=data.get("provider"),
+        model_id=data.get("model") or data.get("model_id"),
+        author_system_instruction=persona_inst,
+        extra_context=ctx_text,
+        force_all=bool(data.get("force_all", False)),
+        min_words_override=data.get("min_words_override"),
+    )
+    return jsonify(detail)
+
+@app.route('/api/bks/merge', methods=['POST'])
+def api_bks_merge():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    res = cms_bks_merge_parts(Path(PROJECT_ROOT), job_slug)
+    res["detail"] = cms_bks_get_job_detail(Path(PROJECT_ROOT), job_slug)
+    return jsonify(res)
+
+@app.route('/api/bks/approve', methods=['POST'])
+def api_bks_approve():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    res = cms_bks_approve_and_overwrite_post(
+        Path(PROJECT_ROOT),
+        job_slug,
+        target_page_uuid=data.get("target_page_uuid"),
+        title_override=data.get("title"),
+        category_override=data.get("category") or data.get("category_name"),
+        author_override=data.get("author") or data.get("author_name"),
+        template_key=data.get("template_key"),
+        page_type_override=data.get("page_type"),
+        edited_markdown=data.get("edited_markdown") or data.get("merged_md"),
+        trigger_publish=bool(data.get("trigger_publish", False)),
+    )
+    return jsonify(res)
 
 @app.route('/api/tasking/generate_plan', methods=['POST'])
 def api_generate_plan():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     prompt = data.get('prompt')
+    provider = data.get('provider', 'geminirest')
     model = data.get('model', 'gemini-2.5-flash')
-    profile_name = data.get('profile_name')  # optional AI_Profile persona name
-    if not prompt: return jsonify({"ok": False, "error": "Prompt required"})
+    profile_name = data.get('profile_name')
+    if not prompt:
+        return jsonify({"ok": False, "error": "Prompt required"})
 
-    plan_format_inst = "You are an expert content architect. Break down the request into a JSON array of objects: [{\"title\": \"...\", \"prompt\": \"...\"}]"
-
-    # Connect to author profiles: if a persona is selected, its assembled
-    # voice/tone (same helper BEJSON_CMS_ProfileManager.py's personas are
-    # built from) shapes the plan on top of the required JSON-array
-    # formatting constraint, which always applies regardless of persona.
-    persona = writer.get_persona(profile_name) if profile_name else None
-    if persona:
-        plan_sys_inst = writer.assemble_system_instruction(persona) + "\n\n" + plan_format_inst
-        temperature = float(persona.get("Creativity", 0.7))
-    else:
-        plan_sys_inst = plan_format_inst
-        temperature = 0.7
-
-    if not _REQUESTS_AVAILABLE:
-        return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
-    key = writer._get_key()
-    if not key: return jsonify({"ok": False, "error": "No API keys found"})
-
-    payload = {
-        "contents": [{"parts": [{"text": f"Build a plan for: {prompt}"}]}],
-        "system_instruction": {"parts": [{"text": plan_sys_inst}]},
-        "generationConfig": {"response_mime_type": "application/json", "temperature": temperature}
-    }
-    try:
-        res = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", json=payload, timeout=90)
-        res.raise_for_status()
-        tasks = json.loads(res.json()["candidates"][0]["content"]["parts"][0]["text"])
-        return jsonify({"ok": True, "tasks": tasks})
-    except Exception as e: return jsonify({"ok": False, "error": str(e)})
+    # Create a full BKS-1 4-part blog post job & plan backed by CLI_AI 48 ai_dispatch_call
+    res = cms_bks_create_blog_job(
+        Path(PROJECT_ROOT),
+        topic=prompt,
+        title=data.get('title'),
+        target_page_uuid=data.get('target_page_uuid'),
+        booktype_slug=data.get('booktype_slug', 'blog_post_4part'),
+        chapter_count=int(data.get('chapter_count', 4)),
+        category=data.get('category', 'Uncategorized'),
+        author=profile_name or 'boehnenelton2024',
+        page_type=data.get('page_type', 'blog'),
+        provider=provider,
+        model_id=model,
+        use_ai_plan=True,
+    )
+    if not res.get("ok"):
+        return jsonify({"ok": False, "error": res.get("error", "Plan generation failed")})
+    tasks = [
+        {"title": p["title"], "prompt": p["brief"], "chapter_uuid": p["chapter_uuid"]}
+        for p in res.get("parts", [])
+    ]
+    return jsonify({"ok": True, "tasks": tasks, "job": res})
 
 @app.route('/api/tasking/execute_task', methods=['POST'])
 def api_execute_task():
-    data = request.json
-    task_title, task_prompt, full_plan = data.get('title'), data.get('prompt'), data.get('full_plan', [])
+    data = request.get_json(silent=True) or {}
+    task_title = data.get('title', 'Part')
+    task_prompt = data.get('prompt')
+    full_plan = data.get('full_plan', [])
+    provider = data.get('provider', 'geminirest')
     model = data.get('model', 'gemini-2.5-flash')
-    profile_name = data.get('profile_name')  # optional AI_Profile persona name
-    if not task_prompt: return jsonify({"ok": False, "error": "Prompt required"})
+    profile_name = data.get('profile_name')
+    job_slug = data.get('job_slug')
+    chapter_uuid = data.get('chapter_uuid')
 
-    plan_context = "\n".join([f"- {t['title']}" for t in full_plan])
+    if job_slug:
+        res = cms_bks_execute_part(
+            Path(PROJECT_ROOT),
+            job_slug,
+            chapter_uuid=chapter_uuid,
+            provider=provider,
+            model_id=model,
+        )
+        if res.get("ok"):
+            step = res.get("step_result") or {}
+            md_body = step.get("body_md") or ""
+            parsed = convert_markdown_to_cms_article(md_body, task_title)
+            return jsonify({
+                "ok": True,
+                "content": parsed["html_body"],
+                "markdown": md_body,
+                "step_result": step,
+                "job": res,
+            })
+        return jsonify({"ok": False, "error": res.get("error", "Part execution failed")})
+
+    if not task_prompt:
+        return jsonify({"ok": False, "error": "Prompt required"})
+
+    plan_context = "\n".join([f"- {t['title']}" for t in full_plan if isinstance(t, dict) and t.get('title')])
     format_inst = f"Document Plan:\n{plan_context}\n\nTask: {task_title}\nOutput ONLY clean HTML body content. No ``` tags."
-
-    # Same persona connection as generate_plan above -- the persona's voice
-    # shapes the writing, the format constraint (clean HTML, no fences)
-    # always applies on top of it regardless of persona.
-    persona = writer.get_persona(profile_name) if profile_name else None
-    if persona:
-        exec_sys_inst = writer.assemble_system_instruction(persona) + "\n\n" + format_inst
-        gen_config = {
-            "temperature": float(persona.get("Creativity", 0.7)),
-            "maxOutputTokens": int(persona.get("MaxResponseTokens", 8192)),
-        }
-    else:
-        exec_sys_inst = format_inst
-        gen_config = {}
-
-    if not _REQUESTS_AVAILABLE:
-        return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
-    key = writer._get_key()
-    if not key: return jsonify({"ok": False, "error": "No API keys found"})
-
-    payload = {"contents": [{"parts": [{"text": task_prompt}]}], "system_instruction": {"parts": [{"text": exec_sys_inst}]}}
-    if gen_config:
-        payload["generationConfig"] = gen_config
-    try:
-        res = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", json=payload, timeout=120)
-        res.raise_for_status()
-        content = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        if content.startswith("```"): content = re.sub(r'^```html?\n?|\n?```$', '', content)
-        return jsonify({"ok": True, "content": content})
-    except Exception as e: return jsonify({"ok": False, "error": str(e)})
+    resp = writer.dispatch_ai(
+        task_prompt,
+        provider=provider,
+        model=model,
+        persona_name=profile_name,
+        system_instruction=format_inst,
+    )
+    if not resp.get("success"):
+        return jsonify({"ok": False, "error": resp.get("error", "AI call failed")})
+    content = _strip_outer_code_fence(resp.get("content", ""))
+    return jsonify({"ok": True, "content": content})
 
 # =============================================================================
 # CMS INTEGRATION API
@@ -815,14 +1023,97 @@ _SHELL = """
 
     <div id="t-tasking" class="tab-content">
         <div class="editor-wrap">
-            <h2>AI Content Architect</h2>
-            <textarea id="task_prompt" style="min-height:150px; margin-bottom:20px; margin-top:20px;" placeholder="What are we building today?"></textarea>
-            <div class="flex-row toolbar-row" style="margin-bottom:20px;">
-                <button class="btn btn-green" onclick="generateTaskPlan()">Generate Plan</button>
-                <button class="btn" id="exec-btn" onclick="runTaskingPlan()">Execute All</button>
-                <button class="btn btn-black" onclick="importPlanToEditor()">Import to Editor</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+                <div>
+                    <h2 style="margin-bottom:4px;">AI Content Architect &mdash; BKS-1 4-Part Blog Job System</h2>
+                    <div style="font-size:0.75rem; color:var(--muted);">Standardized Book/Blog Job System (104db Book + 104a JobMaker Plan) powered by CLI_AI 48</div>
+                </div>
+                <span id="bks_job_badge" style="font-family:var(--mono); font-size:0.72rem; padding:5px 10px; border-radius:6px; background:#141414; border:1px solid var(--border); color:var(--muted);">No Active Job</span>
             </div>
+
+            <!-- Saved Jobs + Target Post Row -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px; background:#080808; padding:15px; border-radius:10px; border:1px solid var(--border);">
+                <div class="fg" style="margin-bottom:0;">
+                    <label>Saved BKS-1 Blog Post Jobs</label>
+                    <div style="display:flex; gap:8px;">
+                        <select id="bks_job_select" onchange="if(this.value) loadBksJob(this.value)">
+                            <option value="">-- New 4-Part Blog Job --</option>
+                        </select>
+                        <button type="button" class="btn btn-black btn-sm" onclick="refreshBksBootstrap()">&#8635;</button>
+                    </div>
+                </div>
+                <div class="fg" style="margin-bottom:0;">
+                    <label>Target Post to Overwrite on Approve</label>
+                    <select id="bks_target_page">
+                        <option value="">-- Create New CMS Post on Approve --</option>
+                        {% for p in pages %}<option value="{{p.page_uuid}}">[Overwrite] {{p.page_title}} ({{p.page_cat_name}})</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Template + AI Provider + Model Row -->
+            <div style="display:grid; grid-template-columns:1.2fr 0.9fr 1.2fr; gap:15px; margin-bottom:15px;">
+                <div class="fg" style="margin-bottom:0;">
+                    <label>Blog Post Job Template (BookType)</label>
+                    <select id="bks_template_select"></select>
+                </div>
+                <div class="fg" style="margin-bottom:0;">
+                    <label>AI Provider (CLI_AI 48)</label>
+                    <select id="bks_provider_select" onchange="syncBksModelOptions()"></select>
+                </div>
+                <div class="fg" style="margin-bottom:0;">
+                    <label>AI Model</label>
+                    <select id="bks_model_select"></select>
+                </div>
+            </div>
+
+            <!-- Post Title + Topic / Prompt -->
+            <div class="fg" style="margin-bottom:12px;">
+                <label>Blog Post Title (Optional &mdash; Auto-Derived if Blank)</label>
+                <input type="text" id="bks_title" placeholder="e.g. Zero-Dependency Local-First Architectures with BEJSON 104">
+            </div>
+            <div class="fg" style="margin-bottom:15px;">
+                <label>Topic / Thesis / Architectural Brief</label>
+                <textarea id="task_prompt" style="min-height:110px;" placeholder="Describe the blog post topic, key arguments, code examples, and target audience..."></textarea>
+            </div>
+
+            <!-- Workflow Action Bar -->
+            <div class="flex-row toolbar-row" style="margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                <button class="btn btn-green" onclick="generateTaskPlan()">1. Generate 4-Part Plan &amp; Job</button>
+                <button class="btn btn-black" onclick="saveBksPlanEdits()">Save Plan Edits</button>
+                <button class="btn" onclick="runNextBksPart()">2a. Execute Next Part</button>
+                <button class="btn" id="exec-btn" onclick="runTaskingPlan()">2b. Execute All 4 Parts &amp; Merge</button>
+                <button class="btn btn-black" onclick="mergeBksParts()">Re-Merge 4 Parts</button>
+                <button class="btn btn-green" style="background:#059669; border-color:#059669;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite Target Post</button>
+                <button class="btn btn-black" onclick="importPlanToEditor()">Import to Editor Tab</button>
+            </div>
+
+            <!-- 4-Part Plan & Execution Cards -->
             <div id="task_container"></div>
+
+            <!-- Merged 4-Part Post Preview & Approve Panel -->
+            <div id="bks_merged_panel" style="display:none; margin-top:25px; background:#080808; border:1px solid var(--border); border-radius:12px; padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+                    <div>
+                        <h3 style="font-size:1rem; margin-bottom:4px;">Merged 4-Part Blog Post Preview</h3>
+                        <div id="bks_merged_stats" style="font-size:0.75rem; color:var(--muted);">4 parts merged into unified Markdown + BEJSON CMS HTML</div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-green btn-sm" onclick="approveAndOverwriteTargetPost()">&#10003; Approve &amp; Overwrite Target Post</button>
+                        <button class="btn btn-black btn-sm" onclick="importPlanToEditor()">Load Merged HTML into Editor</button>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                    <div>
+                        <label>Merged 4-Part Markdown</label>
+                        <textarea id="bks_merged_md" style="min-height:280px; font-size:0.78rem;"></textarea>
+                    </div>
+                    <div>
+                        <label>Rendered CMS Article HTML Preview</label>
+                        <div id="bks_merged_html_preview" style="min-height:280px; max-height:420px; overflow-y:auto; background:#0e0e0e; border:1px solid var(--border); border-radius:8px; padding:15px; font-size:0.85rem; line-height:1.6;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -861,6 +1152,9 @@ _SHELL = """
 <script>
 const DEFAULT_HTML = `{{ default_html|safe }}`;
 let currentPlan = [];
+let currentBksJobSlug = '';
+let currentBksDetail = null;
+let bksProviderModels = {};
 
 function toggleMenu() {
     document.getElementById('s-menu').classList.toggle('open');
@@ -874,6 +1168,7 @@ function showTab(id) {
     document.getElementById('l-' + id).classList.add('active');
     if(id === 'settings') loadModels();
     if(id === 'context') initStorage();
+    if(id === 'tasking') refreshBksBootstrap();
     toggleMenu();
 }
 
@@ -900,6 +1195,10 @@ async function loadPageData(uuid) {
         _featuredVideoLoaded = false;
         document.getElementById('featured-video-panel').style.display = 'none';
         document.getElementById('html_body').value = data.content;
+        const targetSel = document.getElementById('bks_target_page');
+        if(targetSel) targetSel.value = uuid;
+        const titleInput = document.getElementById('bks_title');
+        if(titleInput && !titleInput.value) titleInput.value = data.page.page_title || '';
         document.getElementById('status_msg').innerText = 'LOADED';
     }
 }
@@ -963,26 +1262,163 @@ async function loadModels() {
     });
 }
 
-// AI Tasking Logic
+// =============================================================================
+// BKS-1 STANDARDIZED 4-PART BLOG POST JOB SYSTEM + CLI_AI 48 DISPATCH
+// =============================================================================
+async function refreshBksBootstrap() {
+    try {
+        const res = await fetch('/api/bks/bootstrap');
+        const data = await res.json();
+        if(!data.ok) return;
+
+        // Populate Templates
+        const tplSel = document.getElementById('bks_template_select');
+        const prevTpl = tplSel.value || 'blog_post_4part';
+        tplSel.innerHTML = '';
+        (data.templates || []).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.type_id;
+            opt.innerText = `${t.display_name} (${t.default_chapter_count} parts, ~${t.target_words_per_chapter}w/part)`;
+            tplSel.appendChild(opt);
+        });
+        if([...tplSel.options].some(o => o.value === prevTpl)) tplSel.value = prevTpl;
+
+        // Populate Providers & Models
+        bksProviderModels = (data.ai && data.ai.models_by_provider) ? data.ai.models_by_provider : {};
+        const provSel = document.getElementById('bks_provider_select');
+        const prevProv = provSel.value || (data.ai && data.ai.default_provider) || 'gemini';
+        provSel.innerHTML = '';
+        ((data.ai && data.ai.providers) || ['gemini', 'groq', 'openrouter', 'openai']).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.innerText = p.toUpperCase();
+            provSel.appendChild(opt);
+        });
+        provSel.value = prevProv;
+        syncBksModelOptions((data.ai && data.ai.default_model) || '');
+
+        // Populate Saved Jobs
+        const jobSel = document.getElementById('bks_job_select');
+        const prevJob = currentBksJobSlug || jobSel.value;
+        jobSel.innerHTML = '<option value="">-- New 4-Part Blog Job --</option>';
+        (data.jobs || []).forEach(j => {
+            const opt = document.createElement('option');
+            opt.value = j.job_slug;
+            opt.innerText = `[${j.status.toUpperCase()}] ${j.job_name} (${j.accepted_parts || 0}/${j.chapter_count || 4} parts)`;
+            jobSel.appendChild(opt);
+        });
+        if(prevJob && [...jobSel.options].some(o => o.value === prevJob)) {
+            jobSel.value = prevJob;
+        }
+    } catch(e) {
+        console.error('BKS bootstrap error:', e);
+    }
+}
+
+function syncBksModelOptions(preferredModel) {
+    const prov = document.getElementById('bks_provider_select').value || 'gemini';
+    const modSel = document.getElementById('bks_model_select');
+    const prevMod = preferredModel || modSel.value;
+    modSel.innerHTML = '';
+    const list = bksProviderModels[prov] || [];
+    if(!list.length) {
+        const opt = document.createElement('option');
+        opt.value = 'gemini-2.5-flash';
+        opt.innerText = 'Default Model';
+        modSel.appendChild(opt);
+        return;
+    }
+    list.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.model_id;
+        opt.innerText = `${m.friendly_name} (${m.model_id})`;
+        modSel.appendChild(opt);
+    });
+    if(prevMod && [...modSel.options].some(o => o.value === prevMod)) {
+        modSel.value = prevMod;
+    }
+}
+
+async function loadBksJob(jobSlug) {
+    if(!jobSlug) return;
+    document.getElementById('status_msg').innerText = 'LOADING JOB...';
+    const res = await fetch('/api/bks/job/' + encodeURIComponent(jobSlug));
+    const data = await res.json();
+    if(data.ok) {
+        applyBksJobDetail(data);
+        document.getElementById('status_msg').innerText = 'JOB LOADED';
+    }
+}
+
+function applyBksJobDetail(data) {
+    currentBksDetail = data;
+    currentBksJobSlug = data.job_slug;
+    const jobSel = document.getElementById('bks_job_select');
+    if(jobSel && [...jobSel.options].some(o => o.value === data.job_slug)) {
+        jobSel.value = data.job_slug;
+    }
+    if(data.book) {
+        document.getElementById('bks_title').value = data.book.title || '';
+        document.getElementById('task_prompt').value = data.book.topic || data.book.thesis || '';
+        if(data.book.book_type_id) document.getElementById('bks_template_select').value = data.book.book_type_id;
+    }
+    if(data.link && data.link.target_page_uuid) {
+        document.getElementById('bks_target_page').value = data.link.target_page_uuid;
+    }
+    const badge = document.getElementById('bks_job_badge');
+    if(badge && data.book) {
+        badge.innerText = `JOB: ${data.job_slug} | STATUS: ${(data.book.status || 'planned').toUpperCase()}`;
+        badge.style.color = data.book.status === 'complete' ? '#059669' : 'var(--acc)';
+    }
+    currentPlan = (data.chapters || []).map((c, idx) => ({
+        index: c.index || (idx + 1),
+        title: c.title,
+        prompt: c.brief,
+        brief: c.brief,
+        status: c.status,
+        content: c.body_md || '',
+        actual_words: c.actual_words || 0,
+        target_words: c.target_words || 450,
+        gate_Report: c.gate_Report || ''
+    }));
+    renderPlan();
+    renderMergedPreview(data.merged_md || '', data.merged_html || '');
+}
+
 async function generateTaskPlan() {
     const prompt = document.getElementById('task_prompt').value;
-    const model = document.getElementById('model_select').value;
-    // Connects AI generation to author profiles: whichever author is
-    // selected for this page also drives the persona/voice used to
-    // generate it (AuthorProfile.auth_name matches AI_Profile.Name).
-    const profile_name = document.getElementById('edit_author').value;
-    if(!prompt) return;
-    document.getElementById('status_msg').innerText = 'GENERATING PLAN...';
-    const res = await fetch('/api/tasking/generate_plan', {
+    const title = document.getElementById('bks_title').value || document.getElementById('edit_title').value;
+    const book_type_id = document.getElementById('bks_template_select').value || 'blog_post_4part';
+    const provider = document.getElementById('bks_provider_select').value || 'gemini';
+    const model_id = document.getElementById('bks_model_select').value || document.getElementById('model_select').value;
+    const target_page_uuid = document.getElementById('bks_target_page').value || document.getElementById('hidden_uuid').value;
+    const author_name = document.getElementById('edit_author').value;
+    const category_name = document.getElementById('edit_category').value;
+
+    if(!prompt && !title) { alert('Enter a Topic / Prompt or Blog Post Title first.'); return; }
+    document.getElementById('status_msg').innerText = 'GENERATING 4-PART BKS-1 PLAN...';
+    const res = await fetch('/api/bks/create_plan', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({prompt, model, profile_name})
+        body: JSON.stringify({
+            topic: prompt || title,
+            title: title,
+            book_type_id: book_type_id,
+            provider: provider,
+            model_id: model_id,
+            target_page_uuid: target_page_uuid,
+            author_name: author_name,
+            category_name: category_name
+        })
     });
     const data = await res.json();
     if(data.ok) {
-        currentPlan = data.tasks;
-        renderPlan();
-        document.getElementById('status_msg').innerText = 'PLAN READY';
+        await refreshBksBootstrap();
+        applyBksJobDetail(data);
+        document.getElementById('status_msg').innerText = '4-PART PLAN READY';
+    } else {
+        alert('Plan generation failed: ' + (data.error || 'Unknown error'));
+        document.getElementById('status_msg').innerText = 'ERROR';
     }
 }
 
@@ -990,34 +1426,213 @@ function renderPlan() {
     const cont = document.getElementById('task_container');
     cont.innerHTML = '';
     currentPlan.forEach((t, i) => {
+        const partIdx = t.index || (i + 1);
+        const statusColor = t.status === 'accepted' ? '#059669' : (t.status === 'rejected' ? '#dc2626' : 'var(--muted)');
         const div = document.createElement('div');
         div.className = 'task-card';
-        div.innerHTML = `<div class="task-title">${t.title}</div><div id="task-res-${i}" style="font-size:0.75rem; color:var(--muted);">Pending...</div>`;
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px; flex:1;">
+                    <span style="font-family:var(--mono); font-size:0.75rem; background:#151515; padding:4px 8px; border-radius:4px; border:1px solid var(--border);">PART ${partIdx}/4</span>
+                    <input type="text" id="bks-part-title-${i}" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700; padding:6px 10px; font-size:0.9rem;">
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span id="task-res-${i}" style="font-family:var(--mono); font-size:0.72rem; color:${statusColor};">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
+                    <button type="button" class="btn btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
+                </div>
+            </div>
+            <div style="margin-bottom:8px;">
+                <label style="font-size:0.65rem;">Part ${partIdx} Brief &amp; Instructions</label>
+                <textarea id="bks-part-brief-${i}" style="min-height:60px; font-size:0.8rem;">${t.brief || t.prompt || ''}</textarea>
+            </div>
+            <details ${t.content ? 'open' : ''}>
+                <summary style="cursor:pointer; font-size:0.75rem; color:var(--muted); user-select:none;">Part ${partIdx} Generated Markdown Content (${(t.content || '').length} chars)</summary>
+                <textarea id="bks-part-body-${i}" style="min-height:140px; margin-top:8px; font-size:0.8rem;">${t.content || ''}</textarea>
+            </details>
+        `;
         cont.appendChild(div);
     });
 }
 
-async function runTaskingPlan() {
-    const model = document.getElementById('model_select').value;
-    const profile_name = document.getElementById('edit_author').value;
+function collectPartEditsFromDom() {
+    const parts = [];
     for(let i=0; i<currentPlan.length; i++) {
-        const t = currentPlan[i];
-        document.getElementById(`task-res-${i}`).innerText = 'EXECUTING...';
-        const res = await fetch('/api/tasking/execute_task', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({title: t.title, prompt: t.prompt, full_plan: currentPlan, model, profile_name})
+        const titleEl = document.getElementById(`bks-part-title-${i}`);
+        const briefEl = document.getElementById(`bks-part-brief-${i}`);
+        const bodyEl = document.getElementById(`bks-part-body-${i}`);
+        parts.push({
+            index: currentPlan[i].index || (i + 1),
+            title: titleEl ? titleEl.value : currentPlan[i].title,
+            brief: briefEl ? briefEl.value : (currentPlan[i].brief || currentPlan[i].prompt),
+            body_md: bodyEl ? bodyEl.value : (currentPlan[i].content || '')
         });
-        const data = await res.json();
-        if(data.ok) {
-            currentPlan[i].content = data.content;
-            document.getElementById(`task-res-${i}`).innerText = 'COMPLETED';
-            document.getElementById(`task-res-${i}`).style.color = '#059669';
-        }
+    }
+    return parts;
+}
+
+async function saveBksPlanEdits() {
+    if(!currentBksJobSlug) { alert('Generate or load a BKS-1 Blog Job first.'); return; }
+    const parts = collectPartEditsFromDom();
+    const res = await fetch('/api/bks/update_plan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            job_slug: currentBksJobSlug,
+            title: document.getElementById('bks_title').value,
+            topic: document.getElementById('task_prompt').value,
+            target_page_uuid: document.getElementById('bks_target_page').value,
+            provider: document.getElementById('bks_provider_select').value,
+            model_id: document.getElementById('bks_model_select').value,
+            author_name: document.getElementById('edit_author').value,
+            category_name: document.getElementById('edit_category').value,
+            parts: parts
+        })
+    });
+    const data = await res.json();
+    if(data.ok) {
+        applyBksJobDetail(data);
+        document.getElementById('status_msg').innerText = 'PLAN SAVED';
+    }
+}
+
+async function runSingleBksPart(partIndex, domIdx) {
+    if(!currentBksJobSlug) {
+        await generateTaskPlan();
+        if(!currentBksJobSlug) return;
+    } else {
+        await saveBksPlanEdits();
+    }
+    const statusEl = document.getElementById(`task-res-${domIdx}`);
+    if(statusEl) { statusEl.innerText = 'EXECUTING VIA CLI_AI 48...'; statusEl.style.color = '#f59e0b'; }
+    document.getElementById('status_msg').innerText = `WRITING PART ${partIndex}/4...`;
+
+    const res = await fetch('/api/bks/execute_part', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            job_slug: currentBksJobSlug,
+            part_index: partIndex,
+            provider: document.getElementById('bks_provider_select').value || 'gemini',
+            model_id: document.getElementById('bks_model_select').value || document.getElementById('model_select').value,
+            author_name: document.getElementById('edit_author').value
+        })
+    });
+    const data = await res.json();
+    if(data.ok && data.detail) {
+        applyBksJobDetail(data.detail);
+        await refreshBksBootstrap();
+        document.getElementById('status_msg').innerText = `PART ${partIndex} COMPLETED`;
+    } else {
+        if(statusEl) { statusEl.innerText = 'ERROR'; statusEl.style.color = '#dc2626'; }
+        alert('Part execution error: ' + (data.error || 'Unknown error'));
+    }
+}
+
+async function runNextBksPart() {
+    if(!currentBksJobSlug) {
+        await generateTaskPlan();
+        if(!currentBksJobSlug) return;
+    }
+    const nextIdx = currentPlan.findIndex(p => p.status !== 'accepted');
+    const targetIdx = nextIdx >= 0 ? nextIdx : 0;
+    await runSingleBksPart(currentPlan[targetIdx].index || (targetIdx + 1), targetIdx);
+}
+
+async function runTaskingPlan() {
+    if(!currentBksJobSlug) {
+        await generateTaskPlan();
+        if(!currentBksJobSlug) return;
+    } else {
+        await saveBksPlanEdits();
+    }
+    for(let i=0; i<currentPlan.length; i++) {
+        const partIdx = currentPlan[i].index || (i + 1);
+        await runSingleBksPart(partIdx, i);
+    }
+    await mergeBksParts();
+    document.getElementById('status_msg').innerText = 'ALL 4 PARTS EXECUTED & MERGED';
+}
+
+async function mergeBksParts() {
+    if(!currentBksJobSlug) return;
+    await saveBksPlanEdits();
+    const res = await fetch('/api/bks/merge', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({job_slug: currentBksJobSlug})
+    });
+    const data = await res.json();
+    if(data.ok) {
+        if(data.detail) applyBksJobDetail(data.detail);
+        renderMergedPreview(data.merged_md || '', data.merged_html || '');
+        document.getElementById('status_msg').innerText = '4 PARTS MERGED';
+    }
+}
+
+function renderMergedPreview(mergedMd, mergedHtml) {
+    const panel = document.getElementById('bks_merged_panel');
+    if(!mergedMd && !mergedHtml) {
+        panel.style.display = 'none';
+        return;
+    }
+    panel.style.display = 'block';
+    document.getElementById('bks_merged_md').value = mergedMd || '';
+    document.getElementById('bks_merged_html_preview').innerHTML = mergedHtml || '';
+}
+
+async function approveAndOverwriteTargetPost() {
+    if(!currentBksJobSlug) { alert('No active BKS-1 Blog Post Job to approve.'); return; }
+    await saveBksPlanEdits();
+    const target_page_uuid = document.getElementById('bks_target_page').value || document.getElementById('hidden_uuid').value;
+    const title = document.getElementById('bks_title').value || document.getElementById('edit_title').value;
+    const author_name = document.getElementById('edit_author').value;
+    const category_name = document.getElementById('edit_category').value;
+    const template_key = document.getElementById('edit_template').value;
+
+    const actionDesc = target_page_uuid
+        ? `Approve merged 4-part post and OVERWRITE target post (${target_page_uuid})?`
+        : `Approve merged 4-part post and create a new CMS post "${title}"?`;
+    if(!confirm(actionDesc)) return;
+
+    document.getElementById('status_msg').innerText = 'APPROVING & OVERWRITING TARGET POST...';
+    const res = await fetch('/api/bks/approve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            job_slug: currentBksJobSlug,
+            target_page_uuid: target_page_uuid,
+            title: title,
+            author_name: author_name,
+            category_name: category_name,
+            template_key: template_key
+        })
+    });
+    const data = await res.json();
+    if(data.ok) {
+        document.getElementById('hidden_uuid').value = data.target_page_uuid;
+        document.getElementById('bks_target_page').value = data.target_page_uuid;
+        document.getElementById('edit_title').value = data.title || title;
+        document.getElementById('html_body').value = data.merged_html || '';
+        await loadPageData(data.target_page_uuid);
+        await refreshBksBootstrap();
+        document.getElementById('status_msg').innerText = 'APPROVED & TARGET POST OVERWRITTEN';
+        alert(`Approved! Target post "${data.title}" (${data.target_page_uuid}) has been overwritten with the merged 4-part post (${data.word_count} words).`);
+        showTab('editor');
+    } else {
+        alert('Approve failed: ' + (data.error || 'Unknown error'));
     }
 }
 
 function importPlanToEditor() {
+    const mergedHtml = (currentBksDetail && currentBksDetail.merged_html) ? currentBksDetail.merged_html : '';
+    if(mergedHtml) {
+        document.getElementById('html_body').value = mergedHtml;
+        if(currentBksDetail.book && currentBksDetail.book.title && !document.getElementById('edit_title').value) {
+            document.getElementById('edit_title').value = currentBksDetail.book.title;
+        }
+        showTab('editor');
+        return;
+    }
     let combined = "";
     currentPlan.forEach(t => {
         if(t.content) combined += `<h2>${t.title}</h2>\n${t.content}\n\n`;
@@ -1072,6 +1687,7 @@ async function loadAttachmentList() {
 
 window.onload = () => {
     loadModels();
+    refreshBksBootstrap();
 };
 
 // =============================================================================

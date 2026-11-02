@@ -2376,3 +2376,234 @@ FileNotFoundError: [Errno 2] No such file or directory: '/home/claude/pkg74/BEJS
 2026-10-24 23:06:02,051 INFO 127.0.0.1 - - [24/Oct/2026 23:06:02] "[31m[1mGET / HTTP/1.1[0m" 401 -
 2026-10-24 23:06:02,089 INFO 127.0.0.1 - - [24/Oct/2026 23:06:02] "GET / HTTP/1.1" 200 -
 2026-10-24 23:06:02,435 INFO 127.0.0.1 - - [24/Oct/2026 23:06:02] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-10-25 05:06:23,667 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:06:30,023 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:06:35,084 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:06:47,495 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:07:41,372 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:08:13,133 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:08:13,444 DEBUG Using selector: EpollSelector
+2026-10-25 05:08:26,767 DEBUG waitpid on PID 22001 (grandchild): [Errno 10] No child processes
+2026-10-25 05:08:26,767 DEBUG waitpid polling on PID 22001: [Errno 10] No child processes
+2026-10-25 05:08:26,777 DEBUG waitpid polling on PID 22001: [Errno 10] No child processes
+2026-10-25 05:08:26,788 DEBUG waitpid polling on PID 22001: [Errno 10] No child processes
+2026-10-25 05:08:26,805 DEBUG waitpid polling on PID 22001: [Errno 10] No child processes
+2026-10-25 05:08:26,816 DEBUG waitpid polling on PID 22001: [Errno 10] No child processes
+2026-10-25 05:13:16,063 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:16:44,759 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:18:00,780 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:18:00,807 INFO Executing static site build via BEJSON_CMS_Publisher...
+2026-10-25 05:18:01,340 INFO Static build complete in: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+2026-10-25 05:18:26,489 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:18:26,500 INFO Executing static site build via BEJSON_CMS_Publisher...
+2026-10-25 05:18:26,791 INFO Static build complete in: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+2026-10-25 05:18:26,798 INFO Existing preview server detected and responding at http://localhost:8000
+2026-10-25 05:18:26,800 INFO Dispatching browser launch via termux-open: http://localhost:8000/index.html
+2026-10-25 05:18:28,958 INFO Executing 6 Playwright screenshot captures...
+2026-10-25 05:18:28,958 DEBUG Using selector: EpollSelector
+2026-10-25 05:18:35,420 INFO Navigating to http://localhost:8000/index.html (1280x720)...
+2026-10-25 05:18:37,489 INFO Captured 01_published_home_desktop.png (72089 bytes)
+2026-10-25 05:18:38,277 INFO Navigating to http://localhost:8000/index.html (375x812)...
+2026-10-25 05:18:39,787 INFO Captured 02_published_home_mobile.png (59973 bytes)
+2026-10-25 05:18:40,702 INFO Navigating to http://localhost:8000/blog/bejson/autonomous-tooling-on-linux--dissecting-newagent-s-runtime-engine/index.html (1280x720)...
+2026-10-25 05:18:41,978 INFO Captured 03_published_article_newagent.png (172894 bytes)
+2026-10-25 05:18:42,599 INFO Navigating to http://localhost:8000/blog/bejson/positional-telemetry--zero-overhead-memory-matrices-in-bejson-104/index.html (1280x720)...
+2026-10-25 05:18:44,001 INFO Captured 04_published_article_telemetry.png (176323 bytes)
+2026-10-25 05:18:44,729 INFO Navigating to http://localhost:8000/apps/index.html (1280x720)...
+2026-10-25 05:18:45,878 INFO Captured 05_published_apps_feed.png (28926 bytes)
+2026-10-25 05:18:46,461 INFO Navigating to http://localhost:8000/category/uncategorized/index.html (1280x720)...
+2026-10-25 05:18:47,786 INFO Captured 06_published_category_feed.png (30831 bytes)
+2026-10-25 05:18:48,008 DEBUG waitpid on PID 30359 (grandchild): [Errno 10] No child processes
+2026-10-25 05:18:48,010 DEBUG waitpid polling on PID 30359: [Errno 10] No child processes
+2026-10-25 05:18:48,021 DEBUG waitpid polling on PID 30359: [Errno 10] No child processes
+2026-10-25 05:18:48,031 DEBUG waitpid polling on PID 30359: [Errno 10] No child processes
+2026-10-25 05:18:48,043 DEBUG waitpid polling on PID 30359: [Errno 10] No child processes
+2026-10-25 05:18:48,054 DEBUG waitpid polling on PID 30359: [Errno 10] No child processes
+2026-10-25 05:18:48,067 DEBUG final waitpid on PID 30359: [Errno 10] No child processes
+2026-10-25 05:18:48,234 INFO Captured 6 screenshots.
+2026-10-25 05:18:48,235 INFO Pipeline complete. Server remains active on port 8000.
+2026-10-25 05:19:05,789 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:24:08,179 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:24:08,384 DEBUG Encoding detection: utf_8 is most likely the one.
+2026-10-25 05:24:08,436 DEBUG Encoding detection: utf_8 is most likely the one.
+2026-10-25 05:24:15,503 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:24:15,590 DEBUG Encoding detection: utf_8 is most likely the one.
+2026-10-25 05:24:15,704 DEBUG Encoding detection: utf_8 is most likely the one.
+2026-10-25 05:24:20,311 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:28:29,028 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:28:29,293 DEBUG Encoding detection: utf_8 is most likely the one.
+2026-10-25 05:28:42,972 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:28:43,162 DEBUG Encoding detection: utf_8 is most likely the one.
+2026-10-25 05:29:02,121 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:29:02,188 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.183.118.144:5001
+2026-10-25 05:29:02,188 INFO [33mPress CTRL+C to quit[0m
+2026-10-25 05:29:38,641 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:39:34,456 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:39:34,632 DEBUG Encoding detection: utf_8 is most likely the one.
+2026-10-25 05:39:47,784 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:40:32,717 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:42:05,884 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:42:40,979 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-25 05:42:41,283 DEBUG Encoding detection: ascii is most likely the one.
+2026-10-25 05:43:26,036 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-26 12:11:17,840 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-26 12:11:18,371 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-10-26 12:11:18,372 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-10-26 12:11:18,403 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-10-26 12:11:18,403 INFO [33mPress CTRL+C to quit[0m
+2026-10-27 20:18:11,384 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-10-27 20:18:11,722 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-10-27 20:18:11,722 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-10-27 20:18:11,755 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-10-27 20:18:11,755 INFO [33mPress CTRL+C to quit[0m
+2026-10-27 20:18:33,063 INFO 127.0.0.1 - - [27/Oct/2026 20:18:33] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-10-27 20:18:42,137 INFO 127.0.0.1 - - [27/Oct/2026 20:18:42] "GET / HTTP/1.1" 200 -
+2026-10-27 20:18:42,327 INFO 127.0.0.1 - - [27/Oct/2026 20:18:42] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-10-27 20:18:46,678 INFO 127.0.0.1 - - [27/Oct/2026 20:18:46] "GET /assets HTTP/1.1" 200 -
+2026-10-27 20:18:46,808 INFO 127.0.0.1 - - [27/Oct/2026 20:18:46] "GET /assets/thumb/bejson_brand_4.webp HTTP/1.1" 200 -
+2026-10-27 20:18:46,820 INFO 127.0.0.1 - - [27/Oct/2026 20:18:46] "GET /assets/thumb/default_page_image.webp HTTP/1.1" 200 -
+2026-10-27 20:18:46,830 INFO 127.0.0.1 - - [27/Oct/2026 20:18:46] "GET /assets/thumb/bejson_brand_3_icon.jpeg HTTP/1.1" 200 -
+2026-10-27 20:18:46,857 INFO 127.0.0.1 - - [27/Oct/2026 20:18:46] "GET /assets/thumb/bejson_brand_1.jpeg HTTP/1.1" 200 -
+2026-10-27 20:18:49,180 INFO 127.0.0.1 - - [27/Oct/2026 20:18:49] "GET /publish HTTP/1.1" 200 -
+2026-10-27 20:18:52,770 INFO 127.0.0.1 - - [27/Oct/2026 20:18:52] "GET /pages HTTP/1.1" 200 -
+2026-10-27 20:19:04,877 INFO 127.0.0.1 - - [27/Oct/2026 20:19:04] "GET /pages/new HTTP/1.1" 200 -
+2026-10-27 20:19:13,164 INFO 127.0.0.1 - - [27/Oct/2026 20:19:13] "GET /import HTTP/1.1" 200 -
+2026-10-27 20:20:35,331 INFO 127.0.0.1 - - [27/Oct/2026 20:20:35] "GET /categories HTTP/1.1" 200 -
+2026-10-27 20:20:37,959 INFO 127.0.0.1 - - [27/Oct/2026 20:20:37] "GET /import HTTP/1.1" 200 -
+2026-11-01 01:36:59,156 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-01 01:50:04,934 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-01 01:50:05,139 DEBUG Encoding detection: ascii is most likely the one.
+2026-11-01 01:53:05,053 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-01 01:54:00,527 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-01 01:54:00,544 INFO Executing static site build via BEJSON_CMS_Publisher...
+2026-11-01 01:54:01,401 INFO Static build complete in: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+2026-11-01 01:54:01,407 INFO Preview server running at http://localhost:8000
+2026-11-01 01:54:01,407 INFO Executing 6 Playwright screenshot captures...
+2026-11-01 01:54:01,408 DEBUG Using selector: EpollSelector
+2026-11-01 01:54:03,973 INFO Navigating to http://localhost:8000/index.html (1280x720)...
+2026-11-01 01:54:05,538 INFO Captured 01_published_home_desktop.png (58096 bytes)
+2026-11-01 01:54:06,092 INFO Navigating to http://localhost:8000/index.html (375x812)...
+2026-11-01 01:54:07,139 INFO Captured 02_published_home_mobile.png (62444 bytes)
+2026-11-01 01:54:07,794 INFO Navigating to http://localhost:8000/blog/projects/zero-sql-archiving---deterministic-snapshots--dissecting-project-chunker-s-ecosystem/index.html (1280x720)...
+2026-11-01 01:54:09,736 INFO Captured 03_published_article_1.png (171460 bytes)
+2026-11-01 01:54:10,545 INFO Navigating to http://localhost:8000/blog/projects/the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40/index.html (1280x720)...
+2026-11-01 01:54:12,401 INFO Captured 04_published_article_2.png (186179 bytes)
+2026-11-01 01:54:13,019 INFO Navigating to http://localhost:8000/apps/index.html (1280x720)...
+2026-11-01 01:54:14,173 INFO Captured 05_published_apps_feed.png (29899 bytes)
+2026-11-01 01:54:14,749 INFO Navigating to http://localhost:8000/category/uncategorized/index.html (1280x720)...
+2026-11-01 01:54:15,607 INFO Captured 06_published_category_feed.png (31745 bytes)
+2026-11-01 01:54:15,722 DEBUG waitpid on PID 8306 (grandchild): [Errno 10] No child processes
+2026-11-01 01:54:15,723 DEBUG waitpid polling on PID 8306: [Errno 10] No child processes
+2026-11-01 01:54:15,738 DEBUG waitpid polling on PID 8306: [Errno 10] No child processes
+2026-11-01 01:54:15,761 DEBUG waitpid polling on PID 8306: [Errno 10] No child processes
+2026-11-01 01:54:15,772 DEBUG waitpid polling on PID 8306: [Errno 10] No child processes
+2026-11-01 01:54:15,783 DEBUG final waitpid on PID 8306: [Errno 10] No child processes
+2026-11-01 01:54:15,868 INFO Captured 6 screenshots.
+2026-11-01 01:54:15,869 INFO Pipeline complete. Server remains active on port 8000.
+2026-11-01 17:44:54,540 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:00:16,162 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:00:27,244 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:00:47,386 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:33:39,803 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:34:04,771 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:34:50,470 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:36:37,422 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 02:36:40,736 DEBUG [IMPORT] file_import skip_preview START file_count=1
+2026-11-02 02:36:41,950 DEBUG [IMPORT] _create_import_page title='Test Markdown Article' type=article sync_count=False add_record_ms=1202.4 content_file_write_ms=10.6 total_ms=1213.2
+2026-11-02 02:36:41,951 DEBUG [IMPORT] file_import FILE filename=test_direct_import.md read_ms=0.0 extract_ms=0.4 file_total_ms=1213.9
+2026-11-02 02:36:41,978 DEBUG [IMPORT] file_import final sync_manifest_count_ms=27.4
+2026-11-02 02:36:41,979 DEBUG [IMPORT] file_import skip_preview END success=1 batch_total_ms=1242.1
+2026-11-02 02:36:42,353 ERROR [CMSCore] Update Record Error (PageRecord): Failed to update field 'page_is_standalone_flag' in PageRecord
+Traceback (most recent call last):
+  File "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/src/lib/lib_bejson_CMS_cms_core.py", line 167, in update_record
+    MFDB.mfdb_core_update_entity_record_bulk(self.manifest_path, entity_name, target_idx, coerced_updates)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/src/lib/lib_bejson_Core_mfdb_core.py", line 842, in mfdb_core_update_entity_record_bulk
+    raise BEJSONCoreError(f"Failed to update field '{field_name}' in {entity_name}")
+lib_bejson_Core_bejson_core.BEJSONCoreError: Failed to update field 'page_is_standalone_flag' in PageRecord
+2026-11-02 02:59:48,036 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:06:32,015 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:07:34,578 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:08:29,222 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:09:05,151 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:09:34,848 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:09:37,481 ERROR Exception on /api/bks/bootstrap [GET]
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/usr/lib/python3.14/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/data/data/com.termux/files/usr/lib/python3.14/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/data/data/com.termux/files/usr/lib/python3.14/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/data/data/com.termux/files/usr/lib/python3.14/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/src/web/BEJSON_CMS_PageEditorV2.py", line 257, in api_bks_bootstrap
+    "templates": cms_bks_list_templates(Path(PROJECT_ROOT)),
+                                        ^^^^
+NameError: name 'Path' is not defined
+2026-11-02 03:09:54,840 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:10:44,095 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:12:30,812 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:12:33,739 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:12:34,048 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:12:34,318 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:12:34,603 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:12:34,940 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:12:35,564 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:12:35,672 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 4)
+2026-11-02 03:12:35,727 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 4)
+2026-11-02 03:12:36,081 ERROR [CMSCore] Update Record Error (PageRecord): Failed to update field 'page_is_standalone_flag' in PageRecord
+Traceback (most recent call last):
+  File "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/src/lib/lib_bejson_CMS_cms_core.py", line 167, in update_record
+    MFDB.mfdb_core_update_entity_record_bulk(self.manifest_path, entity_name, target_idx, coerced_updates)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/src/lib/lib_bejson_Core_mfdb_core.py", line 842, in mfdb_core_update_entity_record_bulk
+    raise BEJSONCoreError(f"Failed to update field '{field_name}' in {entity_name}")
+lib_bejson_Core_bejson_core.BEJSONCoreError: Failed to update field 'page_is_standalone_flag' in PageRecord
+2026-11-02 03:13:31,297 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-02 03:13:32,794 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:13:33,049 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:13:33,241 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:13:33,468 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:13:33,658 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:13:33,971 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 3)
+2026-11-02 03:13:34,077 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 4)
+2026-11-02 03:13:34,123 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/standardized-4-part-blog-post-architecture.bks.bejson (level 4)

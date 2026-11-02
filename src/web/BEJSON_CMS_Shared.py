@@ -145,6 +145,7 @@ NAV_SECTIONS = {
         'href': '/content',
         'children': [
             {'icon': '📄', 'label': 'All Pages', 'href': '/pages'},
+            {'icon': '📚', 'label': 'Blog Post Jobs (BKS-1)', 'href': '/jobs'},
             {'icon': '🔗', 'label': 'External Links', 'href': '/links'},
             {'icon': '📁', 'label': 'Categories', 'href': '/categories'},
             {'icon': '📥', 'label': 'HTML / MD Import', 'href': '/import'},

@@ -1,0 +1,81 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "JobRegistryEntry"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "entry_id",
+      "type": "string",
+      "Record_Type_Parent": "JobRegistryEntry"
+    },
+    {
+      "name": "entry_name",
+      "type": "string",
+      "Record_Type_Parent": "JobRegistryEntry"
+    },
+    {
+      "name": "entry_slug",
+      "type": "string",
+      "Record_Type_Parent": "JobRegistryEntry"
+    },
+    {
+      "name": "entry_type",
+      "type": "string",
+      "Record_Type_Parent": "JobRegistryEntry"
+    },
+    {
+      "name": "file_path",
+      "type": "string",
+      "Record_Type_Parent": "JobRegistryEntry"
+    },
+    {
+      "name": "created_date",
+      "type": "string",
+      "Record_Type_Parent": "JobRegistryEntry"
+    },
+    {
+      "name": "modified_date",
+      "type": "string",
+      "Record_Type_Parent": "JobRegistryEntry"
+    }
+  ],
+  "Values": [
+    [
+      "JobRegistryEntry",
+      "5e8970bf-916b-512a-a86f-cf5cd9951909",
+      "4-Part Technical Blog Post",
+      "blog_post_4part",
+      "template",
+      "templates/blog_post_4part.bejson",
+      "2026-11-02",
+      "2026-11-02"
+    ],
+    [
+      "JobRegistryEntry",
+      "340a285c-9f71-5094-b5f2-91fed0483679",
+      "4-Part Engineering Deep Dive",
+      "technical_deep_dive_4part",
+      "template",
+      "templates/technical_deep_dive_4part.bejson",
+      "2026-11-02",
+      "2026-11-02"
+    ],
+    [
+      "JobRegistryEntry",
+      "3e32b799-438e-50e7-8162-923e930b75e9",
+      "4-Part Practical Tutorial & Guide",
+      "tutorial_guide_4part",
+      "template",
+      "templates/tutorial_guide_4part.bejson",
+      "2026-11-02",
+      "2026-11-02"
+    ]
+  ]
+}

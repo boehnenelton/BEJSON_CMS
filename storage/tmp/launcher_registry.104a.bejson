@@ -31,5 +31,14 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "publisher",
+      7112,
+      5001,
+      false,
+      "2026-11-03T08:28:59.319214",
+      "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/tmp/logs/BEJSON_CMS_Publisher.py.log"
+    ]
+  ]
 }

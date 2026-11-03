@@ -1,0 +1,68 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "ContextBubbleConfig",
+  "Schema_Version": "2.0.0",
+  "Rebuild_Interval_Turns": 5,
+  "Normalize_Baselines": true,
+  "Records_Type": [
+    "Allotment"
+  ],
+  "Fields": [
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "rank",
+      "type": "integer"
+    },
+    {
+      "name": "pct",
+      "type": "number"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "refresh",
+      "type": "string"
+    },
+    {
+      "name": "keep",
+      "type": "string"
+    },
+    {
+      "name": "label",
+      "type": "string"
+    },
+    {
+      "name": "directive",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "author_persona",
+      1,
+      15.0,
+      true,
+      "stable",
+      "start",
+      "Author Persona & Instructions",
+      "AUTHOR PERSONA & INSTRUCTIONS -- Author persona and instructions governing tone, voice, and style. The author role strictly overrides any contradictory profile instructions."
+    ],
+    [
+      "context",
+      2,
+      85.0,
+      true,
+      "stable",
+      "start",
+      "Context Reference Material",
+      "BACKGROUND -- Study and learn silently. Never copy or reference."
+    ]
+  ]
+}

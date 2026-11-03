@@ -2,10 +2,10 @@
 Library:         BEJSON_CMS_Shared
 Family:          BEJSON_CMS
 Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB handle, base template/render helper, nav structure, auth guard, and shared media asset serving.
-Version:         18.24
-Library_Version: 58
-Date:            2026-10-25
-RELATIONAL_ID:   c9f25d63-57fb-4c3f-b943-c5d3cdd2709c
+Version:         18.26
+Library_Version: 60
+Date:            2026-11-03
+RELATIONAL_ID:   c92b4a17-6e83-4d02-9a15-8b3f1c7e5d29
 """
 
 import os
@@ -15,7 +15,7 @@ import logging.handlers
 from pathlib import Path
 from flask import request, render_template_string, send_file
 
-VERSION = 1824
+VERSION = 1826
 
 # ─── HTTP Basic Auth ────────────────────────────────────────────────────────
 import functools
@@ -145,7 +145,7 @@ NAV_SECTIONS = {
         'href': '/content',
         'children': [
             {'icon': '📄', 'label': 'All Pages', 'href': '/pages'},
-            {'icon': '📚', 'label': 'Blog Post Jobs (BKS-1)', 'href': '/jobs'},
+            {'icon': '✍️', 'label': 'AI Writer', 'href': '/jobs'},
             {'icon': '🔗', 'label': 'External Links', 'href': '/links'},
             {'icon': '📁', 'label': 'Categories', 'href': '/categories'},
             {'icon': '📥', 'label': 'HTML / MD Import', 'href': '/import'},
@@ -483,6 +483,8 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             .form-group { margin-bottom: 12px; }
         }
     </style>
+    <link rel="stylesheet" href="/fb/assets/becss-filepicker.css?v=18.30">
+    <script src="/fb/assets/becss-filepicker.js?v=18.30" defer></script>
 </head>
 <body>
     <div class="app-wrapper">

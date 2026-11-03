@@ -93,36 +93,6 @@
       "z-ai/glm-5.3-free",
       "Z.AI GLM 5.3 (free)",
       "free"
-    ],
-    [
-      "OllamaLocal",
-      "qwen2.5-coder:1.5b",
-      "Qwen2.5-Coder 1.5B",
-      null
-    ],
-    [
-      "OllamaLocal",
-      "qwen2.5-coder:0.5b",
-      "Qwen2.5-Coder 0.5B",
-      null
-    ],
-    [
-      "OllamaLocal",
-      "qwen2.5-coder:3b",
-      "Qwen2.5-Coder 3B",
-      null
-    ],
-    [
-      "OllamaLocal",
-      "qwen2.5-coder:7b",
-      "Qwen2.5-Coder 7B",
-      null
-    ],
-    [
-      "LiteRTLM",
-      "gemma-4-e2b",
-      "Gemma 4 E2B",
-      null
     ]
   ]
 }

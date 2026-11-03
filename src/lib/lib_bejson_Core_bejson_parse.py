@@ -7,16 +7,17 @@ Format_Scope:    104 | 104a | 104db (generic)
 Glossary:        BEJSON 104, 104a and 104db are the three file formats (Format_Version). 104db = ONE file holding 2+ entity types
                  (Record_Type_Parent discriminator, null-padding). MFDB is NOT a format and NOT 104db: it is a layer made of one 104a manifest
                  (104a.mfdb.bejson) plus dense 104 entity files linked by Parent_Hierarchy. MFDB-132 = an MFDB packed into one Chunked-104a document.
-Version:         2.1.4
+Version:         2.1.5
 Release_Version: 300
-Date:            2026-10-02
+Date:            2026-11-03
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   97a21bc4-8933-4d94-92b0-9bf36d2aeb94
+RELATIONAL_ID:   c4a8291f-6b3e-4d18-9e02-5f7a1c8b3d46
 """
 
 import datetime
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -81,10 +82,15 @@ def parse_json(text):
     try:
         return json.loads(text)
     except json.JSONDecodeError:
+        # Zero-copy extraction: raw_decode parses in place from the first "{"
+        # instead of materialising a multi-megabyte text[start:end+1] copy.
         start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            return json.loads(text[start:end+1])
+        if start != -1:
+            try:
+                obj, _end = json.JSONDecoder().raw_decode(text, start)
+                return obj
+            except json.JSONDecodeError:
+                pass
         raise
 
 # Reads a project-style BEJSON document (Fields/Values) and returns the project metadata plus the file rows as dicts.
@@ -157,7 +163,7 @@ def save_files(proj, files, cfg):
             try:
                 shutil.copytree(target, bak_target)
             except Exception as e:
-                print("Backup warning: " + str(e))
+                logging.warning(f"[Parse] Backup warning: {e}")
     else:
         ts     = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         target = os.path.join(base_dir, ts + "_" + proj)

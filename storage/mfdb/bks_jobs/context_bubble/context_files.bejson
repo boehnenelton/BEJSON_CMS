@@ -1,0 +1,31 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "ContextFile"
+  ],
+  "Fields": [
+    {
+      "name": "file_id",
+      "type": "string"
+    },
+    {
+      "name": "filename",
+      "type": "string"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "char_count",
+      "type": "integer"
+    },
+    {
+      "name": "imported_at",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

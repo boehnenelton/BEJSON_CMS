@@ -4,8 +4,8 @@
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
   "Project_Version": "18.31",
-  "Package_Version": "135",
-  "Project_Modified_Date": "2026-11-02T18:46:32.932827+00:00",
+  "Package_Version": "136",
+  "Project_Modified_Date": "2026-11-03T18:27:00.000000+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -480,9 +480,14 @@
       "pkg135 -- Generated consistent Graphics 105 vector hero banners, architectural diagrams, and high-DPI Playwright raster captures across all CMS articles, registered 24 media assets, updated page records, and re-compiled static builds.",
       "2026-11-02",
       "1. Leveraged libraries_105/Lib_PY/Graphics (lib_bejson_Graphics_graphics_core.py, render_still_frame, render_branding_architecture_slide_svg) and bejson-cms-canvas-illustrator skill to author 1280x640 Policy \u00a78.1 Tri-Color hero banners (project_chunker_ecosystem_hero.svg, bejson_105_integrity_era_hero.svg) and 1280x720 architecture diagrams (project_chunker_architecture_diagram.svg, bejson_105_architecture_diagram.svg). 2. Rendered high-DPI raster captures via Playwright (termux_playwright) and compiled WebP variants for all 6 articles and architecture blueprints. 3. Registered 24 media assets in mediaasset.bejson with SHA-256 hashes, file sizes, and MIME types. 4. Updated pagerecord.bejson and pages_db (e2dfa590-833d-410f-b3b8-70d85913ea29, 5a65064e-53a5-4b74-93b9-b76df0a1207f) linking featured images and embedding architecture diagrams. 5. Re-compiled static distribution in storage/builds/ via BEJSON_CMS_Publisher._execute() and verified 0-overflow across desktop/mobile with Playwright."
+    ],
+    [
+      "pkg136 -- Integrated AI Writer architecture, 48k prompt token budget & Context Bubble engine, author persona precedence, zero local models, and 420p Playwright re-capture across 28 endpoints.",
+      "2026-11-03",
+      "1. Integrated 48,000 maximum prompt token budget (max_context_tokens: 48000, MAX_COMBINED_PROMPT_TOKENS = 48000, MAX_COMBINED_PROMPT_CHARS = 192000) across context configs, lib_bejson_CMS_bks_blog_jobs.py, and lib_bejson_AI_ai_writing.py. 2. Configured Context Bubble engine with author_persona (15%, rank 1) and context (85%, rank 2) dynamic allotments. 3. Enforced AUTHOR_PRECEDENCE_DIRECTIVE across all prompt assemblers and persona dispatchers. 4. Integrated vendored AI family libraries (lib_bejson_AI_*), eliminated local models (litertlm, ollamalocal). 5. Rebranded to AI Writer across Admin UI sidebar navigation, Content Hub, and PageEditorV2. 6. Added 470+ line AI Writer Architecture section and updated TOC in README.md. 7. Captured and verified all 28 desktop and mobile Playwright screenshots adhering strictly to 420p max dimension constraint."
     ]
   ],
   "Type": "python",
   "Status": "Active",
-  "Versioned_UUID": "9937f4aa-637b-436c-a5d3-7795fccccd8a"
+  "Versioned_UUID": "b6489a5a-979a-42d5-9c28-6ea37f0ee1f0"
 }

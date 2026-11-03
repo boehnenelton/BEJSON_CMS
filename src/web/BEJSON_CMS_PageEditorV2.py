@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditorV2
-SCRIPT_VERSION: 18.4
-RELATIONAL_ID:  6f1b8c32-4e9d-4a71-8c05-3e7a9d2f4b18
+SCRIPT_VERSION: 18.6
+RELATIONAL_ID:  5d9e2f14-8a3b-4c72-9e16-2b4f7c8a1d35
 AUTHOR:         Elton Boehnen
 DESCRIPTION:    Editor v2 with Stabilized Sidebar, Tasking Workflow, and Gemini Config.
                 Unified with CMS Data Model and Storage Format.
+CHANGE (2026-11-03): Integrated reusable FileBrowser modal (CMSFilePicker) and AI Context Bubble
+architecture into the Tasking Hub (Blog Generator) so selected reference files are injected
+before prompts with a strict study/learn/never-copy/never-reference directive.
+CHANGE (2026-11-03): Refactored Tasking Hub (Blog Generator) UI to enforce design-html-interfaces
+standards: single-row horizontally scrolling workflow toolbar, collapsible part cards with
+persistent header badges, copy/select-all buttons on textareas, and word-wrap containment.
 CHANGE (2026-10-25): Centralized authentication guard and asset routes via BEJSON_CMS_Shared;
 converted storage config BEJSON reads/writes to use field_map cache and atomic_write.
 CHANGE (2026-08-06): PKG74 - added an Insert PDF button next to the
@@ -33,7 +39,7 @@ updates now omit them entirely so they're preserved. Verified with a live
 round-trip test (external-link page survives a V2 edit intact).
 """
 
-VERSION = 184
+VERSION = 186
 
 from flask import Flask, render_template_string, request, redirect, flash, jsonify, send_file, Response
 import os, re, uuid, json, sys, html as _html, io
@@ -52,7 +58,9 @@ except ImportError:
 # --- BEJSON Core Pathing ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
+WEB_DIR = os.path.join(PROJECT_ROOT, "src", "web")
 if LIB_DIR not in sys.path: sys.path.append(LIB_DIR)
+if WEB_DIR not in sys.path: sys.path.append(WEB_DIR)
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
 from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
@@ -83,9 +91,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 
 from BEJSON_CMS_Shared import register_auth_guard, serve_shared_asset, serve_shared_thumb
+from BEJSON_CMS_FileBrowser import filebrowser_cube
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
 
 register_auth_guard(app)
+app.register_blueprint(filebrowser_cube)
 
 
 @app.after_request
@@ -208,12 +218,17 @@ from lib_bejson_CMS_bks_blog_jobs import (
     cms_bks_approve_and_overwrite_post,
     cms_bks_bootstrap,
     cms_bks_create_blog_job,
+    cms_bks_delete_context_file,
     cms_bks_execute_all_parts,
     cms_bks_execute_part,
+    cms_bks_get_context_bubble_state,
     cms_bks_get_job_detail,
+    cms_bks_import_context_file,
+    cms_bks_import_context_paths,
     cms_bks_list_jobs,
     cms_bks_list_templates,
     cms_bks_merge_parts,
+    cms_bks_toggle_context_file,
     cms_bks_update_job_metadata_and_plan,
 )
 
@@ -264,7 +279,56 @@ def api_bks_bootstrap():
         "providers": ai_info["providers"],
         "models_by_provider": ai_info["models_by_provider"],
         "models": ai_info["models"],
+        "context_bubble": cms_bks_get_context_bubble_state(Path(PROJECT_ROOT)),
     })
+
+@app.route('/api/bks/context_files', methods=['GET', 'POST'])
+def api_bks_context_files():
+    if request.method == 'GET':
+        author = request.args.get("author")
+        return jsonify(cms_bks_get_context_bubble_state(Path(PROJECT_ROOT), author=author))
+    uploaded_files = request.files.getlist("files")
+    if uploaded_files:
+        last_res = None
+        for fobj in uploaded_files:
+            if not fobj or not fobj.filename:
+                continue
+            raw_bytes = fobj.read()
+            last_res = cms_bks_import_context_file(Path(PROJECT_ROOT), fobj.filename, raw_bytes, enabled=True)
+        return jsonify(last_res or cms_bks_get_context_bubble_state(Path(PROJECT_ROOT)))
+    data = request.get_json(silent=True) or {}
+    filename = (data.get("filename") or "").strip()
+    content = data.get("content") or ""
+    if not filename:
+        return jsonify({"ok": False, "error": "filename or uploaded file required"})
+    return jsonify(cms_bks_import_context_file(Path(PROJECT_ROOT), filename, content, enabled=True))
+
+@app.route('/api/bks/context_files/import_pick', methods=['POST'])
+def api_bks_context_files_import_pick():
+    data = request.get_json(silent=True) or {}
+    paths = data.get("paths") or []
+    if isinstance(paths, str):
+        paths = [paths]
+    if not paths:
+        return jsonify({"ok": False, "error": "paths list is required"})
+    return jsonify(cms_bks_import_context_paths(Path(PROJECT_ROOT), paths, enabled=True))
+
+@app.route('/api/bks/context_files/toggle', methods=['POST'])
+def api_bks_context_files_toggle():
+    data = request.get_json(silent=True) or {}
+    filename = (data.get("filename") or "").strip()
+    enabled = bool(data.get("enabled", True))
+    if not filename:
+        return jsonify({"ok": False, "error": "filename required"})
+    return jsonify(cms_bks_toggle_context_file(Path(PROJECT_ROOT), filename, enabled))
+
+@app.route('/api/bks/context_files/delete', methods=['POST'])
+def api_bks_context_files_delete():
+    data = request.get_json(silent=True) or {}
+    filename = (data.get("filename") or "").strip()
+    if not filename:
+        return jsonify({"ok": False, "error": "filename required"})
+    return jsonify(cms_bks_delete_context_file(Path(PROJECT_ROOT), filename))
 
 @app.route('/api/bks/job/<job_slug>')
 def api_bks_get_job(job_slug):
@@ -914,6 +978,8 @@ _SHELL = """
         .pdf-src-tab-v2 { flex:1; padding:8px 12px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--muted); font-size:.8rem; font-weight:700; cursor:pointer; }
         .pdf-src-tab-v2.active { color:var(--acc); border-bottom-color:var(--acc); }
     </style>
+    <link rel="stylesheet" href="/fb/assets/becss-filepicker.css">
+    <script src="/fb/assets/becss-filepicker.js"></script>
 </head>
 <body>
 
@@ -928,7 +994,7 @@ _SHELL = """
 <div id="m-overlay" class="menu-overlay" onclick="toggleMenu()"></div>
 <div id="s-menu" class="side-menu">
     <a href="#" onclick="showTab('editor')" class="tab-link active" id="l-editor">Editor Engine</a>
-    <a href="#" onclick="showTab('tasking')" class="tab-link" id="l-tasking">Tasking Hub</a>
+    <a href="#" onclick="showTab('tasking')" class="tab-link" id="l-tasking">AI Writer</a>
     <a href="#" onclick="showTab('context')" class="tab-link" id="l-context">Context & Attachments</a>
     <a href="#" onclick="showTab('settings')" class="tab-link" id="l-settings">System Config</a>
     <a href="{{ admin_url }}" style="margin-top:auto; border-top:1px solid var(--border);">Back to CMS</a>
@@ -1044,8 +1110,8 @@ _SHELL = """
         <div class="editor-wrap">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
                 <div>
-                    <h2 style="margin-bottom:4px;">AI Content Architect &mdash; BKS-1 4-Part Blog Job System</h2>
-                    <div style="font-size:0.75rem; color:var(--muted);">Standardized Book/Blog Job System (104db Book + 104a JobMaker Plan) powered by CLI_AI 48</div>
+                    <h2 style="margin-bottom:4px;">AI Writer</h2>
+                    <div style="font-size:0.75rem; color:var(--muted);">4-Part BKS-1 Structured AI Writing Studio with 48k Context Bubble &amp; Author Precedence</div>
                 </div>
                 <span id="bks_job_badge" style="font-family:var(--mono); font-size:0.72rem; padding:5px 10px; border-radius:6px; background:#141414; border:1px solid var(--border); color:var(--muted);">No Active Job</span>
             </div>
@@ -1086,6 +1152,48 @@ _SHELL = """
                 </div>
             </div>
 
+            <!-- Context Bubble Files (Select / Import Context Before Prompt) -->
+            <div style="margin-bottom:15px; background:#080808; border:1px solid var(--border); border-radius:10px; padding:12px 15px;">
+                <details id="bks_context_bubble_details">
+                    <summary style="cursor:pointer; list-style:none; outline:none; user-select:none;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="font-family:var(--mono); font-size:0.72rem; background:#141414; padding:4px 8px; border-radius:4px; border:1px solid var(--border); font-weight:700;">CONTEXT BUBBLE (48K TOKENS)</span>
+                                <span style="font-size:0.85rem; font-weight:700;">Reference Context Files (85%) &amp; Author Persona Directives (15% &mdash; Precedence Over Profile Instructions)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span id="bks_ctx_badge" style="font-family:var(--mono); font-size:0.72rem; color:var(--muted);">48k Max | 15% Author (~7.2k) | 85% Files (~40.8k)</span>
+                                <button type="button" class="btn btn-black btn-sm" onclick="event.stopPropagation();openBksContextFilePicker()">+ Select / Import Context Files</button>
+                            </div>
+                        </div>
+                    </summary>
+                    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+                        <div style="font-size:0.75rem; color:var(--muted); margin-bottom:10px; line-height:1.5;">
+                            Assembled pre-prompt context combines <strong>Author Persona &amp; Directives (15% share, ~7.2k tokens)</strong>, which strictly overrides any conflicting profile guidelines, with <strong>Context Reference Files (85% share, ~40.8k tokens)</strong> instructed to study and learn silently without citation.
+                        </div>
+                        <div class="toolbar-row" style="margin-bottom:10px; display:flex; gap:8px; overflow-x:auto; flex-wrap:nowrap;">
+                            <button type="button" class="btn btn-sm" style="flex-shrink:0;" onclick="openBksContextFilePicker()">Browse Server Files (File Importer Modal)</button>
+                            <label class="btn btn-black btn-sm" style="flex-shrink:0; margin:0; cursor:pointer;">
+                                Upload Local File
+                                <input type="file" id="bks_ctx_upload_input" multiple style="display:none;" onchange="uploadBksContextFiles(this.files)">
+                            </label>
+                            <button type="button" class="btn btn-black btn-sm" style="flex-shrink:0;" onclick="refreshBksContextFiles()">&#8635; Refresh Bubble</button>
+                        </div>
+                        <div id="bks_ctx_file_list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
+                        <details style="margin-top:8px;">
+                            <summary style="cursor:pointer; font-size:0.75rem; font-family:var(--mono); color:var(--muted);">Preview Injected Context Bubble Payload</summary>
+                            <div style="margin-top:8px;">
+                                <div style="display:flex; justify-content:flex-end; gap:6px; margin-bottom:6px;">
+                                    <button type="button" class="btn btn-black btn-sm" onclick="selectAllText('bks_ctx_preview_box')">Select All</button>
+                                    <button type="button" class="btn btn-black btn-sm" onclick="copyText('bks_ctx_preview_box', this)">Copy</button>
+                                </div>
+                                <textarea id="bks_ctx_preview_box" readonly style="min-height:140px; font-family:var(--mono); font-size:0.72rem; white-space:pre-wrap; word-wrap:break-word; overflow-wrap:break-word;" placeholder="No active context files selected."></textarea>
+                            </div>
+                        </details>
+                    </div>
+                </details>
+            </div>
+
             <!-- Post Title + Topic / Prompt -->
             <div class="fg" style="margin-bottom:12px;">
                 <label>Blog Post Title (Optional &mdash; Auto-Derived if Blank)</label>
@@ -1096,15 +1204,15 @@ _SHELL = """
                 <textarea id="task_prompt" style="min-height:110px;" placeholder="Describe the blog post topic, key arguments, code examples, and target audience..."></textarea>
             </div>
 
-            <!-- Workflow Action Bar -->
-            <div class="workflow-bar" style="margin-bottom:20px;">
-                <button class="btn btn-green" onclick="generateTaskPlan()">1. Generate 4-Part Plan &amp; Job</button>
-                <button class="btn btn-black" onclick="saveBksPlanEdits()">Save Plan Edits</button>
-                <button class="btn" onclick="runNextBksPart()">2a. Execute Next Part</button>
-                <button class="btn" id="exec-btn" onclick="runTaskingPlan()">2b. Execute All 4 Parts &amp; Merge</button>
-                <button class="btn btn-black" onclick="mergeBksParts()">Re-Merge 4 Parts</button>
-                <button class="btn btn-green" style="background:#059669; border-color:#059669;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite Target Post</button>
-                <button class="btn btn-black" onclick="importPlanToEditor()">Import to Editor Tab</button>
+            <!-- Workflow Action Bar: Single-Row H-Scroll -->
+            <div class="workflow-bar toolbar-row" style="margin-bottom:20px; overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; padding-bottom:6px; scrollbar-width:thin;">
+                <button class="btn btn-green" style="flex-shrink:0; white-space:nowrap;" onclick="generateTaskPlan()">1. Generate Plan</button>
+                <button class="btn btn-black" style="flex-shrink:0; white-space:nowrap;" onclick="saveBksPlanEdits()">Save Plan Edits</button>
+                <button class="btn" style="flex-shrink:0; white-space:nowrap;" onclick="runNextBksPart()">2a. Run Next Part</button>
+                <button class="btn" id="exec-btn" style="flex-shrink:0; white-space:nowrap;" onclick="runTaskingPlan()">2b. Run All &amp; Merge</button>
+                <button class="btn btn-black" style="flex-shrink:0; white-space:nowrap;" onclick="mergeBksParts()">Re-Merge Parts</button>
+                <button class="btn btn-green" style="background:#059669; border-color:#059669; flex-shrink:0; white-space:nowrap;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite</button>
+                <button class="btn btn-black" style="flex-shrink:0; white-space:nowrap;" onclick="importPlanToEditor()">Import to Editor</button>
             </div>
 
             <!-- 4-Part Plan & Execution Cards -->
@@ -1124,12 +1232,18 @@ _SHELL = """
                 </div>
                 <div class="editor-grid-2" style="gap:15px;">
                     <div>
-                        <label>Merged 4-Part Markdown</label>
-                        <textarea id="bks_merged_md" style="min-height:280px; font-size:0.78rem;"></textarea>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label style="margin:0;">Merged 4-Part Markdown</label>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn btn-black btn-sm" onclick="selectAllText('bks_merged_md')">Select All</button>
+                                <button type="button" class="btn btn-black btn-sm" onclick="copyText('bks_merged_md', this)">Copy</button>
+                            </div>
+                        </div>
+                        <textarea id="bks_merged_md" style="min-height:280px; font-size:0.78rem; white-space:pre-wrap; word-wrap:break-word; overflow-wrap:break-word;"></textarea>
                     </div>
                     <div>
                         <label>Rendered CMS Article HTML Preview</label>
-                        <div id="bks_merged_html_preview" style="min-height:280px; max-height:420px; overflow-y:auto; overflow-x:auto; max-width:100%; background:#0e0e0e; border:1px solid var(--border); border-radius:8px; padding:15px; font-size:0.85rem; line-height:1.6;"></div>
+                        <div id="bks_merged_html_preview" style="min-height:280px; max-height:420px; overflow-y:auto; overflow-x:auto; max-width:100%; background:#0e0e0e; border:1px solid var(--border); border-radius:8px; padding:15px; font-size:0.85rem; line-height:1.6; white-space:normal; overflow-wrap:break-word;"></div>
                     </div>
                 </div>
             </div>
@@ -1338,9 +1452,136 @@ async function refreshBksBootstrap() {
         if(prevJob && [...jobSel.options].some(o => o.value === prevJob)) {
             jobSel.value = prevJob;
         }
+        if(data.context_bubble) {
+            renderBksContextBubbleState(data.context_bubble);
+        }
     } catch(e) {
         console.error('BKS bootstrap error:', e);
     }
+}
+
+function renderBksContextBubbleState(ctxState) {
+    const listEl = document.getElementById('bks_ctx_file_list');
+    const badgeEl = document.getElementById('bks_ctx_badge');
+    const previewEl = document.getElementById('bks_ctx_preview_box');
+    if (!listEl) return;
+    const files = (ctxState && ctxState.files) || [];
+    const activeCount = (ctxState && ctxState.active_count) || 0;
+    const estTokens = (ctxState && (ctxState.used_tokens || ctxState.estimated_tokens)) || 0;
+    const maxTokens = (ctxState && ctxState.max_context_tokens) || 48000;
+    if (badgeEl) {
+        badgeEl.innerText = `48k Max (15% Author ~7.2k | 85% Files ~40.8k) | ${activeCount} active (${estTokens}/${maxTokens} tok)`;
+        badgeEl.style.color = activeCount > 0 ? '#059669' : 'var(--muted)';
+    }
+    if (previewEl) {
+        previewEl.value = (ctxState && ctxState.bubble_text) || '';
+    }
+    if (!files.length) {
+        listEl.innerHTML = '<div style="font-size:0.75rem; color:var(--muted); padding:6px 0;">No context files imported yet. Click "+ Select / Import Context Files" to pick files with the File Importer modal.</div>';
+        return;
+    }
+    listEl.innerHTML = '';
+    files.forEach(f => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 10px; background:#141414; border:1px solid var(--border); border-radius:6px; flex-wrap:wrap;';
+        const safeName = (f.name || '').replace(/'/g, "\\'");
+        row.innerHTML = `
+            <label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer; flex:1; min-width:180px;">
+                <input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleBksContextFile('${safeName}', this.checked)" style="width:auto; margin:0;">
+                <span style="font-family:var(--mono); font-size:0.78rem; font-weight:700; word-break:break-all;">${f.name}</span>
+            </label>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-family:var(--mono); font-size:0.7rem; color:var(--muted);">${f.size || 0} B</span>
+                <button type="button" class="btn btn-kill btn-sm" style="padding:3px 8px; font-size:0.68rem;" onclick="deleteBksContextFile('${safeName}')">Remove</button>
+            </div>
+        `;
+        listEl.appendChild(row);
+    });
+}
+
+async function refreshBksContextFiles() {
+    try {
+        const res = await fetch('/api/bks/context_files');
+        const data = await res.json();
+        if (data && data.ok) renderBksContextBubbleState(data);
+    } catch (e) {
+        console.error('Context bubble refresh error:', e);
+    }
+}
+
+async function openBksContextFilePicker() {
+    if (!window.CMSFilePicker) {
+        document.getElementById('bks_ctx_upload_input').click();
+        return;
+    }
+    try {
+        const res = await window.CMSFilePicker.open({
+            kind: 'code',
+            multiple: true,
+            allowUpload: true,
+            title: 'Select Reference Files for AI Context Bubble'
+        });
+        if (!res) return;
+        if (res.paths && res.paths.length) {
+            document.getElementById('status_msg').innerText = 'IMPORTING CONTEXT BUBBLE FILES...';
+            const r = await fetch('/api/bks/context_files/import_pick', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({paths: res.paths})
+            });
+            const data = await r.json();
+            if (data.ok) {
+                renderBksContextBubbleState(data);
+                document.getElementById('bks_context_bubble_details').open = true;
+                document.getElementById('status_msg').innerText = 'CONTEXT BUBBLE READY';
+            } else {
+                alert('Import failed: ' + (data.error || 'Unknown error'));
+            }
+        } else if (res.files && res.files.length) {
+            await uploadBksContextFiles(res.files);
+        }
+    } catch (e) {
+        console.error('File picker error:', e);
+    }
+}
+
+async function uploadBksContextFiles(fileList) {
+    if (!fileList || !fileList.length) return;
+    const fd = new FormData();
+    Array.from(fileList).forEach(f => fd.append('files', f));
+    document.getElementById('status_msg').innerText = 'UPLOADING CONTEXT FILES...';
+    const r = await fetch('/api/bks/context_files', {
+        method: 'POST',
+        body: fd
+    });
+    const data = await r.json();
+    if (data.ok) {
+        renderBksContextBubbleState(data);
+        document.getElementById('bks_context_bubble_details').open = true;
+        document.getElementById('status_msg').innerText = 'CONTEXT BUBBLE READY';
+    } else {
+        alert('Upload failed: ' + (data.error || 'Unknown error'));
+    }
+}
+
+async function toggleBksContextFile(filename, enabled) {
+    const r = await fetch('/api/bks/context_files/toggle', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filename: filename, enabled: enabled})
+    });
+    const data = await r.json();
+    if (data.ok) renderBksContextBubbleState(data);
+}
+
+async function deleteBksContextFile(filename) {
+    const r = await fetch('/api/bks/context_files/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filename: filename})
+    });
+    const data = await r.json();
+    if (data.ok) renderBksContextBubbleState(data);
 }
 
 function syncBksModelOptions(preferredModel) {
@@ -1450,32 +1691,69 @@ async function generateTaskPlan() {
     }
 }
 
+function selectAllText(targetId) {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    el.focus();
+    el.select();
+    el.setSelectionRange(0, 99999);
+}
+
+async function copyText(targetId, btnElement) {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    try {
+        await navigator.clipboard.writeText(el.value || el.innerText);
+        const originalText = btnElement.innerText;
+        btnElement.innerText = "Copied!";
+        setTimeout(() => {
+            btnElement.innerText = originalText;
+        }, 1500);
+    } catch(err) {
+        console.error("Copy failed", err);
+    }
+}
+
 function renderPlan() {
     const cont = document.getElementById('task_container');
     cont.innerHTML = '';
     currentPlan.forEach((t, i) => {
         const partIdx = t.index || (i + 1);
         const statusColor = t.status === 'accepted' ? '#059669' : (t.status === 'rejected' ? '#dc2626' : 'var(--muted)');
+        const isCompleted = t.status === 'accepted';
         const div = document.createElement('div');
         div.className = 'task-card';
+        div.style.marginBottom = '12px';
         div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
-                <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:200px;">
-                    <span style="font-family:var(--mono); font-size:0.75rem; background:#151515; padding:4px 8px; border-radius:4px; border:1px solid var(--border); flex-shrink:0;">PART ${partIdx}/4</span>
-                    <input type="text" id="bks-part-title-${i}" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700; padding:6px 10px; font-size:0.9rem; flex:1; min-width:0;">
+            <details ${isCompleted ? '' : 'open'} style="width:100%;">
+                <summary style="cursor:pointer; list-style:none; outline:none; user-select:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:4px 0;">
+                        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:200px;">
+                            <span style="font-family:var(--mono); font-size:0.75rem; background:#151515; padding:4px 8px; border-radius:4px; border:1px solid var(--border); flex-shrink:0;">PART ${partIdx}/4</span>
+                            <input type="text" id="bks-part-title-${i}" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700; padding:6px 10px; font-size:0.9rem; flex:1; min-width:0;" onclick="event.stopPropagation();">
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <span id="task-res-${i}" style="font-family:var(--mono); font-size:0.72rem; color:${statusColor};">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
+                            <button type="button" class="btn btn-sm" onclick="event.stopPropagation();runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
+                        </div>
+                    </div>
+                </summary>
+                <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:0.65rem;">Part ${partIdx} Brief &amp; Instructions</label>
+                        <textarea id="bks-part-brief-${i}" style="min-height:60px; font-size:0.8rem; white-space:pre-wrap; word-wrap:break-word;">${t.brief || t.prompt || ''}</textarea>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label style="font-size:0.65rem; margin:0;">Part ${partIdx} Generated Markdown Content (${(t.content || '').length} chars)</label>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn btn-black btn-sm" style="font-size:0.65rem; padding:2px 8px;" onclick="selectAllText('bks-part-body-${i}')">Select All</button>
+                                <button type="button" class="btn btn-black btn-sm" style="font-size:0.65rem; padding:2px 8px;" onclick="copyText('bks-part-body-${i}', this)">Copy</button>
+                            </div>
+                        </div>
+                        <textarea id="bks-part-body-${i}" style="min-height:140px; font-size:0.8rem; white-space:pre-wrap; word-wrap:break-word;">${t.content || ''}</textarea>
+                    </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <span id="task-res-${i}" style="font-family:var(--mono); font-size:0.72rem; color:${statusColor};">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
-                    <button type="button" class="btn btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
-                </div>
-            </div>
-            <div style="margin-bottom:8px;">
-                <label style="font-size:0.65rem;">Part ${partIdx} Brief &amp; Instructions</label>
-                <textarea id="bks-part-brief-${i}" style="min-height:60px; font-size:0.8rem;">${t.brief || t.prompt || ''}</textarea>
-            </div>
-            <details ${t.content ? 'open' : ''}>
-                <summary style="cursor:pointer; font-size:0.75rem; color:var(--muted); user-select:none;">Part ${partIdx} Generated Markdown Content (${(t.content || '').length} chars)</summary>
-                <textarea id="bks-part-body-${i}" style="min-height:140px; margin-top:8px; font-size:0.8rem;">${t.content || ''}</textarea>
             </details>
         `;
         cont.appendChild(div);

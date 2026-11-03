@@ -7,12 +7,15 @@ Format_Scope:    MFDB only (104a manifest + 104 entity files; NOT 104db)
 Glossary:        BEJSON 104, 104a and 104db are the three file formats (Format_Version). 104db = ONE file holding 2+ entity types
                  (Record_Type_Parent discriminator, null-padding). MFDB is NOT a format and NOT 104db: it is a layer made of one 104a manifest
                  (104a.mfdb.bejson) plus dense 104 entity files linked by Parent_Hierarchy. MFDB-132 = an MFDB packed into one Chunked-104a document.
-Version:         2.2.4
+Version:         2.3.1
 Release_Version: 300
-Date:            2026-10-02
+Changelog:       2.3.0 (2026-10-27) MFDB spec Level 2/3 now enforced: entity Records_Type == manifest entity_name, exactly one [34]; bidirectional manifest<->entity [38]; orphan [37]; record_count drift = warning; error codes embedded as [NN] in messages.
+Date:            2026-10-30
+Changelog:
+  2.3.1 - 2026-10-30: Parity with libraries_105 2.4.1: optional Network_Role validated (code 30); [37] on missing manifest; path-escape error carries [33]; absolute paths escape the root.
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   069574e8-7f27-4c36-80bf-0656a607980e
+RELATIONAL_ID:   c5ca238e-33a6-4efd-8691-b58668df72fe
 """
 
 import json
@@ -124,11 +127,13 @@ def validate_mfdb_archive(archive_path: str) -> MFDBValidationResult:
 
 # Level 1: validates the manifest as a BEJSON 104a document named *.mfdb.bejson with Records_Type ["mfdb"] and the required manifest fields/headers (e.g. MFDB_Version, DB_Name).
 # A 104db file or a plain 104a that is not an MFDB manifest fails here.
+VALID_NETWORK_ROLES = ("Master", "Slave", "Standalone")
+
 def validate_mfdb_manifest(manifest_path: str) -> MFDBValidationResult:
     res = MFDBValidationResult()
     p = Path(manifest_path)
     if not p.exists():
-        res.add_error(f"Manifest not found: {manifest_path}", "File System")
+        res.add_error(f"[{E_MFDB_MANIFEST_NOT_FOUND}] Manifest not found: {manifest_path}", "File System")
         return res
     
     bej_res = validate_bejson(manifest_path, is_file=True)
@@ -138,40 +143,52 @@ def validate_mfdb_manifest(manifest_path: str) -> MFDBValidationResult:
 
     doc = _load_json(manifest_path)
     if doc.get("Format_Version") != "104a" or doc.get("Records_Type") != ["mfdb"]:
-        res.add_error("Invalid manifest format or records type", "Manifest")
+        res.add_error(f"[{E_MFDB_MANIFEST_RECORDS_TYPE}] Invalid manifest format or records type (must be 104a with Records_Type [\"mfdb\"])", "Manifest")
         return res
+
+    if "Network_Role" in doc and doc["Network_Role"] is not None:
+        if not isinstance(doc["Network_Role"], str) or doc["Network_Role"] not in VALID_NETWORK_ROLES:
+            res.add_error(f"[{E_MFDB_NOT_MANIFEST}] Invalid Network_Role {doc['Network_Role']!r} (must be one of {VALID_NETWORK_ROLES})", "Network_Role")
 
     field_names = [f["name"] for f in doc.get("Fields", [])]
     for req in ("entity_name", "file_path"):
-        if req not in field_names: res.add_error(f"Missing required field: {req}", "Fields")
+        if req not in field_names: res.add_error(f"[{E_MFDB_MISSING_REQUIRED_FIELD}] Missing required field: {req}", "Fields")
 
     seen_names, seen_paths = set(), set()
     for i, entry in enumerate(_rows_as_dicts(doc)):
         en, fp = entry.get("entity_name"), entry.get("file_path")
-        if not en or not fp: res.add_error(f"Record {i}: null entity_name or file_path", "Values")
-        if en in seen_names: res.add_error(f"Duplicate entity: {en}", "Values")
-        if fp in seen_paths: res.add_error(f"Duplicate path: {fp}", "Values")
+        if not en or not fp: res.add_error(f"[{E_MFDB_NULL_REQUIRED}] Record {i}: null entity_name or file_path", "Values")
+        if en in seen_names: res.add_error(f"[{E_MFDB_DUPLICATE_ENTRY}] Duplicate entity: {en}", "Values")
+        if fp in seen_paths: res.add_error(f"[{E_MFDB_DUPLICATE_ENTRY}] Duplicate path: {fp}", "Values")
         seen_names.add(en); seen_paths.add(fp)
 
         # NEW-08: reject file_path values that attempt to escape the MFDB root
         if fp and _bejson_mfdb_escapes_root(fp):
             res.add_error(
-                f"Path traversal detected in file_path for entity '{en}': '{fp}'",
+                f"[{E_MFDB_ENTITY_NOT_FOUND}] Path traversal detected in file_path for entity '{en}': '{fp}'",
                 "Values"
             )
             continue
 
         resolved = _resolve_entity_path(manifest_path, fp)
-        if not os.path.exists(resolved): res.add_error(f"Entity file not found: {fp}", "File System")
+        if not os.path.exists(resolved): res.add_error(f"[{E_MFDB_ENTITY_NOT_FOUND}] Entity file not found: {fp}", "File System")
     
     return res
 
-# Level 2: validates an entity file as a BEJSON 104 document (one Records_Type, Parent_Hierarchy present). With check_bidirectional=True also checks that the manifest lists this file back (two-way link).
-def validate_mfdb_entity_file(entity_path: str, check_bidirectional: bool = True) -> MFDBValidationResult:
+def _same_file(a: str, b: str) -> bool:
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b))
+
+# Level 2: validates an entity file as a BEJSON 104 document: Parent_Hierarchy present and resolving (else orphan), Records_Type exactly one string. With check_bidirectional=True the manifest named by Parent_Hierarchy must list THIS file and its entity_name must equal Records_Type[0] (case-sensitive). validate_mfdb_database passes expected_entity_name/expected_manifest so the entity must point back at the very manifest that lists it.
+def validate_mfdb_entity_file(entity_path: str, check_bidirectional: bool = True,
+                              expected_entity_name: Optional[str] = None,
+                              expected_manifest: Optional[str] = None) -> MFDBValidationResult:
     res = MFDBValidationResult()
     p = Path(entity_path)
     if not p.exists():
-        res.add_error(f"Entity file not found: {entity_path}", "File System")
+        res.add_error(f"[{E_MFDB_ENTITY_NOT_FOUND}] Entity file not found: {entity_path}", "File System")
         return res
 
     bej_res = validate_bejson(entity_path, is_file=True)
@@ -181,32 +198,77 @@ def validate_mfdb_entity_file(entity_path: str, check_bidirectional: bool = True
 
     doc = _load_json(entity_path)
     if doc.get("Format_Version") != "104":
-        res.add_error("Entity file must be 104", "Format_Version")
+        res.add_error(f"[{E_MFDB_NOT_ENTITY_FILE}] Entity file must be Format_Version 104", "Format_Version")
         return res
 
     ph = doc.get("Parent_Hierarchy")
     if not ph:
-        res.add_error("Missing Parent_Hierarchy", "Structure")
+        res.add_error(f"[{E_MFDB_NO_PARENT_HIERARCHY}] Missing Parent_Hierarchy", "Structure")
         return res
 
     manifest_path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(entity_path)), ph))
     if not os.path.exists(manifest_path):
-        res.add_error(f"Manifest not found at {manifest_path}", "Parent_Hierarchy")
+        res.add_error(f"[{E_MFDB_MANIFEST_NOT_FOUND}] Manifest not found at {manifest_path} (orphan entity)", "Parent_Hierarchy")
         return res
+
+    rt = doc.get("Records_Type")
+    if not (isinstance(rt, list) and len(rt) == 1 and isinstance(rt[0], str) and rt[0]):
+        res.add_error(f"[{E_MFDB_ENTITY_NAME_MISMATCH}] Records_Type must contain exactly one string (the entity name)", "Records_Type")
+        return res
+
+    if expected_manifest is not None and not _same_file(manifest_path, expected_manifest):
+        res.add_error(f"[{E_MFDB_BIDIRECTIONAL_FAIL}] Parent_Hierarchy points to {manifest_path}, "
+                      f"not to the manifest that lists this file ({expected_manifest})", "Parent_Hierarchy")
+        return res
+    if expected_entity_name is not None and rt[0] != expected_entity_name:
+        res.add_error(f"[{E_MFDB_ENTITY_NAME_MISMATCH}] Records_Type {rt[0]!r} does not match manifest "
+                      f"entity_name {expected_entity_name!r} (case-sensitive)", "Records_Type")
+
+    if check_bidirectional:
+        try:
+            mdoc = _load_json(manifest_path)
+            if mdoc.get("Format_Version") != "104a" or mdoc.get("Records_Type") != ["mfdb"]:
+                res.add_error(f"[{E_MFDB_NOT_MANIFEST}] Parent_Hierarchy target is not an MFDB manifest", "Parent_Hierarchy")
+                return res
+            rows = _rows_as_dicts(mdoc)
+        except Exception as e:
+            res.add_error(f"[{E_MFDB_NOT_MANIFEST}] Parent_Hierarchy target unreadable as a manifest: {e}", "Parent_Hierarchy")
+            return res
+        mine = [r for r in rows
+                if r.get("file_path") and not _bejson_mfdb_escapes_root(r["file_path"])
+                and _same_file(_resolve_entity_path(manifest_path, r["file_path"]), entity_path)]
+        if not mine:
+            res.add_error(f"[{E_MFDB_BIDIRECTIONAL_FAIL}] Bidirectional check failed: manifest {manifest_path} "
+                          f"has no file_path that resolves to this entity file", "Parent_Hierarchy")
+        elif expected_entity_name is None and not any(r.get("entity_name") == rt[0] for r in mine):
+            res.add_error(f"[{E_MFDB_ENTITY_NAME_MISMATCH}] Records_Type {rt[0]!r} does not match the manifest "
+                          f"entity_name for this file ({mine[0].get('entity_name')!r})", "Records_Type")
 
     return res
 
-# Level 3: whole-database validation -- manifest, every entity file, record_count accuracy and *_fk conventions. strict_fk=True turns unresolved foreign-key values into errors; MFDB itself does not enforce foreign keys.
+# Level 3: whole-database validation -- manifest, every entity file (Records_Type match + bidirectional), record_count drift (warning only). strict_fk is accepted for API compatibility; MFDB 104 does not enforce foreign keys.
 def validate_mfdb_database(manifest_path: str, strict_fk: bool = False) -> MFDBValidationResult:
     res = validate_mfdb_manifest(manifest_path)
     if not res.valid: return res
-    
+
     doc = _load_json(manifest_path)
     for entry in _rows_as_dicts(doc):
         resolved = _resolve_entity_path(manifest_path, entry["file_path"])
-        ent_res = validate_mfdb_entity_file(resolved)
+        ent_res = validate_mfdb_entity_file(resolved, check_bidirectional=True,
+                                            expected_entity_name=entry["entity_name"],
+                                            expected_manifest=manifest_path)
         if not ent_res.valid:
             for err in ent_res.errors: res.add_error(err, f"Entity:{entry['entity_name']}")
+        else:
+            declared = entry.get("record_count")
+            if declared is not None:
+                try:
+                    actual = len(_load_json(resolved).get("Values", []))
+                    if declared != actual:
+                        res.add_warning(f"record_count {declared} in manifest != {actual} rows in file",
+                                        f"Entity:{entry['entity_name']}")
+                except Exception as e:
+                    res.add_warning(f"could not compare record_count: {e}", f"Entity:{entry['entity_name']}")
     return res
 
 # Raising wrapper over validate_mfdb_manifest: raises MFDBValidationError on the first error.

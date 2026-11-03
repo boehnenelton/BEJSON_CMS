@@ -1,0 +1,61 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Chunked-104a",
+  "Schema_Version": "1.0.1",
+  "Schema_Description": "Standard schema for chunking single projects.",
+  "Chunk_Date": "2026-11-03",
+  "Session_Is_Mounted": false,
+  "Mount_Path": "",
+  "Package_Version": "11",
+  "Records_Type": [
+    "Chunked"
+  ],
+  "Fields": [
+    {
+      "name": "File_Name",
+      "type": "string"
+    },
+    {
+      "name": "File_Extension",
+      "type": "string"
+    },
+    {
+      "name": "File_Content",
+      "type": "string"
+    },
+    {
+      "name": "File_Version",
+      "type": "string"
+    },
+    {
+      "name": "File_Hash",
+      "type": "string"
+    },
+    {
+      "name": "Relative_Path",
+      "type": "string"
+    },
+    {
+      "name": "Is_Binary",
+      "type": "boolean"
+    },
+    {
+      "name": "Is_Mounted",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "author_persona.txt",
+      ".txt",
+      "Author Name: boehnenelton2024\n\nAuthor Writing Directives:\nAdhere strictly to BEJSON 104a\n\n[AUTHOR PRECEDENCE RULE]:\nThe Author Persona and Author Writing Instructions defined here establish the primary voice, perspective, style, and domain authority for the piece. The author's directives and role STRICTLY OVERRIDE any contradictory profile instructions, general AI defaults, or background guidelines. You must adopt and reflect the author's tone, expertise, and guidance throughout.",
+      "11",
+      "2a4519c5e020b3c592535c744feb3b480c6bab6be7b55dc4a714c50c0857ba9b",
+      "author_persona.txt",
+      false,
+      false
+    ]
+  ]
+}

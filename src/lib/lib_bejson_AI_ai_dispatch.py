@@ -89,9 +89,9 @@ from lib_bejson_AI_ai_response import AIResponse, ai_response_ok, ai_response_er
 
 logger = logging.getLogger("lib_bejson_AI_ai_dispatch")
 
-VERSION = "1.8.0"
+VERSION = "1.8.1"
 
-PROVIDERS = ("groq", "openrouter", "gemini", "geminirest", "genai", "grok", "huggingface", "openai", "tokenrouter", "ollama", "ollamalocal", "litertlm")
+PROVIDERS = ("groq", "openrouter", "gemini", "geminirest", "genai", "grok", "huggingface", "openai", "tokenrouter", "ollama")
 
 
 # ── TokenRouter (bejson_tokenrouter.py) ───────────────────────────────────
@@ -321,46 +321,6 @@ def _adapt_ollama(user_input: str, model_id: Optional[str], system_instruction: 
                            unsupported_params=unsupported, raw=result)
 
 
-# ── Ollama Local (bejson_ollamalocal.py) ──────────────────────────────────
-
-def _adapt_ollamalocal(user_input: str, model_id: Optional[str], system_instruction: Optional[str], **config) -> AIResponse:
-    from lib_bejson_AI_bejson_ollamalocal import get_standard_prompter
-
-    passthrough = {k: v for k, v in config.items() if k in ("temperature", "max_tokens", "num_ctx")}
-    extra = sorted(set(config) - set(passthrough))
-    unsupported = ["config:" + ",".join(extra)] if extra else []
-
-    prompter = get_standard_prompter()
-    result = prompter.prompt(user_input, model_id, system_instruction=system_instruction, **passthrough)  # always returns a str
-    used_model = model_id or prompter.model_reg.active_model_id
-
-    if isinstance(result, str) and result.startswith("ERROR:"):
-        return ai_response_error(result, provider="ollamalocal", model_id=used_model,
-                                  unsupported_params=unsupported, raw=result)
-    return ai_response_ok(result, provider="ollamalocal", model_id=used_model,
-                           unsupported_params=unsupported, raw=result)
-
-
-# ── LiteRT-LM local (bejson_litertlm.py) ──────────────────────────────────
-
-def _adapt_litertlm(user_input: str, model_id: Optional[str], system_instruction: Optional[str], **config) -> AIResponse:
-    from lib_bejson_AI_bejson_litertlm import get_standard_prompter
-
-    passthrough = {k: v for k, v in config.items() if k in ("temperature", "max_tokens")}
-    extra = sorted(set(config) - set(passthrough))
-    unsupported = ["config:" + ",".join(extra)] if extra else []
-
-    prompter = get_standard_prompter()
-    result = prompter.prompt(user_input, model_id, system_instruction=system_instruction, **passthrough)  # always returns a str
-    used_model = model_id or prompter.model_reg.active_model_id
-
-    if isinstance(result, str) and result.startswith("ERROR:"):
-        return ai_response_error(result, provider="litertlm", model_id=used_model,
-                                  unsupported_params=unsupported, raw=result)
-    return ai_response_ok(result, provider="litertlm", model_id=used_model,
-                           unsupported_params=unsupported, raw=result)
-
-
 _ADAPTERS = {
     "groq": _adapt_groq,
     "openrouter": _adapt_openrouter,
@@ -372,8 +332,6 @@ _ADAPTERS = {
     "openai": _adapt_openai,
     "tokenrouter": _adapt_tokenrouter,
     "ollama": _adapt_ollama,
-    "ollamalocal": _adapt_ollamalocal,
-    "litertlm": _adapt_litertlm,
 }
 
 

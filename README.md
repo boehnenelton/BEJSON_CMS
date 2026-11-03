@@ -17,7 +17,7 @@
 - [Complete Feature Catalog & Capabilities Matrix](#complete-feature-catalog--capabilities-matrix)
 - [User Workflows & Operational Guides](#user-workflows--operational-guides)
   - [1. Article Authoring & Editing in PageEditor V2](#1-article-authoring--editing-in-pageeditor-v2)
-  - [2. Standardized 4-Part Blog Job System (BKS-1)](#2-standardized-4-part-blog-job-system-bks-1)
+  - [2. AI Writer & Standardized 4-Part BKS-1 System](#2-ai-writer--standardized-4-part-bks-1-system)
   - [3. Markdown Import & Batch Conversion Pipeline](#3-markdown-import--batch-conversion-pipeline)
   - [4. Media Asset Pipeline & Thumbnails](#4-media-asset-pipeline--thumbnails)
   - [5. Standalone Web Application Hosting](#5-standalone-web-application-hosting)
@@ -35,7 +35,17 @@
   - [MFDB Manifest Structure (104a.mfdb.bejson)](#mfdb-manifest-structure-104amfdbbejson)
   - [Full Relational Entity Schema Roster](#full-relational-entity-schema-roster)
   - [Page Storage Document Hierarchy (pages_db/)](#page-storage-document-hierarchy-pages_db)
-- [BKS-1 Job Engine & Structured Writing Architecture](#bks-1-job-engine--structured-writing-architecture)
+- [AI Writer Architecture & 48k Context Bubble Engine](#ai-writer-architecture--48k-context-bubble-engine)
+  - [Subsystem Overview & Admin UI Integration](#subsystem-overview--admin-ui-integration)
+  - [Zero-SDK REST Dispatch & Provider Registry Architecture](#zero-sdk-rest-dispatch--provider-registry-architecture)
+  - [The 48,000 Combined Token Budget System](#the-48000-combined-token-budget-system)
+  - [Dual-Allotment Budget Distribution & Dynamic Spill-Up](#dual-allotment-budget-distribution--dynamic-spill-up)
+  - [Author Role Precedence & Persona Directives (15% Share)](#author-role-precedence--persona-directives-15-share)
+  - [Silent Reference Material Ingestion (85% Share)](#silent-reference-material-ingestion-85-share)
+  - [Two-Tier Chunked-104a Packaging & Cryptographic Integrity](#two-tier-chunked-104a-packaging--cryptographic-integrity)
+  - [BKS-1 4-Part Pipeline: Plan, Contextualize_Plan & Contextualize_Last](#bks-1-4-part-pipeline-plan-contextualize_plan--contextualize_last)
+  - [BKS-1 Directory Architecture & Relational Mapping](#bks-1-directory-architecture--relational-mapping)
+  - [REST API Reference & State Payload Contracts](#rest-api-reference--state-payload-contracts)
 - [REST API & HTTP Route Reference](#rest-api--http-route-reference)
 - [Command-Line Interface Reference (cms-manage.py)](#command-line-interface-reference-cms-managepy)
 - [TUI Supervisor Reference (advanced_launcher.py)](#tui-supervisor-reference-advanced_launcherpy)
@@ -314,7 +324,7 @@ Page Editor V2 provides an intuitive interface for drafting and publishing artic
 
 ---
 
-### 2. Standardized 4-Part Blog Job System (BKS-1)
+### 2. AI Writer & Standardized 4-Part BKS-1 System
 
 BEJSON CMS includes a standardized 4-part job framework for long-form technical articles, deep dives, and multi-part guides.
 
@@ -328,7 +338,7 @@ BEJSON CMS includes a standardized 4-part job framework for long-form technical 
 └─────────────────┴─────────────────┴─────────────┴───────────────┘
 ```
 
-#### Executing a Job via Web Studio (`:5001/jobs` or `:5005 #t-tasking`):
+#### Executing a Job via AI Writer Studio (`:5001/jobs` or PageEditor V2 `:5005 #t-tasking`):
 1. **Choose Template / BookType**:
    - `blog_post_4part`: Standard 4-part publication (Introduction, Core Architecture, Implementation, Future Horizons).
    - `technical_deep_dive_4part`: Rigorous engineering breakdown with code blocks and specifications.
@@ -739,28 +749,469 @@ This decoupled design allows the CMS to read lightweight metadata lists without 
 
 ---
 
-## BKS-1 Job Engine & Structured Writing Architecture
+## AI Writer Architecture & 48k Context Bubble Engine
 
-The BKS-1 job engine (`src/lib/lib_bejson_CMS_bks_blog_jobs.py`) implements a structured writing workflow for complex technical content.
+The **AI Writer** subsystem in BEJSON CMS is an enterprise-grade, zero-SQL structured content generation engine powered by Elton Boehnen's BKS-1 Book and JobMaker specification and the CLI_AI 48 library family. It is exposed natively across two primary administrative interfaces:
+1. **Admin Suite AI Writer Studio** (`/jobs` mounted via `src/web/BEJSON_CMS_Content.py`): Accessible from the left sidebar navigation under **AI Writer** and labeled prominently at the top of the body section (`<h1>AI Writer</h1>`). Features real-time job switching, interactive server file selection via `CMSFilePicker`, live 48k token budget telemetry, one-click execution of sequential parts, and atomic CMS post overwriting.
+2. **PageEditor V2 AI Writer Workspace** (`#t-tasking` mounted via `src/web/BEJSON_CMS_PageEditorV2.py`): An integrated multi-tab editorial environment accessible via the **AI Writer** navigation link and section header (`<h2>AI Writer</h2>`), pairing real-time article drafting with live Context Bubble inspection and model parameter tuning.
 
-### BKS-1 Directory Architecture
+---
+
+### Subsystem Overview & Admin UI Integration
+
+The AI Writer bridges high-throughput Large Language Model inference with deterministic BEJSON positional persistence. Unlike conventional CMS plugins that execute unstructured, single-turn prompts against arbitrary external databases, the AI Writer decomposes technical publications into mathematically verifiable, 4-part structured documents where narrative context, plan invariants, and preceding chapter drafts are dynamically pipelined across execution stages.
+
+```
++---------------------------------------------------------------------------------------------------+
+|                                  ADMIN UI / PAGE EDITOR V2 WORKSPACE                             |
+|                                    (Sidebar & Header: 'AI Writer')                                |
++---------------------------------------------------------------------------------------------------+
+                                                  |
+                     +----------------------------+----------------------------+
+                     |                                                         |
+                     v                                                         v
+    +----------------------------------+                     +----------------------------------+
+    |  Author Persona & Directives     |                     |  Context Reference Files         |
+    |  - MFDB AuthorProfile bio        |                     |  - Selected via CMSFilePicker    |
+    |  - Ad-hoc writing instructions   |                     |  - Sourced from device/server    |
+    |  - Author Precedence Directive   |                     |  - Ingested silently into bubble |
+    +----------------------------------+                     +----------------------------------+
+                     | (15% Share / ~7.2k tok)                                 | (85% Share / ~40.8k tok)
+                     +----------------------------+----------------------------+
+                                                  |
+                                                  v
+                     +---------------------------------------------------------+
+                     |             CONTEXT BUBBLE ENGINE (48K TOKENS)          |
+                     |           lib_bejson_AI_ai_context_bubble.py            |
+                     |  - Ranked Allotments & Baseline Normalization           |
+                     |  - Dynamic Spill-Up & Donor Draw Redistribution        |
+                     |  - Two-Tier Chunked-104a Container Verification        |
+                     +---------------------------------------------------------+
+                                                  |
+                                                  v
+                     +---------------------------------------------------------+
+                     |                  BKS-1 WRITING PIPELINE                 |
+                     |            lib_bejson_CMS_bks_blog_jobs.py              |
+                     |  - Part 1 -> Part 2 -> Part 3 -> Part 4 Sequential Flow |
+                     |  - Contextualize_Plan: Global goal + outline roster     |
+                     |  - Contextualize_Last: Preceding chapter output tail    |
+                     |  - Cryptographic SHA-256 prompt provenance hashing      |
+                     +---------------------------------------------------------+
+                                                  |
+                                                  v
+                     +---------------------------------------------------------+
+                     |                 REST DISPATCH (ZERO-SDK)                |
+                     |             lib_bejson_AI_ai_writing.py                 |
+                     |  - Gemini REST (geminirest), OpenRouter, Groq, etc.     |
+                     |  - Absolute Negative Constraint: No local runtimes      |
+                     +---------------------------------------------------------+
+                                                  |
+                                                  v
+                     +---------------------------------------------------------+
+                     |           ATOMIC MERGE & CMS OVERWRITE PUBLISHING       |
+                     |  - lib_bejson_CMS_md2html: Semantic HTML generation     |
+                     |  - pages_db/<uuid>.json & pagerecord.bejson sync        |
+                     +---------------------------------------------------------+
+```
+
+---
+
+### Zero-SDK REST Dispatch & Provider Registry Architecture
+
+All artificial intelligence generation in BEJSON CMS routes through `lib_bejson_AI_ai_writing.py` and `lib_bejson_AI_ai_dispatch.py`. The dispatch layer relies exclusively on Python standard library HTTP primitives (`urllib.request`) rather than bloated, third-party provider software development kits.
+
+#### Provider Registry & Model Discovery
+Supported cloud providers and models are cataloged in standalone BEJSON 104a model registries located under `src/lib/config/` (with fallback to the user environment at `/storage/emulated/0/cli ai 48/lib/AI/config/`):
+- `gemini_model_registry.104a.bejson`: Google Gemini models (e.g. `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-exp-1206`) accessed via zero-SDK stdlib REST (`geminirest`).
+- `groq_model_registry.104a.bejson`: High-speed Llama-3 and Mixtral models via Groq REST endpoints.
+- `openrouter_model_registry.104a.bejson`: Universal multi-model routing across Claude, GPT-4o, and DeepSeek.
+- `tokenrouter_model_registry.104a.bejson`: Dedicated high-volume load-balanced TokenRouter endpoints.
+- `grok_model_registry.104a.bejson`: xAI Grok family models.
+- `huggingface_model_registry.104a.bejson`: HuggingFace Serverless Inference API endpoints.
+- `openai_model_registry.104a.bejson`: OpenAI official REST endpoints.
+
+Model discovery is executed in $O(1)$ time complexity using BEJSON Field Map Caching (`bejson_core_get_field_map`), resolving `model_id`, `display_name`, and `currently_active` status flags without full document parsing overhead.
+
+#### Strict Hardware-Guarding Negative Constraint: Exclusion of Local Runtimes
+To safeguard constrained mobile hardware, host batteries, and system RAM (particularly on ARM64 Linux / Android Termux environments), local model runtimes are strictly excluded from the active AI provider roster:
+```python
+EXCLUDED_LOCAL_PROVIDERS = {'ollamalocal', 'litertlm'}
+ACTIVE_PROVIDERS = [p for p in PROVIDERS if p.lower() not in EXCLUDED_LOCAL_PROVIDERS]
+```
+Local LLM daemons such as LiteRT-LM (mediapipe/tflite bindings) and local Ollama (`ollamalocal` / `localhost:11434`) are prohibited from the CMS runtime. This ensures that memory consumption during concurrent content generation remains under 45 MB of resident RAM and prevents device freezes.
+
+---
+
+### The 48,000 Combined Token Budget System
+
+The AI Writer operates under a deterministic, 48,000-token prompt budget ceiling (`MAX_COMBINED_PROMPT_TOKENS = 48000`). At standard 4 characters per token quantization (`DEFAULT_CHARS_PER_TOKEN = 4`), this equates to exactly **192,000 characters** allocated across the entire outgoing prompt payload.
+
+#### Mathematical Prompt Budget Partitioning
+The outgoing token stream is budgeted into five functional strata:
+
+| Budget Stratum | Function / Origin | Token Allocation | Character Ceiling | Priority |
+| :--- | :--- | :--- | :--- | :--- |
+| **System Instruction** | Identity, format constraints, markdown rules, section headers | ~500 tokens | ~2,000 chars | Mandatory |
+| **Author Precedence Rule** | Overrides profile guidelines, locks author voice & domain | ~250 tokens | ~1,000 chars | Absolute |
+| **Contextualize_Plan** | Global goal + full 4-part outline node briefs | ~750 tokens | ~3,000 chars | High |
+| **Contextualize_Last** | Previous chapter draft tail (continuity anchor) | ~1,500 tokens | ~6,000 chars | High |
+| **Active Task Brief** | Specific objectives, required headings, target words for part | ~500 tokens | ~2,000 chars | Mandatory |
+| **Context Bubble Payload** | Sized container holding Author Persona (15%) & Context Files (85%) | **Up to 44,500 tokens** | **Up to 178,000 chars** | Managed / Dynamic |
+
+#### Prompt Boundary Enforcement & Truncation Guard
+Before any network dispatch occurs in `lib_bejson_AI_ai_writing.py`, the combined string length is audited:
+```python
+# Enforce combined prompt and bubble allotment ceiling (48,000 tokens / 192,000 chars)
+if len(system_instruction) + len(user_prompt) > MAX_COMBINED_PROMPT_CHARS:
+    excess = (len(system_instruction) + len(user_prompt)) - MAX_COMBINED_PROMPT_CHARS + 500
+    if context_bubble_text and len(context_bubble_text) > excess:
+        trimmed_bubble = context_bubble_text[:-excess] + "\n[...truncated: over 48,000 combined token ceiling]"
+        prompt_sections[0] = trimmed_bubble
+        user_prompt = "\n\n".join(prompt_sections)
+```
+This guarantees that while reference context files may be cleanly truncated at the tail with an explicit warning marker, structural task instructions, author persona directives, and chapter continuity pipelines are never truncated or compromised.
+
+---
+
+### Dual-Allotment Budget Distribution & Dynamic Spill-Up
+
+The pre-prompt Context Bubble (`src/lib/lib_bejson_AI_ai_context_bubble.py`) implements a ranked allotment architecture configured via `storage/mfdb/bks_jobs/context_config/context_bubble.bejson`:
+
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "ContextBubbleConfig",
+  "Schema_Version": "2.0.0",
+  "Rebuild_Interval_Turns": 5,
+  "Normalize_Baselines": true,
+  "Records_Type": ["Allotment"],
+  "Fields": [
+    {"name": "name", "type": "string"},
+    {"name": "rank", "type": "integer"},
+    {"name": "pct", "type": "number"},
+    {"name": "enabled", "type": "boolean"},
+    {"name": "refresh", "type": "string"},
+    {"name": "keep", "type": "string"},
+    {"name": "label", "type": "string"},
+    {"name": "directive", "type": "string"}
+  ],
+  "Values": [
+    [
+      "author_persona",
+      1,
+      15.0,
+      true,
+      "stable",
+      "start",
+      "Author Persona & Instructions",
+      "AUTHOR PERSONA & INSTRUCTIONS -- Author persona and instructions governing tone, voice, and style. The author role strictly overrides any contradictory profile instructions."
+    ],
+    [
+      "context",
+      2,
+      85.0,
+      true,
+      "stable",
+      "start",
+      "Context Reference Material",
+      "BACKGROUND -- Study and learn silently. Never copy or reference."
+    ]
+  ]
+}
+```
+
+#### The Spill-Up Algorithm & Even Donor Draw
+1. **Baseline Normalization**: With `Normalize_Baselines: true`, enabled allotments are normalized to 100% of the active context window. `author_persona` is assigned 15.0% (~7,200 tokens / 28,800 characters) and `context` is assigned 85.0% (~40,800 tokens / 163,200 characters).
+2. **Surplus Release**: If the resolved author persona text requires only 400 tokens (~1,600 characters), its remaining 6,800 token baseline grant is released into the unallocated pool.
+3. **Rank-Ordered Claiming**: The over-budget `context` allotment claims the released tokens in rank order. Rather than cutting off large technical source documents at 40,800 tokens, the context allotment dynamically expands up to 47,600 tokens.
+4. **Elastic Contraction**: If author instructions expand on a subsequent turn, the claimant allotment automatically contracts back toward its 85% baseline grant. Neither allotment ever starves the other.
+
+---
+
+### Author Role Precedence & Persona Directives (15% Share)
+
+A central architectural mandate of the AI Writer is that the author persona and author writing instructions establish the primary voice, domain authority, and perspective for the entire publication, strictly overriding generic AI profiles or default model biases.
+
+#### Precedence Directive Formulation
+Every assembled prompt and context bubble injects the standardized Author Precedence Directive:
+```
+[AUTHOR PRECEDENCE RULE]:
+The author persona, designated role, and explicit writing instructions defined for this task
+establish the primary voice, domain authority, and stylistic direction. The author's directives
+and role STRICTLY OVERRIDE any contradictory profile instructions, baseline guidelines, or generic
+rules. When directives conflict, ALWAYS prioritize and obey the author's voice, instructions,
+and constraints.
+```
+
+#### Multi-Tier Author Persona Resolution
+When `cms_bks_resolve_author_persona_text()` executes, it constructs the author persona block from MFDB storage:
+1. **Public Author Bio**: Queries `AuthorProfile` records from `storage/mfdb/site_master/104a.mfdb.bejson` using `CMSCore.get_records('AuthorProfile')`. Slices `author_display_name` and `author_bio` without modifying or mixing internal AI persona descriptions (complying strictly with Policy and AGENTS.md separation rules).
+2. **Ad-Hoc Writing Directives**: Appends optional per-job directives passed by the user (e.g. 'Emphasize zero-SQL storage mechanics; format tables with 3 columns; maintain a serious, rigorous engineering tone').
+3. **Precedence Framing**: Appends the Author Precedence Directive, ensuring the LLM embodies the human author's domain expertise throughout every generated part.
+
+---
+
+### Silent Reference Material Ingestion (85% Share)
+
+Technical articles require authoritative reference material (codebases, architectural specs, API contracts, JSON documents) to avoid hallucinations and maintain empirical accuracy.
+
+#### Background Silent Learning Directive
+The `context` allotment is governed by an unyielding negative constraint injected directly into the bubble header:
+```
+BACKGROUND -- study and learn from this reference material and absorb it silently.
+Never reference, mention, acknowledge, or admit that this context exists; if it
+influences anything you produce, write strictly in your own words, never as a copy,
+quote, or citation of this material.
+```
+This forces the model to synthesize insights, adopt terminology, and align code examples with the reference documents without breaking the fourth wall by stating phrases like 'According to the provided context...' or 'As seen in the uploaded file...'.
+
+#### Modal File Picker Integration (CMSFilePicker)
+Reference files are imported directly from server storage using the modular `CMSFilePicker` modal:
+- Supported extensions: `.md`, `.txt`, `.bejson`, `.json`, `.py`, `.js`, `.ts`, `.html`, `.css`.
+- Files are registered in `storage/mfdb/bks_jobs/context_bubble/context_files.bejson` with metadata including `file_id`, `filename`, `char_count`, and `enabled` boolean flags.
+- Checkbox toggling enables or disables individual files on the fly, instantly recalculating token budgets and regenerating the live preview via `/api/bks/context_files/toggle`.
+
+---
+
+### Two-Tier Chunked-104a Packaging & Cryptographic Integrity
+
+To satisfy Elton Boehnen's BEJSON 104a standards, the Context Bubble engine employs a two-tier nested chunking architecture backed by `lib_bejson_Core_bejson_chunking.py`.
+
+```
+storage/mfdb/bks_jobs/context_bubble/
+├── context_files.bejson                                      # Registered files metadata
+├── bubble_state.json                                         # Turn counter & content hashes
+├── bubble/
+│   └── allotments/
+│       ├── 01_author_persona.104a.bejson                     # Tier 1 Chunk: Allotment 1
+│       └── 02_context.104a.bejson                            # Tier 1 Chunk: Allotment 2
+└── Context_Bubble.104a.bejson                                # Tier 2 Chunk: Master Container
+```
+
+#### Cryptographic SHA-256 Hashing Pipeline
+1. **Tier 1 (Allotment Chunks)**: Each allotment builder renders its string payload into `<context_dir>/bubble/allotments/<rank>_<name>.104a.bejson`. The file content is hashed using SHA-256 (`bejson_core_chunking_hash_file_bytes`), recording the hash in the row's `File_Hash` column.
+2. **Tier 2 (Master Bubble Container)**: The entire `bubble/` folder is packaged into a master Chunked-104a container at `Context_Bubble.104a.bejson`. Every row in the container represents an allotment chunk, sealed with its own cryptographic hash.
+3. **Integrity Verification**: On every execution turn, `_read_bubble()` loads `Context_Bubble.104a.bejson`, verifies every `File_Hash` at both the outer container and inner allotment levels, and confirms byte-for-byte integrity. If a tampering attempt or hash mismatch is detected, a `BubbleIntegrityError` is raised, triggering an automatic atomic destroy-and-rebuild sequence.
+4. **Lifecycle & Turn Invalidation**: The bubble chunk persists across turns and is re-verified in $O(1)$ time. A complete rebuild is triggered only if:
+   - The turn counter reaches `Rebuild_Interval_Turns` (default 5 turns).
+   - An allotment's SHA-256 content signature changes (e.g. a context file is toggled or author directives are modified).
+   - A cryptographic hash mismatch occurs.
+
+---
+
+### BKS-1 4-Part Pipeline: Plan, Contextualize_Plan & Contextualize_Last
+
+The AI Writer structures long-form articles into an iterative 4-part lifecycle adhering to Elton Boehnen's BookMaker (BKS-1) specification:
+
+```
+[User Topic & Author Directives]
+               |
+               v
++--------------------------------------------------------------+
+| STEP 1: PLAN GENERATION (ai_writing_generate_outline_plan)   |
+| - Resolves BookType: blog_post_4part                         |
+| - Synthesizes compelling Title, Subtitle, and 4 Node Briefs  |
+| - Persists Book Document: books/<slug>.bks.bejson            |
+| - Persists JobMaker Plan: jobs/<slug>.bejson                 |
++--------------------------------------------------------------+
+               |
+               +-----------------------------------------------+
+               |                                               |
+               v                                               v
++--------------------------------------+     +--------------------------------------+
+| STEP 2a: MANUAL EDITING / REORDERING |     | STEP 2b: AUTONOMOUS PART EXECUTION   |
+| - Custom part title & brief edits    |     | - Sequential loop: Parts 1 through 4 |
+| - Re-prompt individual sections      |     | - Gate checking per chapter          |
++--------------------------------------+     +--------------------------------------+
+               |                                               |
+               +-----------------------+-----------------------+
+                                       |
+                                       v
++--------------------------------------------------------------+
+| STEP 3: CONTEXTUALIZED PROMPT PIPELINE                       |
+| - Prepends Assembled Context Bubble (48k Tokens)             |
+| - Contextualize_Plan: Injects entire 4-part plan with marker |
+| - Contextualize_Last: Injects tail of previous part output   |
++--------------------------------------------------------------+
+                                       |
+                                       v
++--------------------------------------------------------------+
+| STEP 4: VERIFICATION GATES & HASH PROVENANCE                 |
+| - Evaluates word counts (min 250-450 words / part)           |
+| - Verifies required semantic headings (## Section)           |
+| - Computes SHA-256 prompt hash for attempt audit trail       |
++--------------------------------------------------------------+
+                                       |
+                                       v
++--------------------------------------------------------------+
+| STEP 5: MERGE & ATOMIC CMS OVERWRITE                         |
+| - cms_bks_merge_parts: Combines parts 1-4 into Markdown      |
+| - lib_bejson_CMS_md2html: Converts to responsive CMS HTML    |
+| - cms_bks_approve_and_overwrite_post: Atomic 104db write     |
+| - Triggers static site rebuild on Cloudflare / local preview |
++--------------------------------------------------------------+
+```
+
+#### Continuity Mechanics: Contextualize_Plan & Contextualize_Last
+When Part 3 is written, the prompt does not simply say 'Write Part 3'. Instead:
+1. `Contextualize_Plan` injects the complete 4-part blueprint with an explicit `--> [ACTIVE PART]` indicator, allowing the model to understand where the current chapter sits relative to the entire thesis.
+2. `Contextualize_Last` extracts the last 6,000 characters from Part 2's accepted body markdown and injects it into a dedicated block:
+   ```
+   PREVIOUS PART OUTPUT (Part 2: Core Architecture) [Contextualize_Last]:
+   ---
+   <markdown content of preceding part>
+   ---
+   ```
+   The model is instructed to maintain seamless narrative, logical, and code continuity without duplicating introductory sentences or definitions from Part 2.
+
+---
+
+### BKS-1 Directory Architecture & Relational Mapping
+
+All artifacts created and managed by the AI Writer reside under `storage/mfdb/bks_jobs/`:
+
 ```
 storage/mfdb/bks_jobs/
-├── book_types/                      # Predefined BookType schemas (104a)
-├── templates/                       # Instantiated 4-part execution plans
-├── jobs/                            # Execution state tracking records
-├── books/                           # Individual part draft outputs
-├── merged/                          # Merged Markdown and HTML outputs
-├── registry.bejson                  # Central 104db job registry
-└── cms_job_links.104a.bejson        # Relational mapping between jobs and CMS pages
+├── book_types/                                               # Predefined BKS-1 BookType templates
+│   └── blog_post_4part.104a.bejson                           # 4-Part Technical Blog Post specification
+├── templates/                                                # Instantiated blank job templates
+├── jobs/                                                     # JobMaker 104a execution state records
+│   └── <job-slug>.bejson                                     # Task ordering, states, and prompts
+├── books/                                                    # BKS-1 Book Documents (104db format)
+│   └── <job-slug>.bks.bejson                                 # Book metadata, chapters, and attempts
+├── merged/                                                   # Compiled full-article deliverables
+│   ├── <job-slug>.merged.md                                  # Unified Markdown document
+│   └── <job-slug>.merged.html                                # Fully converted semantic HTML
+├── context_bubble/                                           # Active Context Bubble workspace
+│   ├── context_files.bejson                                  # Registered reference files index
+│   ├── bubble_state.json                                     # Multi-turn rebuild & hash registry
+│   ├── Context_Bubble.104a.bejson                            # Master Tier 2 chunked bubble
+│   └── bubble/allotments/                                    # Tier 1 per-allotment chunked stores
+├── context_config/                                           # Authoritative configuration stores
+│   ├── context_bubble.bejson                                 # Allotment weights, ranks & directives
+│   └── ai_constants.bejson                                   # max_context_tokens: 48000, chars_per_token: 4
+├── registry.bejson                                           # Master 104db job catalog
+└── cms_job_links.104a.bejson                                 # Foreign key relational link table
 ```
 
-### The 4-Part Structured Article Cycle
-1. **Plan Formulation**: Generates a 4-task execution template specifying objectives, key technical points, and structural constraints for each part.
-2. **Part-by-Part Drafting**: Executes tasks sequentially with context from previous parts passed forward to maintain cohesive narrative flow.
-3. **Draft Merging**: Combines the four Markdown drafts into a unified document and converts it to semantic HTML using `lib_bejson_CMS_md2html.py`.
-4. **Target Overwrite & Auto-Publish**: Updates the target page in `pages_db/<uuid>.json` and `pagerecord.bejson`, and automatically triggers a static site rebuild.
+#### Relational Linkage via cms_job_links.104a.bejson
+The link table binds each BKS-1 job to its target CMS page record:
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Records_Type": ["CMSJobLink"],
+  "Fields": [
+    {"name": "job_slug", "type": "string"},
+    {"name": "target_page_uuid", "type": "string"},
+    {"name": "category", "type": "string"},
+    {"name": "author", "type": "string"},
+    {"name": "page_type", "type": "string"},
+    {"name": "provider", "type": "string"},
+    {"name": "model_id", "type": "string"},
+    {"name": "approval_status", "type": "string"},
+    {"name": "approved_at", "type": "string"}
+  ],
+  "Values": [
+    [
+      "zero-sql-bejson-cms",
+      "90ddc141-bb54-4a62-8689-af02824beb60",
+      "Architecture",
+      "boehnenelton2024",
+      "blog",
+      "geminirest",
+      "gemini-2.5-flash",
+      "approved",
+      "2026-11-03T17:45:00Z"
+    ]
+  ]
+}
+```
 
+---
+
+### REST API Reference & State Payload Contracts
+
+The AI Writer exposes a comprehensive suite of JSON endpoints across the Admin Suite (Port 5001) and PageEditor V2 (Port 5005 / 5010):
+
+#### 1. Bootstrap State & Configuration
+- **Route**: `GET /api/bks/bootstrap?author=<name>`
+- **Description**: Returns all saved jobs, available BookTypes, active AI providers/models, target pages, and the current Context Bubble state.
+- **Response**:
+  ```json
+  {
+    "ok": true,
+    "templates": [{"type_id": "blog_post_4part", "display_name": "4-Part Technical Blog Post"}],
+    "jobs": [{"job_slug": "zero-sql-bejson-cms", "job_name": "Zero-SQL CMS", "status": "completed"}],
+    "ai": {"providers": ["geminirest", "groq", "openrouter"], "default_provider": "geminirest"},
+    "context_bubble": {
+      "ok": true,
+      "max_context_tokens": 48000,
+      "enabled_count": 2,
+      "total_files": 3,
+      "used_tokens": 8420,
+      "bubble_preview": "[CONTEXT BUBBLE]...[END CONTEXT BUBBLE]",
+      "allotments": [
+        {"name": "author_persona", "pct": 15.0, "rank": 1, "budget_tokens": 7198},
+        {"name": "context", "pct": 85.0, "rank": 2, "budget_tokens": 40791}
+      ]
+    }
+  }
+  ```
+
+#### 2. Context Bubble State & Author Persona Query
+- **Route**: `GET /api/bks/context_files?author=<name>`
+- **Description**: Evaluates and returns the live assembled Context Bubble preview, active file counts, token usage, and author persona block.
+
+#### 3. Import Selected Files via File Picker
+- **Route**: `POST /api/bks/context_files/import_pick`
+- **Payload**: `{"paths": ["/storage/emulated/0/.../spec.md"], "author": "boehnenelton2024"}`
+- **Description**: Resolves host file paths, extracts utf-8 text, and registers entries in the context file store.
+
+#### 4. Toggle Context File State
+- **Route**: `POST /api/bks/context_files/toggle`
+- **Payload**: `{"file_id": "cf_a1b2c3d4", "author": "boehnenelton2024"}`
+- **Description**: Flips the active enabled flag of a reference file, triggering dynamic token reallocation and preview regeneration.
+
+#### 5. Generate 4-Part Job & Plan
+- **Route**: `POST /api/bks/create_plan`
+- **Payload**:
+  ```json
+  {
+    "topic": "Zero-SQL Architecture",
+    "title": "Deep Dive: Zero-SQL Architecture",
+    "book_type_id": "blog_post_4part",
+    "provider": "geminirest",
+    "model_id": "gemini-2.5-flash",
+    "target_page_uuid": "90ddc141-bb54-4a62-8689-af02824beb60",
+    "category_name": "Architecture",
+    "author_name": "boehnenelton2024",
+    "author_system_instruction": "Maintain senior peer-to-peer tone."
+  }
+  ```
+
+#### 6. Execute Single Part / Run All Parts
+- **Route**: `POST /api/bks/execute_part`
+- **Payload**: `{"job_slug": "zero-sql-architecture", "part_index": 1, "provider": "geminirest"}`
+- **Route**: `POST /api/bks/execute_all`
+- **Payload**: `{"job_slug": "zero-sql-architecture", "provider": "geminirest"}`
+
+#### 7. Merge Parts & Approve Overwrite Target
+- **Route**: `POST /api/bks/merge`
+- **Payload**: `{"job_slug": "zero-sql-architecture"}`
+- **Route**: `POST /api/bks/approve`
+- **Payload**:
+  ```json
+  {
+    "job_slug": "zero-sql-architecture",
+    "target_page_uuid": "90ddc141-bb54-4a62-8689-af02824beb60",
+    "title": "Deep Dive: Zero-SQL Architecture",
+    "category_name": "Architecture",
+    "author_name": "boehnenelton2024"
+  }
+  ```
 
 ![Figure: 10 Page Editor AI Architect Tab Capture](images/audit_captures/04_playwright_editor_ai_architect_tab.png)
 *_Figure 10: AI Architect and BKS-1 Tasking Tab in Page Editor V2_*
@@ -956,13 +1407,19 @@ BEJSON_CMS/
 ├── cms_launcher.sh                  # Single-service isolated shell launcher
 ├── pydroid_start.py                 # Mobile quick-start entry point
 │
-├── images/                          # Documentation screenshots and audit captures
+├── images/                          # Documentation screenshots and audit captures (420p constraint)
 │   ├── 01_admin_dashboard.png       # Resized 420p UI captures
 │   ├── 02_pages_manager.png
 │   ├── 03_media_library.png
 │   ├── 04_page_editor_v2.png
 │   ├── 05_profile_manager.png
 │   ├── 06_static_publisher.png
+│   ├── 01_published_home_desktop.png
+│   ├── 02_published_home_mobile.png
+│   ├── 03_published_article_1.png
+│   ├── 04_published_article_2.png
+│   ├── 05_published_apps_feed.png
+│   ├── 06_published_category_feed.png
 │   └── audit_captures/              # High-DPI Playwright verification captures
 │       ├── 01_playwright_admin_dashboard.png
 │       ├── 02_playwright_bks_jobs_studio.png
@@ -970,7 +1427,11 @@ BEJSON_CMS/
 │       ├── 04_playwright_editor_ai_architect_tab.png
 │       ├── 05_playwright_published_home.png
 │       ├── 06_playwright_published_article_desktop.png
-│       └── 07_playwright_published_article_mobile.png
+│       ├── 07_playwright_published_article_mobile.png
+│       ├── category_projects_desktop.png
+│       ├── home_feed_desktop.png
+│       ├── post_105_desktop_full.png
+│       └── post_105_mobile_hero.png
 │
 ├── resources/                       # Static templates, styles, and seed assets
 │   ├── default_brand_assets/        # Seed brand images for factory resets
@@ -1100,6 +1561,11 @@ python3 storage/tmp/playwright_cms_verify.py
 
 ![Figure: 16 Mobile Hero Viewport Capture](images/audit_captures/post_105_mobile_hero.png)
 *_Figure 16: Mobile Viewport Render of Hero Banner (Zero Horizontal Overflow)_*
+
+<br>
+
+![Figure: 17 Desktop Full Viewport Capture](images/audit_captures/post_105_desktop_full.png)
+*_Figure 17: Desktop Viewport Render of BEJSON 105 Architecture Deep Dive_*
 
 
 ---

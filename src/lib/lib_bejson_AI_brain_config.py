@@ -3,12 +3,12 @@ Library:         lib_bejson_AI_brain_config.py
 Family:          AI
 Module Purpose:  Loads Brain limits and policy settings from config/brain_limits.104a.bejson, creating the file with defaults when absent.
 Architecture:    BEJSON 104a ScriptConfig (setting_name, setting_value, description). Unknown names are ignored; a bad value type falls back to the default and is logged. Atomic writes through Core.
-Version:         1.1.0
+Version:         1.2.0
 Release_Version: 300
 Date:            2026-10-25
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   0de306c0-fec0-430e-a12f-a58531c0abcf
+RELATIONAL_ID:   e675e6ee-0cfd-4b81-a5fd-5c29644dbb22
 """
 
 import json
@@ -19,7 +19,7 @@ import lib_bejson_AI_brain_core_bridge  # noqa: F401  (puts Core on sys.path)
 from lib_bejson_Core_bejson_core import bejson_core_atomic_write, bejson_core_get_field_map
 from lib_bejson_AI_brain_errors import BrainError, E_BRAIN_CORRUPT
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 RELATIONAL_ID = "0de306c0-fec0-430e-a12f-a58531c0abcf"
 CONFIG_FILENAME = "brain_limits.104a.bejson"
 
@@ -43,7 +43,7 @@ DEFAULTS = {
     "max_xml_block_bytes": (16384, "Largest AI command block accepted."),
     "ai_max_priority": (60, "Highest priority an AI-written memory can have."),
     "auto_max_priority": (40, "Highest priority an AI memory may have and still apply without review (policy auto)."),
-    "write_policy": ("auto", "auto = AI adds new unpinned low-priority memories directly; review = every AI write waits for approval."),
+    "write_policy": ("open", "open = AI memory writes (new notes, edits to its own unlocked notes, new categories) apply directly at any allowed priority and can be edited or archived in the client; auto = only new low-priority notes apply directly; review = every AI write waits for approval."),
     "memory_mode": ("inline", "inline | pass | off."),
     "snapshot_default_keep": (5, "Default-tier snapshots kept besides the baseline."),
     "snapshot_daily_keep": (7, "Daily snapshots kept."),
@@ -56,7 +56,7 @@ DEFAULTS = {
     "recall_cooldown_turns": (0, "Turns a recalled memory is skipped afterwards. 0 = off (recall reads only the user's message, so repeats are intended)."),
 }
 
-_ENUMS = {"write_policy": ("auto", "review"), "memory_mode": ("inline", "pass", "off")}
+_ENUMS = {"write_policy": ("open", "auto", "review"), "memory_mode": ("inline", "pass", "off")}
 
 
 # Builds the default config document.

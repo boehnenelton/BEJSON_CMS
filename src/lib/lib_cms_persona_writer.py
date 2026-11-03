@@ -72,7 +72,17 @@ class PersonaWriter:
     def dispatch_ai(self, user_input, provider="geminirest", model="gemini-2.5-flash", persona_name=None, system_instruction=None, **config):
         persona = self.get_persona(persona_name) if persona_name else None
         persona_inst = self.assemble_system_instruction(persona) if persona else ""
-        combined_sys = "\n\n".join(p for p in [persona_inst, system_instruction] if p) or None
+        sys_blocks = []
+        if system_instruction:
+            sys_blocks.append(
+                "[AUTHOR PRECEDENCE RULE]:\n"
+                "The author's role, persona, and explicit writing instructions strictly override "
+                "any contradictory AI profile instructions, baseline guidelines, or generic rules.\n\n"
+                f"Author Instructions:\n{system_instruction}"
+            )
+        if persona_inst:
+            sys_blocks.append(f"AI Profile Baseline (Secondary to Author Directives):\n{persona_inst}")
+        combined_sys = "\n\n".join(sys_blocks) or None
         if persona and "temperature" not in config:
             try:
                 config["temperature"] = float(persona.get("Creativity", 0.7))

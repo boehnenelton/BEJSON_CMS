@@ -11,11 +11,11 @@ Module Purpose:  BKS-1 AI Writing & Generation Bridge powered by the CLI_AI 48
                  Book Documents via lib_bejson_Writing_bks_store.
 Format_Scope:    104db (Book Document) | 104a (JobMaker plan & AI model registries)
 Release_Version: 300
-Version:         1.0.0
-Date:            2026-11-02
+Version:         1.1.0
+Date:            2026-11-03
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   b84d2c91-5e13-4f82-9a67-3d1c90e4f5a2
+RELATIONAL_ID:   e19f7a42-3c81-4b50-9d24-6f8b2a1e4c90
 """
 
 import hashlib
@@ -27,21 +27,25 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 logger = logging.getLogger("lib_bejson_AI_ai_writing")
 
-# Ensure both local src/lib and /storage/emulated/0/cli ai 48/lib/AI are on sys.path
+# Ensure local src/lib has strict priority over external fallback paths
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _CLI_AI_48_ROOT = Path("/storage/emulated/0/cli ai 48")
+
+if str(_SCRIPT_DIR) in sys.path:
+    sys.path.remove(str(_SCRIPT_DIR))
+sys.path.insert(0, str(_SCRIPT_DIR))
+
 for _candidate_path in (
-    str(_SCRIPT_DIR),
     str(_CLI_AI_48_ROOT / "lib" / "AI"),
     str(_CLI_AI_48_ROOT / "lib" / "Core"),
     str(_CLI_AI_48_ROOT / "lib"),
 ):
     if os.path.isdir(_candidate_path) and _candidate_path not in sys.path:
-        sys.path.insert(0, _candidate_path)
+        sys.path.append(_candidate_path)
 
 import lib_bejson_Core_bejson_core as Core
 from lib_bejson_AI_ai_dispatch import PROVIDERS, ai_dispatch_call
@@ -53,6 +57,19 @@ import lib_bejson_Writing_bks_plan as Plan
 import lib_bejson_Writing_bks_registry as Registry
 import lib_bejson_Writing_bks_store as Store
 
+EXCLUDED_LOCAL_PROVIDERS = {"ollamalocal", "litertlm"}
+ACTIVE_PROVIDERS = [p for p in PROVIDERS if p.lower() not in EXCLUDED_LOCAL_PROVIDERS]
+
+MAX_COMBINED_PROMPT_TOKENS = 48000
+MAX_COMBINED_PROMPT_CHARS = 192000  # 48,000 tokens * 4 chars/token
+
+AUTHOR_PRECEDENCE_DIRECTIVE = (
+    "[AUTHOR PRECEDENCE RULE]:\n"
+    "The Author Persona and Author Writing Instructions defined for this task establish "
+    "the primary voice, domain authority, and stylistic direction. The author's directives and role "
+    "STRICTLY OVERRIDE any contradictory profile instructions, baseline guidelines, or generic rules. "
+    "When directives conflict, ALWAYS prioritize and obey the author's voice, instructions, and constraints."
+)
 
 _PROVIDER_REGISTRY_FILES = {
     "geminirest": "gemini_model_registry.104a.bejson",
@@ -65,17 +82,17 @@ _PROVIDER_REGISTRY_FILES = {
     "huggingface": "huggingface_model_registry.104a.bejson",
     "openai": "openai_model_registry.104a.bejson",
     "ollama": "ollama_model_registry.104a.bejson",
-    "ollamalocal": "ollamalocal_model_registry.104a.bejson",
-    "litertlm": "litertlm_model_registry.104a.bejson",
 }
 
 
 def _resolve_ai_config_dir() -> Path:
     """Locate the AI config directory containing *_model_registry.104a.bejson."""
+    local_cfg = _SCRIPT_DIR / "config"
+    if local_cfg.is_dir():
+        return local_cfg
     cli_ai_cfg = _CLI_AI_48_ROOT / "lib" / "AI" / "config"
     if cli_ai_cfg.is_dir():
         return cli_ai_cfg
-    local_cfg = _SCRIPT_DIR / "config"
     local_cfg.mkdir(parents=True, exist_ok=True)
     return local_cfg
 
@@ -89,7 +106,7 @@ def ai_writing_get_providers_and_models() -> Dict[str, Any]:
     providers_map: Dict[str, List[Dict[str, Any]]] = {}
     all_models_flat: List[Dict[str, Any]] = []
 
-    for provider_name in PROVIDERS:
+    for provider_name in ACTIVE_PROVIDERS:
         reg_filename = _PROVIDER_REGISTRY_FILES.get(provider_name)
         models_for_provider: List[Dict[str, Any]] = []
         if reg_filename:
@@ -131,7 +148,7 @@ def ai_writing_get_providers_and_models() -> Dict[str, Any]:
         providers_map[provider_name] = models_for_provider
 
     return {
-        "providers": list(PROVIDERS),
+        "providers": list(ACTIVE_PROVIDERS),
         "default_provider": "geminirest",
         "models_by_provider": providers_map,
         "models": all_models_flat,
@@ -256,6 +273,7 @@ def ai_writing_generate_outline_plan(
     model_id: Optional[str] = None,
     system_instruction: Optional[str] = None,
     context_text: str = "",
+    context_bubble_text: str = "",
 ) -> Dict[str, Any]:
     """
     Generate a BKS-1 outline plan (title, subtitle, and ordered chapter nodes)
@@ -269,6 +287,7 @@ def ai_writing_generate_outline_plan(
     identity_inst = booktype_row.get(T.booktype_chapter_identity_text) or "You are a senior technical author."
 
     sys_prompt_parts = [
+        AUTHOR_PRECEDENCE_DIRECTIVE,
         identity_inst,
         plan_inst,
         (
@@ -283,12 +302,24 @@ def ai_writing_generate_outline_plan(
         ),
     ]
     if system_instruction:
-        sys_prompt_parts.insert(0, system_instruction)
+        sys_prompt_parts.insert(1, f"Author Directives:\n{system_instruction}")
     full_sys_prompt = "\n\n".join(p for p in sys_prompt_parts if p)
 
-    user_prompt = f"Topic / Goal: {topic}\nRequired Part/Chapter Count: {chapter_count}\n"
+    user_prompt_sections = []
+    if context_bubble_text and context_bubble_text.strip():
+        user_prompt_sections.append(context_bubble_text.strip())
+    user_prompt_sections.append(f"Topic / Goal: {topic}\nRequired Part/Chapter Count: {chapter_count}")
     if context_text and context_text.strip():
-        user_prompt += f"\nReference Context:\n{context_text[:12000]}\n"
+        user_prompt_sections.append(f"Reference Context:\n{context_text[:12000]}")
+    user_prompt = "\n\n".join(user_prompt_sections) + "\n"
+
+    # Enforce combined prompt and bubble allotment ceiling (48,000 tokens / 192,000 chars)
+    if len(full_sys_prompt) + len(user_prompt) > MAX_COMBINED_PROMPT_CHARS:
+        excess = (len(full_sys_prompt) + len(user_prompt)) - MAX_COMBINED_PROMPT_CHARS + 500
+        if context_bubble_text and len(context_bubble_text) > excess:
+            trimmed_bubble = context_bubble_text[:-excess] + "\n[...truncated: over 48,000 combined token ceiling]"
+            user_prompt_sections[0] = trimmed_bubble
+            user_prompt = "\n\n".join(user_prompt_sections) + "\n"
 
     resp = ai_writing_call(
         user_prompt,
@@ -359,10 +390,12 @@ def ai_writing_assemble_chapter_prompt(
     *,
     author_system_instruction: Optional[str] = None,
     extra_context: str = "",
+    context_bubble_text: str = "",
 ) -> Tuple[str, str, str]:
     """
     Assemble (system_instruction, user_prompt, prompt_sha256) for a single BKS-1
-    writable chapter, enforcing Contextualize_Plan and Contextualize_Last.
+    writable chapter, enforcing Contextualize_Plan, Contextualize_Last, and
+    pre-prompt Context Bubble injection.
     """
     B = Registry.F.Book
     C = Registry.F.Chapter
@@ -383,9 +416,11 @@ def ai_writing_assemble_chapter_prompt(
         "You are a senior technical collaborator writing a deep, rigorous technical publication."
     )
 
-    sys_parts = []
-    if author_system_instruction:
-        sys_parts.append(author_system_instruction.strip())
+    sys_parts = [
+        AUTHOR_PRECEDENCE_DIRECTIVE,
+    ]
+    if author_system_instruction and author_system_instruction.strip():
+        sys_parts.append(f"Author Directives:\n{author_system_instruction.strip()}")
     sys_parts.append(identity_text)
     sys_parts.append(
         "Formatting Rules:\n"
@@ -412,10 +447,14 @@ def ai_writing_assemble_chapter_prompt(
             if idx > 1:
                 prev_writable = writable[idx - 2]
 
-    prompt_sections = [
+    prompt_sections = []
+    if context_bubble_text and context_bubble_text.strip():
+        prompt_sections.append(context_bubble_text.strip())
+
+    prompt_sections.extend([
         f"GLOBAL GOAL:\n{job_goal}",
         "FULL 4-PART PUBLICATION PLAN (Contextualize_Plan):\n" + "\n".join(plan_lines),
-    ]
+    ])
 
     # 2. Previous Part Output Pipelining (Contextualize_Last = True)
     if prev_writable and prev_writable.get(C.chapter_body_md):
@@ -439,6 +478,15 @@ def ai_writing_assemble_chapter_prompt(
     )
 
     user_prompt = "\n\n".join(prompt_sections)
+
+    # Enforce combined prompt and bubble allotment ceiling (48,000 tokens / 192,000 chars)
+    if len(system_instruction) + len(user_prompt) > MAX_COMBINED_PROMPT_CHARS:
+        excess = (len(system_instruction) + len(user_prompt)) - MAX_COMBINED_PROMPT_CHARS + 500
+        if context_bubble_text and len(context_bubble_text) > excess:
+            trimmed_bubble = context_bubble_text[:-excess] + "\n[...truncated: over 48,000 combined token ceiling]"
+            prompt_sections[0] = trimmed_bubble
+            user_prompt = "\n\n".join(prompt_sections)
+
     combined_for_hash = f"SYS:\n{system_instruction}\n\nUSER:\n{user_prompt}"
     prompt_sha256 = hashlib.sha256(combined_for_hash.encode("utf-8")).hexdigest()
     return system_instruction, user_prompt, prompt_sha256
@@ -454,6 +502,7 @@ def ai_writing_generate_chapter(
     author_uuid: Optional[str] = None,
     author_system_instruction: Optional[str] = None,
     extra_context: str = "",
+    context_bubble_text: str = "",
     min_words_override: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
@@ -471,6 +520,7 @@ def ai_writing_generate_chapter(
         booktype_row,
         author_system_instruction=author_system_instruction,
         extra_context=extra_context,
+        context_bubble_text=context_bubble_text,
     )
 
     resp = ai_writing_call(

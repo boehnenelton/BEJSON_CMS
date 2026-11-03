@@ -7,12 +7,14 @@ Format_Scope:    None, except _bejson_mfdb_escapes_root (MFDB Parent_Hierarchy c
 Glossary:        BEJSON 104, 104a and 104db are the three file formats (Format_Version). 104db = ONE file holding 2+ entity types
                  (Record_Type_Parent discriminator, null-padding). MFDB is NOT a format and NOT 104db: it is a layer made of one 104a manifest
                  (104a.mfdb.bejson) plus dense 104 entity files linked by Parent_Hierarchy. MFDB-132 = an MFDB packed into one Chunked-104a document.
-Version:         1.3.0
+Version:         1.3.1
 Release_Version: 300
-Date:            2026-10-02
+Date:            2026-10-30
+Changelog:
+  1.3.1 - 2026-10-30: _bejson_mfdb_escapes_root treats absolute paths (POSIX root, drive letter) as escaping the MFDB root. Previously an absolute file_path to an existing file outside the root validated as VALID.
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   826ad8d2-8944-4492-9507-9ae7473fdef9
+RELATIONAL_ID:   7cb60841-13ad-423e-a55c-5c1a46d3b040
 """
 
 import os
@@ -81,6 +83,9 @@ def _bejson_mfdb_escapes_root(relative_path: str) -> bool:
         False — path stays within root (safe).
     """
     normalized = relative_path.replace("\\", "/")
+    # Absolute paths (POSIX root or a Windows drive letter) are outside the MFDB root by definition.
+    if normalized.startswith("/") or (len(normalized) > 1 and normalized[1] == ":" and normalized[0].isalpha()):
+        return True
     parts = normalized.split("/")
     depth = 0
     for part in parts:
@@ -115,4 +120,4 @@ def safe_extract_zip(zf, dest_dir: str) -> None:
     zf.extractall(dest_dir)
 
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"

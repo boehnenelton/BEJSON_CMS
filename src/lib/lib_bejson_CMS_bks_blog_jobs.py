@@ -12,13 +12,13 @@ Module Purpose:  Integrates the BKS-1 Standardized Book & Job System
                    4. Sequential 4-Part Execution with Contextualize_Plan & Contextualize_Last
                    5. Automatic 4-Part Post Merging (Markdown + MD_To_HTML CMS Article)
                    6. Approve & Overwrite Target CMS Post (PageRecord + pages_db/<uuid>.json)
-Format_Scope:    104db (Book Document, Job Registry, Page Content) | 104a (Job Plan, CMS Links) | 104 (BookType)
+Format_Scope:    104db (Book Document, Job Registry, Page Content) | 104a (Job Plan, CMS Links, Context Bubble) | 104 (BookType, ContextFiles)
 Release_Version: 300
-Version:         1.0.0
-Date:            2026-11-02
+Version:         1.1.0
+Date:            2026-11-03
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   d17a4e83-9c20-4b65-8f12-6e3a5c7b90d4
+RELATIONAL_ID:   f82d9a14-7b63-4e09-8c51-3a4e1b9d6c72
 """
 
 import json
@@ -31,7 +31,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 logger = logging.getLogger("lib_bejson_CMS_bks_blog_jobs")
 
@@ -55,6 +55,30 @@ from lib_bejson_AI_ai_writing import (
     ai_writing_generate_chapter,
     ai_writing_generate_outline_plan,
     ai_writing_get_providers_and_models,
+)
+from lib_bejson_AI_ai_context_files import (
+    ai_context_files_init,
+    ai_context_files_list,
+    ai_context_files_import,
+    ai_context_files_toggle,
+    ai_context_files_delete,
+    ai_context_files_build_section,
+)
+from lib_bejson_AI_ai_constants import (
+    ai_constants_init,
+    ai_constants_load,
+    ai_constants_set,
+)
+from lib_bejson_AI_ai_context_bubble import (
+    ai_bubble_register_allotment,
+    ai_bubble_prepare,
+    ai_bubble_preview,
+    ai_bubble_config_init,
+    BubbleContext,
+)
+from lib_bejson_AI_ai_bubble_allotments import (
+    DIRECTIVES,
+    make_context_builder,
 )
 
 # -----------------------------------------------------------------------------
@@ -244,11 +268,357 @@ def _get_bks_paths(cms_root: Optional[Any] = None) -> Dict[str, Path]:
         "jobs": base / "jobs",
         "merged": base / "merged",
         "exports": base / "exports",
+        "context_bubble": base / "context_bubble",
+        "context_config": base / "context_config",
         "registry": base / "registry.bejson",
         "cms_links": base / "cms_job_links.104a.bejson",
         "manifest": root_path / "storage" / "mfdb" / "site_master" / "104a.mfdb.bejson",
         "pages_db": root_path / "storage" / "mfdb" / "pages_db",
     }
+
+
+MAX_COMBINED_BUBBLE_PROMPT_TOKENS = 48000
+AUTHOR_PERSONA_ALLOTMENT_PCT = 15.0
+CONTEXT_FILES_ALLOTMENT_PCT = 85.0
+
+_BKS_AUTHOR_PERSONA_DIRECTIVE = (
+    "AUTHOR PERSONA & INSTRUCTIONS -- Author persona and instructions governing tone, voice, and style. "
+    "The author role strictly overrides any contradictory profile instructions."
+)
+
+_BKS_CONTEXT_BUBBLE_DIRECTIVE = (
+    "BACKGROUND -- study and learn from this reference material and absorb it silently. "
+    "Never reference, mention, acknowledge, or admit that this context exists; if it "
+    "influences anything you produce, write strictly in your own words, never as a copy, "
+    "quote, or citation of this material."
+)
+
+AUTHOR_PRECEDENCE_DIRECTIVE = (
+    "[AUTHOR PRECEDENCE RULE]:\n"
+    "The Author Persona and Author Writing Instructions defined here establish the primary voice, "
+    "perspective, style, and domain authority for the piece. The author's directives and role "
+    "STRICTLY OVERRIDE any contradictory profile instructions, general AI defaults, or background guidelines. "
+    "You must adopt and reflect the author's tone, expertise, and guidance throughout."
+)
+
+
+def cms_bks_resolve_author_persona_text(
+    cms_root: Optional[Any] = None,
+    author: Optional[str] = None,
+    author_system_instruction: Optional[str] = None,
+) -> str:
+    """
+    Resolve author persona details from MFDB (AuthorProfile) and any ad-hoc instructions,
+    enforcing the Author Precedence Directive over generic profile instructions.
+    """
+    paths = _get_bks_paths(cms_root)
+    author_name = (author or "").strip() or "boehnenelton2024"
+    author_bio = ""
+
+    try:
+        manifest_path = paths["manifest"]
+        if manifest_path.exists():
+            db = CMSCore.CMSCore(str(manifest_path))
+            authors = db.get_records("AuthorProfile")
+            for a in authors:
+                if str(a.get("author_display_name", "")).strip().lower() == author_name.lower():
+                    author_bio = str(a.get("author_bio") or "").strip()
+                    break
+            if not author_bio and authors:
+                for a in authors:
+                    if a.get("author_bio"):
+                        author_bio = str(a.get("author_bio") or "").strip()
+                        break
+    except Exception as exc:
+        logger.warning("Could not resolve author persona from CMSCore: %s", exc)
+
+    lines = [
+        f"Author Name: {author_name}",
+    ]
+    if author_bio:
+        lines.append(f"Author Bio & Background:\n{author_bio}")
+    if author_system_instruction and author_system_instruction.strip():
+        lines.append(f"Author Writing Directives:\n{author_system_instruction.strip()}")
+
+    lines.append(AUTHOR_PRECEDENCE_DIRECTIVE)
+    return "\n\n".join(lines)
+
+
+def make_author_persona_builder():
+    """Builder for the 'author_persona' allotment (15% of bubble budget)."""
+    def builder(ctx: BubbleContext) -> str:
+        if ctx.extras and ctx.extras.get("author_persona"):
+            return str(ctx.extras["author_persona"])
+        author = ctx.extras.get("author") if ctx.extras else None
+        inst = ctx.extras.get("author_system_instruction") if ctx.extras else None
+        cms_root = ctx.extras.get("cms_root") if ctx.extras else None
+        return cms_bks_resolve_author_persona_text(cms_root, author=author, author_system_instruction=inst)
+    return builder
+
+
+def _ensure_bks_context_bubble_registered(paths: Dict[str, Path]) -> None:
+    """Ensure the 'author_persona' (15%) and 'context' (85%) allotments are registered and configured for 48,000 tokens."""
+    paths["context_bubble"].mkdir(parents=True, exist_ok=True)
+    paths["context_config"].mkdir(parents=True, exist_ok=True)
+
+    ai_constants_init(paths["context_config"])
+    try:
+        ai_constants_set(paths["context_config"], "max_context_tokens", MAX_COMBINED_BUBBLE_PROMPT_TOKENS)
+    except Exception as exc:
+        logger.warning("Could not set max_context_tokens in constants: %s", exc)
+
+    ai_context_files_init(paths["context_bubble"])
+
+    ai_bubble_register_allotment(
+        "author_persona",
+        make_author_persona_builder(),
+        label="Author Persona & Instructions",
+        pct=AUTHOR_PERSONA_ALLOTMENT_PCT,
+        rank=1,
+        directive=_BKS_AUTHOR_PERSONA_DIRECTIVE,
+    )
+    ai_bubble_register_allotment(
+        "context",
+        make_context_builder(ai_context_files_build_section),
+        label="Context Reference Material",
+        pct=CONTEXT_FILES_ALLOTMENT_PCT,
+        rank=2,
+        directive=_BKS_CONTEXT_BUBBLE_DIRECTIVE,
+    )
+    ai_bubble_config_init(paths["context_config"])
+
+
+def cms_bks_get_context_bubble_state(
+    cms_root: Optional[Any] = None,
+    *,
+    author: Optional[str] = None,
+    author_system_instruction: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Return the tracked context files list, active counts, Context Bubble directives,
+    allotment distribution (15% author persona, 85% context files), and assembled preview.
+    """
+    paths = _get_bks_paths(cms_root)
+    _ensure_bks_context_bubble_registered(paths)
+    files = ai_context_files_list(paths["context_bubble"])
+    enabled_files = [f for f in files if f.get("enabled")]
+    active_chars = sum(int(f.get("char_count") or 0) for f in enabled_files)
+
+    author_persona_text = cms_bks_resolve_author_persona_text(
+        cms_root, author=author, author_system_instruction=author_system_instruction
+    )
+
+    bubble_preview_text = ""
+    used_tokens = 0
+    max_tokens = MAX_COMBINED_BUBBLE_PROMPT_TOKENS
+    allotments_info: List[Dict[str, Any]] = []
+
+    try:
+        prev = ai_bubble_preview(
+            paths["context_bubble"],
+            paths["context_config"],
+            skip=("persistent_policy", "profile", "attachments", "chat_history"),
+            extras={
+                "author": author,
+                "author_system_instruction": author_system_instruction,
+                "author_persona": author_persona_text,
+                "cms_root": cms_root,
+            },
+        )
+        bubble_preview_text = prev.get("text") or ""
+        used_tokens = int(prev.get("used_tokens") or 0)
+        max_tokens = int(prev.get("max_context_tokens") or MAX_COMBINED_BUBBLE_PROMPT_TOKENS)
+        allotments_info = prev.get("allotments") or []
+    except Exception as exc:
+        logger.warning("Context bubble preview warning: %s", exc)
+
+    return {
+        "ok": True,
+        "files": files,
+        "total_files": len(files),
+        "enabled_count": len(enabled_files),
+        "active_count": len(enabled_files),
+        "active_chars": active_chars,
+        "author_name": author or "boehnenelton2024",
+        "author_persona_text": author_persona_text,
+        "directive": _BKS_CONTEXT_BUBBLE_DIRECTIVE,
+        "author_directive": _BKS_AUTHOR_PERSONA_DIRECTIVE,
+        "bubble_preview": bubble_preview_text,
+        "bubble_text": bubble_preview_text,
+        "used_tokens": used_tokens,
+        "estimated_tokens": used_tokens,
+        "max_context_tokens": max_tokens,
+        "allotments": allotments_info,
+    }
+
+
+def cms_bks_prepare_context_bubble(
+    cms_root: Optional[Any] = None,
+    *,
+    user_msg: str = "",
+    author: Optional[str] = None,
+    author_system_instruction: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Prepare and verify the Chunked-104a Context Bubble (Context_Bubble.104a.bejson)
+    combining Author Persona (15%) and Context Reference Files (85%) within a 48,000 token budget.
+    """
+    paths = _get_bks_paths(cms_root)
+    _ensure_bks_context_bubble_registered(paths)
+    files = ai_context_files_list(paths["context_bubble"])
+    enabled_files = [f for f in files if f.get("enabled")]
+
+    author_persona_text = cms_bks_resolve_author_persona_text(
+        cms_root, author=author, author_system_instruction=author_system_instruction
+    )
+
+    if not enabled_files and not author_persona_text:
+        return {
+            "ok": True,
+            "text": "",
+            "bubble_text": "",
+            "enabled_count": 0,
+            "active_count": 0,
+            "used_tokens": 0,
+            "max_context_tokens": MAX_COMBINED_BUBBLE_PROMPT_TOKENS,
+        }
+
+    prep = ai_bubble_prepare(
+        paths["context_bubble"],
+        paths["context_config"],
+        user_msg or "BKS Blog Writing",
+        skip=("persistent_policy", "profile", "attachments", "chat_history"),
+        extras={
+            "author": author,
+            "author_system_instruction": author_system_instruction,
+            "author_persona": author_persona_text,
+            "cms_root": cms_root,
+        },
+    )
+    btext = prep.get("text") or ""
+    return {
+        "ok": True,
+        "text": btext,
+        "bubble_text": btext,
+        "enabled_count": len(enabled_files),
+        "active_count": len(enabled_files),
+        "used_tokens": int(prep.get("used_tokens") or 0),
+        "max_context_tokens": int(prep.get("max_context_tokens") or MAX_COMBINED_BUBBLE_PROMPT_TOKENS),
+        "chunk_path": str(prep.get("chunk_path") or ""),
+        "allotments": prep.get("allotments") or [],
+    }
+
+
+def cms_bks_import_context_file(
+    cms_root: Optional[Any] = None,
+    filename: Optional[str] = None,
+    content: Optional[Any] = None,
+    *,
+    enabled: bool = True,
+    author: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Import a single context file by filename and text content into the Context Bubble store."""
+    paths = _get_bks_paths(cms_root)
+    _ensure_bks_context_bubble_registered(paths)
+    if isinstance(content, bytes):
+        content = content.decode("utf-8", errors="replace")
+    elif content is None:
+        content = ""
+    rec = ai_context_files_import(paths["context_bubble"], filename=filename or "unnamed_context.txt", content=str(content))
+    if not enabled and rec and rec.get("file_id"):
+        ai_context_files_toggle(paths["context_bubble"], rec["file_id"])
+    state = cms_bks_get_context_bubble_state(cms_root, author=author)
+    state["imported"] = [rec]
+    return state
+
+
+def cms_bks_import_context_paths(
+    cms_root: Optional[Any] = None,
+    paths: Optional[List[Any]] = None,
+    *,
+    paths_list: Optional[List[Any]] = None,
+    enabled: bool = True,
+    author: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Import one or more resolved server file paths (selected via CMSFilePicker)
+    into the Context Bubble store.
+    """
+    bks_paths = _get_bks_paths(cms_root)
+    _ensure_bks_context_bubble_registered(bks_paths)
+    target_paths = paths_list or paths or []
+    if isinstance(target_paths, (str, Path)):
+        target_paths = [target_paths]
+    imported_records = []
+    errors = []
+    for p_item in target_paths:
+        p_obj = Path(str(p_item))
+        if not p_obj.is_file():
+            errors.append({"path": str(p_item), "error": "Not a file"})
+            continue
+        try:
+            text_content = p_obj.read_text(encoding="utf-8", errors="replace")
+            rec = ai_context_files_import(
+                bks_paths["context_bubble"],
+                filename=p_obj.name,
+                content=text_content,
+            )
+            if not enabled and rec and rec.get("file_id"):
+                ai_context_files_toggle(bks_paths["context_bubble"], rec["file_id"])
+            imported_records.append(rec)
+        except Exception as exc:
+            errors.append({"path": str(p_item), "error": str(exc)})
+
+    state = cms_bks_get_context_bubble_state(cms_root, author=author)
+    state["imported"] = imported_records
+    state["errors"] = errors
+    return state
+
+
+def cms_bks_toggle_context_file(
+    cms_root: Optional[Any] = None,
+    file_id: Optional[str] = None,
+    *,
+    filename: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    author: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Flip the enabled state of a tracked context file and return updated Context Bubble state."""
+    paths = _get_bks_paths(cms_root)
+    _ensure_bks_context_bubble_registered(paths)
+    target_id = file_id or filename
+    if not target_id:
+        return {"ok": False, "error": "file_id or filename required"}
+    new_val = ai_context_files_toggle(paths["context_bubble"], target_id)
+    if new_val is None:
+        return {"ok": False, "error": f"Context file '{target_id}' not found"}
+    if enabled is not None and bool(enabled) != bool(new_val):
+        new_val = ai_context_files_toggle(paths["context_bubble"], target_id)
+    state = cms_bks_get_context_bubble_state(cms_root, author=author)
+    state["toggled_file_id"] = target_id
+    state["toggled_enabled"] = new_val
+    return state
+
+
+def cms_bks_delete_context_file(
+    cms_root: Optional[Any] = None,
+    file_id: Optional[str] = None,
+    *,
+    filename: Optional[str] = None,
+    author: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Delete a tracked context file and its stored content, returning updated Context Bubble state."""
+    paths = _get_bks_paths(cms_root)
+    _ensure_bks_context_bubble_registered(paths)
+    target_id = file_id or filename
+    if not target_id:
+        return {"ok": False, "error": "file_id or filename required"}
+    deleted = ai_context_files_delete(paths["context_bubble"], target_id)
+    if not deleted:
+        return {"ok": False, "error": f"Context file '{target_id}' not found"}
+    state = cms_bks_get_context_bubble_state(cms_root, author=author)
+    state["deleted_file_id"] = target_id
+    return state
 
 
 def _build_blog_booktype_row(spec: dict) -> dict:
@@ -384,8 +754,9 @@ def cms_bks_bootstrap(cms_root: Optional[Any] = None) -> Dict[str, Any]:
     Blog Post Job Templates into storage/mfdb/bks_jobs/.
     """
     paths = _get_bks_paths(cms_root)
-    for key in ("root", "book_types", "templates", "books", "jobs", "merged", "exports"):
+    for key in ("root", "book_types", "templates", "books", "jobs", "merged", "exports", "context_bubble", "context_config"):
         paths[key].mkdir(parents=True, exist_ok=True)
+    _ensure_bks_context_bubble_registered(paths)
 
     # 1. Seed 9 BKS-1 standard BookTypes
     BookTypes.bks_booktypes_write_builtin(str(paths["book_types"]), overwrite=False)
@@ -681,6 +1052,12 @@ def cms_bks_create_blog_job(
         resolved_title = (title or resolved_topic).strip()
         resolved_subtitle = None
     elif use_ai_plan:
+        bubble_prep = cms_bks_prepare_context_bubble(
+            cms_root,
+            user_msg=resolved_topic,
+            author=resolved_author,
+            author_system_instruction=author_system_instruction,
+        )
         plan_res = ai_writing_generate_outline_plan(
             resolved_topic,
             bt_row,
@@ -689,6 +1066,7 @@ def cms_bks_create_blog_job(
             model_id=model_id,
             system_instruction=author_system_instruction,
             context_text=context_text,
+            context_bubble_text=bubble_prep.get("text") or "",
         )
         nodes = plan_res["nodes"]
         resolved_title = (title or plan_res.get("title") or resolved_topic).strip()
@@ -1029,6 +1407,13 @@ def cms_bks_execute_part(
             "chapter_uuid": target_uid,
         }
     else:
+        part_author = (author_name or link.get("author") or book.get(B.book_author_name_text) or "boehnenelton2024").strip()
+        bubble_prep = cms_bks_prepare_context_bubble(
+            cms_root,
+            user_msg=book[B.book_title_text],
+            author=part_author,
+            author_system_instruction=author_system_instruction,
+        )
         gen_result = ai_writing_generate_chapter(
             doc,
             target_uid,
@@ -1037,6 +1422,7 @@ def cms_bks_execute_part(
             model_id=active_model,
             author_system_instruction=author_system_instruction,
             extra_context=combined_context,
+            context_bubble_text=bubble_prep.get("text") or "",
             min_words_override=min_words_override,
         )
         gen_result["accepted"] = bool(gen_result.get("passed"))

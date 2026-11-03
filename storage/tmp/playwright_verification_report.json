@@ -1,63 +1,35 @@
 {
-  "timestamp": "2026-11-02T18:21:21Z",
-  "env_definitions": {
-    "definitions_file": "/storage/emulated/0/.env/user/definitions.json",
-    "definitions_exists": true,
-    "project_chunker_resolved": "/storage/emulated/0/Admin/System/Project_Chunker",
-    "secureenv_file": "/storage/emulated/0/.env/secure/secureenv_file.json",
-    "secureenv_exists": true
-  },
-  "ai_key_rotation": {
-    "provider": "groq",
-    "key_count": 4,
-    "rotates_cleanly": true
-  },
-  "dispatch_verification": {
-    "provider": "groq",
-    "model_id": "openai/gpt-oss-120b",
-    "success": true,
-    "content_excerpt": "A compact binary encoding format for JSON data."
-  },
+  "timestamp": "2026-11-03T18:26:18Z",
+  "total_screenshots_captured": 28,
   "screenshots": [
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/01_admin_dashboard.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/01_published_home_desktop.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/02_pages_manager.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/02_published_home_mobile.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/03_media_library.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/03_published_article_1.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/03_published_article_newagent.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/04_page_editor_v2.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/04_published_article_2.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/04_published_article_telemetry.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/05_profile_manager.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/05_published_apps_feed.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/06_published_category_bejson.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/06_published_category_feed.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/06_static_publisher.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/07_published_article_biological_substrate.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/08_published_article_biological_substrate_mobile.png",
     "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/01_playwright_admin_dashboard.png",
     "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/02_playwright_bks_jobs_studio.png",
     "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/03_playwright_page_editor_v2.png",
     "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/04_playwright_editor_ai_architect_tab.png",
     "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/05_playwright_published_home.png",
     "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/06_playwright_published_article_desktop.png",
-    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/07_playwright_published_article_mobile.png"
-  ],
-  "pages_verified": [
-    {
-      "url": "http://localhost:5001/",
-      "title": "BEJSON Manager",
-      "screenshot": "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/01_playwright_admin_dashboard.png"
-    },
-    {
-      "url": "http://localhost:5001/jobs",
-      "title": "BEJSON Manager",
-      "screenshot": "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/02_playwright_bks_jobs_studio.png"
-    },
-    {
-      "url": "http://localhost:5010/",
-      "title": "BEJSON Editor v2",
-      "screenshot": "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/03_playwright_page_editor_v2.png"
-    },
-    {
-      "url": "http://localhost:5010/#t-tasking",
-      "title": "BEJSON Editor v2",
-      "screenshot": "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/04_playwright_editor_ai_architect_tab.png"
-    },
-    {
-      "url": "http://localhost:8080/",
-      "title": "Home | My BEJSON Site",
-      "screenshot": "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/05_playwright_published_home.png"
-    },
-    {
-      "url": "http://localhost:8080/blog/projects/the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40/index.html",
-      "title": "The Integrity Era: Architectural Deep Dive into BEJSON 105 Core Libraries & MFDB v1.40 | My BEJSON Site",
-      "screenshot": "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/06_playwright_published_article_desktop.png"
-    }
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/07_playwright_published_article_mobile.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/category_projects_desktop.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/home_feed_desktop.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/post_105_desktop_full.png",
+    "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/images/audit_captures/post_105_mobile_hero.png"
   ],
   "success": true
 }

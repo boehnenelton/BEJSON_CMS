@@ -2757,3 +2757,604 @@ lib_bejson_Core_bejson_core.BEJSONCoreError: Failed to update field 'page_is_sta
 2026-11-02 03:30:44,727 DEBUG waitpid polling on PID 5523: [Errno 10] No child processes
 2026-11-02 03:30:44,738 DEBUG waitpid polling on PID 5523: [Errno 10] No child processes
 2026-11-02 03:30:44,749 DEBUG final waitpid on PID 5523: [Errno 10] No child processes
+2026-11-03 08:19:54,776 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 08:19:55,269 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-11-03 08:19:55,269 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-11-03 08:19:55,304 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-11-03 08:19:55,304 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 08:20:11,047 INFO 127.0.0.1 - - [03/Nov/2026 08:20:11] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-03 08:20:20,179 INFO 127.0.0.1 - - [03/Nov/2026 08:20:20] "GET / HTTP/1.1" 200 -
+2026-11-03 08:20:20,712 INFO 127.0.0.1 - - [03/Nov/2026 08:20:20] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-03 08:20:25,273 INFO 127.0.0.1 - - [03/Nov/2026 08:20:25] "GET /jobs HTTP/1.1" 200 -
+2026-11-03 08:20:26,216 INFO 127.0.0.1 - - [03/Nov/2026 08:20:26] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 08:21:41,945 INFO source_env_fill: found=True loaded=56 kept_existing=2
+2026-11-03 08:22:17,034 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:22:17,243 INFO 127.0.0.1 - - [03/Nov/2026 08:22:17] "POST /api/bks/create_plan HTTP/1.1" 200 -
+2026-11-03 08:22:17,544 INFO 127.0.0.1 - - [03/Nov/2026 08:22:17] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 08:22:30,560 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:22:30,748 INFO 127.0.0.1 - - [03/Nov/2026 08:22:30] "POST /api/bks/update_plan HTTP/1.1" 200 -
+2026-11-03 08:22:30,794 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:22:30,930 INFO 127.0.0.1 - - [03/Nov/2026 08:22:30] "POST /api/bks/update_plan HTTP/1.1" 200 -
+2026-11-03 08:22:54,172 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:22:54,399 INFO 127.0.0.1 - - [03/Nov/2026 08:22:54] "POST /api/bks/execute_part HTTP/1.1" 200 -
+2026-11-03 08:22:54,721 INFO 127.0.0.1 - - [03/Nov/2026 08:22:54] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 08:22:54,768 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:22:54,908 INFO 127.0.0.1 - - [03/Nov/2026 08:22:54] "POST /api/bks/update_plan HTTP/1.1" 200 -
+2026-11-03 08:23:12,749 INFO 127.0.0.1 - - [03/Nov/2026 08:23:12] "[31m[1mGET /jobs HTTP/1.1[0m" 401 -
+2026-11-03 08:23:25,781 INFO 127.0.0.1 - - [03/Nov/2026 08:23:25] "[31m[1mGET /jobs HTTP/1.1[0m" 401 -
+2026-11-03 08:23:45,591 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:23:45,852 INFO 127.0.0.1 - - [03/Nov/2026 08:23:45] "POST /api/bks/execute_part HTTP/1.1" 200 -
+2026-11-03 08:23:46,183 INFO 127.0.0.1 - - [03/Nov/2026 08:23:46] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 08:23:46,227 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:23:46,373 INFO 127.0.0.1 - - [03/Nov/2026 08:23:46] "POST /api/bks/update_plan HTTP/1.1" 200 -
+2026-11-03 08:24:33,377 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:24:33,557 INFO 127.0.0.1 - - [03/Nov/2026 08:24:33] "POST /api/bks/execute_part HTTP/1.1" 200 -
+2026-11-03 08:24:33,893 INFO 127.0.0.1 - - [03/Nov/2026 08:24:33] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 08:24:33,934 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:24:34,116 INFO 127.0.0.1 - - [03/Nov/2026 08:24:34] "POST /api/bks/update_plan HTTP/1.1" 200 -
+2026-11-03 08:24:35,860 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:24:36,029 INFO 127.0.0.1 - - [03/Nov/2026 08:24:36] "POST /api/bks/update_plan HTTP/1.1" 200 -
+2026-11-03 08:24:38,513 INFO 127.0.0.1 - - [03/Nov/2026 08:24:38] "POST /api/bks/approve HTTP/1.1" 200 -
+2026-11-03 08:24:40,475 INFO 127.0.0.1 - - [03/Nov/2026 08:24:40] "GET /edit/90ddc141-bb54-4a62-8689-af02824beb60 HTTP/1.1" 200 -
+2026-11-03 08:24:40,566 INFO 127.0.0.1 - - [03/Nov/2026 08:24:40] "GET /assets/default_page_image.webp HTTP/1.1" 200 -
+2026-11-03 08:24:55,529 INFO committed /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/bks_jobs/books/ai-agentic-loops.bks.bejson (level 3)
+2026-11-03 08:24:55,720 INFO 127.0.0.1 - - [03/Nov/2026 08:24:55] "POST /api/bks/execute_part HTTP/1.1" 200 -
+2026-11-03 08:29:00,042 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 08:29:00,146 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.183.118.144:5001
+2026-11-03 08:29:00,147 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 08:29:09,429 INFO 127.0.0.1 - - [03/Nov/2026 08:29:09] "GET / HTTP/1.1" 200 -
+2026-11-03 08:29:12,434 INFO 127.0.0.1 - - [03/Nov/2026 08:29:12] "GET /publish HTTP/1.1" 200 -
+2026-11-03 08:29:13,369 INFO 127.0.0.1 - - [03/Nov/2026 08:29:13] "[32mPOST /publish/build HTTP/1.1[0m" 302 -
+2026-11-03 08:29:13,417 INFO 127.0.0.1 - - [03/Nov/2026 08:29:13] "GET /publish HTTP/1.1" 200 -
+2026-11-03 08:29:14,899 INFO 127.0.0.1 - - [03/Nov/2026 08:29:14] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:16,422 INFO 127.0.0.1 - - [03/Nov/2026 08:29:16] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:17,375 INFO 127.0.0.1 - - [03/Nov/2026 08:29:17] "[32mPOST /publish/server/start HTTP/1.1[0m" 302 -
+2026-11-03 08:29:17,399 INFO 127.0.0.1 - - [03/Nov/2026 08:29:17] "GET /publish HTTP/1.1" 200 -
+2026-11-03 08:29:18,513 INFO 127.0.0.1 - - [03/Nov/2026 08:29:18] "[32mPOST /publish/build HTTP/1.1[0m" 302 -
+2026-11-03 08:29:18,538 INFO 127.0.0.1 - - [03/Nov/2026 08:29:18] "GET /publish HTTP/1.1" 200 -
+2026-11-03 08:29:19,489 INFO 127.0.0.1 - - [03/Nov/2026 08:29:19] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:21,220 INFO 127.0.0.1 - - [03/Nov/2026 08:29:21] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:22,740 INFO 127.0.0.1 - - [03/Nov/2026 08:29:22] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:24,803 INFO 127.0.0.1 - - [03/Nov/2026 08:29:24] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:26,793 INFO 127.0.0.1 - - [03/Nov/2026 08:29:26] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:28,796 INFO 127.0.0.1 - - [03/Nov/2026 08:29:28] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:30,787 INFO 127.0.0.1 - - [03/Nov/2026 08:29:30] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:32,793 INFO 127.0.0.1 - - [03/Nov/2026 08:29:32] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:34,812 INFO 127.0.0.1 - - [03/Nov/2026 08:29:34] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:36,803 INFO 127.0.0.1 - - [03/Nov/2026 08:29:36] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:38,797 INFO 127.0.0.1 - - [03/Nov/2026 08:29:38] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:40,803 INFO 127.0.0.1 - - [03/Nov/2026 08:29:40] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:42,799 INFO 127.0.0.1 - - [03/Nov/2026 08:29:42] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:44,787 INFO 127.0.0.1 - - [03/Nov/2026 08:29:44] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:46,798 INFO 127.0.0.1 - - [03/Nov/2026 08:29:46] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:48,787 INFO 127.0.0.1 - - [03/Nov/2026 08:29:48] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:50,801 INFO 127.0.0.1 - - [03/Nov/2026 08:29:50] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:52,794 INFO 127.0.0.1 - - [03/Nov/2026 08:29:52] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:54,802 INFO 127.0.0.1 - - [03/Nov/2026 08:29:54] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:56,797 INFO 127.0.0.1 - - [03/Nov/2026 08:29:56] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:29:58,798 INFO 127.0.0.1 - - [03/Nov/2026 08:29:58] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:00,792 INFO 127.0.0.1 - - [03/Nov/2026 08:30:00] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:02,785 INFO 127.0.0.1 - - [03/Nov/2026 08:30:02] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:04,796 INFO 127.0.0.1 - - [03/Nov/2026 08:30:04] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:06,798 INFO 127.0.0.1 - - [03/Nov/2026 08:30:06] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:08,796 INFO 127.0.0.1 - - [03/Nov/2026 08:30:08] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:10,808 INFO 127.0.0.1 - - [03/Nov/2026 08:30:10] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:12,793 INFO 127.0.0.1 - - [03/Nov/2026 08:30:12] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:14,792 INFO 127.0.0.1 - - [03/Nov/2026 08:30:14] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:16,789 INFO 127.0.0.1 - - [03/Nov/2026 08:30:16] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:18,792 INFO 127.0.0.1 - - [03/Nov/2026 08:30:18] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:20,802 INFO 127.0.0.1 - - [03/Nov/2026 08:30:20] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:22,785 INFO 127.0.0.1 - - [03/Nov/2026 08:30:22] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:24,353 INFO 127.0.0.1 - - [03/Nov/2026 08:30:24] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:25,945 INFO 127.0.0.1 - - [03/Nov/2026 08:30:25] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:27,809 INFO 127.0.0.1 - - [03/Nov/2026 08:30:27] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:29,820 INFO 127.0.0.1 - - [03/Nov/2026 08:30:29] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:31,793 INFO 127.0.0.1 - - [03/Nov/2026 08:30:31] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:33,791 INFO 127.0.0.1 - - [03/Nov/2026 08:30:33] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:35,800 INFO 127.0.0.1 - - [03/Nov/2026 08:30:35] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:37,791 INFO 127.0.0.1 - - [03/Nov/2026 08:30:37] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:39,783 INFO 127.0.0.1 - - [03/Nov/2026 08:30:39] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:41,786 INFO 127.0.0.1 - - [03/Nov/2026 08:30:41] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:43,804 INFO 127.0.0.1 - - [03/Nov/2026 08:30:43] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:45,786 INFO 127.0.0.1 - - [03/Nov/2026 08:30:45] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:47,790 INFO 127.0.0.1 - - [03/Nov/2026 08:30:47] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:49,798 INFO 127.0.0.1 - - [03/Nov/2026 08:30:49] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:51,808 INFO 127.0.0.1 - - [03/Nov/2026 08:30:51] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:53,807 INFO 127.0.0.1 - - [03/Nov/2026 08:30:53] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:55,799 INFO 127.0.0.1 - - [03/Nov/2026 08:30:55] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:57,807 INFO 127.0.0.1 - - [03/Nov/2026 08:30:57] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:30:59,799 INFO 127.0.0.1 - - [03/Nov/2026 08:30:59] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:31:01,806 INFO 127.0.0.1 - - [03/Nov/2026 08:31:01] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:31:03,808 INFO 127.0.0.1 - - [03/Nov/2026 08:31:03] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:31:05,806 INFO 127.0.0.1 - - [03/Nov/2026 08:31:05] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:31:07,803 INFO 127.0.0.1 - - [03/Nov/2026 08:31:07] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 08:31:09,791 INFO 127.0.0.1 - - [03/Nov/2026 08:31:09] "GET /publish/log HTTP/1.1" 200 -
+2026-11-03 09:09:06,491 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 09:40:43,490 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 09:40:51,187 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 09:40:58,995 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 09:41:39,357 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 09:54:34,579 INFO 127.0.0.1 - - [03/Nov/2026 09:54:34] "[31m[1mGET /favicon.ico HTTP/1.1[0m" 401 -
+2026-11-03 10:11:19,083 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:12:48,727 INFO 127.0.0.1 - - [03/Nov/2026 10:12:48] "[31m[1mGET /favicon.ico HTTP/1.1[0m" 401 -
+2026-11-03 10:13:04,784 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:14:24,093 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:14:33,743 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:15:05,640 INFO 127.0.0.1 - - [03/Nov/2026 10:15:05] "HEAD / HTTP/1.1" 200 -
+2026-11-03 10:15:16,261 INFO 127.0.0.1 - - [03/Nov/2026 10:15:16] "GET / HTTP/1.1" 200 -
+2026-11-03 10:15:44,979 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:17:02,749 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:19:07,543 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:19:07,609 DEBUG Using selector: EpollSelector
+2026-11-03 10:19:07,612 INFO === STEP 1: Building Static Site ===
+2026-11-03 10:19:09,357 INFO === STEP 2: Launching Local Services ===
+2026-11-03 10:19:10,045 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:19:10,361 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:19:10,451 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5004
+ * Running on http://10.183.118.144:5004
+2026-11-03 10:19:10,451 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 10:19:10,463 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:19:10,619 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5010
+ * Running on http://10.183.118.144:5010
+2026-11-03 10:19:10,620 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 10:19:10,918 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-11-03 10:19:10,919 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-11-03 10:19:10,948 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-11-03 10:19:10,948 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 10:19:11,190 INFO Port 5001 (Admin): READY
+2026-11-03 10:19:11,192 INFO Port 5010 (EditorV2): READY
+2026-11-03 10:19:11,193 INFO Port 5004 (Profiles): READY
+2026-11-03 10:19:11,195 INFO Port 8080 (Static): READY
+2026-11-03 10:19:11,196 INFO === STEP 3: Starting Playwright Automation ===
+2026-11-03 10:19:16,241 INFO Capturing Admin Dashboard...
+2026-11-03 10:19:16,402 INFO 127.0.0.1 - - [03/Nov/2026 10:19:16] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-03 10:19:16,663 INFO 127.0.0.1 - - [03/Nov/2026 10:19:16] "GET / HTTP/1.1" 200 -
+2026-11-03 10:19:16,894 INFO 127.0.0.1 - - [03/Nov/2026 10:19:16] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:16,898 INFO 127.0.0.1 - - [03/Nov/2026 10:19:16] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:18,319 INFO 127.0.0.1 - - [03/Nov/2026 10:19:18] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-03 10:19:18,481 INFO Capturing AI Writer Studio (/jobs)...
+2026-11-03 10:19:18,613 INFO 127.0.0.1 - - [03/Nov/2026 10:19:18] "GET /jobs HTTP/1.1" 200 -
+2026-11-03 10:19:18,760 INFO 127.0.0.1 - - [03/Nov/2026 10:19:18] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:18,779 INFO 127.0.0.1 - - [03/Nov/2026 10:19:18] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:19,719 INFO 127.0.0.1 - - [03/Nov/2026 10:19:19] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 10:19:21,140 INFO Capturing Pages Manager (/pages)...
+2026-11-03 10:19:21,250 INFO 127.0.0.1 - - [03/Nov/2026 10:19:21] "GET /pages HTTP/1.1" 200 -
+2026-11-03 10:19:21,408 INFO 127.0.0.1 - - [03/Nov/2026 10:19:21] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:21,415 INFO 127.0.0.1 - - [03/Nov/2026 10:19:21] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:22,396 INFO Capturing Media Library (/assets)...
+2026-11-03 10:19:22,474 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets HTTP/1.1" 200 -
+2026-11-03 10:19:22,553 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:22,563 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:22,809 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets/thumb/antigravity_biological_substrate_hero.png HTTP/1.1" 200 -
+2026-11-03 10:19:22,810 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets/thumb/bejson_104_telemetry_hero.png HTTP/1.1" 200 -
+2026-11-03 10:19:22,810 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets/thumb/bejson_105_architecture_diagram.webp HTTP/1.1" 200 -
+2026-11-03 10:19:22,826 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets/thumb/bejson_105_architecture_diagram.png HTTP/1.1" 200 -
+2026-11-03 10:19:22,828 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets/thumb/bejson_104_telemetry_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:19:22,850 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets/thumb/antigravity_biological_substrate_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:19:22,948 INFO 127.0.0.1 - - [03/Nov/2026 10:19:22] "GET /assets/thumb/bejson_105_integrity_era_hero.png HTTP/1.1" 200 -
+2026-11-03 10:19:23,048 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/code_as_biological_substrate_hero.png HTTP/1.1" 200 -
+2026-11-03 10:19:23,055 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/code_as_biological_substrate_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:19:23,060 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/bejson_105_integrity_era_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:19:23,081 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/newagent_runtime_hero.png HTTP/1.1" 200 -
+2026-11-03 10:19:23,090 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/project_chunker_architecture_diagram.png HTTP/1.1" 200 -
+2026-11-03 10:19:23,109 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/newagent_runtime_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:19:23,179 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/project_chunker_architecture_diagram.webp HTTP/1.1" 200 -
+2026-11-03 10:19:23,181 INFO 127.0.0.1 - - [03/Nov/2026 10:19:23] "GET /assets/thumb/project_chunker_ecosystem_hero.png HTTP/1.1" 200 -
+2026-11-03 10:19:24,405 INFO Capturing Profile Manager (port 5004)...
+2026-11-03 10:19:24,488 INFO 127.0.0.1 - - [03/Nov/2026 10:19:24] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-03 10:19:24,537 INFO 127.0.0.1 - - [03/Nov/2026 10:19:24] "GET / HTTP/1.1" 200 -
+2026-11-03 10:19:24,989 INFO 127.0.0.1 - - [03/Nov/2026 10:19:24] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-03 10:19:25,672 INFO Capturing Static Publisher (/publish)...
+2026-11-03 10:19:25,754 INFO 127.0.0.1 - - [03/Nov/2026 10:19:25] "GET /publish HTTP/1.1" 200 -
+2026-11-03 10:19:25,886 INFO 127.0.0.1 - - [03/Nov/2026 10:19:25] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:25,886 INFO 127.0.0.1 - - [03/Nov/2026 10:19:25] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:19:26,891 INFO Capturing Page Editor V2 (port 5010)...
+2026-11-03 10:19:26,955 INFO 127.0.0.1 - - [03/Nov/2026 10:19:26] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-03 10:19:27,048 INFO 127.0.0.1 - - [03/Nov/2026 10:19:27] "GET / HTTP/1.1" 200 -
+2026-11-03 10:19:27,183 INFO 127.0.0.1 - - [03/Nov/2026 10:19:27] "GET /fb/assets/becss-filepicker.css HTTP/1.1" 200 -
+2026-11-03 10:19:27,185 INFO 127.0.0.1 - - [03/Nov/2026 10:19:27] "GET /fb/assets/becss-filepicker.js HTTP/1.1" 200 -
+2026-11-03 10:19:27,704 INFO 127.0.0.1 - - [03/Nov/2026 10:19:27] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-03 10:19:27,737 INFO 127.0.0.1 - - [03/Nov/2026 10:19:27] "GET /api/settings/models HTTP/1.1" 200 -
+2026-11-03 10:19:28,260 INFO 127.0.0.1 - - [03/Nov/2026 10:19:28] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 10:19:28,968 INFO Activating AI Writer tab in Page Editor V2...
+2026-11-03 10:19:29,377 INFO 127.0.0.1 - - [03/Nov/2026 10:19:29] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 10:19:30,224 INFO Capturing Published Home Feed (Desktop & Mobile)...
+2026-11-03 10:19:33,433 INFO Capturing 105 Core Post (http://localhost:8080/blog/projects/the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40/index.html)...
+2026-11-03 10:19:40,167 INFO Capturing Project Chunker Post (http://localhost:8080/blog/projects/zero-sql-archiving---deterministic-snapshots--dissecting-project-chunker-s-ecosystem/index.html)...
+2026-11-03 10:19:57,452 INFO Capturing Apps Feed...
+2026-11-03 10:19:58,807 INFO Capturing Projects Category Feed...
+2026-11-03 10:20:02,207 DEBUG waitpid on PID 9775 (grandchild): [Errno 10] No child processes
+2026-11-03 10:20:02,207 DEBUG waitpid polling on PID 9775: [Errno 10] No child processes
+2026-11-03 10:20:02,218 DEBUG waitpid polling on PID 9775: [Errno 10] No child processes
+2026-11-03 10:20:02,228 DEBUG waitpid polling on PID 9775: [Errno 10] No child processes
+2026-11-03 10:20:02,239 DEBUG waitpid polling on PID 9775: [Errno 10] No child processes
+2026-11-03 10:20:02,251 DEBUG waitpid polling on PID 9775: [Errno 10] No child processes
+2026-11-03 10:20:02,262 DEBUG final waitpid on PID 9775: [Errno 10] No child processes
+2026-11-03 10:20:02,423 INFO === STEP 4: Cleaning up Background Subprocesses ===
+2026-11-03 10:20:02,456 INFO Admin server terminated.
+2026-11-03 10:20:02,489 INFO EditorV2 server terminated.
+2026-11-03 10:20:02,522 INFO Profiles server terminated.
+2026-11-03 10:20:02,702 INFO Static preview server shutdown.
+2026-11-03 10:20:02,703 INFO === STEP 5: Resizing 28 Images to 420p Standard ===
+2026-11-03 10:20:02,792 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:02,793 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:02,826 DEBUG STREAM b'IDAT' 136220 6
+2026-11-03 10:20:02,903 INFO Resized 01_admin_dashboard.png: (1440, 1194) -> (420, 348) (47994 bytes)
+2026-11-03 10:20:02,907 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:02,907 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:02,958 DEBUG STREAM b'IDAT' 413601 6
+2026-11-03 10:20:03,032 INFO Resized 01_published_home_desktop.png: (1440, 2209) -> (274, 420) (46465 bytes)
+2026-11-03 10:20:03,035 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:03,036 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:03,059 DEBUG STREAM b'IDAT' 117525 6
+2026-11-03 10:20:03,117 INFO Resized 02_pages_manager.png: (1440, 939) -> (420, 274) (46513 bytes)
+2026-11-03 10:20:03,124 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:03,125 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:03,131 DEBUG STREAM b'IDAT' 77750 6
+2026-11-03 10:20:03,173 INFO Resized 02_published_home_mobile.png: (412, 915) -> (189, 420) (35547 bytes)
+2026-11-03 10:20:03,181 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:03,182 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:03,248 DEBUG STREAM b'IDAT' 214058 6
+2026-11-03 10:20:03,318 INFO Resized 03_media_library.png: (1440, 2506) -> (241, 420) (29320 bytes)
+2026-11-03 10:20:03,323 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:03,323 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:03,736 DEBUG STREAM b'IDAT' 2988905 6
+2026-11-03 10:20:03,793 INFO Resized 03_published_article_1.png: (1440, 18523) -> (33, 420) (11321 bytes)
+2026-11-03 10:20:03,800 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:03,801 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:03,819 DEBUG STREAM b'IDAT' 20428 6
+2026-11-03 10:20:03,848 INFO Resized 03_published_article_newagent.png: (1440, 900) -> (420, 263) (6225 bytes)
+2026-11-03 10:20:03,851 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:03,851 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:03,875 DEBUG STREAM b'IDAT' 37707 6
+2026-11-03 10:20:03,926 INFO Resized 04_page_editor_v2.png: (1440, 1222) -> (420, 356) (13129 bytes)
+2026-11-03 10:20:03,932 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:03,933 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:04,276 DEBUG STREAM b'IDAT' 2346001 6
+2026-11-03 10:20:04,325 INFO Resized 04_published_article_2.png: (1440, 16188) -> (37, 420) (12971 bytes)
+2026-11-03 10:20:04,327 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:04,328 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:04,805 DEBUG STREAM b'IDAT' 2948821 6
+2026-11-03 10:20:04,862 INFO Resized 04_published_article_telemetry.png: (1440, 21264) -> (28, 420) (9641 bytes)
+2026-11-03 10:20:04,865 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:04,865 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:04,884 DEBUG STREAM b'IDAT' 33807 6
+2026-11-03 10:20:04,920 INFO Resized 05_profile_manager.png: (1440, 900) -> (420, 263) (10202 bytes)
+2026-11-03 10:20:04,921 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:04,921 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:04,939 DEBUG STREAM b'IDAT' 32213 6
+2026-11-03 10:20:04,972 INFO Resized 05_published_apps_feed.png: (1440, 900) -> (420, 263) (11157 bytes)
+2026-11-03 10:20:04,974 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:04,974 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:05,006 DEBUG STREAM b'IDAT' 285979 6
+2026-11-03 10:20:05,104 INFO Resized 06_published_category_bejson.png: (1440, 1418) -> (420, 414) (64119 bytes)
+2026-11-03 10:20:05,106 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:05,106 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:05,128 DEBUG STREAM b'IDAT' 137763 6
+2026-11-03 10:20:05,187 INFO Resized 06_published_category_feed.png: (1440, 1004) -> (420, 293) (34246 bytes)
+2026-11-03 10:20:05,194 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:05,195 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:05,215 DEBUG STREAM b'IDAT' 86086 6
+2026-11-03 10:20:05,264 INFO Resized 06_static_publisher.png: (1440, 900) -> (420, 263) (30605 bytes)
+2026-11-03 10:20:05,266 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:05,266 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:05,837 DEBUG STREAM b'IDAT' 3695311 6
+2026-11-03 10:20:05,917 INFO Resized 07_published_article_biological_substrate.png: (1440, 26035) -> (23, 420) (8639 bytes)
+2026-11-03 10:20:05,918 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:05,918 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:05,924 DEBUG STREAM b'IDAT' 103980 6
+2026-11-03 10:20:06,021 INFO Resized 08_published_article_biological_substrate_mobile.png: (412, 915) -> (189, 420) (63027 bytes)
+2026-11-03 10:20:06,025 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,025 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:06,051 DEBUG STREAM b'IDAT' 136220 6
+2026-11-03 10:20:06,121 INFO Resized 01_playwright_admin_dashboard.png: (1440, 1194) -> (420, 348) (47994 bytes)
+2026-11-03 10:20:06,125 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,125 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:06,150 DEBUG STREAM b'IDAT' 161115 6
+2026-11-03 10:20:06,223 INFO Resized 02_playwright_bks_jobs_studio.png: (1440, 1123) -> (420, 328) (57612 bytes)
+2026-11-03 10:20:06,226 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,226 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:06,250 DEBUG STREAM b'IDAT' 37707 6
+2026-11-03 10:20:06,299 INFO Resized 03_playwright_page_editor_v2.png: (1440, 1222) -> (420, 356) (13129 bytes)
+2026-11-03 10:20:06,305 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,305 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:06,324 DEBUG STREAM b'IDAT' 79355 6
+2026-11-03 10:20:06,374 INFO Resized 04_playwright_editor_ai_architect_tab.png: (1440, 900) -> (420, 263) (29957 bytes)
+2026-11-03 10:20:06,382 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,382 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:06,432 DEBUG STREAM b'IDAT' 413601 6
+2026-11-03 10:20:06,499 INFO Resized 05_playwright_published_home.png: (1440, 2209) -> (274, 420) (46465 bytes)
+2026-11-03 10:20:06,504 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,504 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:06,847 DEBUG STREAM b'IDAT' 2346001 6
+2026-11-03 10:20:06,895 INFO Resized 06_playwright_published_article_desktop.png: (1440, 16188) -> (37, 420) (12971 bytes)
+2026-11-03 10:20:06,901 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,901 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:06,907 DEBUG STREAM b'IDAT' 101075 6
+2026-11-03 10:20:06,996 INFO Resized 07_playwright_published_article_mobile.png: (412, 915) -> (189, 420) (60624 bytes)
+2026-11-03 10:20:06,997 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:06,997 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:07,019 DEBUG STREAM b'IDAT' 137763 6
+2026-11-03 10:20:07,078 INFO Resized category_projects_desktop.png: (1440, 1004) -> (420, 293) (34246 bytes)
+2026-11-03 10:20:07,084 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:07,084 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:07,134 DEBUG STREAM b'IDAT' 413601 6
+2026-11-03 10:20:07,201 INFO Resized home_feed_desktop.png: (1440, 2209) -> (274, 420) (46465 bytes)
+2026-11-03 10:20:07,207 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:07,207 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:07,551 DEBUG STREAM b'IDAT' 2346001 6
+2026-11-03 10:20:07,599 INFO Resized post_105_desktop_full.png: (1440, 16188) -> (37, 420) (12971 bytes)
+2026-11-03 10:20:07,604 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:20:07,605 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:20:07,611 DEBUG STREAM b'IDAT' 101075 6
+2026-11-03 10:20:07,699 INFO Resized post_105_mobile_hero.png: (412, 915) -> (189, 420) (60624 bytes)
+2026-11-03 10:20:07,706 INFO Verification report written to: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/tmp/playwright_verification_report.json
+2026-11-03 10:20:07,706 INFO [✓] ALL PLAYWRIGHT SCREENSHOTS SUCCESSFULLY CAPTURED AND RESIZED!
+2026-11-03 10:25:32,881 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:25:32,969 DEBUG Using selector: EpollSelector
+2026-11-03 10:25:32,970 INFO === STEP 1: Building Static Site ===
+2026-11-03 10:25:34,797 INFO === STEP 2: Launching Local Services ===
+2026-11-03 10:25:35,671 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:25:35,745 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5004
+ * Running on http://10.183.118.144:5004
+2026-11-03 10:25:35,745 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 10:25:35,868 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:25:36,192 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-03 10:25:36,288 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5010
+ * Running on http://10.183.118.144:5010
+2026-11-03 10:25:36,288 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 10:25:36,319 INFO 
+    ============================================
+    BEJSON Web Manager
+    ============================================
+    Data Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb
+    Assets Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/mfdb/assets
+    Publish Directory: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/builds
+
+    Starting server on http://localhost:5001
+    Press CTRL+C to stop
+    ============================================
+    
+2026-11-03 10:25:36,319 WARNING 
+    !! WARNING: CMS_PASSWORD is not set - running with the default
+    !! password ("changeme"). Anyone on your network can log in.
+    !! Set the CMS_PASSWORD environment variable before exposing
+    !! this beyond localhost.
+        
+2026-11-03 10:25:36,343 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-11-03 10:25:36,343 INFO [33mPress CTRL+C to quit[0m
+2026-11-03 10:25:36,345 INFO Port 5001 (Admin): READY
+2026-11-03 10:25:36,346 INFO Port 5010 (EditorV2): READY
+2026-11-03 10:25:36,348 INFO Port 5004 (Profiles): READY
+2026-11-03 10:25:36,349 INFO Port 8080 (Static): READY
+2026-11-03 10:25:36,349 INFO === STEP 3: Starting Playwright Automation ===
+2026-11-03 10:25:42,124 INFO Capturing Admin Dashboard...
+2026-11-03 10:25:42,314 INFO 127.0.0.1 - - [03/Nov/2026 10:25:42] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-03 10:25:42,694 INFO 127.0.0.1 - - [03/Nov/2026 10:25:42] "GET / HTTP/1.1" 200 -
+2026-11-03 10:25:42,889 INFO 127.0.0.1 - - [03/Nov/2026 10:25:42] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:42,891 INFO 127.0.0.1 - - [03/Nov/2026 10:25:42] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:43,645 INFO 127.0.0.1 - - [03/Nov/2026 10:25:43] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-03 10:25:44,231 INFO Capturing AI Writer Studio (/jobs)...
+2026-11-03 10:25:44,396 INFO 127.0.0.1 - - [03/Nov/2026 10:25:44] "GET /jobs HTTP/1.1" 200 -
+2026-11-03 10:25:44,583 INFO 127.0.0.1 - - [03/Nov/2026 10:25:44] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:44,584 INFO 127.0.0.1 - - [03/Nov/2026 10:25:44] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:45,590 INFO 127.0.0.1 - - [03/Nov/2026 10:25:45] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 10:25:46,991 INFO Capturing Pages Manager (/pages)...
+2026-11-03 10:25:47,063 INFO 127.0.0.1 - - [03/Nov/2026 10:25:47] "GET /pages HTTP/1.1" 200 -
+2026-11-03 10:25:47,157 INFO 127.0.0.1 - - [03/Nov/2026 10:25:47] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:47,160 INFO 127.0.0.1 - - [03/Nov/2026 10:25:47] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:48,316 INFO Capturing Media Library (/assets)...
+2026-11-03 10:25:48,389 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets HTTP/1.1" 200 -
+2026-11-03 10:25:48,505 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:48,517 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:48,838 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets/thumb/bejson_104_telemetry_hero.png HTTP/1.1" 200 -
+2026-11-03 10:25:48,847 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets/thumb/antigravity_biological_substrate_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:25:48,862 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets/thumb/antigravity_biological_substrate_hero.png HTTP/1.1" 200 -
+2026-11-03 10:25:48,879 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets/thumb/bejson_104_telemetry_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:25:48,892 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets/thumb/bejson_105_architecture_diagram.png HTTP/1.1" 200 -
+2026-11-03 10:25:48,902 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets/thumb/bejson_105_architecture_diagram.webp HTTP/1.1" 200 -
+2026-11-03 10:25:48,991 INFO 127.0.0.1 - - [03/Nov/2026 10:25:48] "GET /assets/thumb/bejson_105_integrity_era_hero.png HTTP/1.1" 200 -
+2026-11-03 10:25:49,096 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/bejson_105_integrity_era_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:25:49,103 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/code_as_biological_substrate_hero.png HTTP/1.1" 200 -
+2026-11-03 10:25:49,116 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/code_as_biological_substrate_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:25:49,180 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/newagent_runtime_hero.png HTTP/1.1" 200 -
+2026-11-03 10:25:49,204 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/newagent_runtime_hero.webp HTTP/1.1" 200 -
+2026-11-03 10:25:49,238 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/project_chunker_architecture_diagram.png HTTP/1.1" 200 -
+2026-11-03 10:25:49,279 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/project_chunker_ecosystem_hero.png HTTP/1.1" 200 -
+2026-11-03 10:25:49,280 INFO 127.0.0.1 - - [03/Nov/2026 10:25:49] "GET /assets/thumb/project_chunker_architecture_diagram.webp HTTP/1.1" 200 -
+2026-11-03 10:25:50,004 INFO Capturing Profile Manager (port 5004)...
+2026-11-03 10:25:50,060 INFO 127.0.0.1 - - [03/Nov/2026 10:25:50] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-03 10:25:50,114 INFO 127.0.0.1 - - [03/Nov/2026 10:25:50] "GET / HTTP/1.1" 200 -
+2026-11-03 10:25:50,549 INFO 127.0.0.1 - - [03/Nov/2026 10:25:50] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-03 10:25:51,227 INFO Capturing Static Publisher (/publish)...
+2026-11-03 10:25:51,289 INFO 127.0.0.1 - - [03/Nov/2026 10:25:51] "GET /publish HTTP/1.1" 200 -
+2026-11-03 10:25:51,366 INFO 127.0.0.1 - - [03/Nov/2026 10:25:51] "GET /fb/assets/becss-filepicker.js?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:51,368 INFO 127.0.0.1 - - [03/Nov/2026 10:25:51] "GET /fb/assets/becss-filepicker.css?v=18.30 HTTP/1.1" 200 -
+2026-11-03 10:25:52,322 INFO Capturing Page Editor V2 (port 5010)...
+2026-11-03 10:25:52,396 INFO 127.0.0.1 - - [03/Nov/2026 10:25:52] "[31m[1mGET / HTTP/1.1[0m" 401 -
+2026-11-03 10:25:52,494 INFO 127.0.0.1 - - [03/Nov/2026 10:25:52] "GET / HTTP/1.1" 200 -
+2026-11-03 10:25:52,645 INFO 127.0.0.1 - - [03/Nov/2026 10:25:52] "GET /fb/assets/becss-filepicker.js HTTP/1.1" 200 -
+2026-11-03 10:25:52,648 INFO 127.0.0.1 - - [03/Nov/2026 10:25:52] "GET /fb/assets/becss-filepicker.css HTTP/1.1" 200 -
+2026-11-03 10:25:53,080 INFO 127.0.0.1 - - [03/Nov/2026 10:25:53] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-11-03 10:25:53,108 INFO 127.0.0.1 - - [03/Nov/2026 10:25:53] "GET /api/settings/models HTTP/1.1" 200 -
+2026-11-03 10:25:53,526 INFO 127.0.0.1 - - [03/Nov/2026 10:25:53] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 10:25:54,232 INFO Activating AI Writer tab in Page Editor V2...
+2026-11-03 10:25:54,583 INFO 127.0.0.1 - - [03/Nov/2026 10:25:54] "GET /api/bks/bootstrap HTTP/1.1" 200 -
+2026-11-03 10:25:55,570 INFO Capturing Published Home Feed (Desktop & Mobile)...
+2026-11-03 10:25:58,454 INFO Capturing 105 Core Post (http://localhost:8080/blog/projects/the-integrity-era--architectural-deep-dive-into-bejson-105-core-libraries---mfdb-v1-40/index.html)...
+2026-11-03 10:26:01,539 INFO Capturing Project Chunker Post (http://localhost:8080/blog/projects/zero-sql-archiving---deterministic-snapshots--dissecting-project-chunker-s-ecosystem/index.html)...
+2026-11-03 10:26:09,176 INFO Capturing Apps Feed...
+2026-11-03 10:26:10,766 INFO Capturing Projects Category Feed...
+2026-11-03 10:26:14,720 DEBUG waitpid on PID 13265 (grandchild): [Errno 10] No child processes
+2026-11-03 10:26:14,721 DEBUG waitpid polling on PID 13265: [Errno 10] No child processes
+2026-11-03 10:26:14,732 DEBUG waitpid polling on PID 13265: [Errno 10] No child processes
+2026-11-03 10:26:14,743 DEBUG waitpid polling on PID 13265: [Errno 10] No child processes
+2026-11-03 10:26:14,754 DEBUG waitpid polling on PID 13265: [Errno 10] No child processes
+2026-11-03 10:26:14,764 DEBUG waitpid polling on PID 13265: [Errno 10] No child processes
+2026-11-03 10:26:14,775 DEBUG final waitpid on PID 13265: [Errno 10] No child processes
+2026-11-03 10:26:15,038 INFO === STEP 4: Cleaning up Background Subprocesses ===
+2026-11-03 10:26:15,104 INFO Admin server terminated.
+2026-11-03 10:26:15,139 INFO EditorV2 server terminated.
+2026-11-03 10:26:15,174 INFO Profiles server terminated.
+2026-11-03 10:26:15,326 INFO Static preview server shutdown.
+2026-11-03 10:26:15,329 INFO === STEP 5: Resizing 28 Images to 420p Standard ===
+2026-11-03 10:26:15,433 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:15,435 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:15,460 DEBUG STREAM b'IDAT' 111470 6
+2026-11-03 10:26:15,517 INFO Resized 01_admin_dashboard.png: (1440, 900) -> (420, 263) (40689 bytes)
+2026-11-03 10:26:15,521 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:15,521 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:15,542 DEBUG STREAM b'IDAT' 161228 6
+2026-11-03 10:26:15,616 INFO Resized 01_published_home_desktop.png: (1440, 900) -> (420, 263) (38780 bytes)
+2026-11-03 10:26:15,619 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:15,619 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:15,642 DEBUG STREAM b'IDAT' 114532 6
+2026-11-03 10:26:15,706 INFO Resized 02_pages_manager.png: (1440, 900) -> (420, 263) (45090 bytes)
+2026-11-03 10:26:15,709 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:15,709 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:15,716 DEBUG STREAM b'IDAT' 77750 6
+2026-11-03 10:26:15,772 INFO Resized 02_published_home_mobile.png: (412, 915) -> (189, 420) (35547 bytes)
+2026-11-03 10:26:15,775 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:15,775 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:15,797 DEBUG STREAM b'IDAT' 78685 6
+2026-11-03 10:26:15,845 INFO Resized 03_media_library.png: (1440, 900) -> (420, 263) (26076 bytes)
+2026-11-03 10:26:15,852 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:15,852 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:15,876 DEBUG STREAM b'IDAT' 352019 6
+2026-11-03 10:26:16,153 INFO Resized 03_published_article_1.png: (1440, 900) -> (420, 263) (67699 bytes)
+2026-11-03 10:26:16,156 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,156 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:16,174 DEBUG STREAM b'IDAT' 20428 6
+2026-11-03 10:26:16,203 INFO Resized 03_published_article_newagent.png: (1440, 900) -> (420, 263) (6225 bytes)
+2026-11-03 10:26:16,207 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,207 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:16,225 DEBUG STREAM b'IDAT' 33550 6
+2026-11-03 10:26:16,266 INFO Resized 04_page_editor_v2.png: (1440, 900) -> (420, 263) (12107 bytes)
+2026-11-03 10:26:16,270 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,270 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:16,291 DEBUG STREAM b'IDAT' 351323 6
+2026-11-03 10:26:16,560 INFO Resized 04_published_article_2.png: (1440, 900) -> (420, 263) (67988 bytes)
+2026-11-03 10:26:16,564 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,565 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:16,585 DEBUG STREAM b'IDAT' 250785 6
+2026-11-03 10:26:16,752 INFO Resized 04_published_article_telemetry.png: (1440, 900) -> (420, 263) (57318 bytes)
+2026-11-03 10:26:16,755 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,755 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:16,773 DEBUG STREAM b'IDAT' 33807 6
+2026-11-03 10:26:16,810 INFO Resized 05_profile_manager.png: (1440, 900) -> (420, 263) (10202 bytes)
+2026-11-03 10:26:16,811 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,811 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:16,829 DEBUG STREAM b'IDAT' 32213 6
+2026-11-03 10:26:16,881 INFO Resized 05_published_apps_feed.png: (1440, 900) -> (420, 263) (11157 bytes)
+2026-11-03 10:26:16,883 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,884 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:16,906 DEBUG STREAM b'IDAT' 245435 6
+2026-11-03 10:26:16,985 INFO Resized 06_published_category_bejson.png: (1440, 900) -> (420, 263) (52268 bytes)
+2026-11-03 10:26:16,987 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:16,987 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,007 DEBUG STREAM b'IDAT' 132821 6
+2026-11-03 10:26:17,063 INFO Resized 06_published_category_feed.png: (1440, 900) -> (420, 263) (32782 bytes)
+2026-11-03 10:26:17,068 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,068 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,088 DEBUG STREAM b'IDAT' 86086 6
+2026-11-03 10:26:17,139 INFO Resized 06_static_publisher.png: (1440, 900) -> (420, 263) (30605 bytes)
+2026-11-03 10:26:17,141 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,142 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,162 DEBUG STREAM b'IDAT' 256163 6
+2026-11-03 10:26:17,306 INFO Resized 07_published_article_biological_substrate.png: (1440, 900) -> (420, 263) (60284 bytes)
+2026-11-03 10:26:17,309 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,309 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,316 DEBUG STREAM b'IDAT' 103980 6
+2026-11-03 10:26:17,413 INFO Resized 08_published_article_biological_substrate_mobile.png: (412, 915) -> (189, 420) (63027 bytes)
+2026-11-03 10:26:17,416 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,417 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,437 DEBUG STREAM b'IDAT' 111470 6
+2026-11-03 10:26:17,493 INFO Resized 01_playwright_admin_dashboard.png: (1440, 900) -> (420, 263) (40689 bytes)
+2026-11-03 10:26:17,500 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,501 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,523 DEBUG STREAM b'IDAT' 143723 6
+2026-11-03 10:26:17,588 INFO Resized 02_playwright_bks_jobs_studio.png: (1440, 900) -> (420, 263) (50590 bytes)
+2026-11-03 10:26:17,591 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,591 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,610 DEBUG STREAM b'IDAT' 33550 6
+2026-11-03 10:26:17,652 INFO Resized 03_playwright_page_editor_v2.png: (1440, 900) -> (420, 263) (12107 bytes)
+2026-11-03 10:26:17,659 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,659 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,680 DEBUG STREAM b'IDAT' 79355 6
+2026-11-03 10:26:17,737 INFO Resized 04_playwright_editor_ai_architect_tab.png: (1440, 900) -> (420, 263) (29957 bytes)
+2026-11-03 10:26:17,744 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,744 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,768 DEBUG STREAM b'IDAT' 161228 6
+2026-11-03 10:26:17,836 INFO Resized 05_playwright_published_home.png: (1440, 900) -> (420, 263) (38780 bytes)
+2026-11-03 10:26:17,841 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:17,841 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:17,863 DEBUG STREAM b'IDAT' 351323 6
+2026-11-03 10:26:18,153 INFO Resized 06_playwright_published_article_desktop.png: (1440, 900) -> (420, 263) (67988 bytes)
+2026-11-03 10:26:18,156 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:18,156 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:18,163 DEBUG STREAM b'IDAT' 101075 6
+2026-11-03 10:26:18,255 INFO Resized 07_playwright_published_article_mobile.png: (412, 915) -> (189, 420) (60624 bytes)
+2026-11-03 10:26:18,257 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:18,257 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:18,278 DEBUG STREAM b'IDAT' 132821 6
+2026-11-03 10:26:18,335 INFO Resized category_projects_desktop.png: (1440, 900) -> (420, 263) (32782 bytes)
+2026-11-03 10:26:18,339 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:18,339 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:18,364 DEBUG STREAM b'IDAT' 161228 6
+2026-11-03 10:26:18,428 INFO Resized home_feed_desktop.png: (1440, 900) -> (420, 263) (38780 bytes)
+2026-11-03 10:26:18,432 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:18,432 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:18,454 DEBUG STREAM b'IDAT' 351323 6
+2026-11-03 10:26:18,731 INFO Resized post_105_desktop_full.png: (1440, 900) -> (420, 263) (67988 bytes)
+2026-11-03 10:26:18,735 DEBUG STREAM b'IHDR' 16 13
+2026-11-03 10:26:18,735 DEBUG STREAM b'IDAT' 41 4096
+2026-11-03 10:26:18,742 DEBUG STREAM b'IDAT' 101075 6
+2026-11-03 10:26:18,840 INFO Resized post_105_mobile_hero.png: (412, 915) -> (189, 420) (60624 bytes)
+2026-11-03 10:26:18,850 INFO Verification report written to: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/tmp/playwright_verification_report.json
+2026-11-03 10:26:18,850 INFO [✓] ALL PLAYWRIGHT SCREENSHOTS SUCCESSFULLY CAPTURED AND RESIZED!

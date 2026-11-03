@@ -28,11 +28,11 @@ Description:     Server-side (Python) file browser + picker backend. Replaces ev
                  This module does NOT import BEJSON_CMS_Shared (no circular imports);
                  it is registered as a blueprint in the Admin app and in both Page
                  Editor apps (they are separate Flask processes).
-Version:         18.29
-Library_Version: 1
-Date:            2026-10-11
+Version:         18.30
+Library_Version: 2
+Date:            2026-11-03
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
-RELATIONAL_ID:   ac396970-9b1a-467b-b9a4-f22174b0cfaf
+RELATIONAL_ID:   b4e91c73-8a20-4d61-9c05-3f7e2a8d1b54
 """
 
 import os
@@ -45,7 +45,7 @@ from pathlib import Path
 
 from flask import Blueprint, request, jsonify, send_file, send_from_directory, abort, has_request_context
 
-VERSION = "18.29"
+VERSION = "18.30"
 LOGGER = logging.getLogger("bejson_cms.filebrowser")
 
 SCRIPT_PATH = Path(__file__).resolve().parent
@@ -70,8 +70,8 @@ ZIP_EXTENSIONS = {".zip"}
 MARKDOWN_EXTENSIONS = {".md", ".txt", ".markdown"}
 KEY_EXTENSIONS = {".bejson"}
 CODE_EXTENSIONS = {
-    ".py", ".js", ".ts", ".html", ".htm", ".css", ".json", ".xml", ".sh", ".bash",
-    ".txt", ".md", ".csv", ".sql", ".yaml", ".yml", ".ini", ".cfg", ".toml", ".c",
+    ".py", ".js", ".ts", ".html", ".htm", ".css", ".json", ".bejson", ".xml", ".sh", ".bash",
+    ".txt", ".md", ".markdown", ".csv", ".sql", ".yaml", ".yml", ".ini", ".cfg", ".toml", ".c",
     ".cpp", ".java", ".rb", ".go", ".rs",
 }
 
@@ -201,12 +201,14 @@ def _flatten_paths_document(document) -> dict:
 
 def _read_env_paths_store() -> dict:
     candidates = []
-    explicit = os.environ.get("BEJSON_PATHS_JSON")
-    if explicit:
-        candidates.append(Path(explicit))
+    for env_key in ("DEFINITIONS_FILE", "BEJSON_PATHS_JSON"):
+        explicit = os.environ.get(env_key)
+        if explicit:
+            candidates.append(Path(explicit))
     for base_variable in ("BEJSON_STORAGE_ROOT", "EXTERNAL_STORAGE"):
         base = os.environ.get(base_variable)
         if base:
+            candidates.append(Path(base) / ".env" / "user" / "definitions.json")
             candidates.append(Path(base) / ".env" / "user" / "paths.json")
     for candidate in candidates:
         try:

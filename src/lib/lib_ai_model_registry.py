@@ -95,7 +95,7 @@ REGISTRY_FILENAME = "ai_model_registry.bejson"
 # list endpoint, or intentionally curated) -- seeded from STATIC_DEFAULTS
 # below and left alone otherwise (same "only regenerate when the record
 # set is empty" rule GEMINI.MD specifies for Gemini, now applied to all).
-STATIC_SERVICES = ("Gemini", "Groq", "Grok", "HuggingFace", "Ollama", "OllamaLocal", "LiteRTLM")
+STATIC_SERVICES = ("Gemini", "Groq", "Grok", "HuggingFace", "Ollama")
 
 # Services with a live models-list endpoint this registry can pull from.
 AUTO_GENERATING_SERVICES = ("OpenRouter", "TokenRoute")
@@ -105,7 +105,7 @@ SUPPORTED_SERVICES = STATIC_SERVICES + AUTO_GENERATING_SERVICES
 # Static services introduced after the first release. Only these are
 # back-filled into an existing registry file (see load()); a service a user
 # deliberately removed from an older file is not resurrected.
-ADDED_STATIC_SERVICES = ("OllamaLocal", "LiteRTLM")
+ADDED_STATIC_SERVICES = ()
 
 # Static defaults per non-auto-generating service. Each seeded from that
 # service's current CLI default_model_id (see CLI/<service>_cli/
@@ -132,15 +132,6 @@ STATIC_DEFAULTS = {
     ],
     "Ollama": [
         {"service": "Ollama", "model_id": "gpt-oss:120b-cloud", "model_name": "GPT-OSS 120B Cloud", "flag": None},
-    ],
-    "LiteRTLM": [
-        {"service": "LiteRTLM", "model_id": "gemma-4-e2b", "model_name": "Gemma 4 E2B", "flag": None},
-    ],
-    "OllamaLocal": [
-        {"service": "OllamaLocal", "model_id": "qwen2.5-coder:1.5b", "model_name": "Qwen2.5-Coder 1.5B", "flag": None},
-        {"service": "OllamaLocal", "model_id": "qwen2.5-coder:0.5b", "model_name": "Qwen2.5-Coder 0.5B", "flag": None},
-        {"service": "OllamaLocal", "model_id": "qwen2.5-coder:3b",   "model_name": "Qwen2.5-Coder 3B",   "flag": None},
-        {"service": "OllamaLocal", "model_id": "qwen2.5-coder:7b",   "model_name": "Qwen2.5-Coder 7B",   "flag": None},
     ],
 }
 

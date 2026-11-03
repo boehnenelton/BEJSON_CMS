@@ -2,13 +2,13 @@
 Library:         BEJSON_CMS_Content
 Family:          BEJSON_CMS
 Description:     Content Cube: Page/Link CRUD, Category management, Author profiles, Standalone Apps, HTML import pipeline. Uses CMSCore (lib_bejson_CMS_cms_core), the same data layer as the rest of the Flask app — NOT lib_bejson_CMS_cms_mfdb (that manager is CLI-only, used by cms-manage.py, and is a different schema/data layer).
-Version:         18.28
-Library_Version: 59
-Date:            2026-10-25
-RELATIONAL_ID:   2a8d4c19-7e3f-4b65-9a02-5c1e8b3f7d64
+Version:         18.30
+Library_Version: 61
+Date:            2026-11-03
+RELATIONAL_ID:   e83a1d92-4b67-4c18-9f05-7a2b5e8d1c43
 """
 
-VERSION = 1828
+VERSION = 1830
 
 import os
 import gc
@@ -29,6 +29,7 @@ from BEJSON_CMS_Shared import (
     PAGES_DB_DIR, ASSETS_DIR, APPS_STORAGE, DEFAULT_FEATURED_IMAGE, SCRIPT_PATH,
     UPLOAD_TMP,
 )
+from BEJSON_CMS_FileBrowser import resolve_picks, PickError
 from lib_bejson_Core_bejson_path_guard import safe_extract_zip
 from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
@@ -49,7 +50,7 @@ def content_hub():
     <div class="page-header"><h1>Content Management</h1><p>Manage all your website content</p></div>
     <div class="grid grid-3">
         <a href="/pages" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128196;</div><h3>Pages</h3><p style="color:var(--text-secondary);">Create and edit pages</p></div></a>
-        <a href="/jobs" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128218;</div><h3>Blog Post Jobs (BKS-1)</h3><p style="color:var(--text-secondary);">4-part blog post plans, CLI_AI 48 execution, merge &amp; approve overwrite</p></div></a>
+        <a href="/jobs" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#9997;&#65039;</div><h3>AI Writer</h3><p style="color:var(--text-secondary);">4-part structured writing plans, Context Bubble engine, merge &amp; overwrite</p></div></a>
         <a href="/links" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128279;</div><h3>External Links</h3><p style="color:var(--text-secondary);">Manage external link references</p></div></a>
         <a href="/categories" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128193;</div><h3>Categories</h3><p style="color:var(--text-secondary);">Organize content by category</p></div></a>
         <a href="/import" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128229;</div><h3>HTML / MD Import</h3><p style="color:var(--text-secondary);">Import HTML or Markdown articles</p></div></a>
@@ -1720,8 +1721,8 @@ def bks_jobs_studio():
     <div class="page-header">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
             <div>
-                <h1>Standardized Blog Post Job Studio (BKS-1)</h1>
-                <p>Plan, execute 4-part blog posts via CLI_AI 48, merge into unified CMS HTML, and overwrite target posts on approve</p>
+                <h1>AI Writer</h1>
+                <p>Plan and execute 4-part technical publications with 48k Context Bubble, Author Persona Precedence, and seamless CMS publishing</p>
             </div>
             <span id="bks_job_badge" class="badge badge-page" style="font-size:0.8rem;padding:6px 12px;">No Active Job</span>
         </div>
@@ -1786,14 +1787,48 @@ def bks_jobs_studio():
             <textarea id="bks_topic" class="form-control" style="min-height:100px;" placeholder="Describe the blog post topic, key arguments, code examples, and target audience..."></textarea>
         </div>
 
-        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-            <button type="button" class="btn btn-primary" onclick="generateBksPlan()">1. Generate 4-Part Plan &amp; Job</button>
-            <button type="button" class="btn btn-secondary" onclick="saveBksPlanEdits()">Save Plan Edits</button>
-            <button type="button" class="btn btn-primary" onclick="runNextBksPart()">2a. Execute Next Part</button>
-            <button type="button" class="btn btn-primary" onclick="runAllBksParts()">2b. Execute All 4 Parts &amp; Merge</button>
-            <button type="button" class="btn btn-secondary" onclick="mergeBksParts()">Re-Merge 4 Parts</button>
-            <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite Target Post</button>
-            <span id="bks_status_msg" style="margin-left:auto;font-family:monospace;font-size:0.85rem;color:var(--text-secondary);">READY</span>
+        <details id="bks_context_bubble_details" open style="margin-bottom:16px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--bg-secondary);">
+            <summary style="cursor:pointer;list-style:none;outline:none;user-select:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span class="badge badge-page">CONTEXT BUBBLE</span>
+                        <strong style="font-size:0.9rem;">Pre-Prompt Context Bubble Files (Study &amp; Learn Silently)</strong>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span id="bks_ctx_badge" style="font-family:monospace;font-size:0.78rem;color:var(--text-secondary);">0 ACTIVE | 0 CHARS</span>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openBksContextFilePicker()">+ Select Context Files</button>
+                    </div>
+                </div>
+            </summary>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+                <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.5;overflow-wrap:break-word;">
+                    <strong>Injected Directive:</strong> <span id="bks_ctx_directive_text">BACKGROUND -- study and learn from this reference material and absorb it silently. Never reference, mention, acknowledge, or admit that this context exists; if it influences anything you produce, write strictly in your own words, never as a copy, quote, or citation of this material.</span>
+                </div>
+                <div id="bks_ctx_files_list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+                <details style="margin-top:8px;">
+                    <summary style="cursor:pointer;font-size:0.78rem;font-weight:700;color:var(--text-secondary);user-select:none;">Preview Assembled Context Bubble Block</summary>
+                    <div style="margin-top:8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <span style="font-size:0.75rem;color:var(--text-secondary);">Prepended before prompt on Plan &amp; Part execution</span>
+                            <div style="display:flex;gap:6px;">
+                                <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:3px 8px;" onclick="selectAllText('bks_ctx_preview_box')">Select All</button>
+                                <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:3px 8px;" onclick="copyText('bks_ctx_preview_box', this)">Copy</button>
+                            </div>
+                        </div>
+                        <textarea id="bks_ctx_preview_box" class="form-control" readonly style="min-height:110px;font-family:monospace;font-size:0.78rem;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;" placeholder="No active context files selected."></textarea>
+                    </div>
+                </details>
+            </div>
+        </details>
+
+        <div class="toolbar-row" style="display:flex;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:10px;align-items:center;padding-bottom:6px;margin-bottom:4px;scrollbar-width:thin;">
+            <button type="button" class="btn btn-primary" style="flex-shrink:0;white-space:nowrap;" onclick="generateBksPlan()">1. Generate Plan</button>
+            <button type="button" class="btn btn-secondary" style="flex-shrink:0;white-space:nowrap;" onclick="saveBksPlanEdits()">Save Plan Edits</button>
+            <button type="button" class="btn btn-primary" style="flex-shrink:0;white-space:nowrap;" onclick="runNextBksPart()">2a. Run Next Part</button>
+            <button type="button" class="btn btn-primary" style="flex-shrink:0;white-space:nowrap;" onclick="runAllBksParts()">2b. Run All &amp; Merge</button>
+            <button type="button" class="btn btn-secondary" style="flex-shrink:0;white-space:nowrap;" onclick="mergeBksParts()">Re-Merge Parts</button>
+            <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669;flex-shrink:0;white-space:nowrap;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite</button>
+            <span id="bks_status_msg" style="margin-left:auto;font-family:monospace;font-size:0.85rem;color:var(--text-secondary);flex-shrink:0;white-space:nowrap;">READY</span>
         </div>
     </div>
 
@@ -1811,12 +1846,18 @@ def bks_jobs_studio():
         </div>
         <div class="grid grid-2" style="gap:16px;">
             <div>
-                <label class="form-label">Merged 4-Part Markdown</label>
-                <textarea id="bks_merged_md" class="form-control" style="min-height:320px;font-family:monospace;font-size:0.82rem;"></textarea>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <label class="form-label" style="margin:0;">Merged 4-Part Markdown</label>
+                    <div style="display:flex;gap:6px;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="selectAllText('bks_merged_md')">Select All</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="copyText('bks_merged_md', this)">Copy</button>
+                    </div>
+                </div>
+                <textarea id="bks_merged_md" class="form-control" style="min-height:320px;font-family:monospace;font-size:0.82rem;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;"></textarea>
             </div>
             <div>
                 <label class="form-label">Rendered CMS Article HTML Preview</label>
-                <div id="bks_merged_html_preview" style="min-height:320px;max-height:480px;overflow-y:auto;overflow-x:auto;max-width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;"></div>
+                <div id="bks_merged_html_preview" class="table-container" style="min-height:320px;max-height:480px;overflow-y:auto;overflow-x:auto;max-width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;white-space:normal;overflow-wrap:break-word;"></div>
             </div>
         </div>
     </div>
@@ -1845,9 +1886,9 @@ def bks_jobs_studio():
 
         bksProviderModels = (data.ai && data.ai.models_by_provider) ? data.ai.models_by_provider : {};
         const provSel = document.getElementById('bks_provider_select');
-        const prevProv = provSel.value || (data.ai && data.ai.default_provider) || 'gemini';
+        const prevProv = provSel.value || (data.ai && data.ai.default_provider) || 'geminirest';
         provSel.innerHTML = '';
-        ((data.ai && data.ai.providers) || ['gemini', 'groq', 'openrouter', 'openai']).forEach(p => {
+        ((data.ai && data.ai.providers) || ['geminirest', 'gemini', 'groq', 'openrouter', 'openai']).forEach(p => {
             const opt = document.createElement('option');
             opt.value = p;
             opt.innerText = p.toUpperCase();
@@ -1866,10 +1907,138 @@ def bks_jobs_studio():
             jobSel.appendChild(opt);
         });
         if(prevJob && [...jobSel.options].some(o => o.value === prevJob)) jobSel.value = prevJob;
+
+        if(data.context_bubble) {
+            renderBksContextBubble(data.context_bubble);
+        }
+
+        const authorSel = document.getElementById('bks_author');
+        if(authorSel && !authorSel._bksListenerAttached) {
+            authorSel._bksListenerAttached = true;
+            authorSel.addEventListener('change', async function() {
+                try {
+                    const res = await fetch('/api/bks/context_files?author=' + encodeURIComponent(this.value));
+                    const d = await res.json();
+                    if(d.ok) renderBksContextBubble(d);
+                } catch(e) {}
+            });
+        }
+    }
+
+    function renderBksContextBubble(ctxState) {
+        if(!ctxState) return;
+        const badge = document.getElementById('bks_ctx_badge');
+        if(badge) {
+            const usedTok = ctxState.used_tokens || 0;
+            const maxTok = ctxState.max_context_tokens || 48000;
+            const activeFiles = ctxState.enabled_count || 0;
+            badge.innerText = `48k Max Tokens | 15% Author Persona (~7.2k tok) | 85% Context Files (~40.8k tok) | ${activeFiles} Active (${usedTok}/${maxTok} tok)`;
+        }
+        const dirEl = document.getElementById('bks_ctx_directive_text');
+        if(dirEl) {
+            dirEl.innerHTML = `<strong>Context Files (85%):</strong> ${ctxState.directive || ''}<br><strong style="margin-top:4px;display:inline-block;">Author Persona & Directives (15%):</strong> ${ctxState.author_directive || 'Author persona and writing instructions strictly override any contradictory profile instructions.'}`;
+        }
+        const prevBox = document.getElementById('bks_ctx_preview_box');
+        if(prevBox) {
+            prevBox.value = ctxState.bubble_preview || ctxState.bubble_text || '';
+        }
+        const listEl = document.getElementById('bks_ctx_files_list');
+        if(!listEl) return;
+        listEl.innerHTML = '';
+        const files = ctxState.files || [];
+        if(!files.length) {
+            listEl.innerHTML = '<div style="font-size:0.8rem;color:var(--text-secondary);padding:6px 0;">No context files imported yet. Click "+ Select Context Files" to pick reference files from device storage.</div>';
+            return;
+        }
+        files.forEach(f => {
+            const row = document.createElement('div');
+            row.style = 'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;';
+            const left = document.createElement('label');
+            left.style = 'display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;min-width:180px;margin:0;overflow-wrap:break-word;';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.checked = !!f.enabled;
+            chk.style = 'width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;';
+            chk.onchange = () => toggleBksContextFile(f.file_id);
+            const nameSpan = document.createElement('span');
+            nameSpan.style = 'font-weight:600;font-size:0.85rem;word-break:break-word;';
+            nameSpan.innerText = f.filename;
+            left.appendChild(chk);
+            left.appendChild(nameSpan);
+
+            const right = document.createElement('div');
+            right.style = 'display:flex;align-items:center;gap:8px;flex-shrink:0;';
+            const meta = document.createElement('span');
+            meta.style = 'font-family:monospace;font-size:0.75rem;color:var(--text-secondary);';
+            meta.innerText = `${f.char_count || 0} chars`;
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-danger btn-sm';
+            delBtn.style = 'font-size:0.72rem;padding:3px 8px;';
+            delBtn.innerText = 'Remove';
+            delBtn.onclick = () => deleteBksContextFile(f.file_id);
+            right.appendChild(meta);
+            right.appendChild(delBtn);
+
+            row.appendChild(left);
+            row.appendChild(right);
+            listEl.appendChild(row);
+        });
+    }
+
+    async function openBksContextFilePicker() {
+        if(!window.CMSFilePicker) {
+            alert('File picker script is still loading. Please try again.');
+            return;
+        }
+        const picked = await window.CMSFilePicker.open({
+            kind: 'code',
+            multiple: true,
+            title: 'Select Context Bubble Reference Files',
+            subtitle: 'Select .md, .txt, .bejson, .json, .py, .js, or .html files to study silently before writing',
+            confirmLabel: 'Import to Context Bubble'
+        });
+        if(!picked || !picked.paths || !picked.paths.length) return;
+        const curAuthor = (document.getElementById('bks_author') || {}).value || '';
+        document.getElementById('bks_status_msg').innerText = 'IMPORTING CONTEXT FILES...';
+        const res = await fetch('/api/bks/context_files/import_pick', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({paths: picked.paths, author: curAuthor})
+        });
+        const data = await res.json();
+        if(data.ok) {
+            renderBksContextBubble(data);
+            document.getElementById('bks_status_msg').innerText = `IMPORTED ${(data.imported || []).length} CONTEXT FILE(S)`;
+        } else {
+            alert('Context import failed: ' + (data.error || 'Unknown error'));
+        }
+    }
+
+    async function toggleBksContextFile(fileId) {
+        const curAuthor = (document.getElementById('bks_author') || {}).value || '';
+        const res = await fetch('/api/bks/context_files/toggle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({file_id: fileId, author: curAuthor})
+        });
+        const data = await res.json();
+        if(data.ok) renderBksContextBubble(data);
+    }
+
+    async function deleteBksContextFile(fileId) {
+        const curAuthor = (document.getElementById('bks_author') || {}).value || '';
+        const res = await fetch('/api/bks/context_files/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({file_id: fileId, author: curAuthor})
+        });
+        const data = await res.json();
+        if(data.ok) renderBksContextBubble(data);
     }
 
     function syncBksModelOptions(preferredModel) {
-        const prov = document.getElementById('bks_provider_select').value || 'gemini';
+        const prov = document.getElementById('bks_provider_select').value || 'geminirest';
         const modSel = document.getElementById('bks_model_select');
         const prevMod = preferredModel || modSel.value;
         modSel.innerHTML = '';
@@ -1940,24 +2109,38 @@ def bks_jobs_studio():
             const partIdx = t.index || (i + 1);
             const card = document.createElement('div');
             card.className = 'card';
+            card.style.marginBottom = '12px';
+            const isCompleted = t.status === 'accepted';
             card.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:10px;">
-                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
-                        <span class="badge badge-page" style="flex-shrink:0;">PART ${partIdx}/4</span>
-                        <input type="text" id="bks-part-title-${i}" class="form-control" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700;flex:1;min-width:0;">
+                <details ${isCompleted ? '' : 'open'} style="width:100%;">
+                    <summary style="cursor:pointer;list-style:none;outline:none;user-select:none;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:4px 0;">
+                            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
+                                <span class="badge badge-page" style="flex-shrink:0;">PART ${partIdx}/4</span>
+                                <input type="text" id="bks-part-title-${i}" class="form-control" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700;flex:1;min-width:0;" onclick="event.stopPropagation();">
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <span id="bks-part-status-${i}" style="font-family:monospace;font-size:0.8rem;">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation();runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
+                            </div>
+                        </div>
+                    </summary>
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <label class="form-label" style="font-size:0.75rem;">Part ${partIdx} Brief &amp; Instructions</label>
+                            <textarea id="bks-part-brief-${i}" class="form-control" style="min-height:60px;font-size:0.85rem;white-space:pre-wrap;word-wrap:break-word;">${t.brief || ''}</textarea>
+                        </div>
+                        <div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <label class="form-label" style="font-size:0.75rem;margin:0;">Part ${partIdx} Generated Markdown (${(t.content || '').length} chars)</label>
+                                <div style="display:flex;gap:6px;">
+                                    <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:3px 8px;" onclick="selectAllText('bks-part-body-${i}')">Select All</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:3px 8px;" onclick="copyText('bks-part-body-${i}', this)">Copy</button>
+                                </div>
+                            </div>
+                            <textarea id="bks-part-body-${i}" class="form-control" style="min-height:140px;font-family:monospace;font-size:0.82rem;white-space:pre-wrap;word-wrap:break-word;">${t.content || ''}</textarea>
+                        </div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                        <span id="bks-part-status-${i}" style="font-family:monospace;font-size:0.8rem;">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
-                    </div>
-                </div>
-                <div class="form-group" style="margin-bottom:8px;">
-                    <label class="form-label" style="font-size:0.75rem;">Part ${partIdx} Brief &amp; Instructions</label>
-                    <textarea id="bks-part-brief-${i}" class="form-control" style="min-height:60px;font-size:0.85rem;">${t.brief || ''}</textarea>
-                </div>
-                <details ${t.content ? 'open' : ''}>
-                    <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">Part ${partIdx} Generated Markdown (${(t.content || '').length} chars)</summary>
-                    <textarea id="bks-part-body-${i}" class="form-control" style="min-height:140px;margin-top:8px;font-family:monospace;font-size:0.82rem;">${t.content || ''}</textarea>
                 </details>
             `;
             cont.appendChild(card);
@@ -1992,7 +2175,7 @@ def bks_jobs_studio():
                 topic: topic || title,
                 title: title,
                 book_type_id: document.getElementById('bks_template_select').value || 'blog_post_4part',
-                provider: document.getElementById('bks_provider_select').value || 'gemini',
+                provider: document.getElementById('bks_provider_select').value || 'geminirest',
                 model_id: document.getElementById('bks_model_select').value,
                 target_page_uuid: document.getElementById('bks_target_page').value,
                 category_name: document.getElementById('bks_category').value,
@@ -2046,7 +2229,7 @@ def bks_jobs_studio():
             body: JSON.stringify({
                 job_slug: currentBksJobSlug,
                 part_index: partIndex,
-                provider: document.getElementById('bks_provider_select').value || 'gemini',
+                provider: document.getElementById('bks_provider_select').value || 'geminirest',
                 model_id: document.getElementById('bks_model_select').value,
                 author_name: document.getElementById('bks_author').value
             })
@@ -2144,6 +2327,29 @@ def bks_jobs_studio():
         }
     }
 
+    function selectAllText(targetId) {
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        el.focus();
+        el.select();
+        el.setSelectionRange(0, 99999);
+    }
+
+    async function copyText(targetId, btnElement) {
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        try {
+            await navigator.clipboard.writeText(el.value || el.innerText);
+            const originalText = btnElement.innerText;
+            btnElement.innerText = "Copied!";
+            setTimeout(() => {
+                btnElement.innerText = originalText;
+            }, 1500);
+        } catch(err) {
+            console.error("Copy failed", err);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', refreshBksBootstrap);
     </script>
     '''
@@ -2159,6 +2365,8 @@ def content_api_bks_bootstrap():
         templates = BKSJobs.cms_bks_list_templates()
         jobs = BKSJobs.cms_bks_list_jobs()
         ai_info = AIWriting.ai_writing_get_providers_and_models()
+        author = request.args.get("author")
+        ctx_state = BKSJobs.cms_bks_get_context_bubble_state(author=author)
         db.mount()
         pages = [p for p in db.get_records("PageRecord") if p.get("page_type") != "external_link"]
         return jsonify({
@@ -2166,8 +2374,69 @@ def content_api_bks_bootstrap():
             "templates": templates,
             "jobs": jobs,
             "ai": ai_info,
+            "context_bubble": ctx_state,
             "pages": pages,
         })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/context_files', methods=['GET'])
+@require_auth
+def content_api_bks_context_files_list():
+    try:
+        author = request.args.get("author")
+        return jsonify(BKSJobs.cms_bks_get_context_bubble_state(author=author))
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/context_files/import_pick', methods=['POST'])
+@require_auth
+def content_api_bks_context_files_import_pick():
+    try:
+        d = request.json or {}
+        raw_paths = d.get("paths") or []
+        author = (d.get("author") or "").strip() or None
+        valid_paths, pick_errors = resolve_picks(raw_paths, "any")
+        if not valid_paths and pick_errors:
+            return jsonify({"ok": False, "error": pick_errors[0].get("error") or "No valid files picked", "errors": pick_errors}), 400
+        res = BKSJobs.cms_bks_import_context_paths(paths_list=valid_paths, author=author)
+        if pick_errors:
+            res["pick_errors"] = pick_errors
+        return jsonify(res)
+    except PickError as pe:
+        return jsonify({"ok": False, "error": str(pe)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/context_files/toggle', methods=['POST'])
+@require_auth
+def content_api_bks_context_files_toggle():
+    try:
+        d = request.json or {}
+        file_id = (d.get("file_id") or "").strip()
+        author = (d.get("author") or "").strip() or None
+        if not file_id:
+            return jsonify({"ok": False, "error": "file_id is required"}), 400
+        res = BKSJobs.cms_bks_toggle_context_file(file_id=file_id, author=author)
+        return jsonify(res), (200 if res.get("ok") else 404)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/context_files/delete', methods=['POST'])
+@require_auth
+def content_api_bks_context_files_delete():
+    try:
+        d = request.json or {}
+        file_id = (d.get("file_id") or "").strip()
+        author = (d.get("author") or "").strip() or None
+        if not file_id:
+            return jsonify({"ok": False, "error": "file_id is required"}), 400
+        res = BKSJobs.cms_bks_delete_context_file(file_id=file_id, author=author)
+        return jsonify(res), (200 if res.get("ok") else 404)
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -2195,7 +2464,7 @@ def content_api_bks_create_plan():
             category_name=d.get("category_name") or "Uncategorized",
             author_name=d.get("author_name") or "Elton Boehnen",
             template_key=d.get("template_key") or "blank",
-            provider=d.get("provider") or "gemini",
+            provider=d.get("provider") or "geminirest",
             model_id=d.get("model_id") or None,
             use_ai_plan=bool(d.get("use_ai_plan", True)),
         )

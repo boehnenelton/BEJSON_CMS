@@ -1,0 +1,12 @@
+{
+  "turn": 14,
+  "turns_since_rebuild": 2,
+  "rebuild_count": 11,
+  "package_version": "11",
+  "stable": {
+    "author_persona": "2a4519c5e020b3c592535c744feb3b480c6bab6be7b55dc4a714c50c0857ba9b",
+    "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "volatile": {},
+  "config_sig": "d6c5d736a0d00a241b18b8feb5a625b2c5f25df9f5913940d678aa691427ee4e"
+}

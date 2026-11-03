@@ -5,13 +5,13 @@ Description:     Main admin app entry point. Registers the four BEJSON_CMS
                  blueprints (System, Content, Media, Interface) and starts
                  the Flask dev server. Route logic itself lives in the
                  blueprint files, not here.
-Version:         18.24
-Library_Version: 58
-Date:            2026-10-25
-RELATIONAL_ID:   e4c72a19-8b3d-4f62-9e10-5d8a1c3f7b92
+Version:         18.25
+Library_Version: 59
+Date:            2026-11-03
+RELATIONAL_ID:   a71c3b84-5d20-4e91-8f34-2c6a9d1e4b80
 """
 
-VERSION = 1824
+VERSION = 1825
 
 import os
 import logging
@@ -26,6 +26,7 @@ from BEJSON_CMS_System import system_cube
 from BEJSON_CMS_Content import content_cube
 from BEJSON_CMS_Media import media_cube
 from BEJSON_CMS_Interface import interface_cube
+from BEJSON_CMS_FileBrowser import filebrowser_cube
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
@@ -35,6 +36,7 @@ app.register_blueprint(system_cube)
 app.register_blueprint(content_cube)
 app.register_blueprint(media_cube)
 app.register_blueprint(interface_cube)
+app.register_blueprint(filebrowser_cube)
 
 register_auth_guard(app)
 

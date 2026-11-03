@@ -3,12 +3,12 @@ Library:         lib_bejson_AI_brain_store.py
 Family:          AI
 Module Purpose:  Single writer of the Brain memory database: categories and memories, user and AI write rules, proposals, atomic batches, startup recovery.
 Architecture:    BEJSON MFDB (brain_mfdb/: 104a manifest + BrainCategory and BrainMemory 104 entity files) driven through Core. One project lock (brain_state/brain.lock, outside brain_mfdb/) covers every write. A batch is copied to brain_state/txn/, applied, deep-verified and restored on failure; an interrupted batch is undone at the next open. The AI is an untrusted writer: capped priority, never pinned, user-owned memories change only through proposed revisions, nothing is hard-deleted.
-Version:         1.0.0
+Version:         1.1.0
 Release_Version: 300
 Date:            2026-10-24
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   89760ee8-7a87-4569-a8fe-e6a1a2ecdd7e
+RELATIONAL_ID:   a78870e1-472f-4fc9-b1b1-d1708b802608
 """
 
 import hashlib
@@ -44,7 +44,7 @@ from lib_bejson_AI_brain_schema_registry import (
     schema_registry_entities, schema_registry_join_keywords, schema_registry_split_keywords,
 )
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 RELATIONAL_ID = "89760ee8-7a87-4569-a8fe-e6a1a2ecdd7e"
 
 ACTOR_USER = "user"
@@ -321,6 +321,11 @@ class BrainStore:
 
     # ---- operations ---------------------------------------------------------------------------------------------
 
+    def _ai_applies_directly(self, priority: int) -> bool:
+        """write_policy open: every AI write applies; auto: only priority <= auto_max_priority; review: none."""
+        policy = self.limits["write_policy"]
+        return policy == "open" or (policy == "auto" and priority <= int(self.limits["auto_max_priority"]))
+
     def _op_category_create(self, op: dict, actor: str) -> dict:
         name = self._check_text(op.get("name"), "Category name", int(self.limits["max_category_name_chars"]), True)
         description = self._check_text(op.get("description") or name, "Category description", int(self.limits["max_content_chars"]), False)
@@ -332,7 +337,7 @@ class BrainStore:
         if len(live) >= int(self.limits["max_categories"]):
             raise BrainError(E_BRAIN_LIMIT_EXCEEDED, f"At most {self.limits['max_categories']} categories.", {"count": len(live)})
         status = STATUS_ACTIVE
-        if actor == ACTOR_AI:
+        if actor == ACTOR_AI and self.limits["write_policy"] != "open":
             status = STATUS_PROPOSED
             if sum(1 for r in live if r[CatF.STATUS] == STATUS_PROPOSED and r[CatF.ORIGIN] == ORIGIN_AI) >= int(self.limits["max_ai_proposed_categories"]):
                 raise BrainError(E_BRAIN_LIMIT_EXCEEDED, "Too many AI category proposals are waiting for review.")
@@ -396,8 +401,7 @@ class BrainStore:
         pinned = bool(op.get("pinned", False)) and actor == ACTOR_USER
         status = STATUS_ACTIVE
         if actor == ACTOR_AI:
-            auto = (self.limits["write_policy"] == "auto" and values[MemF.PRIORITY] <= int(self.limits["auto_max_priority"])
-                    and category[CatF.STATUS] == STATUS_ACTIVE)
+            auto = self._ai_applies_directly(values[MemF.PRIORITY]) and category[CatF.STATUS] == STATUS_ACTIVE
             status = STATUS_ACTIVE if auto else STATUS_PROPOSED
         stamp = self.now_text()
         new_id = str(uuid.uuid4())
@@ -438,7 +442,7 @@ class BrainStore:
         if target[MemF.STATUS] == STATUS_PROPOSED and in_place_ok:
             self._update(ENTITY_MEMORY, MemF.ID, target[MemF.ID], {**values, MemF.UPDATED_AT: stamp})
             return {"op": "memory_update", "id": target[MemF.ID], "status": STATUS_PROPOSED}
-        auto = self.limits["write_policy"] == "auto" and values[MemF.PRIORITY] <= int(self.limits["auto_max_priority"])
+        auto = self._ai_applies_directly(values[MemF.PRIORITY])
         if in_place_ok and auto and target[MemF.STATUS] == STATUS_ACTIVE:
             self._update(ENTITY_MEMORY, MemF.ID, target[MemF.ID], {**values, MemF.UPDATED_AT: stamp})
             return {"op": "memory_update", "id": target[MemF.ID], "status": STATUS_ACTIVE}

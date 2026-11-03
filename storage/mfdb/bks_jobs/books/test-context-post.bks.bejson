@@ -1,0 +1,704 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "Book",
+    "Chapter",
+    "Generation",
+    "Export"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "book_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_title_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_subtitle_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_topic_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_goal_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_booktype_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_booktype_slug_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_author_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_author_name_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_category_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_category_name_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_plan_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_language_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_audience_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_summary_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_cover_path_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_tags_list",
+      "type": "array",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_version_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_status_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_chapter_count",
+      "type": "integer",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_word_count",
+      "type": "integer",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_content_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_schema_version_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_created_at",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_updated_at",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "chapter_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_book_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_parent_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_kind_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_order_index",
+      "type": "integer",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_title_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_brief_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_body_md",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_status_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_word_count",
+      "type": "integer",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_audit_enabled_flag",
+      "type": "boolean",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_audit_passed_flag",
+      "type": "boolean",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_audit_fail_reason_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_generation_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_created_at",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_updated_at",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "generation_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_target_kind_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_target_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_provider_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_model_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_author_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_prompt_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_temperature_value",
+      "type": "number",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_max_tokens_count",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_input_tokens_count",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_output_tokens_count",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_attempt_index",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_outcome_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_error_code",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_started_at",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_finished_at",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "export_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_book_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_format_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_renderer_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_theme_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_path_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_size_bytes_count",
+      "type": "integer",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_source_content_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_created_at",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    }
+  ],
+  "Values": [
+    [
+      "Book",
+      "32cb4165-708a-4ded-b86e-00b281ed1eb5",
+      "Test Context Post",
+      null,
+      "Testing Context Bubble Injection",
+      "Author a comprehensive 4-part technical publication on: Testing Context Bubble Injection",
+      "745924fa-9b9a-53f8-b159-66e8ff8727bc",
+      "blog_post_4part",
+      null,
+      "boehnenelton2024",
+      null,
+      "Uncategorized",
+      null,
+      "en",
+      "software engineers and systems architects",
+      null,
+      null,
+      null,
+      "0.1.0",
+      "draft",
+      4,
+      0,
+      "e1322b892c3b7e73f785c317f0fab5f524b93818f76e3c0f27b0a400f1256be4",
+      "bks-1.0.0",
+      "2026-11-03T17:38:50Z",
+      "2026-11-03T17:38:50Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "b344757a-2c14-4a89-ae38-d806eb446076",
+      "32cb4165-708a-4ded-b86e-00b281ed1eb5",
+      null,
+      "chapter",
+      1,
+      "Foundations, Context & Problem Statement",
+      "Establish the core engineering problem, architectural motivation, and foundational concepts. Define key terminology inline.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-03T17:38:50Z",
+      "2026-11-03T17:38:50Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "ad5f655b-f075-45d2-8709-a6c61a6a57c4",
+      "32cb4165-708a-4ded-b86e-00b281ed1eb5",
+      null,
+      "chapter",
+      2,
+      "Core Architecture, Schema & Structural Invariants",
+      "Dissect the underlying data structures, schema contracts, state machines, and architectural invariants.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-03T17:38:50Z",
+      "2026-11-03T17:38:50Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "010db87f-ff74-4226-b272-31d8dc4af29c",
+      "32cb4165-708a-4ded-b86e-00b281ed1eb5",
+      null,
+      "chapter",
+      3,
+      "Implementation Mechanics & Code Walkthrough",
+      "Walk through concrete, production-grade implementation patterns, code signatures, and execution flows.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-03T17:38:50Z",
+      "2026-11-03T17:38:50Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "20438263-eb5c-4b9a-ac99-bb3b26d309d6",
+      "32cb4165-708a-4ded-b86e-00b281ed1eb5",
+      null,
+      "chapter",
+      4,
+      "Verification, Edge Cases & Operational Takeaways",
+      "Examine verification gates, failure modes, performance characteristics, and key engineering takeaways.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-03T17:38:50Z",
+      "2026-11-03T17:38:50Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ]
+}

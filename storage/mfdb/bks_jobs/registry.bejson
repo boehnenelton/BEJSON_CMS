@@ -55,7 +55,7 @@
       "template",
       "templates/blog_post_4part.bejson",
       "2026-11-02",
-      "2026-11-02"
+      "2026-11-03"
     ],
     [
       "JobRegistryEntry",
@@ -65,7 +65,7 @@
       "template",
       "templates/technical_deep_dive_4part.bejson",
       "2026-11-02",
-      "2026-11-02"
+      "2026-11-03"
     ],
     [
       "JobRegistryEntry",
@@ -75,7 +75,97 @@
       "template",
       "templates/tutorial_guide_4part.bejson",
       "2026-11-02",
-      "2026-11-02"
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "77549a11-4403-5906-ad29-116f11a2d05e",
+      "AI Agentic Loops",
+      "ai-agentic-loops",
+      "schema",
+      "jobs/ai-agentic-loops.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "cfad760d-ffa4-55f0-9a34-0f0a85c2eaf7",
+      "Test Context Post",
+      "test-context-post",
+      "schema",
+      "jobs/test-context-post.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "93747674-c5ea-5cfd-b879-e90cdee08031",
+      "Test Context Post",
+      "test-context-post-2",
+      "schema",
+      "jobs/test-context-post-2.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "9033adf0-5821-53ef-b960-a35e5b3bc8ff",
+      "Test Context Post",
+      "test-context-post-3",
+      "schema",
+      "jobs/test-context-post-3.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "6bae372d-ca52-58fa-8c28-fc297baf0628",
+      "Testing Book Paths",
+      "testing-book-paths",
+      "schema",
+      "jobs/testing-book-paths.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "4de81f27-0e87-5222-acca-74606c2ec8fe",
+      "Test Context Post",
+      "test-context-post-4",
+      "schema",
+      "jobs/test-context-post-4.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "50e6c75a-293c-57f9-9891-2612483387cd",
+      "Test Context Post",
+      "test-context-post-5",
+      "schema",
+      "jobs/test-context-post-5.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "97144cb6-9c7c-552a-8fb0-18415c78e43f",
+      "Test Context Post",
+      "test-context-post-6",
+      "schema",
+      "jobs/test-context-post-6.bejson",
+      "2026-11-03",
+      "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "af569f46-2f55-5dbc-8afa-b7a10e21b2d2",
+      "Test Context Post",
+      "test-context-post-7",
+      "schema",
+      "jobs/test-context-post-7.bejson",
+      "2026-11-03",
+      "2026-11-03"
     ]
   ]
 }

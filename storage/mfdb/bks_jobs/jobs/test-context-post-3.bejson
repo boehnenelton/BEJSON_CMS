@@ -1,0 +1,119 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Job Schema",
+  "Schema_Version": "1.0",
+  "Schema_Description": "Custom job schema for the NewAgent task creation and tracking system, managing individual task states and optional auditing. Each task carries its own task_context (embedded, chunked files), task_reference (path-only refs), and task_mandatory (marks a task as a required, built-in step for the job's Job_Type/Job_Subtype). Job_Type/Job_Subtype classify the job; Contextualize_Plan/Contextualize_Last control what each task is injected with at run time. Also reused unmodified as the Template payload shape.",
+  "Job_Goal": "Write the book \"Test Context Post\" for software engineers and systems architects, in English (en). Goal: Author a comprehensive 4-part technical publication on: Testing Context Bubble Injection",
+  "Job_Type": "writing",
+  "Job_Subtype": "book",
+  "Contextualize_Plan": true,
+  "Contextualize_Last": true,
+  "Job_Complete": false,
+  "Creation_Date": "2026-11-03",
+  "Completion_Date": "",
+  "Records_Type": [
+    "JobTask"
+  ],
+  "Fields": [
+    {
+      "name": "task_id",
+      "type": "string"
+    },
+    {
+      "name": "task_order",
+      "type": "integer"
+    },
+    {
+      "name": "task_name",
+      "type": "string"
+    },
+    {
+      "name": "task_description",
+      "type": "string"
+    },
+    {
+      "name": "task_completed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_passed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_fail_reason",
+      "type": "string"
+    },
+    {
+      "name": "task_context",
+      "type": "array"
+    },
+    {
+      "name": "task_reference",
+      "type": "array"
+    },
+    {
+      "name": "task_mandatory",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "9f039897-62be-4428-9feb-45727f4822f7",
+      1,
+      "Foundations, Context & Problem Statement",
+      "Establish the core engineering problem, architectural motivation, and foundational concepts. Define key terminology inline.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "a32ac1e3-ea4f-4098-b1a8-3cfa7a008085",
+      2,
+      "Core Architecture, Schema & Structural Invariants",
+      "Dissect the underlying data structures, schema contracts, state machines, and architectural invariants.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "c595423a-8b53-474d-85a6-9fb22a10eaa7",
+      3,
+      "Implementation Mechanics & Code Walkthrough",
+      "Walk through concrete, production-grade implementation patterns, code signatures, and execution flows.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "b7d0ea2f-485d-4f43-a94a-2d1ad557f2ce",
+      4,
+      "Verification, Edge Cases & Operational Takeaways",
+      "Examine verification gates, failure modes, performance characteristics, and key engineering takeaways.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ]
+  ]
+}

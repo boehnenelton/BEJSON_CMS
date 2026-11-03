@@ -11,15 +11,27 @@ Description:    Integration wrapper for the Google Gemini Interactions API
                  — do not "correct" any of these names against training-data
                  assumptions about the API; they were each wrong once and
                  fixed against the API's own error messages.
-Version:        1.1.0
-Date:           2026-07-22
+Version:        1.2.0
+Date:           2026-10-29
 Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  1826a27b-8d4e-4653-a788-a2001e428fee
+RELATIONAL_ID:  a0ffda31-94dd-4025-af8c-dee96c18c6da
 Release_Version: 300
 
 Changelog:
+  1.2.0 - ADDITIVE, backward compatible (2026-10-29). (1) chat() and
+          create_interaction() accept an OPTIONAL generation_config dict that
+          is placed in the payload only when the caller passes one; default
+          None keeps the 1.1.0 behavior of never sending the field (Incident
+          7 still applies to callers that do not opt in). (2) HTTP failures
+          now raise InteractionsHTTPError, a RuntimeError subclass whose
+          message is unchanged and which also carries .http_status and
+          .body, so callers no longer parse the status out of text. (3)
+          create_interaction()/chat() accept an optional endpoint override
+          (default INTERACTIONS_ENDPOINT). (4) New public helpers
+          interactions_extract_text() / interactions_extract_thought() so
+          clients stop re-implementing step parsing.
   1.1.0 - BUGFIX (2026-09-04): chat() function-call loop was reading
           interaction.get("outputs", []) — "outputs" is not a field in the
           Interactions API response. The correct field name per the API
@@ -48,11 +60,11 @@ Confirmed-correct payload shapes (source: incident report Part 1 & 2):
                         "result":[{"type":"text","text":"..."}]}
                        "result" MUST be an array of content objects, never a
                        bare dict like {"response":{"result":...}}
-  - NEVER send a "generation_config" field in the payload — the API
-    silently drops/breaks the call if present (Incident 7). There is
-    currently no known-working equivalent; if per-call temperature /
-    max-output-tokens control is required, that is unverified territory —
-    stop and confirm against a live call before shipping, don't guess.
+  - "generation_config" is NEVER sent by default — the API silently
+    drops/breaks the call if present (Incident 7). As of 1.2.0 a caller may
+    OPT IN by passing generation_config=...; that shape is UNVERIFIED, so an
+    opt-in caller must be ready to retry without it (see
+    InteractionsHTTPError.http_status == 400) and confirm against a live call.
   - Attachments:
       text/code files  -> {"type":"text","text": "<file contents>"}   (no base64)
       images           -> {"type":"image","data": "<base64>","mime_type":"..."}
@@ -108,10 +120,42 @@ try:
 except ImportError:
     _genai_sdk = None
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 INTERACTIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions"
 DEFAULT_MAX_ROUNDS = 5        # matches the confirmed-working client's function-call loop cap
 DEFAULT_TIMEOUT_SECONDS = 60  # matches Incident 11's hard network timeout fix
+
+
+class InteractionsHTTPError(RuntimeError):
+    """HTTP failure from the Interactions endpoint. str(e) is the same text 1.1.0 raised; adds .http_status and .body."""
+    def __init__(self, message: str, http_status: Optional[int] = None, body: str = "") -> None:
+        super().__init__(message)
+        self.http_status = http_status
+        self.body = body
+
+
+# Concatenated text of all model_output steps ("steps" -> model_output -> content[] text blocks).
+def interactions_extract_text(interaction: Dict[str, Any]) -> str:
+    text = ""
+    for step in interaction.get("steps", []) or []:
+        if step.get("type") == "model_output":
+            for block in step.get("content", []) or []:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text += block.get("text", "")
+    return text
+
+
+# Best-effort thought/reasoning summary text (step shape is not independently confirmed; checks "summary" and nested text blocks).
+def interactions_extract_thought(interaction: Dict[str, Any]) -> str:
+    thought = ""
+    for step in interaction.get("steps", []) or []:
+        if step.get("type") in ("thought", "thought_summary"):
+            if "summary" in step:
+                thought += step.get("summary", "") or ""
+            for block in step.get("content", []) or []:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    thought += block.get("text", "")
+    return thought
 
 
 # ---------------------------------------------------------------------------
@@ -191,16 +235,17 @@ class GeminiInteractionsAPI:
         payload: Dict[str, Any],
         api_key: Optional[str] = None,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
+        endpoint: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        POST payload as-is to /v1beta/interactions. Caller is responsible
-        for the payload shape; this function does not inject or strip
-        fields. Never adds generation_config.
+        POST payload as-is to /v1beta/interactions (or `endpoint`). Caller is
+        responsible for the payload shape; this function does not inject or
+        strip fields. Never adds generation_config itself.
         """
         key = api_key or self._next_key()
         headers = {"x-goog-api-key": key, "Content-Type": "application/json"}
         try:
-            res = requests.post(INTERACTIONS_ENDPOINT, headers=headers, json=payload, timeout=timeout)
+            res = requests.post(endpoint or INTERACTIONS_ENDPOINT, headers=headers, json=payload, timeout=timeout)
             res.raise_for_status()
             return res.json()
         except requests.exceptions.Timeout:
@@ -209,8 +254,9 @@ class GeminiInteractionsAPI:
         except requests.exceptions.HTTPError as e:
             # The API's own error text names the exact wrong field/type — surface it verbatim.
             body = e.response.text if e.response is not None else str(e)
-            raise RuntimeError(f"[E_AI_INTERACTIONS_HTTP_ERROR={E_AI_INTERACTIONS_HTTP_ERROR}] "
-                                f"Interactions API error: {body}")
+            raise InteractionsHTTPError(f"[E_AI_INTERACTIONS_HTTP_ERROR={E_AI_INTERACTIONS_HTTP_ERROR}] "
+                                        f"Interactions API error: {body}",
+                                        http_status=e.response.status_code if e.response is not None else None, body=body)
 
     # -- function-call loop --------------------------------------------------
 
@@ -226,6 +272,8 @@ class GeminiInteractionsAPI:
         max_rounds: int = DEFAULT_MAX_ROUNDS,
         store: bool = True,
         api_key: Optional[str] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        endpoint: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Runs the confirmed function-call loop:
@@ -256,8 +304,10 @@ class GeminiInteractionsAPI:
             payload["tools"] = tools
         if previous_interaction_id:
             payload["previous_interaction_id"] = previous_interaction_id
+        if generation_config:                         # opt-in only (1.2.0); see module docstring
+            payload["generation_config"] = generation_config
 
-        interaction = self.create_interaction(payload, api_key=key)
+        interaction = self.create_interaction(payload, api_key=key, endpoint=endpoint)
         rounds = 0
 
         while rounds < max_rounds:
@@ -293,7 +343,9 @@ class GeminiInteractionsAPI:
             }
             if tools:
                 payload["tools"] = tools
-            interaction = self.create_interaction(payload, api_key=key)
+            if generation_config:
+                payload["generation_config"] = generation_config
+            interaction = self.create_interaction(payload, api_key=key, endpoint=endpoint)
             rounds += 1
 
         return interaction

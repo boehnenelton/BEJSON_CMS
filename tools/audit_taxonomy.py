@@ -4,14 +4,21 @@ Description:   Dry-run field audit — reads all live entity BEJSON files and
                reports which fields need renaming per lib_bejson_CMS_taxonomy.py.
                No writes. Safe to run at any time.
                See docs/taxonomy_migration_tasks.md Step 2.1
-Version:       1.0.0
+Version:       1.0.1
 Author:        Elton Boehnen
-Date:          2026-08-10
-RELATIONAL_ID: 3d7f2a1e-8c4b-4e9d-b6a0-5f1c8e7d2b3a
+Date:          2026-11-05
+RELATIONAL_ID: 5258cca7-e3fc-4424-adf0-db5a9db79e37
 """
 
-import json, os, sys
+import json
+import os
+import sys
+import argparse
 from pathlib import Path
+
+VERSION = "1.0.1"
+AUTHOR = "Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton"
+RELATIONAL_ID = "5258cca7-e3fc-4424-adf0-db5a9db79e37"
 
 SCRIPT_PATH = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_PATH.parent / "src" / "lib"))
@@ -104,5 +111,31 @@ def audit():
         json.dump(summary, f, indent=2)
     print(f"\n  Summary written: {OUT_JSON}")
 
-if __name__ == "__main__":
+
+def main():
+    command_line_argument_parser = argparse.ArgumentParser(
+        description=f"BEJSON CMS Taxonomy Field Audit Tool v{VERSION}"
+    )
+    command_line_argument_parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version=f"%(prog)s {VERSION}",
+    )
+    command_line_argument_parser.add_argument(
+        "--about",
+        action="store_true",
+        help="Display author and architecture metadata and exit",
+    )
+    parsed_cli_arguments = command_line_argument_parser.parse_args()
+
+    if parsed_cli_arguments.about:
+        print(f"BEJSON CMS Taxonomy Audit Tool v{VERSION}")
+        print(f"Author: {AUTHOR}")
+        print(f"Relational ID: {RELATIONAL_ID}")
+        sys.exit(0)
+
     audit()
+
+
+if __name__ == "__main__":
+    main()

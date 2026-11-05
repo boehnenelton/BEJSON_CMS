@@ -1,62 +1,81 @@
 """
 Script: generate_taxonomy_report.py
 Author: Elton Boehnen
-Version: 1.0.0
+Version: 1.0.1
 Package Version: 102
-RELATIONAL_ID: 9b0a3d8f-5c2e-4e9b-af0d-8e6b2c0a4f3e
-Date: 2026-08-10
+RELATIONAL_ID: 650e9da1-c360-431e-a985-57fcd7c6b392
+Date: 2026-11-05
 Description: Comprehensive 700+ line technical PDF generator for BEJSON CMS Naming Taxonomy & Extensibility System.
 """
 
 import os
 import sys
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, HRFlowable
-)
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfgen import canvas
+import argparse
+from pathlib import Path
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, HRFlowable
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.pdfgen import canvas
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    canvas = None
 
-class NumberedCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._saved_page_states = []
+VERSION = "1.0.1"
+AUTHOR = "Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton"
+RELATIONAL_ID = "650e9da1-c360-431e-a985-57fcd7c6b392"
 
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
+if REPORTLAB_AVAILABLE:
+    class NumberedCanvas(canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._saved_page_states = []
 
-    def save(self):
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_page_decorations(num_pages)
-            super().showPage()
-        super().save()
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
 
-    def draw_page_decorations(self, page_count):
-        self.saveState()
-        self.setFont("Helvetica", 8)
-        self.setFillColor(colors.HexColor("#666666"))
-        
-        # Running Header (Pages > 1)
-        if self._pageNumber > 1:
-            self.drawString(54, 750, "BEJSON CMS ARCHITECTURAL REPORT: NAMING TAXONOMY & EXTENSIBILITY")
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self.draw_page_decorations(num_pages)
+                super().showPage()
+            super().save()
+
+        def draw_page_decorations(self, page_count):
+            self.saveState()
+            self.setFont("Helvetica", 8)
+            self.setFillColor(colors.HexColor("#666666"))
+            
+            # Running Header (Pages > 1)
+            if self._pageNumber > 1:
+                self.drawString(54, 750, "BEJSON CMS ARCHITECTURAL REPORT: NAMING TAXONOMY & EXTENSIBILITY")
+                self.setStrokeColor(colors.HexColor("#CCCCCC"))
+                self.setLineWidth(0.5)
+                self.line(54, 742, 558, 742)
+                
+            # Running Footer
+            footer_text = f"Page {self._pageNumber} of {page_count}  |  Elton Boehnen · boehnenelton2024@gmail.com · BEJSON CMS v18.28"
+            self.drawRightString(558, 36, footer_text)
             self.setStrokeColor(colors.HexColor("#CCCCCC"))
             self.setLineWidth(0.5)
-            self.line(54, 742, 558, 742)
+            self.line(54, 48, 558, 48)
             
-        # Running Footer
-        footer_text = f"Page {self._pageNumber} of {page_count}  |  Elton Boehnen · boehnenelton2024@gmail.com · BEJSON CMS v18.28"
-        self.drawRightString(558, 36, footer_text)
-        self.setStrokeColor(colors.HexColor("#CCCCCC"))
-        self.setLineWidth(0.5)
-        self.line(54, 48, 558, 48)
-        
-        self.restoreState()
+            self.restoreState()
+else:
+    class NumberedCanvas:
+        pass
 
 def create_pdf(filename="/storage/emulated/0/!CMS_AGY/BEJSON_CMS-V18_28-PKG81/CMS_Naming_Taxonomy_Architecture_Report.pdf"):
+    if not REPORTLAB_AVAILABLE:
+        print("Error: 'reportlab' is required for PDF generation but is not installed in this environment.")
+        print("Install via: pip install reportlab")
+        sys.exit(1)
     doc = SimpleDocTemplate(
         filename,
         pagesize=letter,
@@ -480,5 +499,36 @@ RENDERER_REGISTRY = {
     doc.build(story, canvasmaker=NumberedCanvas)
     print(f"Successfully generated PDF: {filename}")
 
+
+def main():
+    command_line_argument_parser = argparse.ArgumentParser(
+        description=f"BEJSON CMS Technical PDF Architecture Report Generator v{VERSION}"
+    )
+    command_line_argument_parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version=f"%(prog)s {VERSION}",
+    )
+    command_line_argument_parser.add_argument(
+        "--about",
+        action="store_true",
+        help="Display author and architecture metadata and exit",
+    )
+    command_line_argument_parser.add_argument(
+        "-o", "--output",
+        default="/storage/emulated/0/!CMS_AGY/BEJSON_CMS-V18_28-PKG81/CMS_Naming_Taxonomy_Architecture_Report.pdf",
+        help="Target output PDF file path",
+    )
+    parsed_cli_arguments = command_line_argument_parser.parse_args()
+
+    if parsed_cli_arguments.about:
+        print(f"generate_taxonomy_report.py v{VERSION}")
+        print(f"Author: {AUTHOR}")
+        print(f"Relational ID: {RELATIONAL_ID}")
+        sys.exit(0)
+
+    create_pdf(filename=parsed_cli_arguments.output)
+
+
 if __name__ == '__main__':
-    create_pdf()
+    main()

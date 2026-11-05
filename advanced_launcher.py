@@ -7,12 +7,12 @@ Description:     Advanced interactive 57-column TUI service orchestrator for the
                  Telemetry Discipline, atomic BEJSON 104a state persistence,
                  single-source telemetry, unified service table, and direct
                  compound command grammar.
-Version:         2
+Version:         3
 Date created:    2026-08-07
-Date modified:   2026-10-25
+Date modified:   2026-11-05
 Author:          Elton Boehnen
 Contact:         boehnenelton2024@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
-RELATIONAL_ID:   4b8e21dc-7b15-4649-a848-8a2c4516766f
+RELATIONAL_ID:   d65d31c6-a0eb-4fed-b399-e5baff8c622b
 """
 
 import os
@@ -29,9 +29,9 @@ import webbrowser
 from pathlib import Path
 from datetime import datetime
 
-VERSION = 2
+VERSION = 3
 AUTHOR = "Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton"
-RELATIONAL_ID = "4b8e21dc-7b15-4649-a848-8a2c4516766f"
+RELATIONAL_ID = "d65d31c6-a0eb-4fed-b399-e5baff8c622b"
 
 # ─── Self-locating path resolution ──────────────────────────────────────────
 def get_script_path() -> Path:
@@ -473,10 +473,71 @@ def render_menu(last_msg: str = "Ready."):
     print(f" {RED}[LAST]{RESET} {ticker_text}")
 
 
+# ─── Command Line Argument Parsing ──────────────────────────────────────────
+def parse_cli_arguments():
+    import argparse
+    command_line_argument_parser = argparse.ArgumentParser(
+        description="BEJSON CMS Advanced Interactive 57-column TUI Service Orchestrator",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    command_line_argument_parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version=f"advanced_launcher.py v{VERSION} (BEJSON_CMS)",
+    )
+    command_line_argument_parser.add_argument(
+        "--about",
+        action="store_true",
+        help="Display author and architecture metadata and exit",
+    )
+    command_line_argument_parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Display non-interactive service status summary and exit",
+    )
+    command_line_argument_parser.add_argument(
+        "--probe",
+        action="store_true",
+        help="Run port probe non-interactively and exit",
+    )
+    return command_line_argument_parser.parse_args()
+
+
 # ─── Main Interactive Loop ──────────────────────────────────────────────────
 def main():
+    parsed_cli_arguments = parse_cli_arguments()
+
+    if parsed_cli_arguments.about:
+        print(f"BEJSON CMS Advanced Launcher v{VERSION}")
+        print(f"Author: {AUTHOR}")
+        print(f"Relational ID: {RELATIONAL_ID}")
+        print(f"Registry: {REGISTRY_PATH}")
+        sys.exit(0)
+
+    if parsed_cli_arguments.probe:
+        _reconcile_registry_on_start()
+        run_port_probe()
+        sys.exit(0)
+
+    if parsed_cli_arguments.status:
+        _reconcile_registry_on_start()
+        print(f"BEJSON CMS Service Status (Launcher v{VERSION}):")
+        for service_numeric_key, service_definition_entry in sorted(SERVICES.items()):
+            service_identifier_key = service_definition_entry["key"]
+            configured_service_port = CMSPorts.get_port(
+                str(CONFIG_PATH),
+                service_definition_entry["setting_name"],
+                service_definition_entry["port_env"],
+            )
+            active_service_info = _running.get(service_identifier_key)
+            if active_service_info and _pid_alive(active_service_info["pid"]):
+                print(f"  [{service_numeric_key}] {service_definition_entry['label']:<24} RUNNING  PID: {active_service_info['pid']:<6} Port: {active_service_info['port']}")
+            else:
+                print(f"  [{service_numeric_key}] {service_definition_entry['label']:<24} STOPPED  Port: {configured_service_port}")
+        sys.exit(0)
+
     clear_screen()
-    typewrite("== BEJSON CMS ADVANCED LAUNCHER ORCHESTRATOR [v2] ==", color=RED, delay=0.005)
+    typewrite(f"== BEJSON CMS ADVANCED LAUNCHER ORCHESTRATOR [v{VERSION}] ==", color=RED, delay=0.005)
     _reconcile_registry_on_start()
     last_status = "Launcher initialized. System ready."
 

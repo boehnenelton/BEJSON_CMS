@@ -5,10 +5,10 @@ Description:   Renames entity fields in live BEJSON data files to canonical
                that lack a UUID primary key.
                All writes are atomic (temp + os.replace). Backup BEFORE running live.
                See docs/taxonomy_migration_tasks.md Steps 4.1-4.3
-Version:       1.0.0
+Version:       1.0.1
 Author:        Elton Boehnen
-Date:          2026-08-10
-RELATIONAL_ID: 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d
+Date:          2026-11-05
+RELATIONAL_ID: 66306f88-19fe-4e69-b2de-952615bd3ca6
 
 Usage:
   python3 tools/migrate_taxonomy.py --dry-run   # reports changes, no writes
@@ -22,6 +22,10 @@ import uuid
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
+
+VERSION = "1.0.1"
+AUTHOR = "Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton"
+RELATIONAL_ID = "66306f88-19fe-4e69-b2de-952615bd3ca6"
 
 SCRIPT_PATH = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_PATH.parent / "src" / "lib"))
@@ -165,26 +169,31 @@ def run_migration(dry_run: bool):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="BEJSON CMS Taxonomy Field Migration Tool v1.0.0"
+    command_line_argument_parser = argparse.ArgumentParser(
+        description=f"BEJSON CMS Taxonomy Field Migration Tool v{VERSION}"
     )
-    parser.add_argument(
+    command_line_argument_parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version=f"%(prog)s {VERSION}",
+    )
+    command_line_argument_parser.add_argument(
         "--dry-run",
         dest="dry_run",
         action="store_true",
         help="Show what would change without writing any files"
     )
-    args = parser.parse_args()
+    parsed_cli_arguments = command_line_argument_parser.parse_args()
 
-    if not args.dry_run:
+    if not parsed_cli_arguments.dry_run:
         print("WARNING: This will modify live BEJSON entity files in storage/mfdb/site_master/data/")
         print("Ensure you have run 'cms-manage.py backup' before proceeding.")
-        confirm = input("Type 'MIGRATE' to proceed: ").strip()
-        if confirm != "MIGRATE":
+        user_confirmation_input = input("Type 'MIGRATE' to proceed: ").strip()
+        if user_confirmation_input != "MIGRATE":
             print("Cancelled.")
             return
 
-    run_migration(dry_run=args.dry_run)
+    run_migration(dry_run=parsed_cli_arguments.dry_run)
 
 
 if __name__ == "__main__":

@@ -9,19 +9,20 @@ Description:    Reads/creates config.json (BEJSON 104a ScriptConfig, per
                 it's missing or unreadable. New in pkg75 -- added as a new
                 function/module rather than edited into an existing lib,
                 per Library Immutability policy.
-Version:        1.0.0
-Date:           2026-08-07
+Version:        1.1.0
+Date:           2026-10-25
 Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  9c1a6e2b-4f0d-4a7e-8f0e-2b6a3c9d1e7f
+RELATIONAL_ID:  8d2b7f3c-5e1e-4b8f-9a1f-3c7b4d0e2f8a
 """
 
 import os
 import json
 from typing import Dict, Optional
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # setting_name -> (default_port, description)
 _PORT_SETTINGS = {
@@ -66,16 +67,13 @@ def ensure_config(config_path: str) -> dict:
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 doc = json.load(f)
-            if isinstance(doc, dict) and "Values" in doc:
+            if isinstance(doc, dict) and "Values" in doc and "Fields" in doc:
                 return doc
         except Exception:
             pass  # fall through and regenerate a corrupt/unreadable file
 
     doc = _default_doc()
-    tmp_path = config_path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(doc, f, indent=2)
-    os.replace(tmp_path, config_path)  # atomic on POSIX
+    bejson_core_atomic_write(config_path, doc)
     return doc
 
 
@@ -91,12 +89,16 @@ def get_port(config_path: str, setting_name: str, env_var: Optional[str] = None)
                 pass
 
     doc = ensure_config(config_path)
-    for row in doc.get("Values", []):
-        if row and row[0] == setting_name:
-            try:
-                return int(row[1])
-            except (TypeError, ValueError):
-                break
+    field_map = bejson_core_get_field_map(doc)
+    name_col_idx = field_map.get("setting_name")
+    value_col_idx = field_map.get("setting_value")
+    if name_col_idx is not None and value_col_idx is not None:
+        for row in doc.get("Values", []):
+            if row and len(row) > max(name_col_idx, value_col_idx) and str(row[name_col_idx]).strip() == setting_name:
+                try:
+                    return int(row[value_col_idx])
+                except (TypeError, ValueError):
+                    break
 
     return _PORT_SETTINGS.get(setting_name, (5000, ""))[0]
 
@@ -107,10 +109,16 @@ def get_all_ports(config_path: str) -> Dict[str, int]:
     needing the fully-resolved value for one service should use get_port())."""
     result = {name: default for name, (default, _desc) in _PORT_SETTINGS.items()}
     doc = ensure_config(config_path)
-    for row in doc.get("Values", []):
-        if row and row[0] in result:
-            try:
-                result[row[0]] = int(row[1])
-            except (TypeError, ValueError):
-                pass
+    field_map = bejson_core_get_field_map(doc)
+    name_col_idx = field_map.get("setting_name")
+    value_col_idx = field_map.get("setting_value")
+    if name_col_idx is not None and value_col_idx is not None:
+        for row in doc.get("Values", []):
+            if row and len(row) > max(name_col_idx, value_col_idx):
+                row_setting_name = str(row[name_col_idx]).strip()
+                if row_setting_name in result:
+                    try:
+                        result[row_setting_name] = int(row[value_col_idx])
+                    except (TypeError, ValueError):
+                        pass
     return result

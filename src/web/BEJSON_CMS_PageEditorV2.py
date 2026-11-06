@@ -1,67 +1,13 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditorV2
-SCRIPT_VERSION: 18.9
-RELATIONAL_ID:  f6a3c821-0d57-4b9e-8c14-2a9e7b5d0f73
-CHANGE (2026-10-11): PKG144 -- import-freeze fix: native file choosers replaced by the
-in-app server-side picker (BEJSON_CMS_FileBrowser.py). Key-registry import uses the
-picker + /api/settings/import_keys_path; defines the previously-missing importKeys().
+SCRIPT_VERSION: 18.4
+RELATIONAL_ID:  6f1b8c32-4e9d-4a71-8c05-3e7a9d2f4b18
 AUTHOR:         Elton Boehnen
-CHANGE (2026-09-25): PKG142 -- api_generate_plan()/api_execute_task() (the
-/api/tasking/* routes) used to each do their own single-shot
-requests.post() against Gemini -- no retry, no model fallback on 429/503,
-only one key attempt ever. Per Elton: "take a look at the AI system in
-place in the react system, use it to architect the python CMS version AI
-system" -- both routes now call lib_cms_persona_writer.py's new
-generate_with_fallback(), which ports the React CMS's server.ts
-/api/gemini/generate proxy's model-cascade + token-budget architecture
-(full detail in that file's own pkg142 changelog entry). Both routes now
-also return model_used, and a failure response carries a structured
-status + retry_delay instead of a bare error string. Verified live
-through the real Flask routes with a mocked HTTP layer: successful
-generation, markdown-fence stripping on execute_task still works, and a
-429 failure surfaces the correctly-parsed retry_delay through the actual
-JSON response.
-CHANGE (2026-09-21): PKG141 -- found continuing the sweep after pkg140
-(user: "anything else"/"go", kept auditing rather than stopping): a
-DIFFERENT bug class from the SVG work, same instinct to keep checking
-sibling code. api_upload_context()'s file.filename is client-controlled
-(the multipart Content-Disposition header) and werkzeug's FileStorage.
-save() does not sanitize it -- confirmed directly that a filename like
-"../../../../tmp/x" resolved clean outside CONTEXT_DIR entirely before
-this fix. Gated behind the same auth as every route in this app, but an
-authenticated user still shouldn't get arbitrary-path file writes from a
-filename field. Fixed with secure_filename() plus bejson_safe_join()
-(already used for this file's /assets/ routes) as a second layer.
-Verified live: the exact traversal filename that escaped before the fix
-now writes safely inside CONTEXT_DIR under a collapsed-safe name, and
-confirmed nothing was written to the traversal target; a legitimate
-upload still works unchanged. Swept every other file.filename/upload site
-in the codebase for the same pattern (BEJSON_CMS_Media.py,
-BEJSON_CMS_Content.py, BEJSON_CMS_PageEditor.py) -- all already either
-use secure_filename(), write to a fixed non-user-controlled path, or
-never write the upload to disk at all (read into memory only). This was
-the only real gap.
-CHANGE (2026-09-20): PKG140 -- found while continuing the sweep right after
-pkg139 shipped: BEJSON_CMS_Media.py's serve_asset()/upload-handler CSP+
-sanitization work had a sibling gap in THIS file -- serve_asset_v2() and
-serve_thumb_v2() are separate route implementations serving the exact
-same physical ASSETS_DIR files, and neither had picked up the CSP header
-serve_asset() got. Fixed both the same way. Verified live via Flask test
-client: a real sanitized SVG served through both /assets/<file> and
-/assets/thumb/<file> in this app now carries the CSP header; a non-SVG
-asset is unaffected either way.
-CHANGE (2026-09-16): PKG137 -- api_save() (add+update in one function) now
-resolves category/author name to their live UUIDs and writes
-page_cat_uuid/page_author_uuid alongside the existing name fields on every
-save. Verified live: create resolved the correct UUIDs, a follow-up edit
-re-resolved them correctly.
-CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). /api/category/
-add's Category add_record() call now includes a real cat_uuid -- it
-didn't, so every category created via this endpoint was landing with
-cat_uuid: None. Verified live via Flask test client against real data.
 DESCRIPTION:    Editor v2 with Stabilized Sidebar, Tasking Workflow, and Gemini Config.
                 Unified with CMS Data Model and Storage Format.
+CHANGE (2026-10-25): Centralized authentication guard and asset routes via BEJSON_CMS_Shared;
+converted storage config BEJSON reads/writes to use field_map cache and atomic_write.
 CHANGE (2026-08-06): PKG74 - added an Insert PDF button next to the
 existing Media button. Opens its own modal (separate from the Image
 picker so PDFs don't clutter/break that grid's thumbnails) fed by the
@@ -87,9 +33,11 @@ updates now omit them entirely so they're preserved. Verified with a live
 round-trip test (external-link page survives a V2 edit intact).
 """
 
+VERSION = 184
+
 from flask import Flask, render_template_string, request, redirect, flash, jsonify, send_file, Response
-from werkzeug.utils import secure_filename
 import os, re, uuid, json, sys, html as _html, io
+from pathlib import Path
 from datetime import datetime
 
 try:
@@ -107,6 +55,7 @@ LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
 if LIB_DIR not in sys.path: sys.path.append(LIB_DIR)
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PAGEEDITORV2_PORT = CMSPorts.get_port(CONFIG_PATH, "pageeditorv2_port", "CMS_PAGEEDITORV2_PORT")
 ADMIN_PORT = CMSPorts.get_port(CONFIG_PATH, "admin_port", "CMS_ADMIN_PORT")
@@ -133,20 +82,11 @@ STORAGE_CONFIG_PATH = resolve_path("{INTERNAL_STORAGE}/Admin/resources/Flask_Com
 app = Flask(__name__)
 app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 
-from BEJSON_CMS_Shared import _check_auth, _unauthorized
+from BEJSON_CMS_Shared import register_auth_guard, serve_shared_asset, serve_shared_thumb
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
-from BEJSON_CMS_FileBrowser import filebrowser_cube, PICKER_HEAD_TAGS, resolve_pick, PickError, copy_file_chunked
-app.register_blueprint(filebrowser_cube)   # pkg144: in-app server-side file picker (/fb/*)
 
+register_auth_guard(app)
 
-@app.before_request
-def _enforce_auth_everywhere():
-    # SECURITY FIX: this standalone editor had zero authentication -- every
-    # route completely open. Matches the same before_request gate
-    # BEJSON_CMS_Admin.py enforces on its blueprints.
-    Request_Basic_Auth_Header = request.authorization
-    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
-        return _unauthorized()
 
 @app.after_request
 def add_cors_headers(response):
@@ -168,35 +108,54 @@ def load_storage_config():
         with open(STORAGE_CONFIG_PATH, "r") as f: return json.load(f)
     except: return {}
 
-def save_storage_config(data):
+def save_storage_config(storage_config_document):
     os.makedirs(os.path.dirname(STORAGE_CONFIG_PATH), exist_ok=True)
-    temp_path = STORAGE_CONFIG_PATH + ".tmp"
-    with open(temp_path, "w") as f: json.dump(data, f, indent=2)
-    os.replace(temp_path, STORAGE_CONFIG_PATH)
+    bejson_core_atomic_write(STORAGE_CONFIG_PATH, storage_config_document)
+
+def _resolve_storage_field_indices(storage_config_document):
+    """Resolve label, path, and enabled column indices via BEJSON field_map cache."""
+    storage_field_map_cache = bejson_core_get_field_map(storage_config_document) if storage_config_document.get("Fields") else {}
+    label_column_index = storage_field_map_cache.get("label", storage_field_map_cache.get("name", 0))
+    path_column_index = storage_field_map_cache.get("path", 1)
+    enabled_column_index = storage_field_map_cache.get("enabled", 2)
+    return label_column_index, path_column_index, enabled_column_index
 
 @app.route("/api/storage/config", methods=["GET", "POST"])
 def api_storage_config():
     if request.method == "POST":
-        data = request.json
-        config = load_storage_config()
-        new_values = []
-        for row in config.get("Values", []):
-            label = row[0]
-            if label in data:
-                new_values.append([label, data[label]["path"], data[label]["enabled"]])
-            else: new_values.append(row)
-        config["Values"] = new_values
-        save_storage_config(config)
+        request_storage_payload = request.json
+        storage_config_document = load_storage_config()
+        label_idx, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+        updated_storage_rows = []
+        for storage_row in storage_config_document.get("Values", []):
+            storage_row_label = storage_row[label_idx]
+            if storage_row_label in request_storage_payload:
+                updated_row = list(storage_row)
+                updated_row[path_idx] = request_storage_payload[storage_row_label]["path"]
+                updated_row[enabled_idx] = request_storage_payload[storage_row_label]["enabled"]
+                updated_storage_rows.append(updated_row)
+            else:
+                updated_storage_rows.append(storage_row)
+        storage_config_document["Values"] = updated_storage_rows
+        save_storage_config(storage_config_document)
         return jsonify({"ok": True})
     
-    config = load_storage_config()
-    paths = {v[0]: {"path": v[1], "enabled": v[2]} for v in config.get("Values", [])}
+    storage_config_document = load_storage_config()
+    label_idx, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+    paths = {
+        storage_row[label_idx]: {"path": storage_row[path_idx], "enabled": storage_row[enabled_idx]}
+        for storage_row in storage_config_document.get("Values", [])
+    }
     return jsonify({"ok": True, "paths": paths})
 
 @app.route("/api/storage/list_files")
 def api_list_files():
-    config = load_storage_config()
-    enabled_path = next((v[1] for v in config.get("Values", []) if v[2]), os.path.expanduser("~"))
+    storage_config_document = load_storage_config()
+    _, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+    enabled_path = next(
+        (storage_row[path_idx] for storage_row in storage_config_document.get("Values", []) if storage_row[enabled_idx]),
+        os.path.expanduser("~")
+    )
     try:
         files = sorted([f for f in os.listdir(enabled_path) if os.path.isfile(os.path.join(enabled_path, f))])
         return jsonify({"ok": True, "files": files, "path": enabled_path})
@@ -212,30 +171,17 @@ def api_upload_context():
     try:
         file = request.files.get("file")
         if not file: return jsonify({"ok": False, "error": "No file"})
-        # SECURITY FIX (pkg141): file.filename is client-controlled (the
-        # multipart Content-Disposition header) and werkzeug's
-        # FileStorage.save() does NOT sanitize it -- a filename like
-        # "../../../../etc/cron.d/x" resolved outside CONTEXT_DIR entirely
-        # (confirmed: os.path.join + the traversal segments walks right out
-        # before this fix). Gated behind the same auth as every other route
-        # in this app, but an authenticated user still shouldn't be able to
-        # write arbitrary files via a crafted filename. bejson_safe_join is
-        # already used for the /assets/ routes in this same file; reused
-        # here for the same guarantee rather than trusting secure_filename()
-        # alone.
-        safe_filename = secure_filename(file.filename)
-        if not safe_filename:
-            return jsonify({"ok": False, "error": "Invalid filename"})
-        dest_path = bejson_safe_join(CONTEXT_DIR, safe_filename)
-        file.save(dest_path)
-        return jsonify({"ok": True, "msg": f"Uploaded {safe_filename}"})
-    except ValueError:
-        return jsonify({"ok": False, "error": "Invalid filename"})
+        file.save(os.path.join(CONTEXT_DIR, file.filename))
+        return jsonify({"ok": True, "msg": f"Uploaded {file.filename}"})
     except Exception as e: return jsonify({"ok": False, "error": str(e)})
 
 def get_context_content(filenames):
-    config = load_storage_config()
-    enabled_path = next((v[1] for v in config.get("Values", []) if v[2]), CONTEXT_DIR)
+    storage_config_document = load_storage_config()
+    _, path_idx, enabled_idx = _resolve_storage_field_indices(storage_config_document)
+    enabled_path = next(
+        (storage_row[path_idx] for storage_row in storage_config_document.get("Values", []) if storage_row[enabled_idx]),
+        CONTEXT_DIR
+    )
     content = ""
     for f in filenames:
         path = os.path.join(enabled_path, f)
@@ -249,16 +195,42 @@ def get_context_content(filenames):
     return content
 
 # =============================================================================
-# GEMINI & TASKING API
+# CLI_AI 48 & BKS-1 STANDARDIZED BOOK / BLOG JOB API
 # =============================================================================
 
+from lib_bejson_AI_ai_writing import (
+    ai_writing_call,
+    ai_writing_get_providers_and_models,
+    _extract_json_payload,
+    _strip_outer_code_fence,
+)
+from lib_bejson_CMS_bks_blog_jobs import (
+    cms_bks_approve_and_overwrite_post,
+    cms_bks_bootstrap,
+    cms_bks_create_blog_job,
+    cms_bks_execute_all_parts,
+    cms_bks_execute_part,
+    cms_bks_get_job_detail,
+    cms_bks_list_jobs,
+    cms_bks_list_templates,
+    cms_bks_merge_parts,
+    cms_bks_update_job_metadata_and_plan,
+)
+
 def get_gemini_models():
-    if not os.path.exists(MODEL_REGISTRY_PATH): return []
+    info = ai_writing_get_providers_and_models()
+    models = info.get("models", [])
+    if models:
+        return models
+    if not os.path.exists(MODEL_REGISTRY_PATH):
+        return []
     try:
-        with open(MODEL_REGISTRY_PATH, 'r') as f: reg = json.load(f)
+        with open(MODEL_REGISTRY_PATH, 'r') as f:
+            reg = json.load(f)
         fields = [f['name'] for f in reg['Fields']]
         return [dict(zip(fields, row)) for row in reg['Values']]
-    except: return []
+    except Exception:
+        return []
 
 @app.route("/api/ping")
 def api_ping():
@@ -266,115 +238,302 @@ def api_ping():
 
 @app.route('/api/settings/models')
 def api_get_models():
-    return jsonify({"ok": True, "models": get_gemini_models()})
+    info = ai_writing_get_providers_and_models()
+    return jsonify({
+        "ok": True,
+        "models": info.get("models", []),
+        "providers": info.get("providers", []),
+        "models_by_provider": info.get("models_by_provider", {}),
+    })
+
+@app.route('/api/bks/bootstrap')
+def api_bks_bootstrap():
+    db.mount()
+    pages = db.get_records("PageRecord")
+    categories = db.get_records("Category")
+    authors = db.get_records("AuthorProfile")
+    ai_info = ai_writing_get_providers_and_models()
+    return jsonify({
+        "ok": True,
+        "templates": cms_bks_list_templates(Path(PROJECT_ROOT)),
+        "jobs": cms_bks_list_jobs(Path(PROJECT_ROOT)),
+        "pages": pages,
+        "categories": categories,
+        "authors": authors,
+        "ai": ai_info,
+        "providers": ai_info["providers"],
+        "models_by_provider": ai_info["models_by_provider"],
+        "models": ai_info["models"],
+    })
+
+@app.route('/api/bks/job/<job_slug>')
+def api_bks_get_job(job_slug):
+    detail = cms_bks_get_job_detail(Path(PROJECT_ROOT), job_slug)
+    return jsonify(detail)
+
+@app.route('/api/bks/create_plan', methods=['POST'])
+def api_bks_create_plan():
+    data = request.get_json(silent=True) or {}
+    topic = (data.get("topic") or data.get("prompt") or data.get("title") or "").strip()
+    if not topic:
+        return jsonify({"ok": False, "error": "Topic / prompt is required"})
+    title = (data.get("title") or "").strip() or None
+    target_page_uuid = (data.get("target_page_uuid") or "").strip() or None
+    booktype_slug = (data.get("booktype_slug") or data.get("book_type_id") or "blog_post_4part").strip()
+    chapter_count = int(data.get("chapter_count") or 4)
+    category = (data.get("category") or data.get("category_name") or "Uncategorized").strip()
+    author = (data.get("author") or data.get("author_name") or data.get("profile_name") or "boehnenelton2024").strip()
+    page_type = (data.get("page_type") or "blog").strip()
+    provider = (data.get("provider") or "geminirest").strip()
+    model_id = (data.get("model") or data.get("model_id") or "").strip() or None
+    use_ai_plan = data.get("use_ai_plan", True)
+    custom_nodes = data.get("custom_nodes")
+
+    persona = writer.get_persona(author) if author else None
+    persona_inst = writer.assemble_system_instruction(persona) if persona else None
+    ctx_files = data.get("context_files") or []
+    ctx_text = get_context_content(ctx_files) if ctx_files else (data.get("context_text") or "")
+
+    try:
+        detail = cms_bks_create_blog_job(
+            Path(PROJECT_ROOT),
+            topic=topic,
+            title=title,
+            target_page_uuid=target_page_uuid,
+            booktype_slug=booktype_slug,
+            chapter_count=chapter_count,
+            category=category,
+            author=author,
+            page_type=page_type,
+            provider=provider,
+            model_id=model_id,
+            author_system_instruction=persona_inst,
+            context_text=ctx_text,
+            use_ai_plan=bool(use_ai_plan),
+            custom_nodes=custom_nodes,
+        )
+        return jsonify(detail)
+    except Exception as err:
+        return jsonify({"ok": False, "error": str(err)})
+
+@app.route('/api/bks/update_plan', methods=['POST'])
+def api_bks_update_plan():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    detail = cms_bks_update_job_metadata_and_plan(
+        Path(PROJECT_ROOT),
+        job_slug,
+        title=data.get("title"),
+        topic=data.get("topic"),
+        target_page_uuid=data.get("target_page_uuid"),
+        category=data.get("category") or data.get("category_name"),
+        author=data.get("author") or data.get("author_name"),
+        template_key=data.get("template_key"),
+        page_type=data.get("page_type"),
+        provider=data.get("provider"),
+        model_id=data.get("model_id"),
+        parts_updates=data.get("parts"),
+    )
+    return jsonify(detail)
+
+@app.route('/api/bks/execute_part', methods=['POST'])
+def api_bks_execute_part():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    author = data.get("author") or data.get("author_name") or data.get("profile_name")
+    persona = writer.get_persona(author) if author else None
+    persona_inst = writer.assemble_system_instruction(persona) if persona else None
+    ctx_files = data.get("context_files") or []
+    ctx_text = get_context_content(ctx_files) if ctx_files else (data.get("context_text") or "")
+
+    detail = cms_bks_execute_part(
+        Path(PROJECT_ROOT),
+        job_slug,
+        part_index=data.get("part_index"),
+        chapter_uuid=data.get("chapter_uuid"),
+        provider=data.get("provider"),
+        model_id=data.get("model") or data.get("model_id"),
+        author_system_instruction=persona_inst,
+        extra_context=ctx_text,
+        custom_body_md=data.get("custom_body_md"),
+        min_words_override=data.get("min_words_override"),
+    )
+    return jsonify(detail)
+
+@app.route('/api/bks/execute_all', methods=['POST'])
+def api_bks_execute_all():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    author = data.get("author") or data.get("author_name") or data.get("profile_name")
+    persona = writer.get_persona(author) if author else None
+    persona_inst = writer.assemble_system_instruction(persona) if persona else None
+    ctx_files = data.get("context_files") or []
+    ctx_text = get_context_content(ctx_files) if ctx_files else (data.get("context_text") or "")
+
+    detail = cms_bks_execute_all_parts(
+        Path(PROJECT_ROOT),
+        job_slug,
+        provider=data.get("provider"),
+        model_id=data.get("model") or data.get("model_id"),
+        author_system_instruction=persona_inst,
+        extra_context=ctx_text,
+        force_all=bool(data.get("force_all", False)),
+        min_words_override=data.get("min_words_override"),
+    )
+    return jsonify(detail)
+
+@app.route('/api/bks/merge', methods=['POST'])
+def api_bks_merge():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    res = cms_bks_merge_parts(Path(PROJECT_ROOT), job_slug)
+    res["detail"] = cms_bks_get_job_detail(Path(PROJECT_ROOT), job_slug)
+    return jsonify(res)
+
+@app.route('/api/bks/approve', methods=['POST'])
+def api_bks_approve():
+    data = request.get_json(silent=True) or {}
+    job_slug = (data.get("job_slug") or "").strip()
+    if not job_slug:
+        return jsonify({"ok": False, "error": "job_slug is required"})
+    res = cms_bks_approve_and_overwrite_post(
+        Path(PROJECT_ROOT),
+        job_slug,
+        target_page_uuid=data.get("target_page_uuid"),
+        title_override=data.get("title"),
+        category_override=data.get("category") or data.get("category_name"),
+        author_override=data.get("author") or data.get("author_name"),
+        template_key=data.get("template_key"),
+        page_type_override=data.get("page_type"),
+        edited_markdown=data.get("edited_markdown") or data.get("merged_md"),
+        trigger_publish=bool(data.get("trigger_publish", False)),
+    )
+    return jsonify(res)
 
 @app.route('/api/tasking/generate_plan', methods=['POST'])
 def api_generate_plan():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     prompt = data.get('prompt')
+    provider = data.get('provider', 'geminirest')
     model = data.get('model', 'gemini-2.5-flash')
-    profile_name = data.get('profile_name')  # optional AI_Profile persona name
-    if not prompt: return jsonify({"ok": False, "error": "Prompt required"})
+    profile_name = data.get('profile_name')
+    if not prompt:
+        return jsonify({"ok": False, "error": "Prompt required"})
 
-    plan_format_inst = "You are an expert content architect. Break down the request into a JSON array of objects: [{\"title\": \"...\", \"prompt\": \"...\"}]"
-
-    # Connect to author profiles: if a persona is selected, its assembled
-    # voice/tone (same helper BEJSON_CMS_ProfileManager.py's personas are
-    # built from) shapes the plan on top of the required JSON-array
-    # formatting constraint, which always applies regardless of persona.
-    persona = writer.get_persona(profile_name) if profile_name else None
-    if persona:
-        plan_sys_inst = writer.assemble_system_instruction(persona) + "\n\n" + plan_format_inst
-        temperature = float(persona.get("persona_creativity", 0.7))
-    else:
-        plan_sys_inst = plan_format_inst
-        temperature = 0.7
-
-    if not _REQUESTS_AVAILABLE:
-        return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
-
-    # PKG142: was a single-shot requests.post() with no retry, no model
-    # fallback on 429/503, and only one key attempt total -- ported from
-    # the React CMS's server.ts /api/gemini/generate proxy, see
-    # lib_cms_persona_writer.py's pkg142 changelog entry for the full
-    # architecture. generate_with_fallback() already applies the SAME
-    # token-budget trim as the React version before sending.
-    result = writer.generate_with_fallback(
-        f"Build a plan for: {prompt}",
-        system_instruction=plan_sys_inst,
-        model=model,
-        generation_config={"response_mime_type": "application/json", "temperature": temperature},
+    # Create a full BKS-1 4-part blog post job & plan backed by CLI_AI 48 ai_dispatch_call
+    res = cms_bks_create_blog_job(
+        Path(PROJECT_ROOT),
+        topic=prompt,
+        title=data.get('title'),
+        target_page_uuid=data.get('target_page_uuid'),
+        booktype_slug=data.get('booktype_slug', 'blog_post_4part'),
+        chapter_count=int(data.get('chapter_count', 4)),
+        category=data.get('category', 'Uncategorized'),
+        author=profile_name or 'boehnenelton2024',
+        page_type=data.get('page_type', 'blog'),
+        provider=provider,
+        model_id=model,
+        use_ai_plan=True,
     )
-    if not result["ok"]:
-        return jsonify({"ok": False, "error": result["error"], "status": result["status"], "retry_delay": result["retry_delay"]})
-    try:
-        tasks = json.loads(result["text"])
-    except (json.JSONDecodeError, TypeError) as e:
-        return jsonify({"ok": False, "error": f"Model returned non-JSON content: {e}"})
-    return jsonify({"ok": True, "tasks": tasks, "model_used": result["model_used"]})
+    if not res.get("ok"):
+        return jsonify({"ok": False, "error": res.get("error", "Plan generation failed")})
+    tasks = [
+        {"title": p["title"], "prompt": p["brief"], "chapter_uuid": p["chapter_uuid"]}
+        for p in res.get("parts", [])
+    ]
+    return jsonify({"ok": True, "tasks": tasks, "job": res})
 
 @app.route('/api/tasking/execute_task', methods=['POST'])
 def api_execute_task():
-    data = request.json
-    task_title, task_prompt, full_plan = data.get('title'), data.get('prompt'), data.get('full_plan', [])
+    data = request.get_json(silent=True) or {}
+    task_title = data.get('title', 'Part')
+    task_prompt = data.get('prompt')
+    full_plan = data.get('full_plan', [])
+    provider = data.get('provider', 'geminirest')
     model = data.get('model', 'gemini-2.5-flash')
-    profile_name = data.get('profile_name')  # optional AI_Profile persona name
-    if not task_prompt: return jsonify({"ok": False, "error": "Prompt required"})
+    profile_name = data.get('profile_name')
+    job_slug = data.get('job_slug')
+    chapter_uuid = data.get('chapter_uuid')
 
-    plan_context = "\n".join([f"- {t['title']}" for t in full_plan])
+    if job_slug:
+        res = cms_bks_execute_part(
+            Path(PROJECT_ROOT),
+            job_slug,
+            chapter_uuid=chapter_uuid,
+            provider=provider,
+            model_id=model,
+        )
+        if res.get("ok"):
+            step = res.get("step_result") or {}
+            md_body = step.get("body_md") or ""
+            parsed = convert_markdown_to_cms_article(md_body, task_title)
+            return jsonify({
+                "ok": True,
+                "content": parsed["html_body"],
+                "markdown": md_body,
+                "step_result": step,
+                "job": res,
+            })
+        return jsonify({"ok": False, "error": res.get("error", "Part execution failed")})
+
+    if not task_prompt:
+        return jsonify({"ok": False, "error": "Prompt required"})
+
+    plan_context = "\n".join([f"- {t['title']}" for t in full_plan if isinstance(t, dict) and t.get('title')])
     format_inst = f"Document Plan:\n{plan_context}\n\nTask: {task_title}\nOutput ONLY clean HTML body content. No ``` tags."
-
-    # Same persona connection as generate_plan above -- the persona's voice
-    # shapes the writing, the format constraint (clean HTML, no fences)
-    # always applies on top of it regardless of persona.
-    persona = writer.get_persona(profile_name) if profile_name else None
-    if persona:
-        exec_sys_inst = writer.assemble_system_instruction(persona) + "\n\n" + format_inst
-        gen_config = {
-            "temperature": float(persona.get("persona_creativity", 0.7)),
-            "maxOutputTokens": int(persona.get("persona_max_tokens", 8192)),
-        }
-    else:
-        exec_sys_inst = format_inst
-        gen_config = {}
-
-    if not _REQUESTS_AVAILABLE:
-        return jsonify({"ok": False, "error": "The 'requests' package is not installed -- pip install requests --break-system-packages"})
-
-    # PKG142: same fix as api_generate_plan() above -- see that route's
-    # comment and lib_cms_persona_writer.py's pkg142 changelog entry.
-    result = writer.generate_with_fallback(
+    resp = writer.dispatch_ai(
         task_prompt,
-        system_instruction=exec_sys_inst,
+        provider=provider,
         model=model,
-        generation_config=gen_config or None,
-        timeout=120,
+        persona_name=profile_name,
+        system_instruction=format_inst,
     )
-    if not result["ok"]:
-        return jsonify({"ok": False, "error": result["error"], "status": result["status"], "retry_delay": result["retry_delay"]})
-    content = result["text"].strip()
-    if content.startswith("```"): content = re.sub(r'^```html?\n?|\n?```$', '', content)
-    return jsonify({"ok": True, "content": content, "model_used": result["model_used"]})
+    if not resp.get("success"):
+        return jsonify({"ok": False, "error": resp.get("error", "AI call failed")})
+    content = _strip_outer_code_fence(resp.get("content", ""))
+    return jsonify({"ok": True, "content": content})
 
 # =============================================================================
 # CMS INTEGRATION API
 # =============================================================================
 
+from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
+
+def _get_page_content_fields(page_uuid):
+    """Read html_body, markdown_body, and source_code from pages_db/<uuid>.json via field_map cache."""
+    pfile = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
+    if not os.path.exists(pfile):
+        return "", "", ""
+    try:
+        with open(pfile, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        field_map = bejson_core_get_field_map(data)
+        p_idx = field_map.get("Record_Type_Parent", -1)
+        hb_idx = field_map.get("html_body", -1)
+        mb_idx = field_map.get("markdown_body", -1)
+        sc_idx = field_map.get("source_code", -1)
+        for row in data.get("Values", []):
+            if p_idx != -1 and row[p_idx] == "Content":
+                html_val = (row[hb_idx] if hb_idx != -1 and hb_idx < len(row) else "") or ""
+                md_val = (row[mb_idx] if mb_idx != -1 and mb_idx < len(row) else "") or ""
+                sc_val = (row[sc_idx] if sc_idx != -1 and sc_idx < len(row) else "") or ""
+                return html_val, md_val, sc_val
+        return "", "", ""
+    except Exception:
+        return "", "", ""
+
 def _get_page_body_v1(page_uuid):
     """Read html_body from pages_db/<uuid>.json — returns empty string if missing."""
-    import lib_bejson_Core_bejson_core as Core
-    pfile = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
-    if not os.path.exists(pfile): return ""
-    try:
-        with open(pfile, 'r') as f: data = json.load(f)
-        field_map = Core.bejson_core_get_field_map(data)
-        p_idx   = field_map.get("Record_Type_Parent", -1)
-        hb_idx  = field_map.get("html_body", -1)
-        for row in data.get("Values", []):
-            if p_idx != -1 and hb_idx != -1 and row[p_idx] == "Content":
-                return row[hb_idx] or ""
-        return ""
-    except: return ""
+    html_val, _, _ = _get_page_content_fields(page_uuid)
+    return html_val
 
 @app.route('/api/get/<uuid>')
 def api_get(uuid):
@@ -382,8 +541,25 @@ def api_get(uuid):
     pages = db.get_records("PageRecord")
     p = next((x for x in pages if x['page_uuid'] == uuid), None)
     if not p: return jsonify({"ok": False})
-    content = _get_page_body_v1(uuid)
-    return jsonify({"ok": True, "page": p, "content": content})
+    content, markdown_body, _ = _get_page_content_fields(uuid)
+    return jsonify({"ok": True, "page": p, "content": content, "markdown_body": markdown_body})
+
+@app.route('/api/md2html', methods=['POST'])
+def api_md2html():
+    data = request.get_json(silent=True) or {}
+    md_text = data.get("markdown") if data.get("markdown") is not None else request.form.get("markdown", "")
+    fallback_title = data.get("fallback_title", "Untitled Document")
+    parsed = convert_markdown_to_cms_article(md_text or "", fallback_title)
+    wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
+    return jsonify({
+        "ok": True,
+        "success": True,
+        "title": parsed["title"],
+        "slug": parsed["slug"],
+        "html": wrapped_html,
+        "html_body": wrapped_html,
+        "excerpt": parsed["excerpt"],
+    })
 
 @app.route('/api/save', methods=['POST'])
 def api_save():
@@ -399,12 +575,6 @@ def api_save():
     db.mount()
     existing = next((x for x in db.get_records("PageRecord") if x['page_uuid'] == uuid_val), None)
 
-    # NEW (pkg137): resolve category/author name to their live UUIDs,
-    # kept in sync alongside page_cat_name/page_author_name on every
-    # write, same as every other PageRecord write site this pass.
-    cat_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == cat), None)
-    author_uuid = next((a.get("author_uuid") for a in db.get_records("AuthorProfile") if a.get("author_display_name") == author), None) if author else None
-
     if existing:
         # Update: only touch the fields this editor actually edits. item_type
         # and external_url are deliberately omitted - update_record() only
@@ -419,8 +589,6 @@ def api_save():
             "page_author_name": author,
             "page_template_key": tpl_key,
             "page_featured_video_url": featured_video,
-            "page_cat_uuid": cat_uuid,
-            "page_author_uuid": author_uuid,
         }
         db.update_record("PageRecord", "page_uuid", uuid_val, rec)
     else:
@@ -436,15 +604,15 @@ def api_save():
             "page_featured_img": None,
             "page_template_key": tpl_key,
             "page_featured_video_url": featured_video,
-            "page_cat_uuid": cat_uuid,
-            "page_author_uuid": author_uuid,
-            "page_is_standalone_flag": False,
         }
         db.add_record("PageRecord", rec)
     
-    # --- Content file in BEJSON 104db format ---
+    # --- Content file in BEJSON 104db format (preserve existing markdown_body & source_code) ---
     pfile = os.path.join(PAGES_DB_DIR, f"{uuid_val}.json")
     os.makedirs(PAGES_DB_DIR, exist_ok=True)
+    _, existing_md, existing_sc = _get_page_content_fields(uuid_val)
+    markdown_body = data.get("markdown_body", existing_md)
+    source_code = data.get("source_code", existing_sc)
     
     content_doc = {
         "Format": "BEJSON",
@@ -460,10 +628,10 @@ def api_save():
         ],
         "Values": [
             ["PageMeta", title, None, None, None],
-            ["Content", None, content, "", ""]
+            ["Content", None, content, markdown_body, source_code]
         ]
     }
-    with open(pfile, 'w') as f: json.dump(content_doc, f, indent=2)
+    bejson_core_atomic_write(pfile, content_doc)
     return jsonify({"ok": True})
 
 # =============================================================================
@@ -475,39 +643,8 @@ def api_save():
 # route uses.
 # =============================================================================
 
-@app.route('/assets/<path:filename>')
-def serve_asset_v2(filename):
-    try:
-        safe_path = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    response = send_file(safe_path)
-    if filename.lower().endswith('.svg'):
-        # Same CSP defense-in-depth as BEJSON_CMS_Media.py's serve_asset()
-        # (pkg139) -- this is a SEPARATE route serving the SAME physical
-        # ASSETS_DIR files, so it needed the identical fix, not inherited
-        # automatically from the other file. Found in the same sweep that
-        # added it there, before shipping as an inconsistency between the
-        # two apps' serving of identical files.
-        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
-        response.headers['Content-Type'] = 'image/svg+xml'
-    return response
-
-@app.route('/assets/thumb/<path:filename>')
-def serve_thumb_v2(filename):
-    stem = os.path.splitext(filename)[0]
-    try:
-        safe_thumb = bejson_safe_join(str(THUMBS_DIR), stem + ".jpg")
-        safe_orig = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    if os.path.exists(safe_thumb):
-        return send_file(safe_thumb)
-    response = send_file(safe_orig)
-    if filename.lower().endswith('.svg'):
-        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
-        response.headers['Content-Type'] = 'image/svg+xml'
-    return response
+app.add_url_rule('/assets/<path:filename>', 'serve_asset_v2', serve_shared_asset)
+app.add_url_rule('/assets/thumb/<path:filename>', 'serve_thumb_v2', serve_shared_thumb)
 
 @app.route('/api/media/list')
 def api_media_list():
@@ -600,7 +737,7 @@ def api_add_cat():
     name = request.json.get('name')
     if not name: return jsonify({"ok": False})
     db.mount()
-    db.add_record("Category", {"cat_uuid": str(uuid.uuid4()), "cat_name": name, "cat_slug": name.lower().replace(" ","-")})
+    db.add_record("Category", {"cat_name": name, "cat_slug": name.lower().replace(" ","-")})
     return jsonify({"ok": True})
 
 @app.route('/api/settings/export_keys')
@@ -610,19 +747,8 @@ def api_export_keys():
         # Simplified path for export - using project root/storage/tmp
         out_path = os.path.join(PROJECT_ROOT, "storage", "tmp", "gemini_keys_export.bejson")
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        # capture_output instead of letting stderr leak straight to this
-        # app's own console -- if gemini_key_manager.py isn't present at
-        # this path (expected off the original authoring device), python3
-        # itself writes a "can't open file" message to stderr before
-        # exiting non-zero; check=True turns that into a clean caught
-        # CalledProcessError either way, but without capture_output the
-        # noise still hits the real console first. Captured stderr is
-        # included in the JSON error so a genuine script failure (not just
-        # a missing-file case) still surfaces useful diagnostic text.
-        result = subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--export", out_path], check=True, capture_output=True, text=True)
+        subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--export", out_path], check=True)
         return jsonify({"ok": True, "msg": f"Template exported to {out_path}"})
-    except subprocess.CalledProcessError as e:
-        return jsonify({"ok": False, "error": (e.stderr or str(e)).strip()[-500:]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
@@ -635,39 +761,10 @@ def api_import_keys():
         os.makedirs(os.path.dirname(tmp_path), exist_ok=True)
         file.save(tmp_path)
         import subprocess
-        result = subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--import-keys", tmp_path], check=True, capture_output=True, text=True)
+        subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--import-keys", tmp_path], check=True)
         return jsonify({"ok": True, "msg": "Keys imported successfully."})
-    except subprocess.CalledProcessError as e:
-        return jsonify({"ok": False, "error": (e.stderr or str(e)).strip()[-500:]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
-
-@app.route('/api/settings/import_keys_path', methods=['POST'])
-def api_import_keys_path():
-    """pkg144: same as /api/settings/import_keys but the key file is chosen with
-    the in-app picker and read from disk (no upload). resolve_pick(kind='keys')
-    is the only kind allowed to read from a .env/secure folder."""
-    try:
-        picked = resolve_pick((request.get_json(silent=True) or {}).get('path'), 'keys')
-    except PickError as error:
-        return jsonify({"ok": False, "error": str(error)}), 400
-    tmp_path = os.path.join(PROJECT_ROOT, "storage", "tmp", "import_keys_upload.bejson")
-    try:
-        import subprocess
-        os.makedirs(os.path.dirname(tmp_path), exist_ok=True)
-        copy_file_chunked(picked, tmp_path)
-        subprocess.run(["python3", resolve_path("{INTERNAL_STORAGE}/Admin/tools/gemini_key_manager.py"), "--import-keys", tmp_path],
-                       check=True, capture_output=True, text=True)
-        return jsonify({"ok": True, "msg": "Keys imported successfully."})
-    except subprocess.CalledProcessError as e:
-        return jsonify({"ok": False, "error": (e.stderr or str(e)).strip()[-500:]})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)})
-    finally:
-        try:
-            os.remove(tmp_path)   # never leave a copy of the key registry lying around
-        except OSError:
-            pass
 
 @app.route('/api/debug_keys')
 def debug_keys():
@@ -772,6 +869,25 @@ _SHELL = """
         @media (max-width: 620px) {
             .flex-row:not(.toolbar-row) { flex-wrap: wrap; }
             .flex-row:not(.toolbar-row) > .fg { min-width: 100%; }
+        }
+
+        /* Responsive grid & workflow bar helpers for Editor V2 and AI Content Architect */
+        .editor-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .editor-grid-3 { display: grid; grid-template-columns: 1.2fr 0.9fr 1.2fr; gap: 15px; }
+        .workflow-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .workflow-bar .btn { flex-shrink: 0; }
+
+        @media (max-width: 860px) {
+            .editor-grid-3 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            .header { padding: 0 20px 0 60px; }
+            .container { padding: 0 10px; margin: 15px auto; }
+            .editor-wrap { padding: 14px; }
+            .editor-grid-2 { grid-template-columns: 1fr; }
+            .editor-grid-3 { grid-template-columns: 1fr; }
+            .side-menu { width: 260px; }
+            .workflow-bar .btn { width: 100%; text-align: center; }
         }
         
         .status-bar { margin-top: 15px; display: flex; justify-content: space-between; font-size: 0.7rem; font-family: var(--mono); color: var(--muted); }
@@ -926,14 +1042,97 @@ _SHELL = """
 
     <div id="t-tasking" class="tab-content">
         <div class="editor-wrap">
-            <h2>AI Content Architect</h2>
-            <textarea id="task_prompt" style="min-height:150px; margin-bottom:20px; margin-top:20px;" placeholder="What are we building today?"></textarea>
-            <div class="flex-row toolbar-row" style="margin-bottom:20px;">
-                <button class="btn btn-green" onclick="generateTaskPlan()">Generate Plan</button>
-                <button class="btn" id="exec-btn" onclick="runTaskingPlan()">Execute All</button>
-                <button class="btn btn-black" onclick="importPlanToEditor()">Import to Editor</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+                <div>
+                    <h2 style="margin-bottom:4px;">AI Content Architect &mdash; BKS-1 4-Part Blog Job System</h2>
+                    <div style="font-size:0.75rem; color:var(--muted);">Standardized Book/Blog Job System (104db Book + 104a JobMaker Plan) powered by CLI_AI 48</div>
+                </div>
+                <span id="bks_job_badge" style="font-family:var(--mono); font-size:0.72rem; padding:5px 10px; border-radius:6px; background:#141414; border:1px solid var(--border); color:var(--muted);">No Active Job</span>
             </div>
+
+            <!-- Saved Jobs + Target Post Row -->
+            <div class="editor-grid-2" style="margin-bottom:15px; background:#080808; padding:15px; border-radius:10px; border:1px solid var(--border);">
+                <div class="fg" style="margin-bottom:0;">
+                    <label>Saved BKS-1 Blog Post Jobs</label>
+                    <div style="display:flex; gap:8px;">
+                        <select id="bks_job_select" onchange="if(this.value) loadBksJob(this.value)">
+                            <option value="">-- New 4-Part Blog Job --</option>
+                        </select>
+                        <button type="button" class="btn btn-black btn-sm" onclick="refreshBksBootstrap()">&#8635;</button>
+                    </div>
+                </div>
+                <div class="fg" style="margin-bottom:0;">
+                    <label>Target Post to Overwrite on Approve</label>
+                    <select id="bks_target_page">
+                        <option value="">-- Create New CMS Post on Approve --</option>
+                        {% for p in pages %}<option value="{{p.page_uuid}}">[Overwrite] {{p.page_title}} ({{p.page_cat_name}})</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Template + AI Provider + Model Row -->
+            <div class="editor-grid-3" style="margin-bottom:15px;">
+                <div class="fg" style="margin-bottom:0;">
+                    <label>Blog Post Job Template (BookType)</label>
+                    <select id="bks_template_select"></select>
+                </div>
+                <div class="fg" style="margin-bottom:0;">
+                    <label>AI Provider (CLI_AI 48)</label>
+                    <select id="bks_provider_select" onchange="syncBksModelOptions()"></select>
+                </div>
+                <div class="fg" style="margin-bottom:0;">
+                    <label>AI Model</label>
+                    <select id="bks_model_select"></select>
+                </div>
+            </div>
+
+            <!-- Post Title + Topic / Prompt -->
+            <div class="fg" style="margin-bottom:12px;">
+                <label>Blog Post Title (Optional &mdash; Auto-Derived if Blank)</label>
+                <input type="text" id="bks_title" placeholder="e.g. Zero-Dependency Local-First Architectures with BEJSON 104">
+            </div>
+            <div class="fg" style="margin-bottom:15px;">
+                <label>Topic / Thesis / Architectural Brief</label>
+                <textarea id="task_prompt" style="min-height:110px;" placeholder="Describe the blog post topic, key arguments, code examples, and target audience..."></textarea>
+            </div>
+
+            <!-- Workflow Action Bar -->
+            <div class="workflow-bar" style="margin-bottom:20px;">
+                <button class="btn btn-green" onclick="generateTaskPlan()">1. Generate 4-Part Plan &amp; Job</button>
+                <button class="btn btn-black" onclick="saveBksPlanEdits()">Save Plan Edits</button>
+                <button class="btn" onclick="runNextBksPart()">2a. Execute Next Part</button>
+                <button class="btn" id="exec-btn" onclick="runTaskingPlan()">2b. Execute All 4 Parts &amp; Merge</button>
+                <button class="btn btn-black" onclick="mergeBksParts()">Re-Merge 4 Parts</button>
+                <button class="btn btn-green" style="background:#059669; border-color:#059669;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite Target Post</button>
+                <button class="btn btn-black" onclick="importPlanToEditor()">Import to Editor Tab</button>
+            </div>
+
+            <!-- 4-Part Plan & Execution Cards -->
             <div id="task_container"></div>
+
+            <!-- Merged 4-Part Post Preview & Approve Panel -->
+            <div id="bks_merged_panel" style="display:none; margin-top:25px; background:#080808; border:1px solid var(--border); border-radius:12px; padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+                    <div>
+                        <h3 style="font-size:1rem; margin-bottom:4px;">Merged 4-Part Blog Post Preview</h3>
+                        <div id="bks_merged_stats" style="font-size:0.75rem; color:var(--muted);">4 parts merged into unified Markdown + BEJSON CMS HTML</div>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-green btn-sm" onclick="approveAndOverwriteTargetPost()">&#10003; Approve &amp; Overwrite Target Post</button>
+                        <button class="btn btn-black btn-sm" onclick="importPlanToEditor()">Load Merged HTML into Editor</button>
+                    </div>
+                </div>
+                <div class="editor-grid-2" style="gap:15px;">
+                    <div>
+                        <label>Merged 4-Part Markdown</label>
+                        <textarea id="bks_merged_md" style="min-height:280px; font-size:0.78rem;"></textarea>
+                    </div>
+                    <div>
+                        <label>Rendered CMS Article HTML Preview</label>
+                        <div id="bks_merged_html_preview" style="min-height:280px; max-height:420px; overflow-y:auto; overflow-x:auto; max-width:100%; background:#0e0e0e; border:1px solid var(--border); border-radius:8px; padding:15px; font-size:0.85rem; line-height:1.6;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -948,8 +1147,8 @@ _SHELL = """
                 <label>Key Registry</label>
                 <div class="flex-row toolbar-row">
                     <button class="btn btn-black btn-sm" onclick="exportKeyTemplate()">Export</button>
-                    <button class="btn btn-black btn-sm" onclick="importKeys()">&#128193; Import&hellip;</button>
-                    <span id="key_import_status" style="font-size:.78rem; color:var(--muted);"></span>
+                    <input type="file" id="key_import_file" accept=".bejson" style="max-width:200px; padding:5px; flex-shrink:0;">
+                    <button class="btn btn-black btn-sm" onclick="importKeys()">Import</button>
                 </div>
             </div>
         </div>
@@ -972,20 +1171,33 @@ _SHELL = """
 <script>
 const DEFAULT_HTML = `{{ default_html|safe }}`;
 let currentPlan = [];
+let currentBksJobSlug = '';
+let currentBksDetail = null;
+let bksProviderModels = {};
 
 function toggleMenu() {
     document.getElementById('s-menu').classList.toggle('open');
     document.getElementById('m-overlay').classList.toggle('active');
 }
 
+function closeMenu() {
+    const sMenu = document.getElementById('s-menu');
+    const mOver = document.getElementById('m-overlay');
+    if (sMenu) sMenu.classList.remove('open');
+    if (mOver) mOver.classList.remove('active');
+}
+
 function showTab(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
-    document.getElementById('t-' + id).classList.add('active');
-    document.getElementById('l-' + id).classList.add('active');
+    const targetTab = document.getElementById('t-' + id);
+    const targetLink = document.getElementById('l-' + id);
+    if(targetTab) targetTab.classList.add('active');
+    if(targetLink) targetLink.classList.add('active');
     if(id === 'settings') loadModels();
     if(id === 'context') initStorage();
-    toggleMenu();
+    if(id === 'tasking') refreshBksBootstrap();
+    closeMenu();
 }
 
 function filterPages() {
@@ -1011,6 +1223,10 @@ async function loadPageData(uuid) {
         _featuredVideoLoaded = false;
         document.getElementById('featured-video-panel').style.display = 'none';
         document.getElementById('html_body').value = data.content;
+        const targetSel = document.getElementById('bks_target_page');
+        if(targetSel) targetSel.value = uuid;
+        const titleInput = document.getElementById('bks_title');
+        if(titleInput && !titleInput.value) titleInput.value = data.page.page_title || '';
         document.getElementById('status_msg').innerText = 'LOADED';
     }
 }
@@ -1074,26 +1290,163 @@ async function loadModels() {
     });
 }
 
-// AI Tasking Logic
+// =============================================================================
+// BKS-1 STANDARDIZED 4-PART BLOG POST JOB SYSTEM + CLI_AI 48 DISPATCH
+// =============================================================================
+async function refreshBksBootstrap() {
+    try {
+        const res = await fetch('/api/bks/bootstrap');
+        const data = await res.json();
+        if(!data.ok) return;
+
+        // Populate Templates
+        const tplSel = document.getElementById('bks_template_select');
+        const prevTpl = tplSel.value || 'blog_post_4part';
+        tplSel.innerHTML = '';
+        (data.templates || []).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.type_id;
+            opt.innerText = `${t.display_name} (${t.default_chapter_count} parts, ~${t.target_words_per_chapter}w/part)`;
+            tplSel.appendChild(opt);
+        });
+        if([...tplSel.options].some(o => o.value === prevTpl)) tplSel.value = prevTpl;
+
+        // Populate Providers & Models
+        bksProviderModels = (data.ai && data.ai.models_by_provider) ? data.ai.models_by_provider : {};
+        const provSel = document.getElementById('bks_provider_select');
+        const prevProv = provSel.value || (data.ai && data.ai.default_provider) || 'gemini';
+        provSel.innerHTML = '';
+        ((data.ai && data.ai.providers) || ['gemini', 'groq', 'openrouter', 'openai']).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.innerText = p.toUpperCase();
+            provSel.appendChild(opt);
+        });
+        provSel.value = prevProv;
+        syncBksModelOptions((data.ai && data.ai.default_model) || '');
+
+        // Populate Saved Jobs
+        const jobSel = document.getElementById('bks_job_select');
+        const prevJob = currentBksJobSlug || jobSel.value;
+        jobSel.innerHTML = '<option value="">-- New 4-Part Blog Job --</option>';
+        (data.jobs || []).forEach(j => {
+            const opt = document.createElement('option');
+            opt.value = j.job_slug;
+            opt.innerText = `[${j.status.toUpperCase()}] ${j.job_name} (${j.accepted_parts || 0}/${j.chapter_count || 4} parts)`;
+            jobSel.appendChild(opt);
+        });
+        if(prevJob && [...jobSel.options].some(o => o.value === prevJob)) {
+            jobSel.value = prevJob;
+        }
+    } catch(e) {
+        console.error('BKS bootstrap error:', e);
+    }
+}
+
+function syncBksModelOptions(preferredModel) {
+    const prov = document.getElementById('bks_provider_select').value || 'gemini';
+    const modSel = document.getElementById('bks_model_select');
+    const prevMod = preferredModel || modSel.value;
+    modSel.innerHTML = '';
+    const list = bksProviderModels[prov] || [];
+    if(!list.length) {
+        const opt = document.createElement('option');
+        opt.value = 'gemini-2.5-flash';
+        opt.innerText = 'Default Model';
+        modSel.appendChild(opt);
+        return;
+    }
+    list.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.model_id;
+        opt.innerText = `${m.friendly_name} (${m.model_id})`;
+        modSel.appendChild(opt);
+    });
+    if(prevMod && [...modSel.options].some(o => o.value === prevMod)) {
+        modSel.value = prevMod;
+    }
+}
+
+async function loadBksJob(jobSlug) {
+    if(!jobSlug) return;
+    document.getElementById('status_msg').innerText = 'LOADING JOB...';
+    const res = await fetch('/api/bks/job/' + encodeURIComponent(jobSlug));
+    const data = await res.json();
+    if(data.ok) {
+        applyBksJobDetail(data);
+        document.getElementById('status_msg').innerText = 'JOB LOADED';
+    }
+}
+
+function applyBksJobDetail(data) {
+    currentBksDetail = data;
+    currentBksJobSlug = data.job_slug;
+    const jobSel = document.getElementById('bks_job_select');
+    if(jobSel && [...jobSel.options].some(o => o.value === data.job_slug)) {
+        jobSel.value = data.job_slug;
+    }
+    if(data.book) {
+        document.getElementById('bks_title').value = data.book.title || '';
+        document.getElementById('task_prompt').value = data.book.topic || data.book.thesis || '';
+        if(data.book.book_type_id) document.getElementById('bks_template_select').value = data.book.book_type_id;
+    }
+    if(data.link && data.link.target_page_uuid) {
+        document.getElementById('bks_target_page').value = data.link.target_page_uuid;
+    }
+    const badge = document.getElementById('bks_job_badge');
+    if(badge && data.book) {
+        badge.innerText = `JOB: ${data.job_slug} | STATUS: ${(data.book.status || 'planned').toUpperCase()}`;
+        badge.style.color = data.book.status === 'complete' ? '#059669' : 'var(--acc)';
+    }
+    currentPlan = (data.chapters || []).map((c, idx) => ({
+        index: c.index || (idx + 1),
+        title: c.title,
+        prompt: c.brief,
+        brief: c.brief,
+        status: c.status,
+        content: c.body_md || '',
+        actual_words: c.actual_words || 0,
+        target_words: c.target_words || 450,
+        gate_Report: c.gate_Report || ''
+    }));
+    renderPlan();
+    renderMergedPreview(data.merged_md || '', data.merged_html || '');
+}
+
 async function generateTaskPlan() {
     const prompt = document.getElementById('task_prompt').value;
-    const model = document.getElementById('model_select').value;
-    // Connects AI generation to author profiles: whichever author is
-    // selected for this page also drives the persona/voice used to
-    // generate it (AuthorProfile.auth_name matches AI_Profile.Name).
-    const profile_name = document.getElementById('edit_author').value;
-    if(!prompt) return;
-    document.getElementById('status_msg').innerText = 'GENERATING PLAN...';
-    const res = await fetch('/api/tasking/generate_plan', {
+    const title = document.getElementById('bks_title').value || document.getElementById('edit_title').value;
+    const book_type_id = document.getElementById('bks_template_select').value || 'blog_post_4part';
+    const provider = document.getElementById('bks_provider_select').value || 'gemini';
+    const model_id = document.getElementById('bks_model_select').value || document.getElementById('model_select').value;
+    const target_page_uuid = document.getElementById('bks_target_page').value || document.getElementById('hidden_uuid').value;
+    const author_name = document.getElementById('edit_author').value;
+    const category_name = document.getElementById('edit_category').value;
+
+    if(!prompt && !title) { alert('Enter a Topic / Prompt or Blog Post Title first.'); return; }
+    document.getElementById('status_msg').innerText = 'GENERATING 4-PART BKS-1 PLAN...';
+    const res = await fetch('/api/bks/create_plan', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({prompt, model, profile_name})
+        body: JSON.stringify({
+            topic: prompt || title,
+            title: title,
+            book_type_id: book_type_id,
+            provider: provider,
+            model_id: model_id,
+            target_page_uuid: target_page_uuid,
+            author_name: author_name,
+            category_name: category_name
+        })
     });
     const data = await res.json();
     if(data.ok) {
-        currentPlan = data.tasks;
-        renderPlan();
-        document.getElementById('status_msg').innerText = 'PLAN READY';
+        await refreshBksBootstrap();
+        applyBksJobDetail(data);
+        document.getElementById('status_msg').innerText = '4-PART PLAN READY';
+    } else {
+        alert('Plan generation failed: ' + (data.error || 'Unknown error'));
+        document.getElementById('status_msg').innerText = 'ERROR';
     }
 }
 
@@ -1101,34 +1454,213 @@ function renderPlan() {
     const cont = document.getElementById('task_container');
     cont.innerHTML = '';
     currentPlan.forEach((t, i) => {
+        const partIdx = t.index || (i + 1);
+        const statusColor = t.status === 'accepted' ? '#059669' : (t.status === 'rejected' ? '#dc2626' : 'var(--muted)');
         const div = document.createElement('div');
         div.className = 'task-card';
-        div.innerHTML = `<div class="task-title">${t.title}</div><div id="task-res-${i}" style="font-size:0.75rem; color:var(--muted);">Pending...</div>`;
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:200px;">
+                    <span style="font-family:var(--mono); font-size:0.75rem; background:#151515; padding:4px 8px; border-radius:4px; border:1px solid var(--border); flex-shrink:0;">PART ${partIdx}/4</span>
+                    <input type="text" id="bks-part-title-${i}" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700; padding:6px 10px; font-size:0.9rem; flex:1; min-width:0;">
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span id="task-res-${i}" style="font-family:var(--mono); font-size:0.72rem; color:${statusColor};">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
+                    <button type="button" class="btn btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
+                </div>
+            </div>
+            <div style="margin-bottom:8px;">
+                <label style="font-size:0.65rem;">Part ${partIdx} Brief &amp; Instructions</label>
+                <textarea id="bks-part-brief-${i}" style="min-height:60px; font-size:0.8rem;">${t.brief || t.prompt || ''}</textarea>
+            </div>
+            <details ${t.content ? 'open' : ''}>
+                <summary style="cursor:pointer; font-size:0.75rem; color:var(--muted); user-select:none;">Part ${partIdx} Generated Markdown Content (${(t.content || '').length} chars)</summary>
+                <textarea id="bks-part-body-${i}" style="min-height:140px; margin-top:8px; font-size:0.8rem;">${t.content || ''}</textarea>
+            </details>
+        `;
         cont.appendChild(div);
     });
 }
 
-async function runTaskingPlan() {
-    const model = document.getElementById('model_select').value;
-    const profile_name = document.getElementById('edit_author').value;
+function collectPartEditsFromDom() {
+    const parts = [];
     for(let i=0; i<currentPlan.length; i++) {
-        const t = currentPlan[i];
-        document.getElementById(`task-res-${i}`).innerText = 'EXECUTING...';
-        const res = await fetch('/api/tasking/execute_task', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({title: t.title, prompt: t.prompt, full_plan: currentPlan, model, profile_name})
+        const titleEl = document.getElementById(`bks-part-title-${i}`);
+        const briefEl = document.getElementById(`bks-part-brief-${i}`);
+        const bodyEl = document.getElementById(`bks-part-body-${i}`);
+        parts.push({
+            index: currentPlan[i].index || (i + 1),
+            title: titleEl ? titleEl.value : currentPlan[i].title,
+            brief: briefEl ? briefEl.value : (currentPlan[i].brief || currentPlan[i].prompt),
+            body_md: bodyEl ? bodyEl.value : (currentPlan[i].content || '')
         });
-        const data = await res.json();
-        if(data.ok) {
-            currentPlan[i].content = data.content;
-            document.getElementById(`task-res-${i}`).innerText = 'COMPLETED';
-            document.getElementById(`task-res-${i}`).style.color = '#059669';
-        }
+    }
+    return parts;
+}
+
+async function saveBksPlanEdits() {
+    if(!currentBksJobSlug) { alert('Generate or load a BKS-1 Blog Job first.'); return; }
+    const parts = collectPartEditsFromDom();
+    const res = await fetch('/api/bks/update_plan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            job_slug: currentBksJobSlug,
+            title: document.getElementById('bks_title').value,
+            topic: document.getElementById('task_prompt').value,
+            target_page_uuid: document.getElementById('bks_target_page').value,
+            provider: document.getElementById('bks_provider_select').value,
+            model_id: document.getElementById('bks_model_select').value,
+            author_name: document.getElementById('edit_author').value,
+            category_name: document.getElementById('edit_category').value,
+            parts: parts
+        })
+    });
+    const data = await res.json();
+    if(data.ok) {
+        applyBksJobDetail(data);
+        document.getElementById('status_msg').innerText = 'PLAN SAVED';
+    }
+}
+
+async function runSingleBksPart(partIndex, domIdx) {
+    if(!currentBksJobSlug) {
+        await generateTaskPlan();
+        if(!currentBksJobSlug) return;
+    } else {
+        await saveBksPlanEdits();
+    }
+    const statusEl = document.getElementById(`task-res-${domIdx}`);
+    if(statusEl) { statusEl.innerText = 'EXECUTING VIA CLI_AI 48...'; statusEl.style.color = '#f59e0b'; }
+    document.getElementById('status_msg').innerText = `WRITING PART ${partIndex}/4...`;
+
+    const res = await fetch('/api/bks/execute_part', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            job_slug: currentBksJobSlug,
+            part_index: partIndex,
+            provider: document.getElementById('bks_provider_select').value || 'gemini',
+            model_id: document.getElementById('bks_model_select').value || document.getElementById('model_select').value,
+            author_name: document.getElementById('edit_author').value
+        })
+    });
+    const data = await res.json();
+    if(data.ok && data.detail) {
+        applyBksJobDetail(data.detail);
+        await refreshBksBootstrap();
+        document.getElementById('status_msg').innerText = `PART ${partIndex} COMPLETED`;
+    } else {
+        if(statusEl) { statusEl.innerText = 'ERROR'; statusEl.style.color = '#dc2626'; }
+        alert('Part execution error: ' + (data.error || 'Unknown error'));
+    }
+}
+
+async function runNextBksPart() {
+    if(!currentBksJobSlug) {
+        await generateTaskPlan();
+        if(!currentBksJobSlug) return;
+    }
+    const nextIdx = currentPlan.findIndex(p => p.status !== 'accepted');
+    const targetIdx = nextIdx >= 0 ? nextIdx : 0;
+    await runSingleBksPart(currentPlan[targetIdx].index || (targetIdx + 1), targetIdx);
+}
+
+async function runTaskingPlan() {
+    if(!currentBksJobSlug) {
+        await generateTaskPlan();
+        if(!currentBksJobSlug) return;
+    } else {
+        await saveBksPlanEdits();
+    }
+    for(let i=0; i<currentPlan.length; i++) {
+        const partIdx = currentPlan[i].index || (i + 1);
+        await runSingleBksPart(partIdx, i);
+    }
+    await mergeBksParts();
+    document.getElementById('status_msg').innerText = 'ALL 4 PARTS EXECUTED & MERGED';
+}
+
+async function mergeBksParts() {
+    if(!currentBksJobSlug) return;
+    await saveBksPlanEdits();
+    const res = await fetch('/api/bks/merge', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({job_slug: currentBksJobSlug})
+    });
+    const data = await res.json();
+    if(data.ok) {
+        if(data.detail) applyBksJobDetail(data.detail);
+        renderMergedPreview(data.merged_md || '', data.merged_html || '');
+        document.getElementById('status_msg').innerText = '4 PARTS MERGED';
+    }
+}
+
+function renderMergedPreview(mergedMd, mergedHtml) {
+    const panel = document.getElementById('bks_merged_panel');
+    if(!mergedMd && !mergedHtml) {
+        panel.style.display = 'none';
+        return;
+    }
+    panel.style.display = 'block';
+    document.getElementById('bks_merged_md').value = mergedMd || '';
+    document.getElementById('bks_merged_html_preview').innerHTML = mergedHtml || '';
+}
+
+async function approveAndOverwriteTargetPost() {
+    if(!currentBksJobSlug) { alert('No active BKS-1 Blog Post Job to approve.'); return; }
+    await saveBksPlanEdits();
+    const target_page_uuid = document.getElementById('bks_target_page').value || document.getElementById('hidden_uuid').value;
+    const title = document.getElementById('bks_title').value || document.getElementById('edit_title').value;
+    const author_name = document.getElementById('edit_author').value;
+    const category_name = document.getElementById('edit_category').value;
+    const template_key = document.getElementById('edit_template').value;
+
+    const actionDesc = target_page_uuid
+        ? `Approve merged 4-part post and OVERWRITE target post (${target_page_uuid})?`
+        : `Approve merged 4-part post and create a new CMS post "${title}"?`;
+    if(!confirm(actionDesc)) return;
+
+    document.getElementById('status_msg').innerText = 'APPROVING & OVERWRITING TARGET POST...';
+    const res = await fetch('/api/bks/approve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            job_slug: currentBksJobSlug,
+            target_page_uuid: target_page_uuid,
+            title: title,
+            author_name: author_name,
+            category_name: category_name,
+            template_key: template_key
+        })
+    });
+    const data = await res.json();
+    if(data.ok) {
+        document.getElementById('hidden_uuid').value = data.target_page_uuid;
+        document.getElementById('bks_target_page').value = data.target_page_uuid;
+        document.getElementById('edit_title').value = data.title || title;
+        document.getElementById('html_body').value = data.merged_html || '';
+        await loadPageData(data.target_page_uuid);
+        await refreshBksBootstrap();
+        document.getElementById('status_msg').innerText = 'APPROVED & TARGET POST OVERWRITTEN';
+        alert(`Approved! Target post "${data.title}" (${data.target_page_uuid}) has been overwritten with the merged 4-part post (${data.word_count} words).`);
+        showTab('editor');
+    } else {
+        alert('Approve failed: ' + (data.error || 'Unknown error'));
     }
 }
 
 function importPlanToEditor() {
+    const mergedHtml = (currentBksDetail && currentBksDetail.merged_html) ? currentBksDetail.merged_html : '';
+    if(mergedHtml) {
+        document.getElementById('html_body').value = mergedHtml;
+        if(currentBksDetail.book && currentBksDetail.book.title && !document.getElementById('edit_title').value) {
+            document.getElementById('edit_title').value = currentBksDetail.book.title;
+        }
+        showTab('editor');
+        return;
+    }
     let combined = "";
     currentPlan.forEach(t => {
         if(t.content) combined += `<h2>${t.title}</h2>\n${t.content}\n\n`;
@@ -1183,6 +1715,7 @@ async function loadAttachmentList() {
 
 window.onload = () => {
     loadModels();
+    refreshBksBootstrap();
 };
 
 // =============================================================================
@@ -1500,20 +2033,6 @@ function setFeaturedVideo(url, label) {
     document.getElementById('edit_featured_video_url').value = url;
     document.getElementById('featured-video-current').textContent = url ? ('Selected: ' + label) : 'None selected';
 }
-// pkg144: key-registry import via the in-app server-side picker. (importKeys() was
-// referenced by the Import button but never defined before this -- the button threw
-// a ReferenceError. The picker also replaces the native file chooser that
-// backgrounded the app on Android.)
-function importKeys() {
-    var statusEl = document.getElementById('key_import_status');
-    CMSFilePicker.open({kind: 'keys', multiple: false, title: 'Choose a key registry (.bejson)'}).then(function(result) {
-        if (!result) { return; }
-        statusEl.textContent = 'Importing...';
-        CMSFilePicker.postJSON('/api/settings/import_keys_path', {path: result.paths[0]})
-            .then(function(d) { statusEl.textContent = d.msg || 'Keys imported.'; })
-            .catch(function(err) { statusEl.textContent = err.message || 'Import failed.'; });
-    });
-}
 </script>
 
 <div id="media-modal-v2" class="media-modal-overlay" onclick="if(event.target===this) closeMediaPickerV2()">
@@ -1589,7 +2108,6 @@ function importKeys() {
 </body>
 </html>
 """
-_SHELL = _SHELL.replace('</head>', PICKER_HEAD_TAGS + '\n</head>', 1)   # pkg144: server-side file picker
 
 @app.route('/')
 def main_v2():

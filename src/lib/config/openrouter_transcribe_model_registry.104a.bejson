@@ -1,0 +1,30 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "OpenRouterTranscribeModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "Gemini 2.5 Flash (audio input)",
+      "google/gemini-2.5-flash",
+      true
+    ]
+  ],
+  "Config_Version": 1
+}

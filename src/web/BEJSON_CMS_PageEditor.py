@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
 """
 SCRIPT_NAME:    BEJSON_CMS_PageEditor
-SCRIPT_VERSION: 16.4
-RELATIONAL_ID:  1e8b5d93-6f20-4a7c-b3d9-5c0a2e7f8164
-CHANGE (2026-10-11): PKG144 -- import-freeze fix: native file choosers replaced by the
-in-app server-side picker (BEJSON_CMS_FileBrowser.py). Code-file, Markdown and
-bulk-code imports now use the picker + /upload_code_path, /upload_code_paths, /upload_markdown_path.
+SCRIPT_VERSION: 16.3
+RELATIONAL_ID:  5c8e3f19-7a2b-4d64-9e08-2b4f7c1d8a35
 AUTHOR:         Elton Boehnen
 EMAIL:          boehnenelton2024@gmail.com
 GITHUB:         github.com/boehnenelton
-CHANGE (2026-09-16): PKG137 -- _write_page_record() (the single function
-handling both add and update) now resolves category/author name to their
-live UUIDs and writes page_cat_uuid/page_author_uuid alongside the
-existing name fields on every save. Verified live: create resolved the
-correct UUIDs, a follow-up edit re-resolved them correctly.
+CHANGE (2026-10-25): Centralized authentication guard via BEJSON_CMS_Shared.register_auth_guard.
 CHANGE (2026-08-06): PKG74 - added an Insert PDF toolbar button (new
 pdfModal, mirrors the existing YouTube/Code File modal pattern). Lets
 you pick an already-uploaded PDF from the Media Library, pick a saved
@@ -34,6 +27,8 @@ DESCRIPTION:    Dedicated page creation and editing tool for the BEJSON CMS.
 
 RUNS ON: http://localhost:5003
 """
+
+VERSION = 163
 
 from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify, Response
 import json
@@ -74,19 +69,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 
-from BEJSON_CMS_Shared import _check_auth, _unauthorized
-from BEJSON_CMS_FileBrowser import filebrowser_cube, PICKER_HEAD_TAGS, resolve_pick, resolve_picks, PickError
-app.register_blueprint(filebrowser_cube)   # pkg144: in-app server-side file picker (/fb/*)
+from BEJSON_CMS_Shared import register_auth_guard
 
-
-@app.before_request
-def _enforce_auth_everywhere():
-    # SECURITY FIX: this standalone editor (create/edit/delete pages) had
-    # zero authentication -- every route completely open. Matches the same
-    # before_request gate BEJSON_CMS_Admin.py enforces on its blueprints.
-    Request_Basic_Auth_Header = request.authorization
-    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
-        return _unauthorized()
+register_auth_guard(app)
 
 
 # =============================================================================
@@ -180,13 +165,7 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
 
     existing_pages = db.get_records("PageRecord")
     existing_page = next((p for p in existing_pages if p.get('page_uuid') == page_uuid), None)
-
-    # NEW (pkg137): resolve category/author name to their live UUIDs,
-    # kept in sync alongside page_cat_name/page_author_name on every
-    # write, same as every other PageRecord write site this pass.
-    cat_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == category), None)
-    author_uuid = next((a.get("author_uuid") for a in db.get_records("AuthorProfile") if a.get("author_display_name") == author), None) if author else None
-
+    
     if is_new:
         db.add_record("PageRecord", {
             "page_uuid":    page_uuid,
@@ -199,9 +178,6 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_author_name":   author,
             "page_featured_img": featured_img,
             "page_template_key": template_key,
-            "page_cat_uuid": cat_uuid,
-            "page_author_uuid": author_uuid,
-            "page_is_standalone_flag": False,
         })
     else:
         updates = {
@@ -210,8 +186,6 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_cat_name": category,
             "page_author_name":   author,
             "page_template_key": template_key,
-            "page_cat_uuid": cat_uuid,
-            "page_author_uuid": author_uuid,
         }
         if featured_img is not None:
             updates["page_featured_img"] = featured_img
@@ -802,7 +776,7 @@ td:last-child{white-space:nowrap;}
     <a href="{{ admin_url }}" target="_blank">&#8599; Open CMS</a>
     <a href="{{ publisher_url }}" target="_blank">&#9654; Open Publisher</a>
   </nav>
-  <div class="sb-foot">port {{ pageeditor_port }} &mdash; same Data/ dir as CMS</div>
+  <div class="sb-foot">port 5003 &mdash; same Data/ dir as CMS</div>
 </div>
 <div class="topbar">
   <button class="hamburger" onclick="toggleSb()">&#9776;</button>
@@ -825,7 +799,6 @@ function closeSb(){document.getElementById('sidebar').classList.remove('open');d
 </script>
 </body>
 </html>"""
-_SHELL = _SHELL.replace('</head>', PICKER_HEAD_TAGS + '\n</head>', 1)   # pkg144: server-side file picker
 
 
 def _page(title, active, body, extra_buttons=""):
@@ -835,8 +808,7 @@ def _page(title, active, body, extra_buttons=""):
         extra_buttons=extra_buttons,
         editorv2_url=f"http://localhost:{PAGEEDITORV2_PORT}/",
         admin_url=f"http://localhost:{ADMIN_PORT}/",
-        publisher_url=f"http://localhost:{PUBLISHER_PORT}/publish",
-        pageeditor_port=PAGEEDITOR_PORT
+        publisher_url=f"http://localhost:{PUBLISHER_PORT}/publish"
     )
 
 
@@ -856,8 +828,7 @@ def _multi_code_editor_html():
 
   <div class="fg">
     <label>Bulk Upload Files</label>
-    <button type="button" class="btn btn-grey btn-sm" onclick="handleBulkUpload()">&#128193; Browse &amp; add files&hellip;</button>
-    <div id="code-bulk-status" style="font-size:.78rem;color:var(--muted);margin-top:4px;"></div>
+    <input type="file" id="code-bulk-upload" multiple class="btn btn-grey btn-sm" style="width:auto;padding:5px;" onchange="handleBulkUpload(event)">
   </div>
 
   <div id="code-file-rows">
@@ -897,17 +868,16 @@ function removeCodeFileRow(n){
   if(el) el.remove();
 }
 
-function handleBulkUpload(){
-  // pkg144: server-side picker + server-side read (no FileReader / native chooser)
-  var status = document.getElementById('code-bulk-status');
-  CMSFilePicker.open({kind:'code', multiple:true, title:'Choose code files to add'}).then(function(result){
-    if(!result){ return; }
-    status.textContent = 'Loading ' + result.paths.length + ' file(s)...';
-    CMSFilePicker.postJSON('/upload_code_paths', {paths: result.paths}).then(function(d){
-      (d.files || []).forEach(function(f){ addCodeFileRow(f.filename, f.content); });
-      status.textContent = (d.files || []).length + ' file(s) added.' + ((d.errors || []).length ? ' Skipped: ' + d.errors.join('; ') : '');
-    }).catch(function(err){ status.textContent = err.message; });
-  });
+function handleBulkUpload(event){
+  const files = event.target.files;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      addCodeFileRow(file.name, e.target.result);
+    };
+    reader.readAsText(file);
+  }
 }
 
 // Start with one empty row
@@ -1126,8 +1096,11 @@ def _code_editor_html(existing_source="", existing_md=""):
       class="editor-area" style="min-height:380px;" spellcheck="false"
       placeholder="Paste or type your source code here...">{existing_source}</textarea>
     <div style="margin-top:8px;">
-      <label>Or load a code file from this device:</label><br>
-      <button type="button" class="btn btn-grey btn-sm" style="margin-top:6px;" onclick="loadCodeFileInline()">&#128193; Browse &amp; load file&hellip;</button>
+      <label>Or upload a code file:</label>
+      <input type="file" id="codeFileInputInline"
+             accept=".py,.js,.ts,.html,.htm,.css,.json,.xml,.sh,.bash,.txt,.md,.csv,.sql,.yaml,.yml,.ini,.cfg,.toml,.c,.cpp,.java,.rb,.go,.rs"
+             style="background:#111;border:1px solid var(--border);border-radius:6px;padding:8px;color:#ccc;width:100%;margin-top:6px;">
+      <button type="button" class="btn btn-grey btn-sm" style="margin-top:6px;" onclick="loadCodeFileInline()">Load File into Editor</button>
       <div id="code-load-status" style="font-size:.78rem;color:var(--muted);margin-top:4px;"></div>
     </div>
   </div>
@@ -1138,8 +1111,10 @@ def _code_editor_html(existing_source="", existing_md=""):
       class="editor-area" style="min-height:380px;" spellcheck="false"
       placeholder="Paste Markdown content here, or attach a .md file below...">{existing_md}</textarea>
     <div style="margin-top:8px;">
-      <label>Or load a Markdown file from this device:</label><br>
-      <button type="button" class="btn btn-grey btn-sm" style="margin-top:6px;" onclick="loadMdFile()">&#128193; Browse &amp; load file&hellip;</button>
+      <label>Or upload a Markdown file:</label>
+      <input type="file" id="mdFileInput" accept=".md,.txt,.markdown"
+             style="background:#111;border:1px solid var(--border);border-radius:6px;padding:8px;color:#ccc;width:100%;margin-top:6px;">
+      <button type="button" class="btn btn-grey btn-sm" style="margin-top:6px;" onclick="loadMdFile()">Load File into Editor</button>
       <div id="md-load-status" style="font-size:.78rem;color:var(--muted);margin-top:4px;"></div>
     </div>
   </div>
@@ -1163,40 +1138,42 @@ function switchCodeTab(which){{
   }}
 }}
 function loadCodeFileInline(){{
-  // pkg144: server-side picker (no native file chooser -> app is never backgrounded)
+  var input = document.getElementById('codeFileInputInline');
   var status = document.getElementById('code-load-status');
-  CMSFilePicker.open({{kind:'code', multiple:false, title:'Choose a code file'}}).then(function(result){{
-    if(!result){{ return; }}
-    status.textContent='Loading ' + result.files[0].name + '...';
-    status.style.color='var(--muted)';
-    CMSFilePicker.postJSON('/upload_code_path', {{path: result.paths[0]}}).then(function(d){{
-      // Strip the bej-code-block wrapper for the raw editor
-      var raw = d.snippet.replace(/<div class="bej-code-block">[\\s\\S]*?<pre><code>\\n?/,'').replace(/\\n?<\\/code><\\/pre>\\n<\\/div>\\n?/,'');
-      document.getElementById('source_code_raw').value = raw;
-      status.textContent='\u2713 ' + d.filename + ' loaded.';
-      status.style.color='#4ade80';
-    }}).catch(function(err){{
-      status.textContent='\u2717 ' + err.message;
-      status.style.color='#f87171';
+  if(!input.files.length){{ status.textContent='Select a file first.'; return; }}
+  var file = input.files[0];
+  var fd = new FormData(); fd.append('code_file', file);
+  fetch('/upload_code',{{method:'POST',body:fd}})
+    .then(r=>r.json()).then(d=>{{
+      if(d.ok){{
+        // Strip the bej-code-block wrapper for the raw editor
+        var raw = d.snippet.replace(/<div class="bej-code-block">[\\s\\S]*?<pre><code>\\n?/,'').replace(/\\n?<\\/code><\\/pre>\\n<\\/div>\\n?/,'');
+        document.getElementById('source_code_raw').value = raw;
+        status.textContent='✓ ' + d.filename + ' loaded.';
+        status.style.color='#4ade80';
+      }} else {{
+        status.textContent='✗ ' + d.error;
+        status.style.color='#f87171';
+      }}
     }});
-  }});
 }}
 function loadMdFile(){{
+  var input = document.getElementById('mdFileInput');
   var status = document.getElementById('md-load-status');
-  CMSFilePicker.open({{kind:'markdown', multiple:false, title:'Choose a Markdown file'}}).then(function(result){{
-    if(!result){{ return; }}
-    status.textContent='Loading ' + result.files[0].name + '...';
-    status.style.color='var(--muted)';
-    CMSFilePicker.postJSON('/upload_markdown_path', {{path: result.paths[0]}}).then(function(d){{
-      document.getElementById('markdown_raw').value = d.content;
-      status.textContent='\u2713 ' + d.filename + ' loaded.';
-      status.style.color='#4ade80';
-    }}).catch(function(err){{
-      status.textContent='\u2717 ' + err.message;
-      status.style.color='#f87171';
+  if(!input.files.length){{ status.textContent='Select a file first.'; return; }}
+  var file = input.files[0];
+  var fd = new FormData(); fd.append('md_file', file);
+  fetch('/upload_markdown',{{method:'POST',body:fd}})
+    .then(r=>r.json()).then(d=>{{
+      if(d.ok){{
+        document.getElementById('markdown_raw').value = d.content;
+        status.textContent='✓ ' + d.filename + ' loaded.';
+        status.style.color='#4ade80';
+      }} else {{
+        status.textContent='✗ ' + d.error;
+        status.style.color='#f87171';
+      }}
     }});
-  }});
-}}
 }}
 </script>"""
 
@@ -1731,60 +1708,6 @@ def r_upload_markdown():
 
 
 # =============================================================================
-# ROUTES — SERVER-SIDE PICKED FILES (pkg144)
-# The in-app picker (BEJSON_CMS_FileBrowser.py) returns SERVER paths, so these
-# read the file directly: no multipart upload, no native file chooser (which is
-# what backgrounded the app on Android and got it killed).
-# =============================================================================
-
-def _read_picked_text(raw_path, kind):
-    source_path = resolve_pick(raw_path, kind)
-    with open(source_path, 'rb') as handle:
-        return source_path.name, handle.read().decode('utf-8', errors='replace')
-
-
-def _code_snippet(escaped_source):
-    return (f'\n<div class="bej-code-block">\n'
-            f'<pre><code>\n{escaped_source}\n</code></pre>\n'
-            f'</div>\n')
-
-
-@app.route('/upload_code_path', methods=['POST'])
-def r_upload_code_path():
-    try:
-        file_name, raw = _read_picked_text((request.get_json(silent=True) or {}).get('path'), 'code')
-    except (PickError, OSError) as error:
-        return jsonify({'ok': False, 'error': str(error)}), 400
-    return jsonify({'ok': True, 'snippet': _code_snippet(_html_mod.escape(raw)), 'filename': file_name})
-
-
-@app.route('/upload_code_paths', methods=['POST'])
-def r_upload_code_paths():
-    try:
-        valid_paths, rejected = resolve_picks((request.get_json(silent=True) or {}).get('paths'), 'code')
-    except PickError as error:
-        return jsonify({'ok': False, 'error': str(error)}), 400
-    loaded_files, errors = [], [item['error'] for item in rejected]
-    for source_path in valid_paths:
-        try:
-            with open(source_path, 'rb') as handle:
-                loaded_files.append({'filename': source_path.name, 'content': handle.read().decode('utf-8', errors='replace')})
-        except OSError as error:
-            errors.append(f'{source_path.name}: {error.strerror or error}')
-    return jsonify({'ok': bool(loaded_files), 'files': loaded_files, 'errors': errors,
-                    'error': '; '.join(errors[:3]) if not loaded_files else ''})
-
-
-@app.route('/upload_markdown_path', methods=['POST'])
-def r_upload_markdown_path():
-    try:
-        file_name, raw = _read_picked_text((request.get_json(silent=True) or {}).get('path'), 'markdown')
-    except (PickError, OSError) as error:
-        return jsonify({'ok': False, 'error': str(error)}), 400
-    return jsonify({'ok': True, 'content': raw, 'filename': file_name})
-
-
-# =============================================================================
 # ROUTE — LIST ASSETS (AJAX)
 # Returns list of image files in the assets directory
 # =============================================================================
@@ -2172,7 +2095,9 @@ def _editor_html(field_name, current_value, include_modals=True):
     </p>
     <div class="fg">
       <label>Select File</label>
-      <button type="button" class="btn btn-grey" onclick="browseCodeFile()" style="width:100%;">&#128193; Browse device&hellip;</button>
+      <input type="file" id="codeFileInput"
+             accept=".py,.js,.ts,.html,.htm,.css,.json,.xml,.sh,.bash,.txt,.md,.csv,.sql,.yaml,.yml,.ini,.cfg,.toml,.c,.cpp,.java,.rb,.go,.rs"
+             style="background:#111;border:1px solid var(--border);border-radius:6px;padding:10px;color:#ccc;width:100%;">
     </div>
     <div id="codeFileStatus" style="font-size:.8rem;color:var(--muted);margin-bottom:12px;"></div>
     <div class="btn-row">
@@ -2363,38 +2288,39 @@ function insertYouTube(){
 }
 
 // ── Code file insertion ──
-var _codePickedPath = null;
-function browseCodeFile(){
-  var status = document.getElementById('codeFileStatus');
-  CMSFilePicker.open({kind:'code', multiple:false, title:'Choose a code file'}).then(function(result){
-    if(!result){ return; }
-    _codePickedPath = result.paths[0];
-    status.textContent = 'Selected: ' + result.files[0].name;
-    status.style.color = 'var(--muted)';
-  });
-}
 function insertCodeFile(){
-  // pkg144: server-side picker + server-side read (no native file chooser)
+  const input = document.getElementById('codeFileInput');
   const status = document.getElementById('codeFileStatus');
-  if(!_codePickedPath){
-    status.textContent = 'Please browse and select a file first.';
+  if(!input.files.length){
+    status.textContent = 'Please select a file first.';
     status.style.color = '#f87171';
     return;
   }
-  status.textContent = 'Reading file...';
+  const file = input.files[0];
+  status.textContent = 'Uploading ' + file.name + '…';
   status.style.color = 'var(--muted)';
-  CMSFilePicker.postJSON('/upload_code_path', {path: _codePickedPath})
+
+  const fd = new FormData();
+  fd.append('code_file', file);
+
+  fetch('/upload_code', {method:'POST', body: fd})
+    .then(r => r.json())
     .then(data => {
-      const ta = getTA(), pos = ta.selectionStart;
-      ta.setRangeText(data.snippet, pos, pos, 'end');
-      ta.focus();
-      status.textContent = '\u2713 ' + data.filename + ' inserted.';
-      status.style.color = '#4ade80';
-      setTimeout(() => closeModal('codeModal'), 800);
-      _codePickedPath = null;
+      if(data.ok){
+        const ta = getTA(), pos = ta.selectionStart;
+        ta.setRangeText(data.snippet, pos, pos, 'end');
+        ta.focus();
+        status.textContent = '✓ ' + data.filename + ' inserted.';
+        status.style.color = '#4ade80';
+        setTimeout(() => closeModal('codeModal'), 800);
+        input.value = '';
+      } else {
+        status.textContent = '✗ ' + data.error;
+        status.style.color = '#f87171';
+      }
     })
     .catch(err => {
-      status.textContent = '\u2717 ' + err.message;
+      status.textContent = '✗ Upload failed: ' + err;
       status.style.color = '#f87171';
     });
 }

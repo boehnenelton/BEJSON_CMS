@@ -1,38 +1,10 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_Publisher
-SCRIPT_VERSION: 16.6
-RELATIONAL_ID:  731af172-63d8-4341-8a97-4a0cf82d48a0
+SCRIPT_VERSION: 16.5
+RELATIONAL_ID:  9e4c7b18-2f5a-4d39-8c16-7a2e5f9b4d31
 AUTHOR:         Elton Boehnen
-CHANGE (2026-09-18): PKG138 -- deferred-item sweep (audit L-6). Two imports
-(lib_bejson_Core_bejson_core as Core, BEJSON_CMS_Renderers.render_page)
-were inside the per-page publish loop, re-executed on every single
-iteration -- Python's import cache makes this functionally harmless but
-wasteful and stylistically inconsistent with the rest of this file.
-Checked both for circular-import risk before moving (neither module
-imports anything from this project), moved both to module level. Verified
-with a real end-to-end build, not just a compile check: created a real
-page, ran _execute() directly, confirmed the build completed and the
-page's actual rendered content appeared correctly in the output HTML,
-then cleaned up the test page and build output.
-CHANGE (2026-09-12): PKG133 -- external audit remediation (M-1, M-2, M-3).
-M-1: _generate_related_block()'s s['page_slug'] and _generate_card_html()'s
-item['page_title'] were direct dict indices (every other field access in
-both already used .get()) -- a None/missing slug or title on a corrupted
-row would KeyError and abort the entire publish; switched both to .get()
-with safe fallbacks. M-2: the app-feed-item mapping in _execute() now
-explicitly sets "page_cat_name": None (was omitted) so a future related-
-content bug where a None-category real page accidentally matches an app
-can't slip in unnoticed -- the intent is visible now, not an accidental
-side effect of a missing key. M-3: _LIGHT_ROOT/_DARK_ROOT/_CSS_SHARED (a
-hand-assembled fallback that had drifted from what's actually shipped:
-missing the html{font-size:87%} scale, the .article-body h2 accent
-border, link/bold red coloring, and the card/grid/lightbox/mobile-menu
-rules) replaced with _LIGHT_DEFAULT/_DARK_DEFAULT, byte-for-byte copies of
-resources/styles/light.css and dark.css as of pkg132 (verified via direct
-diff). _write_default_stylesheets() only writes on first launch or if a
-shipped file is later deleted, so this drift was invisible until that
-fallback path actually triggered -- keep these in sync if the shipped
-CSS files are ever edited directly.
+CHANGE (2026-10-25): Centralized authentication guard via BEJSON_CMS_Shared.register_auth_guard,
+converted CF_KEYS BEJSON lookup to field_map cache, and removed dead _safe_slug() function.
 CHANGE (2026-08-05): Variable naming remediation pass (Part 2/Part 3 items
 13,14,27,31,34,35,36,37,43,44,45) - renamed generic single/short-letter
 locals (out, css, env, apps, cats, body, link, text, path, unit, line, cmd)
@@ -86,8 +58,9 @@ REQUIRES (same directory or on sys.path):
 RUNS ON: http://localhost:5001
 """
 
+VERSION = 165
+
 import os
-import html as _html_escape
 import re
 import json
 import random
@@ -96,21 +69,9 @@ import threading
 import http.server
 import socketserver
 import subprocess
+import sys
 from datetime import datetime
 from flask import Flask, request, redirect, url_for, jsonify, render_template_string
-
-# ==============================================================================
-# CLOUDFLARE CONFIG
-# ==============================================================================
-CF_KEYS = {"ACCOUNT_ID": "", "API_TOKEN": ""}
-CF_KEYS_PATH = os.path.expanduser("~/.env/cloudflare_keys.bejson")
-if os.path.exists(CF_KEYS_PATH):
-    try:
-        with open(CF_KEYS_PATH, "r") as f:
-            cf_data = json.load(f)
-            CF_KEYS = {row[0]: row[1] for row in cf_data["Values"]}
-    except Exception:
-        pass
 
 # ==============================================================================
 # PATHS  (identical to the originals)
@@ -142,14 +103,28 @@ for d in [MFDB_DIR, PAGES_DB_DIR, APPS_STORAGE, ASSETS_SRC, EXPORTS_DIR, DEFAULT
 
 # Import BEJSON Libraries
 # Import New MFDB Orchestrator
-import sys
-# (Duplicate PROJECT_ROOT removed by patch_cms.py)
 LIB_DIR = os.path.join(PROJECT_ROOT, "src", "lib")
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
-import lib_bejson_Core_bejson_core as Core  # moved to module level (pkg138, audit L-6) -- was previously imported inside the per-page publish loop on every single iteration; no circular-import risk (verified: this is a leaf Core library, already imported at module level elsewhere in this codebase without issue)
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map
+
+# ==============================================================================
+# CLOUDFLARE CONFIG
+# ==============================================================================
+CF_KEYS = {"ACCOUNT_ID": "", "API_TOKEN": ""}
+CF_KEYS_PATH = os.path.expanduser("~/.env/cloudflare_keys.bejson")
+if os.path.exists(CF_KEYS_PATH):
+    try:
+        with open(CF_KEYS_PATH, "r") as f:
+            cf_data = json.load(f)
+            cf_field_map_cache = bejson_core_get_field_map(cf_data) if cf_data.get("Fields") else {}
+            cf_key_col_idx = cf_field_map_cache.get("key", cf_field_map_cache.get("name", 0))
+            cf_val_col_idx = cf_field_map_cache.get("value", 1)
+            CF_KEYS = {row[cf_key_col_idx]: row[cf_val_col_idx] for row in cf_data.get("Values", [])}
+    except Exception:
+        pass
 
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER_PORT")
@@ -161,27 +136,12 @@ PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER
 app = Flask(__name__)
 db = CMSCore.CMSCore(MANIFEST_PATH)
 
-from BEJSON_CMS_Shared import _check_auth, _unauthorized
-from BEJSON_CMS_Renderers import render_page  # moved to module level (pkg138, audit L-6) -- was previously imported inside the per-page publish loop on every single iteration; no circular-import risk (verified: BEJSON_CMS_Renderers.py imports nothing from this project)
+from BEJSON_CMS_Shared import register_auth_guard
 
+register_auth_guard(app)
 
-@app.before_request
-def _enforce_auth_everywhere():
-    # SECURITY FIX: this standalone app (factory reset, live publish/build,
-    # preview server control) had zero authentication -- every route
-    # completely open, including /reset/confirm which wipes the live
-    # database. Matches the same before_request gate BEJSON_CMS_Admin.py
-    # already enforces on its four blueprints.
-    Request_Basic_Auth_Header = request.authorization
-    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
-        return _unauthorized()
-
-
-def _safe_slug(value, fallback="unknown"):
-    """Guard against None values becoming the literal string 'None' in path components."""
-    if value is None or str(value).lower() == "none" or str(value).strip() == "":
-        return fallback
-    return str(value).strip()
+# [DEAD CODE REMOVED 2026-10-25]: _safe_slug() was unreferenced across the entire
+# codebase (documented in dev/dead_code.md and .bejson_project.json).
 
 if os.path.exists(MANIFEST_PATH): db.mount()
 app.secret_key = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var
@@ -265,7 +225,6 @@ class SkeletonBuilder:
                             </ul>
                         </li>
                         <li><a href="{{rel_prefix}}apps/index.html">Applications</a></li>
-                        {{standalone_nav_links}}
                         {{custom_nav_links}}
                     </ul>
                 </nav>
@@ -290,7 +249,6 @@ class SkeletonBuilder:
                 </div>
             </div>
 
-            {{sidebar_standalone_pages}}
             <div class="sidebar-collapsible" id="collapse-social">
                 <button class="collapse-trigger" onclick="toggleCollapse('collapse-social')">
                     Connect <span class="chevron">▼</span>
@@ -457,236 +415,69 @@ class SkeletonBuilder:
 # Users copy and customise these to build their own themes.
 # ==============================================================================
 
-# NOTE (pkg133, audit M-3): these are now byte-for-byte copies of
-# resources/styles/light.css and resources/styles/dark.css as of pkg132,
-# embedded so that if those shipped files are ever deleted, the regenerated
-# fallback matches what actually ships instead of an older, visually
-# degraded stand-in. Keep in sync with resources/styles/*.css if those are
-# edited directly -- _write_default_stylesheets() only writes when the file
-# is missing, so drift here is invisible until a fallback is triggered.
-_LIGHT_DEFAULT = """\
-/*
-Name:           light.css
-Description:    Light theme stylesheet for exported BEJSON CMS static site.
-Version:        1.2
-Date:           2026-07-05
-Author:         Elton Boehnen
-RELATIONAL_ID:  5ec3974e-67bc-4ea2-8601-2e7d206d133c
-*/
-
-html { font-size: 87%; }
-
+_LIGHT_ROOT = """\
 :root {
-    /* CSS Policy Standard Variables */
-    --primary-color: #DE2626;
-    --background-color: #FFFFFF;
-    --text-color: #111111;
-    --border-color: #E0E0E0;
-    --border-radius: 4px;
-    --font-family-base: 'Inter', sans-serif;
-    --font-family-mono: 'Source Code Pro', monospace;
-
-    /* Legacy Aliases */
-    --accent-color: var(--primary-color);
-    --bg-body: var(--background-color);
-    --text-main: var(--text-color);
-    --radius: var(--border-radius);
-    --font-main: var(--font-family-base);
-
-    /* Project Specific */
-    --bg-nav: rgba(255, 255, 255, 0.95);
-    --bg-card: #F8F8F8;
-    --bg-footer: #F0F0F0;
-    --text-muted: #666666;
-    --card-border: #E5E5E5;
-    --shadow-hover: 0 20px 40px rgba(0,0,0,0.12);
-    --container-width: 1200px;
-    --code-bg: #F3F3F3;
-    --code-text: #222222;
-    --img-placeholder: #EEEEEE;
-    --social-bg: #F0F0F0;
+    --bg-body: #FFFFFF;
+    --bg-nav: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --bg-footer: #F8F9FA;
+    --text-main: #121212;
+    --text-muted: #555555;
+    --accent-color: #DE2626;
+    --border-color: #E5E5E5;
+    --card-border: #EEEEEE;
+    --shadow-hover: 0 10px 30px rgba(0,0,0,0.08);
+    --font-main: 'Inter', sans-serif;
+    --container-width: 1100px;
+    --radius: 0px;
+    --code-bg: #F4F4F4;
+    --code-text: #111111;
+    --img-placeholder: #f0f0f0;
+    --social-bg: #FFFFFF;
     --social-border: #DDDDDD;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: var(--font-main); background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-a { color: inherit; text-decoration: none; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-a:hover { color: var(--accent-color); }
-ul { list-style: none; }
-
-/* GLOBAL CONTAINMENT FIX */
-img { max-width: 100% !important; height: auto !important; display: block; border-radius: var(--radius); }
-pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
-
-.container { width: 100%; max-width: var(--container-width); margin: 0 auto; padding: 0 30px; }
-
-@media (max-width: 600px) {
-    .container { padding: 0 14px; }
-}
-
-.site-header { background: var(--bg-nav); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--text-main); height: 80px; display: flex; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
-.nav-wrap { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.logo { font-weight: 900; font-size: 1.6rem; color: var(--text-main); letter-spacing: -1.5px; text-transform: uppercase; }
-.logo span { color: var(--accent-color); }
-
-.nav-menu { display: flex; gap: 20px; align-items: center; }
-.nav-menu a { color: var(--text-main); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
-.nav-menu a:hover { opacity: 1; color: var(--accent-color); }
-
-.mobile-menu-toggle { display: none; background: none; border: none; color: var(--text-main); font-size: 2rem; cursor: pointer; line-height: 1; }
-
-.nav-dropdown { position: relative; }
-.nav-dropdown .chevron { font-size: 0.6rem; margin-left: 5px; opacity: 0.5; vertical-align: middle; }
-.dropdown-content { position: absolute; top: 100%; left: 0; background: var(--bg-card); border: 1px solid var(--border-color); min-width: 220px; box-shadow: var(--shadow-hover); opacity: 0; visibility: hidden; transform: translateY(10px); transition: all 0.3s ease; z-index: 1000; padding: 15px 0; border-radius: var(--radius); }
-.nav-dropdown:hover .dropdown-content { opacity: 1; visibility: visible; transform: translateY(0); }
-.dropdown-content li a { display: block; padding: 10px 25px; font-size: 0.8rem; text-transform: none; opacity: 0.8; letter-spacing: 0.5px; }
-.dropdown-content li a:hover { background: rgba(222, 38, 38, 0.08); opacity: 1; color: var(--accent-color); padding-left: 30px; }
-
-.main-layout { display: flex; gap: 60px; margin-top: 40px; margin-bottom: 80px; width: 100%; }
-.main-content { flex: 1; min-width: 0; text-align: left; overflow-x: hidden; }
-.sidebar { width: 320px; flex-shrink: 0; text-align: left; }
-
-/* Collapsible Sidebar Styles */
-.sidebar-collapsible { margin-bottom: 30px; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-card); overflow: hidden; }
-.collapse-trigger { width: 100%; padding: 15px 20px; background: none; border: none; color: var(--accent-color); font-weight: 900; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.3s; }
-.collapse-trigger:hover { background: rgba(222, 38, 38, 0.05); }
-.collapse-trigger .chevron { transition: transform 0.3s ease; font-size: 0.6rem; }
-.sidebar-collapsible.active .collapse-trigger .chevron { transform: rotate(180deg); }
-.collapse-content { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0, 1, 0, 1); background: var(--bg-body); }
-.sidebar-collapsible.active .collapse-content { max-height: 1000px; transition: max-height 0.4s cubic-bezier(1, 0, 1, 0); }
-.category-list { padding: 10px 0; }
-.category-list li a { display: block; padding: 12px 20px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); opacity: 0.8; }
-.category-list li:last-child a { border-bottom: none; }
-.category-list a:hover { opacity: 1; color: var(--accent-color); background: rgba(222,38,38,0.04); padding-left: 25px; }
-
-.article-header { margin-bottom: 50px; }
-.article-title { font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1; margin-bottom: 20px; color: var(--text-main); font-weight: 900; letter-spacing: -2px; }
-.article-meta { color: var(--accent-color); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; display: block; }
-.article-body { font-size: 1.2rem; line-height: 1.8; color: #222222; width: 100%; overflow-wrap: break-word; }
-.article-body h2 { margin-top: 60px; margin-bottom: 25px; font-size: 2.2rem; font-weight: 900; color: #111111; letter-spacing: -1px; border-left: 5px solid var(--primary-color); padding-left: 20px; line-height: 1.15; }
-.article-body h3, .article-body h4 { line-height: 1.15; font-weight: 900; }
-.article-body a { color: var(--primary-color); text-decoration: underline; }
-.article-body strong, .article-body b { color: var(--primary-color); }
-.article-body p { margin-bottom: 30px; }
-.article-body pre { background: var(--code-bg); padding: 25px; border-radius: 4px; border: 1px solid var(--border-color); margin-bottom: 35px; font-family: var(--font-family-mono); font-size: 0.95rem; overflow-x: auto; color: var(--code-text); }
-
-.site-footer { background: var(--bg-footer); color: var(--text-muted); padding: 80px 0; border-top: 1px solid var(--border-color); margin-top: auto; }
-.footer-content { display: flex; justify-content: space-between; align-items: center; }
-
-/* Card styles */
-.card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; transition: all 0.3s ease; }
-.card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
-.card-img-container { aspect-ratio: 16/9; overflow: hidden; }
-.card-img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
-.card-content { padding: 20px; }
-.card-type { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); display: block; margin-bottom: 8px; }
-.card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 12px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
-
-/* Article featured image */
-.article-featured-image { width: 100%; max-height: 500px; object-fit: cover; border-radius: var(--radius); margin-bottom: 40px; border-radius: 0; }
-
-/* Lightbox */
-.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; justify-content: center; align-items: center; }
-.lightbox-close { position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: #fff; cursor: pointer; line-height: 1; opacity: 0.8; transition: opacity 0.2s; }
-.lightbox-close:hover { opacity: 1; }
-.lightbox-content { max-width: 90vw; max-height: 90vh; border-radius: var(--radius); object-fit: contain; }
-
-@media (max-width: 1024px) {
-    .main-layout { flex-direction: column; gap: 40px; }
-    .sidebar { width: 100%; order: 2; }
-    .mobile-menu-toggle { display: block; }
-    .nav-menu { 
-        display: none; 
-        flex-direction: column; 
-        position: absolute; 
-        top: 80px; 
-        left: 0; 
-        right: 0; 
-        background: var(--bg-card); 
-        padding: 30px; 
-        gap: 20px;
-        align-items: flex-start;
-        border-bottom: 1px solid var(--border-color);
-        box-shadow: var(--shadow-hover);
-        z-index: 1001;
-    }
-    .nav-menu.active { display: flex; }
-    .nav-dropdown .dropdown-content { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; display: none; padding-left: 20px; }
-    .nav-dropdown:hover .dropdown-content { display: block; }
 }
 """
 
-_DARK_DEFAULT = """\
-/*
-Name:           dark.css
-Description:    Dark theme stylesheet for exported BEJSON CMS static site.
-Version:        1.2
-Date:           2026-07-05
-Author:         Elton Boehnen
-RELATIONAL_ID:  b51a230b-6c03-47b0-b33c-a8eb73d2aab6
-*/
-
-html { font-size: 87%; }
-
+_DARK_ROOT = """\
 :root {
-    /* CSS Policy Standard Variables */
-    --primary-color: #DE2626;
-    --background-color: #050505;
-    --text-color: #FFFFFF;
-    --border-color: #1A1A1A;
-    --border-radius: 4px;
-    --font-family-base: 'Inter', sans-serif;
-    --font-family-mono: 'Source Code Pro', monospace;
-
-    /* Legacy Aliases */
-    --accent-color: var(--primary-color);
-    --bg-body: var(--background-color);
-    --text-main: var(--text-color);
-    --radius: var(--border-radius);
-    --font-main: var(--font-family-base);
-
-    /* Project Specific */
-    --bg-nav: rgba(10, 10, 10, 0.95);
+    --bg-body: #050505;
+    --bg-nav: rgba(10, 10, 10, 0.8);
     --bg-card: #0F0F0F;
     --bg-footer: #080808;
+    --text-main: #FFFFFF;
     --text-muted: #888888;
+    --accent-color: #DE2626;
+    --border-color: #1A1A1A;
     --card-border: #151515;
     --shadow-hover: 0 20px 40px rgba(0,0,0,0.6);
+    --font-main: 'Inter', sans-serif;
     --container-width: 1200px;
+    --radius: 4px;
     --code-bg: #0A0A0A;
     --code-text: #E0E0E0;
     --img-placeholder: #111111;
     --social-bg: #121212;
     --social-border: #222222;
 }
+"""
 
+_CSS_SHARED = """\
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: var(--font-main); background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-main); background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; font-size: 16px; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration: none; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 a:hover { color: var(--accent-color); }
 ul { list-style: none; }
-
-/* GLOBAL CONTAINMENT FIX */
-img { max-width: 100% !important; height: auto !important; display: block; border-radius: var(--radius); }
-pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
+img { max-width: 100%; height: auto; display: block; }
 
 .container { width: 100%; max-width: var(--container-width); margin: 0 auto; padding: 0 30px; }
-
-@media (max-width: 600px) {
-    .container { padding: 0 14px; }
-}
 
 .site-header { background: var(--bg-nav); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--text-main); height: 80px; display: flex; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border-color); }
 .nav-wrap { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .logo { font-weight: 900; font-size: 1.6rem; color: var(--text-main); letter-spacing: -1.5px; text-transform: uppercase; }
 .logo span { color: var(--accent-color); }
-
-.nav-menu { display: flex; gap: 20px; align-items: center; }
-.nav-menu a { color: var(--text-main); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+.nav-menu { display: flex; gap: 40px; align-items: center; }
+.nav-menu a { color: var(--text-main); font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; }
 .nav-menu a:hover { opacity: 1; color: var(--accent-color); }
-
-.mobile-menu-toggle { display: none; background: none; border: none; color: var(--text-main); font-size: 2rem; cursor: pointer; line-height: 1; }
 
 .nav-dropdown { position: relative; }
 .nav-dropdown .chevron { font-size: 0.6rem; margin-left: 5px; opacity: 0.5; vertical-align: middle; }
@@ -695,8 +486,8 @@ pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
 .dropdown-content li a { display: block; padding: 10px 25px; font-size: 0.8rem; text-transform: none; opacity: 0.8; letter-spacing: 0.5px; }
 .dropdown-content li a:hover { background: rgba(222, 38, 38, 0.1); opacity: 1; color: var(--accent-color); padding-left: 30px; }
 
-.main-layout { display: flex; gap: 60px; margin-top: 40px; margin-bottom: 80px; width: 100%; }
-.main-content { flex: 1; min-width: 0; text-align: left; overflow-x: hidden; }
+.main-layout { display: flex; gap: 60px; margin-top: 40px; }
+.main-content { flex: 1; min-width: 0; text-align: left; }
 .sidebar { width: 320px; flex-shrink: 0; text-align: left; }
 
 /* Collapsible Sidebar Styles */
@@ -712,63 +503,77 @@ pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
 .category-list li:last-child a { border-bottom: none; }
 .category-list a:hover { opacity: 1; color: var(--accent-color); background: rgba(255,255,255,0.02); padding-left: 25px; }
 
+.card { background: var(--bg-card); border: 1px solid var(--card-border); border-radius: var(--radius); display: flex; flex-direction: column; transition: all 0.3s ease; height: 100%; overflow: hidden; text-align: left; }
+.card:hover { transform: translateY(-8px); border-color: var(--accent-color); box-shadow: var(--shadow-hover); }
+.card-img-container { width: 100%; height: 220px; background: var(--img-placeholder); overflow: hidden; position: relative; border-bottom: 1px solid var(--border-color); }
+.card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1); }
+.card:hover .card-img { transform: scale(1.08); }
+.card-content { padding: 30px; flex: 1; display: flex; flex-direction: column; }
+.card-type { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); font-weight: 900; margin-bottom: 12px; }
+.card h3 { margin-bottom: 12px; font-size: 1.4rem; line-height: 1.2; color: var(--text-main); font-weight: 800; }
+.card-meta { margin-top: auto; font-size: 0.8rem; color: var(--text-muted); padding-top: 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; }
+
 .article-header { margin-bottom: 50px; }
 .article-title { font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1; margin-bottom: 20px; color: var(--text-main); font-weight: 900; letter-spacing: -2px; }
 .article-meta { color: var(--accent-color); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; display: block; }
-.article-body { font-size: 1.2rem; line-height: 1.8; color: rgba(255,255,255,0.9); width: 100%; overflow-wrap: break-word; }
-.article-body h2 { margin-top: 60px; margin-bottom: 25px; font-size: 2.2rem; font-weight: 900; color: #FFF; letter-spacing: -1px; border-left: 5px solid var(--primary-color); padding-left: 20px; line-height: 1.15; }
-.article-body h3, .article-body h4 { line-height: 1.15; font-weight: 900; }
-.article-body a { color: var(--primary-color); text-decoration: underline; }
-.article-body strong, .article-body b { color: var(--primary-color); }
-.article-body p { margin-bottom: 30px; }
-.article-body pre { background: var(--code-bg); padding: 25px; border-radius: 4px; border: 1px solid var(--border-color); margin-bottom: 35px; font-family: var(--font-family-mono); font-size: 0.95rem; overflow-x: auto; }
+.article-body { font-size: 1.2rem; line-height: 1.8; color: var(--text-main); width: 100%; overflow-wrap: break-word; }
+.article-body h1, .bejson-cms-article h1 { margin-top: 50px; margin-bottom: 24px; font-size: 2.5rem; font-weight: 900; color: var(--text-main); letter-spacing: -1.5px; line-height: 1.15; }
+.article-body h2, .bejson-cms-article h2 { margin-top: 60px; margin-bottom: 25px; font-size: 2.2rem; font-weight: 900; color: var(--text-main); letter-spacing: -1px; border-left: 5px solid var(--accent-color); padding-left: 20px; line-height: 1.15; }
+.article-body h3, .article-body h4, .article-body h5, .article-body h6,
+.bejson-cms-article h3, .bejson-cms-article h4, .bejson-cms-article h5, .bejson-cms-article h6 { margin-top: 36px; margin-bottom: 16px; line-height: 1.25; font-weight: 900; color: var(--accent-color); }
+.article-body h3, .bejson-cms-article h3 { font-size: 1.55rem; }
+.article-body h4, .bejson-cms-article h4 { font-size: 1.25rem; }
+.article-body a, .bejson-cms-article a { color: var(--accent-color); text-decoration: underline; }
+.article-body strong, .article-body b, .bejson-cms-article strong, .bejson-cms-article b { color: var(--accent-color); font-weight: 700; }
+.article-body p, .bejson-cms-article p { margin-bottom: 30px; }
+.article-body ul, .bejson-cms-article ul { list-style-type: disc; padding-left: 1.75rem; margin: 0 0 25px 0; }
+.article-body ol, .bejson-cms-article ol { list-style-type: decimal; padding-left: 1.75rem; margin: 0 0 25px 0; }
+.article-body li, .bejson-cms-article li { margin: 0.4rem 0; }
+.article-body .task-list, .bejson-cms-article .task-list { list-style: none !important; padding-left: 0 !important; margin: 0 0 25px 0; }
+.article-body .task-item, .bejson-cms-article .task-item { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
+.article-body .task-item input[type="checkbox"], .bejson-cms-article .task-item input[type="checkbox"] { accent-color: var(--accent-color); width: 16px; height: 16px; }
+.article-body code, .bejson-cms-article code { font-family: monospace; background: var(--code-bg); color: var(--code-text); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.88em; border: 1px solid var(--border-color); }
+.article-body pre, .bejson-cms-article pre { background: var(--code-bg); padding: 25px; border-radius: 4px; border: 1px solid var(--border-color); border-left: 4px solid var(--accent-color); margin-bottom: 35px; font-family: monospace; font-size: 0.95rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.article-body pre code, .bejson-cms-article pre code { background: none; border: none; padding: 0; font-size: 0.92em; }
+.article-body blockquote, .bejson-cms-article blockquote { border-left: 4px solid var(--accent-color); padding: 14px 22px; margin: 25px 0; background: var(--bg-card); color: var(--text-muted); border-radius: 0 4px 4px 0; }
+.article-body blockquote p:last-child, .bejson-cms-article blockquote p:last-child { margin-bottom: 0; }
+.article-body .callout, .bejson-cms-article .callout { border-left: 4px solid var(--accent-color); padding: 14px 22px; margin: 25px 0; background: var(--bg-card); color: var(--text-main); border-radius: 0 4px 4px 0; }
+.article-body .callout-note, .bejson-cms-article .callout-note { border-left-color: #2563EB; }
+.article-body .callout-tip, .bejson-cms-article .callout-tip { border-left-color: #16A34A; }
+.article-body .callout-important, .bejson-cms-article .callout-important { border-left-color: #7C3AED; }
+.article-body .callout-warning, .bejson-cms-article .callout-warning { border-left-color: #D97706; }
+.article-body .callout-caution, .bejson-cms-article .callout-caution { border-left-color: #DC2626; }
+.article-body hr, .bejson-cms-article hr { border: none; border-top: 1px solid var(--border-color); margin: 40px 0; }
+.article-body del, .bejson-cms-article del { color: var(--text-muted); text-decoration: line-through; }
+.table-container, .table-responsive, .horizontal-scroll-container { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 25px 0 35px 0; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-card); }
+.table-container table, .table-responsive table { width: 100%; border-collapse: collapse; margin: 0; font-size: 0.95rem; text-align: left; min-width: 600px; display: table; }
+.article-body table { width: 100%; border-collapse: collapse; margin: 25px 0 35px 0; font-size: 0.95rem; text-align: left; display: block; max-width: 100% !important; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-card); }
+.article-body th, .article-body td { padding: 12px 18px; border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); line-height: 1.5; }
+.article-body th:last-child, .article-body td:last-child { border-right: none; }
+.article-body tr:last-child td { border-bottom: none; }
+.article-body th { background: rgba(222, 38, 38, 0.12); color: var(--accent-color); font-weight: 800; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; white-space: nowrap; }
+.article-body tr:hover { background: rgba(222, 38, 38, 0.05); }
+
+.sidebar-widget { margin-bottom: 50px; }
+.widget-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 3px; color: var(--accent-color); font-weight: 900; margin-bottom: 25px; display: flex; align-items: center; gap: 15px; }
+.widget-title::after { content: ""; height: 1px; background: var(--border-color); flex: 1; }
+.category-list li { margin-bottom: 12px; }
+.category-list a { display: block; padding: 10px 15px; background: var(--bg-card); border: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; border-radius: var(--radius); }
+.category-list a:hover { background: var(--accent-color); border-color: var(--accent-color); color: white; transform: translateX(5px); }
 
 .site-footer { background: var(--bg-footer); color: var(--text-muted); padding: 80px 0; border-top: 1px solid var(--border-color); margin-top: auto; }
 .footer-content { display: flex; justify-content: space-between; align-items: center; }
+.copyright strong { color: var(--text-main); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 40px; }
 
 @media (max-width: 1024px) {
-    .main-layout { flex-direction: column; gap: 40px; }
+    .main-layout { flex-direction: column; }
     .sidebar { width: 100%; order: 2; }
-    .mobile-menu-toggle { display: block; }
-    .nav-menu { 
-        display: none; 
-        flex-direction: column; 
-        position: absolute; 
-        top: 80px; 
-        left: 0; 
-        right: 0; 
-        background: var(--bg-card); 
-        padding: 30px; 
-        gap: 20px;
-        align-items: flex-start;
-        border-bottom: 1px solid var(--border-color);
-        box-shadow: var(--shadow-hover);
-        z-index: 1001;
-    }
-    .nav-menu.active { display: flex; }
-    .nav-dropdown .dropdown-content { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; display: none; padding-left: 20px; }
-    .nav-dropdown:hover .dropdown-content { display: block; }
 }
-
-/* Card styles */
-.card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; transition: all 0.3s ease; }
-.card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
-.card-img-container { aspect-ratio: 16/9; overflow: hidden; }
-.card-img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
-.card-content { padding: 20px; }
-.card-type { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); display: block; margin-bottom: 8px; }
-.card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 12px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
-
-/* Article featured image */
-.article-featured-image { width: 100%; max-height: 500px; object-fit: cover; margin-bottom: 40px; border-radius: 0; }
-
-/* Lightbox */
-.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9999; justify-content: center; align-items: center; }
-.lightbox-close { position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: #fff; cursor: pointer; line-height: 1; opacity: 0.8; transition: opacity 0.2s; }
-.lightbox-close:hover { opacity: 1; }
-.lightbox-content { max-width: 90vw; max-height: 90vh; border-radius: var(--radius); object-fit: contain; }
 """
+
+
 def _write_default_stylesheets():
     """Write light.css and dark.css to Stylesheets/ only if they don't already exist."""
     os.makedirs(STYLESHEETS_DIR, exist_ok=True)
@@ -776,11 +581,11 @@ def _write_default_stylesheets():
     dark_path  = os.path.join(STYLESHEETS_DIR, "dark.css")
     if not os.path.exists(light_path):
         with open(light_path, 'w', encoding='utf-8') as f:
-            f.write(_LIGHT_DEFAULT)
+            f.write(_LIGHT_ROOT + _CSS_SHARED)
         print(f"[STYLESHEETS] Written: {light_path}")
     if not os.path.exists(dark_path):
         with open(dark_path, 'w', encoding='utf-8') as f:
-            f.write(_DARK_DEFAULT)
+            f.write(_DARK_ROOT + _CSS_SHARED)
         print(f"[STYLESHEETS] Written: {dark_path}")
 
 
@@ -825,46 +630,6 @@ def _get_sidebar_html(categories, rel_prefix):
             html += f'<li><a href="{rel_prefix}category/{c_slug}/index.html">{c_name}</a></li>'
     return html
 
-def _is_standalone_page(item):
-    """Task 5 (pkg145): a PageRecord is a standalone page when its
-    page_is_standalone_flag is True. Rows written before the field existed
-    read back as None and are treated as normal feed posts."""
-    return item.get("page_is_standalone_flag") is True
-
-
-def _standalone_page_permalink(item):
-    """Build-relative path of a standalone page: pages/<slug>/index.html
-    (2 levels deep -> rel_prefix "../../"). Category-less by design."""
-    return f"pages/{item.get('page_slug', 'unknown')}/index.html"
-
-
-def _get_standalone_nav_html(standalone_items):
-    """Top-nav <li> links for standalone pages. Links carry a literal
-    {{rel_prefix}} placeholder which the second _apply_tags() pass over the
-    wrapper resolves per output depth (every wrapper render is double-applied)."""
-    return "".join(
-        f'<li><a href="{{{{rel_prefix}}}}{_standalone_page_permalink(i)}">{_html_escape.escape(i.get("page_title") or "Page")}</a></li>'
-        for i in standalone_items
-    )
-
-
-def _get_sidebar_standalone_html(standalone_items):
-    """Sidebar "Pages" collapsible block; empty string when there are no
-    standalone pages so no empty box renders."""
-    if not standalone_items:
-        return ""
-    links = "".join(
-        f'<li><a href="{{{{rel_prefix}}}}{_standalone_page_permalink(i)}">{_html_escape.escape(i.get("page_title") or "Page")}</a></li>'
-        for i in standalone_items
-    )
-    return (
-        '<div class="sidebar-collapsible active" id="collapse-pages">'
-        '<button class="collapse-trigger" onclick="toggleCollapse(\'collapse-pages\')">'
-        'Pages <span class="chevron">\u25bc</span></button>'
-        f'<div class="collapse-content"><ul class="category-list">{links}</ul></div></div>'
-    )
-
-
 def _generate_excerpt(html_content, word_limit=30):
     """Plain-text excerpt from an HTML body: strips tags, collapses
     whitespace, takes the first word_limit words, adds a trailing ellipsis
@@ -894,14 +659,14 @@ def _generate_card_html(item, link, target_attr, label, p_date, p_auth, rel_pref
 
     if f_img:
         img_path = f"{rel_prefix}assets/{f_img}"
-        img_html = f'<div class="card-img-container"><img src="{img_path}" class="card-img" style="{img_fit_style}" alt="{_html_escape.escape(item.get("page_title", ""))}" onerror="this.src=\'{fallback_url}\'"></div>'
+        img_html = f'<div class="card-img-container"><img src="{img_path}" class="card-img" style="{img_fit_style}" alt="{item.get("page_title", "")}" onerror="this.src=\'{fallback_url}\'"></div>'
     else:
         # Automatically generate text canvas image when no image is assigned
-        img_html = f'<div class="card-img-container"><img src="{fallback_url}" class="card-img" style="{img_fit_style}" alt="{_html_escape.escape(item.get("page_title", ""))}"></div>'
+        img_html = f'<div class="card-img-container"><img src="{fallback_url}" class="card-img" style="{img_fit_style}" alt="{item.get("page_title", "")}"></div>'
 
     desc_html = f'<p class="card-desc" style="font-size:0.85rem; color:var(--text-muted); margin-top:10px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">{desc}</p>' if desc else ""
 
-    return f"""<a href="{link}" class="card"{target_attr}>{img_html}<div class="card-content"><span class="card-type">{label}</span><h3>{item.get('page_title', '')}</h3>{desc_html}<div class="card-meta">{p_date}</div></div></a>"""
+    return f"""<a href="{link}" class="card"{target_attr}>{img_html}<div class="card-content"><span class="card-type">{label}</span><h3>{item['page_title']}</h3>{desc_html}<div class="card-meta">{p_date}</div></div></a>"""
 def _generate_ad_block(ad_units, rel_prefix, zone="sidebar"):
     # BUG FIX: this used to pick a random active ad regardless of ad_zone,
     # even though the admin UI (site/ads) lets you assign header/footer/sidebar
@@ -939,7 +704,7 @@ def _write_sitemap_and_robots(output_dir, base_url, feed_items, categories):
         urls.append((f"{base}/category/{c_slug}/", None))
 
     for x in feed_items:
-        if x["type"] not in ("page", "standalone", "app"):
+        if x["type"] not in ("page", "app"):
             continue                                          # external_link points off-site, not our URL to index
         link = x["link"]
         if link.endswith("index.html"):
@@ -971,7 +736,7 @@ def _write_sitemap_and_robots(output_dir, base_url, feed_items, categories):
 
 def _generate_related_block(items, current_item, default_author, categories):
     rel_cat = current_item.get('page_cat_name')
-    related = [i for i in items if i.get('page_cat_name') == rel_cat and i.get('page_uuid') != current_item.get('page_uuid') and not _is_standalone_page(i)]
+    related = [i for i in items if i.get('page_cat_name') == rel_cat and i.get('page_uuid') != current_item.get('page_uuid')]
     if not related: return ""
     
     random.shuffle(related)
@@ -983,7 +748,7 @@ def _generate_related_block(items, current_item, default_author, categories):
         cat_slug = cat_obj['cat_slug'] if cat_obj and cat_obj.get('cat_slug') else "uncategorized"
         itype = s.get('page_type', 'page')
         # This is used in Article_Skeleton which is at itype/cat/slug/index.html (3 levels deep)
-        Generated_Page_Permalink = f"../../../{itype}/{cat_slug}/{s.get('page_slug', 'unknown')}/index.html"
+        Generated_Page_Permalink = f"../../../{itype}/{cat_slug}/{s['page_slug']}/index.html"
         p_date = s.get('page_created_at') or ""
         grid_html += _generate_card_html(s, Generated_Page_Permalink, "", itype.upper(), p_date, default_author, "../../../")
         
@@ -1048,8 +813,6 @@ def _execute():
     custom_nav_html = "".join([f"<li><a href='{n.get('nav_target_url', '#')}'>{n.get('nav_display_label', 'Link')}</a></li>" for n in nav_records])
     social_html     = "".join([f"<a href='{s.get('social_target_url', '#')}' target='_blank' class='social-btn'>{s.get('social_platform_name', 'Social')}</a>" for s in social_records])
 
-    standalone_pages = [i for i in items if _is_standalone_page(i) and i.get("page_type", "page") != "external_link"]
-
     wrapper_skel = _read_skel("Global_Skeleton.html")
     feed_items   = []
 
@@ -1060,8 +823,6 @@ def _execute():
         "current_year": datetime.now().year,
         "social_media_links": social_html,
         "custom_nav_links": custom_nav_html,
-        "standalone_nav_links": _get_standalone_nav_html(standalone_pages),
-        "sidebar_standalone_pages": _get_sidebar_standalone_html(standalone_pages),
     }
 
     # --- PROCESS PAGES ---
@@ -1081,24 +842,17 @@ def _execute():
             continue
 
         _log(f"Building Page: {item['page_title']}")
-        is_standalone = _is_standalone_page(item)
         cat_obj  = next((c for c in categories if c.get("cat_name") == item.get("page_cat_name")), None)
         cat_slug = cat_obj["cat_slug"] if cat_obj and cat_obj.get("cat_slug") else "uncategorized" 
 
-        if is_standalone:
-            page_link  = _standalone_page_permalink(item)
-            page_rel   = "../../"
-            target_dir = os.path.join(output_dir, "pages", item["page_slug"])
-        else:
-            page_link  = f"{itype}/{cat_slug}/{item['page_slug']}/index.html"
-            page_rel   = "../../../"
-            target_dir = os.path.join(output_dir, itype, cat_slug, item["page_slug"])
+        target_dir = os.path.join(output_dir, itype, cat_slug, item["page_slug"])
         os.makedirs(target_dir, exist_ok=True)
 
         src_file = os.path.join(PAGES_DB_DIR, f"{item['page_uuid']}.json")
         if not os.path.exists(src_file): continue
 
         try:
+            import lib_bejson_Core_bejson_core as Core
             with open(src_file, "r", encoding="utf-8") as f: js = json.load(f)
             field_map = Core.bejson_core_get_field_map(js)
             idx_html = field_map.get("html_body", -1)
@@ -1121,12 +875,12 @@ def _execute():
             
             # Handle missing or "None" images with the seeded default image
             if not f_img or str(f_img).lower() == "none":
-                feat_img_html = f"<img src='{page_rel}assets/{DEFAULT_FEATURED_IMAGE}' class='article-featured-image'>"
+                feat_img_html = f"<img src='../../../assets/{DEFAULT_FEATURED_IMAGE}' class='article-featured-image'>"
             else:
-                feat_img_html = f"<img src='{page_rel}assets/{f_img}' class='article-featured-image'>"
+                feat_img_html = f"<img src='../../../assets/{f_img}' class='article-featured-image'>"
             
-            related_html = "" if is_standalone else _generate_related_block(items, item, default_author, categories)
-            ad_html      = _generate_ad_block(ad_units, page_rel)
+            related_html = _generate_related_block(items, item, default_author, categories)
+            ad_html      = _generate_ad_block(ad_units, "../../../")
 
             # Render page content via strategy renderer dispatch
             from BEJSON_CMS_Renderers import render_page
@@ -1136,17 +890,16 @@ def _execute():
             page_tags = base_tags.copy()
             page_tags.update({
                 "page_title": item.get("page_title", ""),
-                "rel_prefix": page_rel,
-                "sidebar_categories": _get_sidebar_html(categories, page_rel),
-                "breadcrumb_html": (f"<a href='{page_rel}index.html'>Home</a> <span>/</span> {item['page_title']}" if is_standalone
-                                    else f"<a href='../../../category/{cat_slug}/index.html'>{item.get('page_cat_name', 'Uncategorized')}</a> <span>/</span> {item['page_title']}"),
+                "rel_prefix": "../../../",
+                "sidebar_categories": _get_sidebar_html(categories, "../../../"),
+                "breadcrumb_html": f"<a href='../../../category/{cat_slug}/index.html'>{item.get('page_cat_name', 'Uncategorized')}</a> <span>/</span> {item['page_title']}",
                 "seo_description": p_desc or site_desc,
                 "seo_author": p_author,
                 "seo_image": f"{base_url.rstrip('/')}/assets/{f_img}" if f_img else "",
                 "current_url": "",
                 # Inner Tags
                 "article_title": item.get("page_title", ""),
-                "category": "Page" if is_standalone else item.get("page_cat_name", "Uncategorized"),
+                "category": item.get("page_cat_name", "Uncategorized"),
                 "article_body": rendered_article_content,
                 "featured_image_html": feat_img_html,
                 "related_content_section": related_html + ad_html,
@@ -1162,9 +915,7 @@ def _execute():
             final = _apply_tags(final, page_tags) 
 
             with open(os.path.join(target_dir, "index.html"), "w", encoding="utf-8") as f: f.write(final)
-            # Standalone pages get their own feed type so home/category feeds
-            # (which select type "page") skip them while the sitemap keeps them.
-            feed_items.append({"date": p_date, "item": item, "link": page_link, "type": "standalone" if is_standalone else "page", "desc": p_desc})
+            feed_items.append({"date": p_date, "item": item, "link": f"{itype}/{cat_slug}/{item['page_slug']}/index.html", "type": "page", "desc": p_desc})
         except Exception as e:
             _log(f"Error processing {item['page_title']}: {e}")
 
@@ -1176,18 +927,11 @@ def _execute():
             if os.path.exists(dst_dir): shutil.rmtree(dst_dir)
             shutil.copytree(src_dir, dst_dir)
             Generated_App_Permalink = f"apps/{sa['app_slug']}/{sa.get('app_entry_file', 'index.html')}"
-            # page_cat_name explicitly set to None (not omitted) -- apps have
-            # no category, and _generate_related_block()'s rel_cat match is
-            # `i.get('page_cat_name') == rel_cat`; an omitted key and an
-            # explicit None both read as None via .get(), but declaring it
-            # here makes the "apps never match a category" intent visible
-            # rather than an accidental side effect of a missing key (audit
-            # pkg132 M-2).
-            feed_items.append({"date": sa.get("app_created_at", datetime.now().strftime("%Y-%m-%d")), "item": {"page_title": sa["app_name"], "page_featured_img": sa.get("app_featured_img"), "page_uuid": sa["app_uuid"], "page_cat_name": None}, "link": Generated_App_Permalink, "type": "app", "desc": sa.get("app_description", "")})
+            feed_items.append({"date": sa.get("app_created_at", datetime.now().strftime("%Y-%m-%d")), "item": {"page_title": sa["app_name"], "page_featured_img": sa.get("app_featured_img"), "page_uuid": sa["app_uuid"]}, "link": Generated_App_Permalink, "type": "app", "desc": sa.get("app_description", "")})
 
     # --- BUILD HOME ---
     _log("Generating Home Feed...")
-    recent = sorted([x for x in feed_items if x["type"] != "standalone"], key=lambda k: k["date"] or "", reverse=True)[:15]
+    recent = sorted(feed_items, key=lambda k: k["date"] or "", reverse=True)[:15]
     home_grid = "".join([_generate_card_html(x["item"], x["link"], x.get("target_attr", ""), x["type"].upper(), x["date"], default_author, "", x.get("desc", "")) for x in recent])
     
     home_tags = base_tags.copy()

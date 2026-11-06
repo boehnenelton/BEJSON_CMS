@@ -2,51 +2,13 @@
 Library:         BEJSON_CMS_Content
 Family:          BEJSON_CMS
 Description:     Content Cube: Page/Link CRUD, Category management, Author profiles, Standalone Apps, HTML import pipeline. Uses CMSCore (lib_bejson_CMS_cms_core), the same data layer as the rest of the Flask app — NOT lib_bejson_CMS_cms_mfdb (that manager is CLI-only, used by cms-manage.py, and is a different schema/data layer).
-Version:         18.31
+Version:         18.28
 Library_Version: 59
-Date:            2026-10-11
-RELATIONAL_ID:   5b8e3c72-1d94-4f06-a8b7-3e9d0c4a6f21
-CHANGE (2026-10-11): PKG144 -- import-freeze fix. Every file import in this
-module (featured image on the page editor, Standalone App new/edit/scan, HTML
-Import) used the browser's native file chooser, which sends the browser/app to
-the background on Android where the OS kills it -- the long-standing "import
-freezes" bug. All of them now use the in-app server-side picker
-(BEJSON_CMS_FileBrowser.py): the page never leaves the foreground, and the
-chosen files are read straight from disk by this process. Forms carry a hidden
-`app_file_path` / `html_paths` field instead of a multipart upload; every path is
-validated by FileBrowser.resolve_pick(). The legacy multipart request fields
-(`app_file`, `html_files`) are still honoured server-side so nothing that
-posts them breaks, but no page offers them any more.
-CHANGE (2026-09-20): PKG139 -- deferred-item sweep decisions (Elton: "add
-app_created_at field" -- audit L-4). apps_new()'s StandaloneApp
-add_record() call now includes app_created_at (today's date) -- see
-BEJSON_CMS_System.py's pkg139 entry for the schema/self-heal side.
-Verified live via Flask test client: created a real app, confirmed
-app_created_at was written with today's date, cleaned up.
-CHANGE (2026-09-16): PKG137 -- page_cat_uuid/page_author_uuid added alongside
-page_cat_name/page_author_name on every PageRecord write in this file:
-page_new, page_edit, duplicate_page (copies the FK fields verbatim from the
-source page rather than re-resolving, preserving an orphan/None state
-faithfully if the source had one), link_new, and the AI/HTML import page
-creator. categories_delete()'s Uncategorized-reassignment cascade also
-updated to set page_cat_uuid to Uncategorized's real uuid, not just the
-name string. New shared _resolve_page_fk_uuids() helper. Every site
-verified live end to end against real data (create/edit/duplicate/delete,
-and the categories_delete cascade specifically), not just compiled.
-CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). AuthorProfile
-and Category both went from name/slug-keyed to UUID-keyed for their own
-identity. manage_authors(): add generates author_uuid; edit/delete now key
-off a hidden author_uuid form field instead of author_display_name (fixes
-the underlying issue behind pkg134's case-insensitivity patch at the
-root -- two rows can never collide on identity again, whatever their
-names look like). Dropped the `aid = name|replace(' ','_')` DOM-id hack in
-the template in favor of using auth.author_uuid directly. categories_add()/
-categories_delete(): same conversion, including the URL route itself
-(/categories/delete/<name> -> /categories/delete/<cat_uuid>). Verified live
-against real data end to end (add -> edit -> delete round-trip via Flask
-test client), not just import-checked; live data confirmed restored to its
-original state after each test.
+Date:            2026-10-25
+RELATIONAL_ID:   2a8d4c19-7e3f-4b65-9a02-5c1e8b3f7d64
 """
+
+VERSION = 1828
 
 import os
 import gc
@@ -68,9 +30,10 @@ from BEJSON_CMS_Shared import (
     UPLOAD_TMP,
 )
 from lib_bejson_Core_bejson_path_guard import safe_extract_zip
-from BEJSON_CMS_FileBrowser import (
-    resolve_pick, resolve_picks, PickError, PickedFile, parse_path_list, copy_file_chunked,
-)
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
+from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
+import lib_bejson_CMS_bks_blog_jobs as BKSJobs
+import lib_bejson_AI_ai_writing as AIWriting
 
 try:
     from bs4 import BeautifulSoup
@@ -80,29 +43,16 @@ except ImportError:
 
 content_cube = Blueprint('content', __name__)
 
-def _resolve_page_fk_uuids(cat_name, author_name):
-    """NEW (pkg137). Resolves a category/author NAME to its live UUID, for
-    setting the new page_cat_uuid/page_author_uuid fields alongside the
-    existing page_cat_name/page_author_name strings on every write. Does
-    NOT touch page_cat_name/page_author_name themselves or any render
-    path that reads them -- purely additive (see BEJSON_CMS_System.py's
-    pkg137 changelog entry for the reasoning). Returns (cat_uuid,
-    author_uuid), either of which is None if the name doesn't match any
-    live record -- the same honest-orphan behavior as the self-heal
-    backfill for existing pages, not an error (author is optional; a
-    category name typo would be caught by `cms-manage.py doctor`)."""
-    cat_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == cat_name), None)
-    author_uuid = next((a.get("author_uuid") for a in db.get_records("AuthorProfile") if a.get("author_display_name") == author_name), None) if author_name else None
-    return cat_uuid, author_uuid
-
 @content_cube.route('/content')
 def content_hub():
     html = '''
     <div class="page-header"><h1>Content Management</h1><p>Manage all your website content</p></div>
     <div class="grid grid-3">
         <a href="/pages" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128196;</div><h3>Pages</h3><p style="color:var(--text-secondary);">Create and edit pages</p></div></a>
+        <a href="/jobs" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128218;</div><h3>Blog Post Jobs (BKS-1)</h3><p style="color:var(--text-secondary);">4-part blog post plans, CLI_AI 48 execution, merge &amp; approve overwrite</p></div></a>
         <a href="/links" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128279;</div><h3>External Links</h3><p style="color:var(--text-secondary);">Manage external link references</p></div></a>
         <a href="/categories" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128193;</div><h3>Categories</h3><p style="color:var(--text-secondary);">Organize content by category</p></div></a>
+        <a href="/import" class="card" style="text-decoration:none;color:inherit;"><div style="text-align:center;padding:20px;"><div style="font-size:3rem;margin-bottom:15px;">&#128229;</div><h3>HTML / MD Import</h3><p style="color:var(--text-secondary);">Import HTML or Markdown articles</p></div></a>
     </div>'''
     return R(html, breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
@@ -113,17 +63,13 @@ def pages_list():
     items = db.get_records("PageRecord")
     categories = db.get_records("Category")
     
-    # Task 5 (pkg145): standalone pages (page_is_standalone_flag True) are
-    # category-less and listed on their own tab, separate from feed posts.
-    pages = [p for p in items if p.get('page_type') != 'external_link' and p.get('page_is_standalone_flag') is not True]
-    standalone_pages = [p for p in items if p.get('page_type') != 'external_link' and p.get('page_is_standalone_flag') is True]
+    pages = [p for p in items if p.get('page_type') != 'external_link']
     links = [p for p in items if p.get('page_type') == 'external_link']
 
     html = '''
     <div class="page-header"><h1>Pages</h1><p>Manage your website pages and articles</p></div>
     <div class="tabs">
-        <button class="tab active" data-tab="tab-pages">Posts ({{ pages|length }})</button>
-        <button class="tab" data-tab="tab-standalone">Standalone Pages ({{ standalone_pages|length }})</button>
+        <button class="tab active" data-tab="tab-pages">Pages ({{ pages|length }})</button>
         <button class="tab" data-tab="tab-links">External Links ({{ links|length }})</button>
         <button class="tab" data-tab="tab-categories">Categories ({{ categories|length }})</button>
     </div>
@@ -134,13 +80,6 @@ def pages_list():
         {% for p in pages %}<tr><td><a href="/edit/{{ p.page_uuid }}" class="btn btn-primary btn-sm">Edit</a></td><td>{{ p.page_title }}</td><td>{{ p.page_cat_name or \'Uncategorized\' }}</td><td>{{ p.page_author_name or \'—\' }}</td><td><span class="badge badge-page">{{ p.page_type or \'page\' }}</span></td><td>{{ p.page_created_at or \'N/A\' }}</td>
         <td><form method="post" action="/pages/duplicate/{{ p.page_uuid }}" style="display:inline;"><button type="submit" class="btn btn-secondary btn-sm">Duplicate</button></form> <form method="post" action="/pages/delete/{{ p.page_uuid }}" style="display:inline;" onsubmit="return confirm(\'Delete this page?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form></td></tr>{% endfor %}
         </tbody></table></div>{% else %}<div class="empty-state"><h3>No pages yet</h3><a href="/pages/new" class="btn btn-primary">Create your first page</a></div>{% endif %}</div>
-    </div>
-    <div id="tab-standalone" class="tab-content">
-        <div class="toolbar"><a href="/pages/new?standalone=1" class="btn btn-primary">+ New Standalone Page</a></div>
-        <div class="card">{% if standalone_pages %}<div class="table-container"><table><thead><tr><th>Edit</th><th>Title</th><th>Slug</th><th>Author</th><th>Date</th><th>Actions</th></tr></thead><tbody>
-        {% for p in standalone_pages %}<tr><td><a href="/edit/{{ p.page_uuid }}" class="btn btn-primary btn-sm">Edit</a></td><td>{{ p.page_title }}</td><td><code>pages/{{ p.page_slug }}/</code></td><td>{{ p.page_author_name or \'—\' }}</td><td>{{ p.page_created_at or \'N/A\' }}</td>
-        <td><form method="post" action="/pages/duplicate/{{ p.page_uuid }}" style="display:inline;"><button type="submit" class="btn btn-secondary btn-sm">Duplicate</button></form> <form method="post" action="/pages/delete/{{ p.page_uuid }}" style="display:inline;" onsubmit="return confirm(\'Delete this page?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form></td></tr>{% endfor %}
-        </tbody></table></div>{% else %}<div class="empty-state"><h3>No standalone pages yet</h3><p>Standalone pages have no category. They show up in the site navigation and sidebar, not in feeds.</p><a href="/pages/new?standalone=1" class="btn btn-primary">Create a standalone page</a></div>{% endif %}</div>
     </div>
     <div id="tab-links" class="tab-content">
         <div class="toolbar"><a href="/links/new" class="btn btn-primary">+ Add External Link</a></div>
@@ -161,7 +100,7 @@ def pages_list():
         <td>{% if c.cat_name != \'Uncategorized\' %}<form method="post" action="/categories/delete/{{ c.cat_name }}" style="display:inline;" onsubmit="return confirm(\'Delete category?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form>{% endif %}</td></tr>{% endfor %}
         </tbody></table></div></div>
     </div>'''
-    return R(html, pages=pages, standalone_pages=standalone_pages, links=links, categories=categories,
+    return R(html, pages=pages, links=links, categories=categories,
              breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
 
@@ -175,23 +114,16 @@ def page_new():
         title = request.form.get('title', '').strip()
         category = request.form.get('category', '').strip()
         author = request.form.get('author', '')
-        is_standalone = request.form.get('page_is_standalone_flag') == '1'
         if not title:
             return "Title required", 400
-        if is_standalone:
-            category = None          # standalone pages are category-less
-        elif not category:
+        if not category:
             return "Category required", 400
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
         db.mount()
-        cat_uuid, author_uuid = _resolve_page_fk_uuids(category, author)
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": title, "page_slug": slug,
             "page_cat_name": category, "page_type": "page", "page_created_at": datetime.now().strftime("%Y-%m-%d"),
-            "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE,
-            "page_template_key": "blank", "page_featured_video_url": None,
-            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid,
-            "page_is_standalone_flag": is_standalone})
+            "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE})
         
         pfile = os.path.join(PAGES_DB_DIR, f"{new_uuid}.json")
         New_Page_Content_Doc = {
@@ -222,24 +154,33 @@ def page_new():
     <div class="page-header"><h1>Create New Page</h1><p>Add a new page to your website</p></div>
     <form method="POST" class="card">
         <div class="form-group"><label class="form-label">Page Title *</label><input type="text" name="title" class="form-control" required autofocus></div>
-        <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" name="page_is_standalone_flag" value="1" id="standalone_flag" {% if standalone_default %}checked{% endif %} onchange="syncStandaloneCategory()"> Standalone page (no category &mdash; shown in site navigation and sidebar instead of feeds)</label></div>
         <div class="grid grid-2">
-            <div class="form-group"><label class="form-label">Category *</label><select name="category" id="category_select" class="form-control" required><option value="" disabled selected>-- Select Category --</option>{% for c in categories %}<option value="{{ c.cat_name }}">{{ c.cat_name }}</option>{% endfor %}</select></div>
+            <div class="form-group"><label class="form-label">Category *</label><select name="category" class="form-control" required><option value="" disabled selected>-- Select Category --</option>{% for c in categories %}<option value="{{ c.cat_name }}">{{ c.cat_name }}</option>{% endfor %}</select></div>
             <div class="form-group"><label class="form-label">Author</label><select name="author" class="form-control"><option value="">-- Select author --</option>{% for a in authors %}<option value="{{ a.author_display_name }}">{{ a.author_display_name }}</option>{% endfor %}</select></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:30px;"><button type="submit" class="btn btn-primary">Create Page</button><a href="/pages" class="btn btn-secondary">Cancel</a></div>
-    </form>
-    <script>
-    function syncStandaloneCategory() {
-        var standalone = document.getElementById('standalone_flag').checked;
-        var categorySelect = document.getElementById('category_select');
-        categorySelect.disabled = standalone;
-        categorySelect.required = !standalone;
-    }
-    document.addEventListener('DOMContentLoaded', syncStandaloneCategory);
-    </script>'''
-    return R(html, categories=categories, authors=authors, standalone_default=request.args.get('standalone') == '1',
+    </form>'''
+    return R(html, categories=categories, authors=authors,
              breadcrumbs=get_breadcrumbs(request.path), active_section='content')
+
+
+@content_cube.route('/api/md2html', methods=['POST'])
+@require_auth
+def api_md2html():
+    payload = request.get_json(silent=True) or {}
+    md_text = payload.get('markdown', '')
+    fallback_title = payload.get('fallback_title', 'Untitled Document')
+    parsed = convert_markdown_to_cms_article(md_text, fallback_title)
+    wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
+    return jsonify({
+        "ok": True,
+        "success": True,
+        "title": parsed["title"],
+        "slug": parsed["slug"],
+        "html": wrapped_html,
+        "html_body": wrapped_html,
+        "excerpt": parsed["excerpt"],
+    })
 
 
 @content_cube.route('/edit/<page_uuid>', methods=['GET', 'POST'])
@@ -256,50 +197,65 @@ def edit_content(page_uuid):
 
     if request.method == 'POST':
         html_content = request.form.get('html_content', '')
+        markdown_content = request.form.get('markdown_content', None)
+        convert_md_on_save = request.form.get('convert_md_on_save') == 'on'
         title = request.form.get('title', page['page_title'])
         featured_img = request.form.get('page_featured_img', page.get('page_featured_img', ''))
         author = request.form.get('page_author_name', page.get('page_author_name', ''))
         category = request.form.get('page_cat_name', page.get('page_cat_name', ''))
-        # Task 5 (pkg145): this form always renders the checkbox, so absent == unchecked.
-        is_standalone = request.form.get('page_is_standalone_flag') == '1'
-        if is_standalone:
-            category = None
+        page_type = request.form.get('page_type', page.get('page_type', 'page'))
+
+        if markdown_content and (convert_md_on_save or not html_content.strip()):
+            parsed_md = convert_markdown_to_cms_article(markdown_content, title)
+            html_content = f'<article class="bejson-cms-article">\n{parsed_md["html_body"]}\n</article>'
+
         # Update content file
         try:
-            import lib_bejson_Core_bejson_core as Core
             with open(pfile, "r") as f: data = json.load(f)
-            field_map = Core.bejson_core_get_field_map(data)
+            field_map = bejson_core_get_field_map(data)
             p_idx = field_map.get("Record_Type_Parent", -1)
             h_idx = field_map.get("html_body", -1)
+            md_idx = field_map.get("markdown_body", -1)
             m_idx = field_map.get("meta_title", -1)
             for row in data.get("Values", []):
                 if p_idx != -1:
-                    if row[p_idx] == "Content" and h_idx != -1: row[h_idx] = html_content
-                    if row[p_idx] == "PageMeta" and m_idx != -1: row[m_idx] = title
-            with open(pfile, "w") as f: json.dump(data, f, indent=2)
+                    if row[p_idx] == "Content":
+                        if h_idx != -1:
+                            row[h_idx] = html_content
+                        if md_idx != -1 and markdown_content is not None:
+                            row[md_idx] = markdown_content
+                    if row[p_idx] == "PageMeta" and m_idx != -1:
+                        row[m_idx] = title
+            bejson_core_atomic_write(pfile, data)
         except Exception as err: print(f"Content write error: {err}")
 
         # Update Master Record
-        cat_uuid, author_uuid = _resolve_page_fk_uuids(category, author)
         db.update_record("PageRecord", "page_uuid", page_uuid, {
-            "page_title": title, "page_featured_img": featured_img, "page_author_name": author, "page_cat_name": category,
-            "page_cat_uuid": cat_uuid, "page_author_uuid": author_uuid,
-            "page_is_standalone_flag": is_standalone
+            "page_title": title,
+            "page_featured_img": featured_img,
+            "page_author_name": author,
+            "page_cat_name": category,
+            "page_type": page_type,
+            "page_is_standalone_flag": (page_type == "page"),
         })
         flash("Changes saved successfully!", "success")
         return redirect(f"/edit/{page_uuid}")
 
     # GET - Load content
     html_content = ""
+    markdown_content = ""
     try:
-        import lib_bejson_Core_bejson_core as Core
         with open(pfile, "r") as f: data = json.load(f)
-        field_map = Core.bejson_core_get_field_map(data)
+        field_map = bejson_core_get_field_map(data)
         p_idx = field_map.get("Record_Type_Parent", -1)
         h_idx = field_map.get("html_body", -1)
+        md_idx = field_map.get("markdown_body", -1)
         for row in data.get("Values", []):
-            if p_idx != -1 and row[p_idx] == "Content" and h_idx != -1:
-                html_content = row[h_idx] or ""
+            if p_idx != -1 and row[p_idx] == "Content":
+                if h_idx != -1:
+                    html_content = row[h_idx] or ""
+                if md_idx != -1:
+                    markdown_content = row[md_idx] or ""
                 break
     except Exception: pass
     
@@ -328,8 +284,7 @@ def edit_content(page_uuid):
     <div class="page-header"><h1>Edit: {{ page.page_title }}</h1><p>UUID: {{ page_uuid }}</p></div>
     <form method="POST">
         <div class="card">
-            <div class="form-group"><label class="form-label">Title</label><input type="text" name="title" class="form-control" value="{{ page.page_title }}"></div>
-            <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" name="page_is_standalone_flag" value="1" {% if page.page_is_standalone_flag %}checked{% endif %} onchange="document.getElementById(\'category_select\').disabled=this.checked;"> Standalone page (no category &mdash; shown in site navigation and sidebar instead of feeds)</label></div>
+            <div class="form-group"><label class="form-label">Title</label><input type="text" name="title" id="page-title-input" class="form-control" value="{{ page.page_title }}"></div>
             <div class="grid grid-2">
                 <div class="form-group">
                     <label class="form-label">Featured Image</label>
@@ -338,7 +293,8 @@ def edit_content(page_uuid):
                         {% for a in media_assets %}<option value="{{ a.asset_filename }}" {% if a.asset_filename == page.page_featured_img and page.page_featured_img and page.page_featured_img != 'None' %}selected{% endif %}>{{ a.asset_original_name or a.asset_filename }}</option>{% endfor %}
                     </select>
                     <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="pickFeaturedImage()">&#128193; Browse device &amp; import&hellip;</button>
+                        <input type="file" id="featured_img_upload" accept="image/*" style="flex:1; font-size:0.8rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="uploadFeaturedImage()">&#8593; Upload New</button>
                     </div>
                     <div id="featured_img_upload_status" style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;"></div>
                     <div id="featured_img_preview" style="margin-top:8px;">{% if page.page_featured_img and page.page_featured_img != 'None' %}<img src="/assets/{{ page.page_featured_img }}" style="max-height:80px;border-radius:6px;border:1px solid var(--border);" alt="current">{% endif %}</div>
@@ -350,38 +306,100 @@ def edit_content(page_uuid):
                         {% for a in authors %}<option value="{{ a.author_display_name }}" {% if a.author_display_name == page.page_author_name %}selected{% endif %}>{{ a.author_display_name }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="form-group"><label class="form-label">Category</label><select name="page_cat_name" id="category_select" class="form-control" {% if page.page_is_standalone_flag %}disabled{% endif %}>{% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name == page.page_cat_name %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label class="form-label">Category</label><select name="page_cat_name" class="form-control">{% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name == page.page_cat_name %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}</select></div>
+                <div class="form-group">
+                    <label class="form-label">Page Type</label>
+                    <select name="page_type" class="form-control">
+                        <option value="page" {% if (page.page_type or 'page') == 'page' %}selected{% endif %}>page</option>
+                        <option value="blog" {% if page.page_type == 'blog' %}selected{% endif %}>blog</option>
+                        <option value="article" {% if page.page_type == 'article' %}selected{% endif %}>article</option>
+                    </select>
+                </div>
             </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">&#128221; Markdown Source (MD_To_HTML)</span>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <label style="font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;">
+                        <input type="checkbox" name="convert_md_on_save" id="convert_md_on_save" style="accent-color:var(--accent);"> Re-compile HTML on Save
+                    </label>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="convertMarkdownToHtml()">&#9889; Convert Markdown &rarr; HTML</button>
+                </div>
+            </div>
+            <textarea id="md-editor" name="markdown_content" class="editor-area" style="min-height:180px;" placeholder="Paste or author Markdown here (supports GFM tables, callouts > [!NOTE], task lists, and syntax fenced code)..."></textarea>
+            <div id="md2html-status" style="font-size:0.8rem;color:var(--text-secondary);margin-top:6px;"></div>
         </div>
         <div class="card">
             <div class="card-header"><span class="card-title">HTML Content Editor</span><div><button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'asset-modal\')">&#128444; Insert Image</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'pdf-insert-modal\')">&#128196; Insert PDF</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'yt-insert-modal\')">&#9654; Insert YouTube</button></div></div>
             <div class="editor-toolbar"><button type="button" onclick="insertTag(\'h2\')">H2</button><button type="button" onclick="insertTag(\'h3\')">H3</button><button type="button" onclick="insertTag(\'p\')">P</button><button type="button" onclick="insertTag(\'b\')">Bold</button><button type="button" onclick="insertTag(\'br\')">Break</button><button type="button" onclick="insertTag(\'a\')">Link</button></div>
             <textarea id="html-editor" name="html_content" class="editor-area"></textarea>
-            <script>document.addEventListener('DOMContentLoaded',function(){document.getElementById('html-editor').value={{ html_content | tojson }};});</script>
             <script>
-            // pkg144: the image is chosen with the in-app picker and copied in by
-            // the server (no browser upload, so the page never leaves the foreground).
-            function pickFeaturedImage() {
-                var statusEl = document.getElementById('featured_img_upload_status');
-                CMSFilePicker.open({ kind: 'image', multiple: false, title: 'Choose a featured image' }).then(function(result) {
-                    if (!result) { return; }
-                    var select = document.getElementById('featured_img_select');
-                    var before = new Set();
-                    for (var i = 0; i < select.options.length; i++) { before.add(select.options[i].value); }
-                    statusEl.textContent = 'Importing...';
-                    CMSFilePicker.postJSON('/assets/import_server', { paths: result.paths, kind: 'image', flash: false })
-                        .then(function() {
-                            statusEl.textContent = 'Processing...';
-                            pollForNewAsset(before, 0);
+            document.addEventListener('DOMContentLoaded',function(){
+                document.getElementById('html-editor').value={{ html_content | tojson }};
+                document.getElementById('md-editor').value={{ markdown_content | tojson }};
+            });
+            async function convertMarkdownToHtml() {
+                var mdText = document.getElementById('md-editor').value;
+                var statusEl = document.getElementById('md2html-status');
+                var titleInput = document.getElementById('page-title-input');
+                if (!mdText.trim()) {
+                    statusEl.textContent = 'Enter Markdown content first.';
+                    return;
+                }
+                statusEl.textContent = 'Converting Markdown to style-agnostic CMS HTML...';
+                try {
+                    var res = await fetch('/api/md2html', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            markdown: mdText,
+                            fallback_title: titleInput ? titleInput.value : 'Untitled Document'
                         })
-                        .catch(function(err) { statusEl.textContent = (err && err.message) || 'Import failed.'; });
-                });
+                    });
+                    var data = await res.json();
+                    if (data.success) {
+                        document.getElementById('html-editor').value = data.html_body;
+                        statusEl.style.color = '#10b981';
+                        statusEl.textContent = 'Converted Markdown into <article class="bejson-cms-article"> HTML!';
+                    } else {
+                        statusEl.style.color = '#ef4444';
+                        statusEl.textContent = 'Conversion failed.';
+                    }
+                } catch (e) {
+                    statusEl.style.color = '#ef4444';
+                    statusEl.textContent = 'Error converting Markdown: ' + e;
+                }
+            }
+            </script>
+            <script>
+            function uploadFeaturedImage() {
+                var input = document.getElementById('featured_img_upload');
+                var statusEl = document.getElementById('featured_img_upload_status');
+                if (!input.files || !input.files[0]) {
+                    statusEl.textContent = 'Choose a file first.';
+                    return;
+                }
+                var select = document.getElementById('featured_img_select');
+                var before = new Set();
+                for (var i = 0; i < select.options.length; i++) { before.add(select.options[i].value); }
+
+                var fd = new FormData();
+                fd.append('files', input.files[0]);
+                statusEl.textContent = 'Uploading...';
+
+                fetch('/assets/upload', { method: 'POST', body: fd })
+                    .then(function() {
+                        statusEl.textContent = 'Processing...';
+                        pollForNewAsset(before, 0);
+                    })
+                    .catch(function() { statusEl.textContent = 'Upload failed.'; });
             }
 
             function pollForNewAsset(before, attempt) {
                 var statusEl = document.getElementById('featured_img_upload_status');
                 if (attempt > 15) {
-                    statusEl.textContent = 'No new image appeared -- it may already be in the Media Library (duplicates are skipped), or is still processing. Check the dropdown.';
+                    statusEl.textContent = 'Still processing -- reload the page in a moment and select it from the dropdown.';
                     return;
                 }
                 fetch('/assets/list.json')
@@ -398,7 +416,8 @@ def edit_content(page_uuid):
                             select.value = newFile.asset_filename;
                             document.getElementById('featured_img_preview').innerHTML =
                                 '<img src="/assets/' + newFile.asset_filename + '" style="max-height:80px;border-radius:6px;border:1px solid var(--border);" alt="new">';
-                            statusEl.textContent = 'Imported and selected.';
+                            statusEl.textContent = 'Uploaded and selected.';
+                            document.getElementById('featured_img_upload').value = '';
                         } else {
                             setTimeout(function() { pollForNewAsset(before, attempt + 1); }, 600);
                         }
@@ -460,7 +479,7 @@ def edit_content(page_uuid):
       </div>
     </div>'''
     breadcrumbs = [{'label': 'Content', 'href': '/content'}, {'label': 'Pages', 'href': '/pages'}, {'label': page['page_title'], 'href': None}]
-    return R(html, page=page, page_uuid=page_uuid, html_content=html_content, media_assets=media_assets,
+    return R(html, page=page, page_uuid=page_uuid, html_content=html_content, markdown_content=markdown_content, media_assets=media_assets,
              pdf_assets=pdf_assets, pdf_links=pdf_links, video_links=video_links,
              categories=categories, authors=authors, breadcrumbs=breadcrumbs, active_section='content')
 
@@ -511,13 +530,6 @@ def duplicate_page(page_uuid):
         "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_external_url": None,
         "page_author_name": source.get("page_author_name"), "page_featured_img": source.get("page_featured_img"),
         "page_template_key": source.get("page_template_key"),
-        "page_featured_video_url": source.get("page_featured_video_url"),
-        # Copied directly from source rather than re-resolved by name --
-        # source already carries the correct uuid (pkg137), and copying it
-        # verbatim preserves an orphan (None) state faithfully too, if the
-        # source page had one.
-        "page_cat_uuid": source.get("page_cat_uuid"), "page_author_uuid": source.get("page_author_uuid"),
-        "page_is_standalone_flag": source.get("page_is_standalone_flag") is True,
     })
 
     src_file = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
@@ -528,13 +540,13 @@ def duplicate_page(page_uuid):
         # Update the copy's own PageMeta title to match; leave the actual
         # body content (html_body/markdown_body/source_code) untouched --
         # that's the whole point of duplicating.
-        fields = [fld["name"] for fld in content_data.get("Fields", [])]
-        title_idx = fields.index("meta_title") if "meta_title" in fields else -1
+        content_field_map_cache = bejson_core_get_field_map(content_data) if content_data.get("Fields") else {}
+        parent_type_col_idx = content_field_map_cache.get("Record_Type_Parent", 0)
+        title_idx = content_field_map_cache.get("meta_title", -1)
         for row in content_data.get("Values", []):
-            if row and row[0] == "PageMeta" and title_idx != -1:
+            if row and row[parent_type_col_idx] == "PageMeta" and title_idx != -1:
                 row[title_idx] = new_title
-        with open(new_file, 'w') as f:
-            json.dump(content_data, f, indent=2)
+        bejson_core_atomic_write(new_file, content_data)
 
     flash(f'Duplicated as "{new_title}". Edit the copy below.', 'success')
     return redirect(f'/edit/{new_uuid}')
@@ -570,12 +582,9 @@ def link_new():
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', label.lower()).strip('-')
         db.mount()
-        cat_uuid, _ = _resolve_page_fk_uuids(category, None)
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": label, "page_slug": slug,
             "page_cat_name": category, "page_type": "external_link", "page_external_url": Submitted_External_Link_Url,
-            "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_author_name": "", "page_featured_img": "",
-            "page_template_key": None, "page_featured_video_url": None,
-            "page_cat_uuid": cat_uuid, "page_author_uuid": None, "page_is_standalone_flag": False})
+            "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_author_name": "", "page_featured_img": ""})
         
         flash('External link added.', 'success')
         return redirect('/links')
@@ -605,7 +614,7 @@ def categories_list():
     </div>
     <div class="card"><div class="table-container"><table><thead><tr><th>Category Name</th><th>Slug</th><th>Actions</th></tr></thead><tbody>
     {% for c in categories %}<tr><td>{{ c.cat_name }}</td><td><code style="background:var(--bg-secondary);padding:2px 8px;border-radius:4px;">{{ c.cat_slug }}</code></td>
-    <td>{% if c.cat_name != \'Uncategorized\' %}<form method="post" action="/categories/delete/{{ c.cat_uuid }}" style="display:inline;" onsubmit="return confirm(\'Delete category?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form>{% endif %}</td></tr>{% endfor %}
+    <td>{% if c.cat_name != \'Uncategorized\' %}<form method="post" action="/categories/delete/{{ c.cat_name }}" style="display:inline;" onsubmit="return confirm(\'Delete category?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form>{% endif %}</td></tr>{% endfor %}
     </tbody></table></div></div>'''
     return R(html, categories=categories, breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
@@ -618,31 +627,28 @@ def categories_add():
         db.mount()
         exists = any(c.get('cat_name', '').lower() == name.lower() for c in db.get_records("Category"))
         if not exists:
-            db.add_record("Category", {"cat_uuid": str(uuid.uuid4()), "cat_name": name, "cat_slug": slug})
+            db.add_record("Category", {"cat_name": name, "cat_slug": slug})
             flash(f'Category "{name}" added.', 'success')
         else:
             flash(f'Category "{name}" already exists.', 'error')
     return redirect('/categories')
 
 
-@content_cube.route("/categories/delete/<cat_uuid>", methods=['POST'])
-def categories_delete(cat_uuid):
-    cat = next((c for c in db.get_records("Category") if c.get("cat_uuid") == cat_uuid), None)
-    name = cat.get("cat_name") if cat else None
+@content_cube.route("/categories/delete/<name>", methods=['POST'])
+def categories_delete(name):
     if name == "Uncategorized":
         flash("Cannot delete Uncategorized.", "error")
         return redirect("/categories")
-
+    
     # Delete the category
-    db.delete_record("Category", "cat_uuid", cat_uuid)
-
+    db.delete_record("Category", "cat_name", name)
+    
     # Reassign pages to Uncategorized using orchestrator
-    uncategorized_uuid = next((c.get("cat_uuid") for c in db.get_records("Category") if c.get("cat_name") == "Uncategorized"), None)
     pages = db.get_records("PageRecord")
     for p in pages:
         if p.get("page_cat_name") == name:
-            db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_cat_name": "Uncategorized", "page_cat_uuid": uncategorized_uuid})
-
+            db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_cat_name": "Uncategorized"})
+            
     flash(f"Category '{name}' deleted. Pages reassigned to Uncategorized.", "success")
     return redirect("/categories")
 
@@ -667,33 +673,6 @@ def apps_list():
     return R(html, apps=Standalone_App_Records, breadcrumbs=get_breadcrumbs(request.path), active_section='apps')
 
 
-_MAX_APP_EXTRACTED_BYTES = 300 * 1024 * 1024  # same decompression-bomb cap as the legacy upload path
-
-
-def _install_app_from_path(source_path, app_dir):
-    """Install a picked HTML file or ZIP into app_dir (pkg144). Returns
-    (error_message_or_None, entry_file_or_None). ZIPs are opened straight from
-    their on-disk location -- no temp copy -- and extracted with the same size
-    cap + safe_extract_zip() traversal guard as the legacy upload path."""
-    if source_path.suffix.lower() == '.zip':
-        try:
-            with zipfile.ZipFile(source_path, 'r') as archive:
-                total_uncompressed = sum(info.file_size for info in archive.infolist())
-                if total_uncompressed > _MAX_APP_EXTRACTED_BYTES:
-                    return (f'App ZIP rejected — {total_uncompressed // (1024 * 1024)}MB uncompressed exceeds the '
-                            f'{_MAX_APP_EXTRACTED_BYTES // (1024 * 1024)}MB safety cap.'), None
-                safe_extract_zip(archive, app_dir)
-        except zipfile.BadZipFile:
-            return 'That file is not a valid ZIP archive.', None
-        except ValueError as error:
-            return f'App ZIP rejected — contains a member that would extract outside the app folder ({error}).', None
-        gc.collect()
-        return None, None
-    safe_name = secure_filename(source_path.name) or 'index.html'
-    copy_file_chunked(source_path, os.path.join(app_dir, safe_name))
-    return None, safe_name
-
-
 @content_cube.route('/apps/new', methods=['GET', 'POST'])
 def app_new():
     assets = get_image_assets()
@@ -705,32 +684,12 @@ def app_new():
         if not name:
             return "App name required", 400
         uploaded_file = request.files.get('app_file')
-        picked_app_path = request.form.get('app_file_path', '').strip()
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', name.lower()).strip('-')
         app_dir = os.path.join(APPS_STORAGE, new_uuid)
         os.makedirs(app_dir, exist_ok=True)
         _t0 = time.perf_counter()
-        if picked_app_path and not (uploaded_file and uploaded_file.filename):
-            # pkg144: file chosen with the in-app picker -- read from disk, no upload.
-            try:
-                picked_source = resolve_pick(picked_app_path, 'app')
-                install_error, installed_entry = _install_app_from_path(picked_source, app_dir)
-            except PickError as _e:
-                install_error, installed_entry = str(_e), None
-            except OSError as _e:
-                install_error, installed_entry = f'Could not read the chosen file: {_e}', None
-            if install_error:
-                shutil.rmtree(app_dir, ignore_errors=True)
-                flash(install_error, 'error')
-                return redirect('/apps/new')
-            if installed_entry:
-                entry_file = installed_entry
-        elif not (uploaded_file and uploaded_file.filename):
-            shutil.rmtree(app_dir, ignore_errors=True)
-            flash('Choose an HTML file or ZIP to import.', 'error')
-            return redirect('/apps/new')
-        if uploaded_file and uploaded_file.filename and not picked_app_path:
+        if uploaded_file and uploaded_file.filename:
             filename = secure_filename(uploaded_file.filename)
             if filename.endswith('.zip'):
                 zip_path = os.path.join(app_dir, 'temp.zip')
@@ -762,8 +721,7 @@ def app_new():
         db.mount()
         _t_add0 = time.perf_counter()
         db.add_record("StandaloneApp", {"app_uuid": new_uuid, "app_name": name, "app_slug": slug,
-            "app_description": Submitted_App_Description, "app_entry_file": entry_file, "app_featured_img": app_image,
-            "app_created_at": datetime.now().strftime("%Y-%m-%d")})
+            "app_description": Submitted_App_Description, "app_entry_file": entry_file, "app_featured_img": app_image})
         logging.debug(f"[IMPORT] app_new add_record_ms={(time.perf_counter()-_t_add0)*1000:.1f} "
                       f"total_ms={(time.perf_counter()-_t0)*1000:.1f}")
         
@@ -771,7 +729,7 @@ def app_new():
         return redirect('/apps')
     html = '''
     <div class="page-header"><h1>Import Application</h1><p>Add a standalone application</p></div>
-    <form method="POST" class="card" id="appForm" onsubmit="return appFormCheck()">
+    <form method="POST" enctype="multipart/form-data" class="card" id="appForm">
         <div class="form-group"><label class="form-label">App Name *</label><input type="text" name="name" class="form-control" required></div>
         <div class="form-group"><label class="form-label">Description</label><textarea name="desc" class="form-control"></textarea></div>
         <div class="form-group">
@@ -787,12 +745,10 @@ def app_new():
         <div class="form-group"><label class="form-label">Featured Image</label><select name="app_featured_img" class="form-control"><option value="">-- No image --</option>{% for a in assets %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select></div>
         <div class="form-group">
             <label class="form-label">App File (HTML or ZIP) *</label>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button type="button" class="btn btn-secondary" id="appPickBtn" data-fb-pick data-fb-kind="app" data-fb-title="Choose an HTML file or ZIP" data-fb-target="#appFilePath" data-fb-summary="#appFileSummary">&#128193; Browse device&hellip;</button>
+            <div style="display:flex;gap:10px;">
+                <input type="file" name="app_file" id="appFileInput" class="form-control" accept=".html,.htm,.zip" required onchange="handleFileChange()">
                 <button type="button" class="btn btn-secondary" id="scanBtn" onclick="scanZip()" style="display:none;">Scan ZIP</button>
             </div>
-            <input type="hidden" name="app_file_path" id="appFilePath">
-            <div id="appFileSummary" class="becss-fb-summary"></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:30px;"><button type="submit" class="btn btn-primary">Import App</button><a href="/apps" class="btn btn-secondary">Cancel</a></div>
     </form>
@@ -813,38 +769,32 @@ def app_new():
         }
     }
 
-    // pkg144: the file is chosen with the in-app picker (data-fb-pick); the
-    // hidden #appFilePath holds the SERVER path, so nothing is uploaded.
-    function appFormCheck() {
-        if (!document.getElementById('appFilePath').value.trim()) {
-            alert('Choose an HTML file or ZIP first.');
-            return false;
-        }
-        return true;
-    }
-
-    document.getElementById('appPickBtn').addEventListener('fb:picked', function (ev) {
+    function handleFileChange() {
+        const fileIn = document.getElementById('appFileInput');
         const scanBtn = document.getElementById('scanBtn');
         const sel = document.getElementById('entryFileSelect');
-        const picked = ev.detail.files[0];
-        if (!picked) return;
-        if (picked.name.toLowerCase().endsWith('.zip')) {
-            scanBtn.style.display = 'block';
-            scanZip();
-        } else {
-            scanBtn.style.display = 'none';
-            sel.innerHTML = '';
-            const opt = document.createElement('option');
-            opt.value = picked.name;
-            opt.textContent = picked.name;
-            sel.appendChild(opt);
+        
+        if (fileIn.files.length > 0) {
+            const file = fileIn.files[0];
+            if (file.name.toLowerCase().endsWith('.zip')) {
+                scanBtn.style.display = 'block';
+            } else {
+                scanBtn.style.display = 'none';
+                // Auto-populate for single HTML
+                if (file.name.toLowerCase().match(/\\.html?$/)) {
+                    sel.innerHTML = `<option value="${file.name}">${file.name}</option>`;
+                }
+            }
         }
-    });
+    }
 
     async function scanZip() {
-        const pickedPath = document.getElementById('appFilePath').value.trim();
-        if (!pickedPath) return;
-
+        const fileIn = document.getElementById('appFileInput');
+        if (fileIn.files.length === 0) return;
+        
+        const formData = new FormData();
+        formData.append('app_file', fileIn.files[0]);
+        
         const scanBtn = document.getElementById('scanBtn');
         scanBtn.disabled = true;
         scanBtn.textContent = 'Scanning...';
@@ -852,8 +802,7 @@ def app_new():
         try {
             const res = await fetch('/api/apps/scan_zip', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: pickedPath })
+                body: formData
             });
             const data = await res.json();
             if (data.success) {
@@ -905,25 +854,7 @@ def app_edit(app_uuid):
             return "App name required", 400
 
         uploaded_file = request.files.get('app_file')
-        picked_app_path = request.form.get('app_file_path', '').strip()
-        if picked_app_path and not (uploaded_file and uploaded_file.filename):
-            # pkg144: replacement chosen with the in-app picker. Validate BEFORE
-            # wiping the old payload so a bad pick can never destroy a working app.
-            try:
-                picked_source = resolve_pick(picked_app_path, 'app')
-            except PickError as _e:
-                flash(str(_e), 'error')
-                return redirect(f'/apps/edit/{app_uuid}')
-            if os.path.exists(app_dir):
-                shutil.rmtree(app_dir)
-            os.makedirs(app_dir, exist_ok=True)
-            install_error, installed_entry = _install_app_from_path(picked_source, app_dir)
-            if install_error:
-                flash(install_error, 'error')
-                return redirect(f'/apps/edit/{app_uuid}')
-            if installed_entry:
-                entry_file = installed_entry
-        elif uploaded_file and uploaded_file.filename:
+        if uploaded_file and uploaded_file.filename:
             # Replacing the app payload: wipe the old files and re-extract, same
             # logic as app_new(), so a wrong upload can be fully corrected.
             if os.path.exists(app_dir):
@@ -963,7 +894,7 @@ def app_edit(app_uuid):
     )
     html = f'''
     <div class="page-header"><h1>Edit Application</h1><p>Update this application\\'s details, image, or replace its file</p></div>
-    <form method="POST" class="card">
+    <form method="POST" enctype="multipart/form-data" class="card">
         <div class="form-group"><label class="form-label">App Name *</label><input type="text" name="name" class="form-control" value="{_html_escape.escape(app_data.get("app_name",""))}" required></div>
         <div class="form-group"><label class="form-label">Description</label><textarea name="desc" class="form-control">{_html_escape.escape(app_data.get("app_description") or "")}</textarea></div>
         <div class="form-group">
@@ -973,9 +904,7 @@ def app_edit(app_uuid):
         <div class="form-group"><label class="form-label">Featured Image</label><select name="app_featured_img" class="form-control">{image_options}</select></div>
         <div class="form-group">
             <label class="form-label">Replace App File (optional — HTML or ZIP)</label>
-            <button type="button" class="btn btn-secondary" data-fb-pick data-fb-kind="app" data-fb-title="Choose the replacement HTML file or ZIP" data-fb-target="#appFilePathEdit" data-fb-summary="#appFileSummaryEdit">&#128193; Browse device&hellip;</button>
-            <input type="hidden" name="app_file_path" id="appFilePathEdit">
-            <div id="appFileSummaryEdit" class="becss-fb-summary"></div>
+            <input type="file" name="app_file" class="form-control" accept=".html,.htm,.zip">
             <p style="color:var(--text-secondary);font-size:.8rem;margin-top:6px;">Leave blank to keep the currently imported file(s). Uploading a new file replaces everything currently stored for this app.</p>
         </div>
         <div style="display:flex;gap:10px;margin-top:30px;"><button type="submit" class="btn btn-primary">Save Changes</button><a href="/apps" class="btn btn-secondary">Cancel</a></div>
@@ -987,14 +916,7 @@ def app_edit(app_uuid):
 @require_auth
 def api_apps_scan_zip():
     file = request.files.get('app_file')
-    picked_zip_path = (request.get_json(silent=True) or {}).get('path')
-    if picked_zip_path:
-        # pkg144: scan a ZIP chosen with the in-app picker, straight from disk.
-        try:
-            file = resolve_pick(picked_zip_path, 'zip')
-        except PickError as _e:
-            return jsonify({"success": False, "error": str(_e)})
-    elif not file or not file.filename.endswith('.zip'):
+    if not file or not file.filename.endswith('.zip'):
         return jsonify({"success": False, "error": "No ZIP file uploaded"})
     
     html_files = []
@@ -1103,17 +1025,20 @@ def manage_authors():
                 if existing:
                     flash(f'An author named "{name}" already exists.', 'error')
                 else:
-                    db.add_record("AuthorProfile", {"author_uuid": str(uuid.uuid4()), "author_display_name": name, "author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
+                    db.add_record("AuthorProfile", {"author_display_name": name, "author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
+                    db.commit()
                     flash(f'Author "{name}" added.', 'success')
         elif action == 'edit':
-            author_uuid = request.form.get('author_uuid', '')
+            name = request.form.get('author_display_name', '').strip()
             Submitted_Author_Bio  = request.form.get('author_bio', '')
             Submitted_Author_Image_Filename  = request.form.get('author_avatar_url', '')
-            db.update_record("AuthorProfile", "author_uuid", author_uuid, {"author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
-            flash('Author updated.', 'success')
+            db.update_record("AuthorProfile", "author_display_name", name, {"author_bio": Submitted_Author_Bio, "author_avatar_url": Submitted_Author_Image_Filename})
+            db.commit()
+            flash(f'Author "{name}" updated.', 'success')
         elif action == 'delete':
-            author_uuid = request.form.get('author_uuid', '')
-            db.delete_record("AuthorProfile", "author_uuid", author_uuid)
+            name = request.form.get('author_display_name', '')
+            db.delete_record("AuthorProfile", "author_display_name", name)
+            db.commit()
             flash('Author deleted.', 'success')
         return redirect('/site/authors')
 
@@ -1153,7 +1078,7 @@ def manage_authors():
         <div class="card">
             <div class="card-header"><span class="card-title">Existing Authors ({{ authors|length }})</span></div>
             {% for auth in authors %}
-            {% set aid = auth.author_uuid %}
+            {% set aid = auth.author_display_name | replace(\' \', \'_\') %}
             <div style="padding:15px;background:var(--bg-secondary);margin-bottom:10px;border-radius:8px;">
                 <div class="author-row">
                     <div class="author-row-info">
@@ -1171,7 +1096,7 @@ def manage_authors():
                         <button class="btn btn-secondary btn-sm toggle-edit-btn" data-aid="{{ aid }}" type="button">Edit</button>
                         <form method="POST" style="display:inline;">
                             <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="author_uuid" value="{{ auth.author_uuid }}">
+                            <input type="hidden" name="author_display_name" value="{{ auth.author_display_name }}">
                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm(\'Delete author?\')">Delete</button>
                         </form>
                     </div>
@@ -1179,7 +1104,7 @@ def manage_authors():
                 <div id="edit-{{ aid }}" class="author-edit-panel">
                     <form method="POST">
                         <input type="hidden" name="action" value="edit">
-                        <input type="hidden" name="author_uuid" value="{{ auth.author_uuid }}">
+                        <input type="hidden" name="author_display_name" value="{{ auth.author_display_name }}">
                         <div class="form-group"><label class="form-label" style="font-size:0.8rem;">Bio</label>
                             <textarea name="author_bio" class="form-control" rows="3">{{ auth.author_bio or \'\'  }}</textarea>
                         </div>
@@ -1311,6 +1236,13 @@ def extract_from_html(html_bytes):
     # Strip Word HTML artefacts + AI watermarks
     Cleaned_Body_Html = _strip_word_html(Parsed_Body_Tag)
 
+    # Ensure all tables are enclosed in horizontal scroll containers (zero page widening)
+    for table_tag in Cleaned_Body_Html.find_all("table"):
+        parent_tag = table_tag.parent
+        if not (parent_tag and parent_tag.name == "div" and any(cls in parent_tag.get("class", []) for cls in ("table-container", "table-responsive", "table-scroll-container"))):
+            wrapper_div = soup.new_tag("div", **{"class": "table-container"})
+            table_tag.wrap(wrapper_div)
+
     body_html = Cleaned_Body_Html.decode_contents().strip()
 
     # Preview text
@@ -1319,7 +1251,26 @@ def extract_from_html(html_bytes):
     return title, body_html, preview
 
 
-def _create_import_page(title, category, body_html, author='', sync_count=True):
+def extract_from_import_file(filename, raw_bytes):
+    """
+    Extract (title, body_html, preview_text, markdown_body, file_kind) from either
+    a Markdown (.md/.markdown) or HTML (.html/.htm) file.
+    """
+    lower_name = (filename or '').lower()
+    if lower_name.endswith(('.md', '.markdown')):
+        md_text = raw_bytes.decode('utf-8', errors='replace')
+        stem = os.path.splitext(os.path.basename(filename))[0]
+        fallback_title = stem.replace('_', ' ').replace('-', ' ').title() or 'Imported Article'
+        parsed = convert_markdown_to_cms_article(md_text, fallback_title)
+        wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
+        preview_text = parsed.get('excerpt') or parsed.get('title') or ''
+        return parsed['title'], wrapped_html, preview_text[:200], md_text, 'markdown'
+    else:
+        title, body_html, preview_text = extract_from_html(raw_bytes)
+        return title, body_html, preview_text, '', 'html'
+
+
+def _create_import_page(title, category, body_html, author='', sync_count=True, markdown_body='', page_type='page'):
     """Register a new PageRecord in the master DB and write the page content file.
 
     sync_count: pass False when calling this in a loop over multiple files;
@@ -1329,25 +1280,21 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
     _t0 = time.perf_counter()
     new_uuid = str(uuid.uuid4())
     slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+    normalized_type = page_type if page_type in ('page', 'blog', 'article') else 'page'
 
     db.mount()
     _t_add0 = time.perf_counter()
-    cat_uuid, author_uuid = _resolve_page_fk_uuids(category, author)
     db.add_record("PageRecord", {
         "page_uuid":    new_uuid,
         "page_title":   title,
         "page_slug":    slug,
         "page_cat_name": category,
-        "page_type":    "page",
+        "page_type":    normalized_type,
         "page_created_at":   datetime.now().strftime("%Y-%m-%d"),
         "page_external_url": None,
         "page_author_name":   author,
         "page_featured_img": DEFAULT_FEATURED_IMAGE,
-        "page_template_key": "blank",
-        "page_featured_video_url": None,
-        "page_cat_uuid": cat_uuid,
-        "page_author_uuid": author_uuid,
-        "page_is_standalone_flag": False,
+        "page_is_standalone_flag": (normalized_type == "page"),
     }, sync_count=sync_count)
     _t_add1 = time.perf_counter()
     
@@ -1367,7 +1314,7 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
         ],
         "Values": [
             ["PageMeta", title, None, None, None],
-            ["Content", None, body_html, "", ""]
+            ["Content", None, body_html, markdown_body or "", ""]
         ]
     }
     _t_file0 = time.perf_counter()
@@ -1377,7 +1324,7 @@ def _create_import_page(title, category, body_html, author='', sync_count=True):
     os.replace(tmp, pfile)  # atomic write, matching cms-manage.py's pattern
     _t_file1 = time.perf_counter()
     logging.debug(
-        f"[IMPORT] _create_import_page title={title!r} sync_count={sync_count} "
+        f"[IMPORT] _create_import_page title={title!r} type={normalized_type} sync_count={sync_count} "
         f"add_record_ms={(_t_add1-_t_add0)*1000:.1f} content_file_write_ms={(_t_file1-_t_file0)*1000:.1f} "
         f"total_ms={(time.perf_counter()-_t0)*1000:.1f}"
     )
@@ -1397,39 +1344,51 @@ def import_index():
     <div class="alert alert-error" style="margin-bottom:20px;">
       ⚠ <strong>beautifulsoup4</strong> is not installed.
       Install it with <code>pip install beautifulsoup4</code> for full HTML parsing.
-      Basic extraction will still work without it.
+      Markdown (.md) and basic HTML extraction will still work without it.
     </div>'''
 
     html = f'''
     {bs4_warn}
-    <div class="page-header"><h1>HTML Import</h1>
-    <p>Upload HTML files and import them as CMS pages. Word artefacts and AI watermarks are stripped automatically.</p></div>
-    <form action="/import/preview" method="POST" onsubmit="if(!document.getElementById('htmlPaths').value.trim()){{alert('Choose at least one HTML file first.');return false;}}return true;">
+    <div class="page-header"><h1>HTML &amp; Markdown Import</h1>
+    <p>Upload Markdown (<code>.md</code>) or HTML (<code>.html</code>) drops and import them as native CMS articles or pages. Markdown files are converted to style-agnostic <code>&lt;article class="bejson-cms-article"&gt;</code> HTML with responsive tables, callouts, and code blocks.</p></div>
+    <form action="/import/preview" method="POST" enctype="multipart/form-data">
       <div class="card">
-        <div class="card-header"><span class="card-title">📂 Select HTML Files</span></div>
-        <div style="border:2px dashed var(--border);border-radius:8px;padding:40px 24px;text-align:center;">
+        <div class="card-header"><span class="card-title">📂 Select HTML or Markdown Files</span></div>
+        <div id="dropZone" onclick="document.getElementById('fileInput').click()"
+             style="border:2px dashed var(--border);border-radius:8px;padding:48px 24px;text-align:center;cursor:pointer;transition:.2s;"
+             ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+             ondragleave="this.style.borderColor='var(--border)'"
+             ondrop="event.preventDefault();this.style.borderColor='var(--border)';document.getElementById('fileInput').files=event.dataTransfer.files;showFiles(document.getElementById('fileInput'))">
           <div style="font-size:2.5rem;margin-bottom:12px;">📄</div>
-          <p style="color:var(--text-secondary);margin-bottom:14px;">Browse the device inside the app &mdash; pick one or many .html / .htm files, from any folder.</p>
-          <button type="button" class="btn btn-primary" data-fb-pick data-fb-kind="html" data-fb-multiple="1"
-                  data-fb-title="Select HTML files to import" data-fb-target="#htmlPaths" data-fb-summary="#fileList">&#128193; Browse Files&hellip;</button>
-          <input type="hidden" name="html_paths" id="htmlPaths">
+          <p style="color:var(--text-secondary);margin-bottom:14px;">Click to browse or drag &amp; drop <code>.md</code>, <code>.markdown</code>, <code>.html</code>, or <code>.htm</code> files</p>
+          <input type="file" id="fileInput" name="html_files" multiple accept=".html,.htm,.md,.markdown"
+                 style="display:none" onchange="showFiles(this)">
+          <span class="btn btn-secondary">Browse Files</span>
         </div>
-        <div id="fileList" class="becss-fb-summary" style="margin-top:16px;"></div>
+        <div id="fileList" style="margin-top:16px;"></div>
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">⚙️ Import Settings</span></div>
-        <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
           <div class="form-group">
             <label class="form-label">Target Category *</label>
             <select name="category" class="form-control" required>
               <option value="" disabled selected>-- Select Target Category --</option>
-              {"".join(f'<option value="{_html_escape.escape(c["cat_name"])}">{_html_escape.escape(c["cat_name"])}</option>' for c in cats)}
+              {"".join(f'<option value="{c["cat_name"]}">{c["cat_name"]}</option>' for c in cats)}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Author (optional)</label>
             <select name="author" class="form-control"><option value="">-- Select author --</option>
               {"".join(f'<option value="{_html_escape.escape(a["author_display_name"])}">{_html_escape.escape(a["author_display_name"])}</option>' for a in authors)}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Page Type</label>
+            <select name="page_type" class="form-control">
+              <option value="blog" selected>blog (Article / Post)</option>
+              <option value="article">article</option>
+              <option value="page">page (Standalone Page)</option>
             </select>
           </div>
         </div>
@@ -1442,24 +1401,34 @@ def import_index():
         <button type="submit" class="btn btn-primary">🔍 Preview &amp; Review →</button>
       </div>
     </form>
-'''
+    <script>
+    function showFiles(inp) {{
+      const list = document.getElementById('fileList');
+      list.innerHTML = '';
+      if (!inp.files.length) return;
+      const hdr = document.createElement('p');
+      hdr.style = 'font-size:.85rem;color:var(--text-secondary);margin-bottom:8px;font-weight:600;';
+      hdr.textContent = inp.files.length + ' file(s) selected:';
+      list.appendChild(hdr);
+      for (const f of inp.files) {{
+        const isMd = f.name.toLowerCase().endsWith('.md') || f.name.toLowerCase().endsWith('.markdown');
+        const badge = isMd ? '<span class="badge" style="background:var(--accent);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;">MD</span>' : '<span class="badge" style="background:var(--border);color:var(--text-primary);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;">HTML</span>';
+        const item = document.createElement('div');
+        item.style = 'background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px;';
+        item.innerHTML = '<span style="font-size:1.4rem;">' + (isMd ? '📝' : '📄') + '</span><div><div style="font-weight:600;font-size:.9rem;">' + f.name + badge + '</div><div style="font-size:.78rem;color:var(--text-secondary);">' + (f.size/1024).toFixed(1) + ' KB</div></div>';
+        list.appendChild(item);
+      }}
+    }}
+    </script>'''
     return R(html, breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
 
 @content_cube.route('/import/preview', methods=['POST'])
 def import_preview():
     files    = request.files.getlist('html_files')
-    # pkg144: files chosen with the in-app picker arrive as server paths, not uploads.
-    # PickedFile duck-types the FileStorage bits used below (.filename / .read()).
-    try:
-        picked_html_paths, rejected_picks = resolve_picks(parse_path_list(request.form.get('html_paths')), 'html')
-    except PickError as _e:
-        picked_html_paths, rejected_picks = [], [{'path': '', 'error': str(_e)}]
-    for rejected in rejected_picks:
-        flash(rejected['error'], 'error')
-    files = [f for f in files if f.filename] + [PickedFile(path) for path in picked_html_paths]
     category = request.form.get('category', '').strip()
     author   = request.form.get('author', '').strip()
+    page_type = request.form.get('page_type', 'blog').strip() or 'blog'
     skip_preview = request.form.get('skip_preview') == 'on'
 
     if not category:
@@ -1467,13 +1436,13 @@ def import_preview():
         return redirect('/import')
 
     if not files or not files[0].filename:
-        flash('Please select at least one HTML file.', 'error')
+        flash('Please select at least one HTML or Markdown file.', 'error')
         return redirect('/import')
 
     if skip_preview:
         success_count = 0
         _batch_t0 = time.perf_counter()
-        logging.debug(f"[IMPORT] html_import skip_preview START file_count={len(files)}")
+        logging.debug(f"[IMPORT] file_import skip_preview START file_count={len(files)}")
         for f in files:
             if not f.filename: continue
             _file_t0 = time.perf_counter()
@@ -1481,24 +1450,24 @@ def import_preview():
                 _t_read0 = time.perf_counter()
                 raw = f.read()
                 _t_read1 = time.perf_counter()
-                title, body_html, _ = extract_from_html(raw)
+                title, body_html, _, md_body, _ = extract_from_import_file(f.filename, raw)
                 _t_extract1 = time.perf_counter()
-                _create_import_page(title, category, body_html, author, sync_count=False)
+                _create_import_page(title, category, body_html, author, sync_count=False, markdown_body=md_body, page_type=page_type)
                 success_count += 1
                 logging.debug(
-                    f"[IMPORT] html_import FILE filename={f.filename} "
+                    f"[IMPORT] file_import FILE filename={f.filename} "
                     f"read_ms={(_t_read1-_t_read0)*1000:.1f} extract_ms={(_t_extract1-_t_read1)*1000:.1f} "
                     f"file_total_ms={(time.perf_counter()-_file_t0)*1000:.1f}"
                 )
             except Exception as e:
                 flash(f'Error importing {f.filename}: {e}', 'error')
-                logging.debug(f"[IMPORT] html_import FILE ERROR filename={f.filename} "
+                logging.debug(f"[IMPORT] file_import FILE ERROR filename={f.filename} "
                               f"file_total_ms={(time.perf_counter()-_file_t0)*1000:.1f} error={e}")
         if success_count > 0:
             _t_sync0 = time.perf_counter()
             db.sync_manifest_count("PageRecord")
-            logging.debug(f"[IMPORT] html_import final sync_manifest_count_ms={(time.perf_counter()-_t_sync0)*1000:.1f}")
-        logging.debug(f"[IMPORT] html_import skip_preview END success={success_count} "
+            logging.debug(f"[IMPORT] file_import final sync_manifest_count_ms={(time.perf_counter()-_t_sync0)*1000:.1f}")
+        logging.debug(f"[IMPORT] file_import skip_preview END success={success_count} "
                       f"batch_total_ms={(time.perf_counter()-_batch_t0)*1000:.1f}")
         flash(f'Successfully imported {success_count} page(s).', 'success')
         return redirect('/pages')
@@ -1508,8 +1477,8 @@ def import_preview():
         if not f.filename:
             continue
         fname = secure_filename(f.filename)
-        if not fname.lower().endswith(('.html', '.htm')):
-            flash(f'{fname} skipped — not an HTML file.', 'error')
+        if not fname.lower().endswith(('.html', '.htm', '.md', '.markdown')):
+            flash(f'{fname} skipped — not an HTML or Markdown file.', 'error')
             continue
         try:
             raw = f.read()
@@ -1517,7 +1486,7 @@ def import_preview():
             # thread on Android; the full bytes are still saved to disk.
             _MAX_PARSE = 2 * 1024 * 1024
             parse_bytes = raw[:_MAX_PARSE]
-            title, _, preview_text = extract_from_html(parse_bytes)
+            title, _, preview_text, _, file_kind = extract_from_import_file(fname, parse_bytes)
             tmp_path = os.path.join(UPLOAD_TMP, fname)
             with open(tmp_path, 'wb') as fh:
                 fh.write(raw)
@@ -1526,19 +1495,21 @@ def import_preview():
                 'title':   title,
                 'preview': preview_text,
                 'size':    f'{len(raw)/1024:.1f} KB',
+                'kind':    file_kind,
             })
         except Exception as e:
             flash(f'Could not parse {f.filename}: {e}', 'error')
 
     if not previews:
-        flash('No valid HTML files found.', 'error')
+        flash('No valid HTML or Markdown files found.', 'error')
         return redirect('/import')
 
     rows = ''
     for p in previews:
+        icon = '📝' if p.get('kind') == 'markdown' else '📄'
         rows += f'''
         <div class="card">
-          <div class="card-header"><span class="card-title">📄 {p["fname"]} <span style="font-weight:400;font-size:.8rem;color:var(--text-secondary);">({p["size"]})</span></span></div>
+          <div class="card-header"><span class="card-title">{icon} {p["fname"]} <span style="font-weight:400;font-size:.8rem;color:var(--text-secondary);">({p["size"]} &middot; {p.get("kind", "html").upper()})</span></span></div>
           <input type="hidden" name="fnames" value="{p["fname"]}">
           <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div class="form-group">
@@ -1561,8 +1532,9 @@ def import_preview():
     <div class="page-header"><h1>Review Import</h1>
     <p>Confirm titles and check which files to import, then click Import All.</p></div>
     <form action="/import/confirm" method="POST">
-      <input type="hidden" name="category" value="{_html_escape.escape(category)}">
-      <input type="hidden" name="author"   value="{_html_escape.escape(author)}">
+      <input type="hidden" name="category"  value="{_html_escape.escape(category)}">
+      <input type="hidden" name="author"    value="{_html_escape.escape(author)}">
+      <input type="hidden" name="page_type" value="{_html_escape.escape(page_type)}">
       {rows}
       <div class="card" style="padding:16px 22px;">
         <span style="color:var(--text-secondary);font-size:.85rem;">Category:</span>
@@ -1570,6 +1542,9 @@ def import_preview():
         &nbsp;&nbsp;
         <span style="color:var(--text-secondary);font-size:.85rem;">Author:</span>
         <strong style="margin-left:8px;">{_html_escape.escape(author) if author else "—"}</strong>
+        &nbsp;&nbsp;
+        <span style="color:var(--text-secondary);font-size:.85rem;">Type:</span>
+        <strong style="margin-left:8px;">{_html_escape.escape(page_type)}</strong>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
         <button type="submit" class="btn btn-primary">🚀 Import to CMS</button>
@@ -1581,9 +1556,10 @@ def import_preview():
 
 @content_cube.route('/import/confirm', methods=['POST'])
 def import_confirm():
-    category = request.form.get('category', 'Uncategorized')
-    author   = request.form.get('author', '').strip()
-    fnames   = request.form.getlist('fnames')
+    category  = request.form.get('category', 'Uncategorized')
+    author    = request.form.get('author', '').strip()
+    page_type = request.form.get('page_type', 'blog').strip() or 'blog'
+    fnames    = request.form.getlist('fnames')
 
     import_queue = []
     for fname in fnames:
@@ -1625,6 +1601,7 @@ def import_confirm():
     const queue = {json.dumps(import_queue).replace('</', '<\\/')};
     const category = "{_html_escape.escape(category)}";
     const author = "{_html_escape.escape(author)}";
+    const page_type = "{_html_escape.escape(page_type)}";
     const log = document.getElementById('import-log');
     const bar = document.getElementById('progress-bar');
     const pct = document.getElementById('progress-percent');
@@ -1656,7 +1633,8 @@ def import_confirm():
                         fname: item.fname,
                         title: item.title,
                         category: category,
-                        author: author
+                        author: author,
+                        page_type: page_type
                     }})
                 }});
                 const data = await res.json();
@@ -1700,11 +1678,12 @@ def import_confirm():
 @content_cube.route('/api/import/process_item', methods=['POST'])
 @require_auth
 def api_import_process_item():
-    Parsed_Request_Body = request.json
+    Parsed_Request_Body = request.json or {}
     fname = Parsed_Request_Body.get('fname')
     title = Parsed_Request_Body.get('title')
     category = Parsed_Request_Body.get('category')
     author = Parsed_Request_Body.get('author')
+    page_type = Parsed_Request_Body.get('page_type', 'blog')
 
     tmp_path = os.path.join(UPLOAD_TMP, fname)
     if not category:
@@ -1715,11 +1694,10 @@ def api_import_process_item():
     try:
         with open(tmp_path, 'rb') as fh:
             raw = fh.read()
-        _, body_html, _ = extract_from_html(raw)
-        del raw  # release the full file bytes promptly; extract_from_html's BS4
-                  # tree is also out of scope here — don't wait for the next
-                  # automatic GC cycle to reclaim either on a constrained device
-        new_uuid = _create_import_page(title, category, body_html, author)
+        extracted_title, body_html, _, md_body, _ = extract_from_import_file(fname, raw)
+        final_title = title or extracted_title
+        del raw  # release the full file bytes promptly
+        new_uuid = _create_import_page(final_title, category, body_html, author, markdown_body=md_body, page_type=page_type)
         os.remove(tmp_path)
         gc.collect()
         return jsonify({"success": True, "uuid": new_uuid})
@@ -1728,6 +1706,602 @@ def api_import_process_item():
 
 
 # =============================================================================
+# BKS-1 STANDARDIZED 4-PART BLOG POST JOB SYSTEM (/jobs & /api/bks/*)
+# =============================================================================
+
+@content_cube.route('/jobs')
+@require_auth
+def bks_jobs_studio():
+    db.mount()
+    pages = [p for p in db.get_records("PageRecord") if p.get("page_type") != "external_link"]
+    categories = db.get_records("Category")
+    authors = db.get_records("AuthorProfile")
+    html = '''
+    <div class="page-header">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+                <h1>Standardized Blog Post Job Studio (BKS-1)</h1>
+                <p>Plan, execute 4-part blog posts via CLI_AI 48, merge into unified CMS HTML, and overwrite target posts on approve</p>
+            </div>
+            <span id="bks_job_badge" class="badge badge-page" style="font-size:0.8rem;padding:6px 12px;">No Active Job</span>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+        <div class="grid grid-2" style="gap:16px;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Saved BKS-1 Blog Post Jobs</label>
+                <div style="display:flex;gap:8px;">
+                    <select id="bks_job_select" class="form-control" onchange="if(this.value) loadBksJob(this.value)">
+                        <option value="">-- New 4-Part Blog Post Job --</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="refreshBksBootstrap()">&#8635;</button>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Target Post to Overwrite on Approve</label>
+                <select id="bks_target_page" class="form-control">
+                    <option value="">-- Create New CMS Post on Approve --</option>
+                    {% for p in pages %}<option value="{{ p.page_uuid }}">[Overwrite] {{ p.page_title }} ({{ p.page_cat_name or 'Uncategorized' }})</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-3" style="gap:16px;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Blog Post Job Template (BookType)</label>
+                <select id="bks_template_select" class="form-control"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">AI Provider (CLI_AI 48)</label>
+                <select id="bks_provider_select" class="form-control" onchange="syncBksModelOptions()"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">AI Model</label>
+                <select id="bks_model_select" class="form-control"></select>
+            </div>
+        </div>
+
+        <div class="grid grid-3" style="gap:16px;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Blog Post Title</label>
+                <input type="text" id="bks_title" class="form-control" placeholder="e.g. Zero-Dependency Local-First Architectures with BEJSON 104">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Category</label>
+                <select id="bks_category" class="form-control">
+                    {% for c in categories %}<option value="{{ c.cat_name }}">{{ c.cat_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Author / Voice Persona</label>
+                <select id="bks_author" class="form-control">
+                    {% for a in authors %}<option value="{{ a.author_display_name }}">{{ a.author_display_name }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Topic / Thesis / Architectural Brief</label>
+            <textarea id="bks_topic" class="form-control" style="min-height:100px;" placeholder="Describe the blog post topic, key arguments, code examples, and target audience..."></textarea>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+            <button type="button" class="btn btn-primary" onclick="generateBksPlan()">1. Generate 4-Part Plan &amp; Job</button>
+            <button type="button" class="btn btn-secondary" onclick="saveBksPlanEdits()">Save Plan Edits</button>
+            <button type="button" class="btn btn-primary" onclick="runNextBksPart()">2a. Execute Next Part</button>
+            <button type="button" class="btn btn-primary" onclick="runAllBksParts()">2b. Execute All 4 Parts &amp; Merge</button>
+            <button type="button" class="btn btn-secondary" onclick="mergeBksParts()">Re-Merge 4 Parts</button>
+            <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669;" onclick="approveAndOverwriteTargetPost()">3. Approve &amp; Overwrite Target Post</button>
+            <span id="bks_status_msg" style="margin-left:auto;font-family:monospace;font-size:0.85rem;color:var(--text-secondary);">READY</span>
+        </div>
+    </div>
+
+    <div id="bks_parts_container" style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;"></div>
+
+    <div id="bks_merged_panel" class="card" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+            <div>
+                <h3 style="margin-bottom:4px;">Merged 4-Part Blog Post Preview</h3>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0;">Unified 4-part Markdown + BEJSON CMS Article HTML ready to overwrite target post on approval</p>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669;" onclick="approveAndOverwriteTargetPost()">&#10003; Approve &amp; Overwrite Target Post</button>
+            </div>
+        </div>
+        <div class="grid grid-2" style="gap:16px;">
+            <div>
+                <label class="form-label">Merged 4-Part Markdown</label>
+                <textarea id="bks_merged_md" class="form-control" style="min-height:320px;font-family:monospace;font-size:0.82rem;"></textarea>
+            </div>
+            <div>
+                <label class="form-label">Rendered CMS Article HTML Preview</label>
+                <div id="bks_merged_html_preview" style="min-height:320px;max-height:480px;overflow-y:auto;overflow-x:auto;max-width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let currentBksJobSlug = '';
+    let currentBksDetail = null;
+    let currentPlan = [];
+    let bksProviderModels = {};
+
+    async function refreshBksBootstrap() {
+        const res = await fetch('/api/bks/bootstrap');
+        const data = await res.json();
+        if(!data.ok) return;
+
+        const tplSel = document.getElementById('bks_template_select');
+        const prevTpl = tplSel.value || 'blog_post_4part';
+        tplSel.innerHTML = '';
+        (data.templates || []).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.type_id;
+            opt.innerText = `${t.display_name} (${t.default_chapter_count} parts, ~${t.target_words_per_chapter}w/part)`;
+            tplSel.appendChild(opt);
+        });
+        if([...tplSel.options].some(o => o.value === prevTpl)) tplSel.value = prevTpl;
+
+        bksProviderModels = (data.ai && data.ai.models_by_provider) ? data.ai.models_by_provider : {};
+        const provSel = document.getElementById('bks_provider_select');
+        const prevProv = provSel.value || (data.ai && data.ai.default_provider) || 'gemini';
+        provSel.innerHTML = '';
+        ((data.ai && data.ai.providers) || ['gemini', 'groq', 'openrouter', 'openai']).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.innerText = p.toUpperCase();
+            provSel.appendChild(opt);
+        });
+        provSel.value = prevProv;
+        syncBksModelOptions((data.ai && data.ai.default_model) || '');
+
+        const jobSel = document.getElementById('bks_job_select');
+        const prevJob = currentBksJobSlug || jobSel.value;
+        jobSel.innerHTML = '<option value="">-- New 4-Part Blog Post Job --</option>';
+        (data.jobs || []).forEach(j => {
+            const opt = document.createElement('option');
+            opt.value = j.job_slug;
+            opt.innerText = `[${j.status.toUpperCase()}] ${j.job_name} (${j.accepted_parts || 0}/${j.chapter_count || 4} parts)`;
+            jobSel.appendChild(opt);
+        });
+        if(prevJob && [...jobSel.options].some(o => o.value === prevJob)) jobSel.value = prevJob;
+    }
+
+    function syncBksModelOptions(preferredModel) {
+        const prov = document.getElementById('bks_provider_select').value || 'gemini';
+        const modSel = document.getElementById('bks_model_select');
+        const prevMod = preferredModel || modSel.value;
+        modSel.innerHTML = '';
+        const list = bksProviderModels[prov] || [];
+        if(!list.length) {
+            const opt = document.createElement('option');
+            opt.value = 'gemini-2.5-flash';
+            opt.innerText = 'Default Model';
+            modSel.appendChild(opt);
+            return;
+        }
+        list.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.model_id;
+            opt.innerText = `${m.friendly_name} (${m.model_id})`;
+            modSel.appendChild(opt);
+        });
+        if(prevMod && [...modSel.options].some(o => o.value === prevMod)) modSel.value = prevMod;
+    }
+
+    async function loadBksJob(jobSlug) {
+        if(!jobSlug) return;
+        document.getElementById('bks_status_msg').innerText = 'LOADING JOB...';
+        const res = await fetch('/api/bks/job/' + encodeURIComponent(jobSlug));
+        const data = await res.json();
+        if(data.ok) {
+            applyBksJobDetail(data);
+            document.getElementById('bks_status_msg').innerText = 'JOB LOADED';
+        }
+    }
+
+    function applyBksJobDetail(data) {
+        currentBksDetail = data;
+        currentBksJobSlug = data.job_slug;
+        const jobSel = document.getElementById('bks_job_select');
+        if(jobSel && [...jobSel.options].some(o => o.value === data.job_slug)) jobSel.value = data.job_slug;
+        if(data.book) {
+            document.getElementById('bks_title').value = data.book.title || '';
+            document.getElementById('bks_topic').value = data.book.topic || data.book.thesis || '';
+            if(data.book.book_type_id) document.getElementById('bks_template_select').value = data.book.book_type_id;
+        }
+        if(data.link) {
+            if(data.link.target_page_uuid) document.getElementById('bks_target_page').value = data.link.target_page_uuid;
+            if(data.link.category_name) document.getElementById('bks_category').value = data.link.category_name;
+            if(data.link.author_name) document.getElementById('bks_author').value = data.link.author_name;
+        }
+        const badge = document.getElementById('bks_job_badge');
+        if(badge && data.book) {
+            badge.innerText = `JOB: ${data.job_slug} | ${(data.book.status || 'planned').toUpperCase()}`;
+        }
+        currentPlan = (data.chapters || []).map((c, idx) => ({
+            index: c.index || (idx + 1),
+            title: c.title,
+            brief: c.brief,
+            status: c.status,
+            content: c.body_md || '',
+            actual_words: c.actual_words || 0,
+            target_words: c.target_words || 450
+        }));
+        renderBksParts();
+        renderMergedPreview(data.merged_md || '', data.merged_html || '');
+    }
+
+    function renderBksParts() {
+        const cont = document.getElementById('bks_parts_container');
+        cont.innerHTML = '';
+        currentPlan.forEach((t, i) => {
+            const partIdx = t.index || (i + 1);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
+                        <span class="badge badge-page" style="flex-shrink:0;">PART ${partIdx}/4</span>
+                        <input type="text" id="bks-part-title-${i}" class="form-control" value="${(t.title || '').replace(/"/g, '&quot;')}" style="font-weight:700;flex:1;min-width:0;">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span id="bks-part-status-${i}" style="font-family:monospace;font-size:0.8rem;">${(t.status || 'planned').toUpperCase()} (${t.actual_words || 0}/${t.target_words || 450}w)</span>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="runSingleBksPart(${partIdx}, ${i})">&#9654; Run Part ${partIdx}</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:8px;">
+                    <label class="form-label" style="font-size:0.75rem;">Part ${partIdx} Brief &amp; Instructions</label>
+                    <textarea id="bks-part-brief-${i}" class="form-control" style="min-height:60px;font-size:0.85rem;">${t.brief || ''}</textarea>
+                </div>
+                <details ${t.content ? 'open' : ''}>
+                    <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">Part ${partIdx} Generated Markdown (${(t.content || '').length} chars)</summary>
+                    <textarea id="bks-part-body-${i}" class="form-control" style="min-height:140px;margin-top:8px;font-family:monospace;font-size:0.82rem;">${t.content || ''}</textarea>
+                </details>
+            `;
+            cont.appendChild(card);
+        });
+    }
+
+    function collectPartEditsFromDom() {
+        const parts = [];
+        for(let i=0; i<currentPlan.length; i++) {
+            const titleEl = document.getElementById(`bks-part-title-${i}`);
+            const briefEl = document.getElementById(`bks-part-brief-${i}`);
+            const bodyEl = document.getElementById(`bks-part-body-${i}`);
+            parts.push({
+                index: currentPlan[i].index || (i + 1),
+                title: titleEl ? titleEl.value : currentPlan[i].title,
+                brief: briefEl ? briefEl.value : currentPlan[i].brief,
+                body_md: bodyEl ? bodyEl.value : (currentPlan[i].content || '')
+            });
+        }
+        return parts;
+    }
+
+    async function generateBksPlan() {
+        const topic = document.getElementById('bks_topic').value;
+        const title = document.getElementById('bks_title').value;
+        if(!topic && !title) { alert('Enter a Topic or Blog Post Title first.'); return; }
+        document.getElementById('bks_status_msg').innerText = 'GENERATING 4-PART PLAN...';
+        const res = await fetch('/api/bks/create_plan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                topic: topic || title,
+                title: title,
+                book_type_id: document.getElementById('bks_template_select').value || 'blog_post_4part',
+                provider: document.getElementById('bks_provider_select').value || 'gemini',
+                model_id: document.getElementById('bks_model_select').value,
+                target_page_uuid: document.getElementById('bks_target_page').value,
+                category_name: document.getElementById('bks_category').value,
+                author_name: document.getElementById('bks_author').value
+            })
+        });
+        const data = await res.json();
+        if(data.ok) {
+            await refreshBksBootstrap();
+            applyBksJobDetail(data);
+            document.getElementById('bks_status_msg').innerText = '4-PART PLAN READY';
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    }
+
+    async function saveBksPlanEdits() {
+        if(!currentBksJobSlug) return;
+        const res = await fetch('/api/bks/update_plan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                job_slug: currentBksJobSlug,
+                title: document.getElementById('bks_title').value,
+                topic: document.getElementById('bks_topic').value,
+                target_page_uuid: document.getElementById('bks_target_page').value,
+                provider: document.getElementById('bks_provider_select').value,
+                model_id: document.getElementById('bks_model_select').value,
+                category_name: document.getElementById('bks_category').value,
+                author_name: document.getElementById('bks_author').value,
+                parts: collectPartEditsFromDom()
+            })
+        });
+        const data = await res.json();
+        if(data.ok) applyBksJobDetail(data);
+    }
+
+    async function runSingleBksPart(partIndex, domIdx) {
+        if(!currentBksJobSlug) {
+            await generateBksPlan();
+            if(!currentBksJobSlug) return;
+        } else {
+            await saveBksPlanEdits();
+        }
+        const st = document.getElementById(`bks-part-status-${domIdx}`);
+        if(st) st.innerText = 'WRITING VIA CLI_AI 48...';
+        document.getElementById('bks_status_msg').innerText = `WRITING PART ${partIndex}/4...`;
+        const res = await fetch('/api/bks/execute_part', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                job_slug: currentBksJobSlug,
+                part_index: partIndex,
+                provider: document.getElementById('bks_provider_select').value || 'gemini',
+                model_id: document.getElementById('bks_model_select').value,
+                author_name: document.getElementById('bks_author').value
+            })
+        });
+        const data = await res.json();
+        if(data.ok && data.detail) {
+            applyBksJobDetail(data.detail);
+            await refreshBksBootstrap();
+            document.getElementById('bks_status_msg').innerText = `PART ${partIndex} COMPLETED`;
+        } else {
+            alert('Part execution error: ' + (data.error || 'Unknown error'));
+        }
+    }
+
+    async function runNextBksPart() {
+        if(!currentBksJobSlug) {
+            await generateBksPlan();
+            if(!currentBksJobSlug) return;
+        }
+        const nextIdx = currentPlan.findIndex(p => p.status !== 'accepted');
+        const targetIdx = nextIdx >= 0 ? nextIdx : 0;
+        await runSingleBksPart(currentPlan[targetIdx].index || (targetIdx + 1), targetIdx);
+    }
+
+    async function runAllBksParts() {
+        if(!currentBksJobSlug) {
+            await generateBksPlan();
+            if(!currentBksJobSlug) return;
+        } else {
+            await saveBksPlanEdits();
+        }
+        for(let i=0; i<currentPlan.length; i++) {
+            await runSingleBksPart(currentPlan[i].index || (i + 1), i);
+        }
+        await mergeBksParts();
+        document.getElementById('bks_status_msg').innerText = 'ALL 4 PARTS EXECUTED & MERGED';
+    }
+
+    async function mergeBksParts() {
+        if(!currentBksJobSlug) return;
+        await saveBksPlanEdits();
+        const res = await fetch('/api/bks/merge', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({job_slug: currentBksJobSlug})
+        });
+        const data = await res.json();
+        if(data.ok) {
+            if(data.detail) applyBksJobDetail(data.detail);
+            renderMergedPreview(data.merged_md || '', data.merged_html || '');
+            document.getElementById('bks_status_msg').innerText = '4 PARTS MERGED';
+        }
+    }
+
+    function renderMergedPreview(mergedMd, mergedHtml) {
+        const panel = document.getElementById('bks_merged_panel');
+        if(!mergedMd && !mergedHtml) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        document.getElementById('bks_merged_md').value = mergedMd || '';
+        document.getElementById('bks_merged_html_preview').innerHTML = mergedHtml || '';
+    }
+
+    async function approveAndOverwriteTargetPost() {
+        if(!currentBksJobSlug) { alert('No active BKS-1 Blog Post Job to approve.'); return; }
+        await saveBksPlanEdits();
+        const target_page_uuid = document.getElementById('bks_target_page').value;
+        const title = document.getElementById('bks_title').value;
+        const msg = target_page_uuid
+            ? `Approve merged 4-part post and OVERWRITE target post (${target_page_uuid})?`
+            : `Approve merged 4-part post and create new CMS post "${title}"?`;
+        if(!confirm(msg)) return;
+        document.getElementById('bks_status_msg').innerText = 'APPROVING & OVERWRITING TARGET POST...';
+        const res = await fetch('/api/bks/approve', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                job_slug: currentBksJobSlug,
+                target_page_uuid: target_page_uuid,
+                title: title,
+                category_name: document.getElementById('bks_category').value,
+                author_name: document.getElementById('bks_author').value
+            })
+        });
+        const data = await res.json();
+        if(data.ok) {
+            document.getElementById('bks_status_msg').innerText = 'APPROVED & TARGET POST OVERWRITTEN';
+            if(confirm(`Approved! Target post "${data.title}" (${data.target_page_uuid}) was overwritten with the merged 4-part post (${data.word_count} words). Open in Page Editor now?`)) {
+                window.location.href = '/edit/' + data.target_page_uuid;
+            } else {
+                await refreshBksBootstrap();
+                await loadBksJob(currentBksJobSlug);
+            }
+        } else {
+            alert('Approve failed: ' + (data.error || 'Unknown error'));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', refreshBksBootstrap);
+    </script>
+    '''
+    return R(html, pages=pages, categories=categories, authors=authors,
+             breadcrumbs=get_breadcrumbs(request.path), active_section='content')
+
+
+@content_cube.route('/api/bks/bootstrap', methods=['GET'])
+@require_auth
+def content_api_bks_bootstrap():
+    try:
+        BKSJobs.cms_bks_bootstrap()
+        templates = BKSJobs.cms_bks_list_templates()
+        jobs = BKSJobs.cms_bks_list_jobs()
+        ai_info = AIWriting.ai_writing_get_providers_and_models()
+        db.mount()
+        pages = [p for p in db.get_records("PageRecord") if p.get("page_type") != "external_link"]
+        return jsonify({
+            "ok": True,
+            "templates": templates,
+            "jobs": jobs,
+            "ai": ai_info,
+            "pages": pages,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/job/<job_slug>', methods=['GET'])
+@require_auth
+def content_api_bks_get_job(job_slug):
+    try:
+        detail = BKSJobs.cms_bks_get_job_detail(job_slug)
+        return jsonify(detail)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/create_plan', methods=['POST'])
+@require_auth
+def content_api_bks_create_plan():
+    try:
+        d = request.json or {}
+        detail = BKSJobs.cms_bks_create_blog_job(
+            topic=d.get("topic") or d.get("prompt") or d.get("title") or "Untitled Blog Post",
+            title=d.get("title") or "",
+            book_type_id=d.get("book_type_id") or "blog_post_4part",
+            target_page_uuid=d.get("target_page_uuid") or "",
+            category_name=d.get("category_name") or "Uncategorized",
+            author_name=d.get("author_name") or "Elton Boehnen",
+            template_key=d.get("template_key") or "blank",
+            provider=d.get("provider") or "gemini",
+            model_id=d.get("model_id") or None,
+            use_ai_plan=bool(d.get("use_ai_plan", True)),
+        )
+        return jsonify(detail)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/update_plan', methods=['POST'])
+@require_auth
+def content_api_bks_update_plan():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        if not job_slug:
+            return jsonify({"ok": False, "error": "job_slug is required"}), 400
+        detail = BKSJobs.cms_bks_update_job_metadata_and_plan(
+            job_slug,
+            title=d.get("title"),
+            topic=d.get("topic"),
+            target_page_uuid=d.get("target_page_uuid"),
+            category_name=d.get("category_name"),
+            author_name=d.get("author_name"),
+            template_key=d.get("template_key"),
+            provider=d.get("provider"),
+            model_id=d.get("model_id"),
+            parts=d.get("parts"),
+        )
+        return jsonify(detail)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/execute_part', methods=['POST'])
+@require_auth
+def content_api_bks_execute_part():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        part_index = int(d.get("part_index") or 1)
+        res = BKSJobs.cms_bks_execute_part(
+            job_slug,
+            part_index,
+            provider=d.get("provider") or None,
+            model_id=d.get("model_id") or None,
+            author_name=d.get("author_name") or None,
+            custom_instructions=d.get("custom_instructions") or "",
+        )
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/execute_all', methods=['POST'])
+@require_auth
+def content_api_bks_execute_all():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        res = BKSJobs.cms_bks_execute_all_parts(
+            job_slug,
+            provider=d.get("provider") or None,
+            model_id=d.get("model_id") or None,
+            author_name=d.get("author_name") or None,
+        )
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/merge', methods=['POST'])
+@require_auth
+def content_api_bks_merge():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        res = BKSJobs.cms_bks_merge_parts(job_slug)
+        res["detail"] = BKSJobs.cms_bks_get_job_detail(job_slug)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@content_cube.route('/api/bks/approve', methods=['POST'])
+@require_auth
+def content_api_bks_approve():
+    try:
+        d = request.json or {}
+        job_slug = d.get("job_slug") or ""
+        res = BKSJobs.cms_bks_approve_and_overwrite_post(
+            job_slug,
+            target_page_uuid=d.get("target_page_uuid"),
+            title=d.get("title"),
+            category_name=d.get("category_name"),
+            author_name=d.get("author_name"),
+            template_key=d.get("template_key"),
+            merged_md_override=d.get("merged_md"),
+            merged_html_override=d.get("merged_html"),
+        )
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# =============================================================================
 # FACTORY RESET  (merged from Cleanup_Tool.py)
 # =============================================================================
+
 

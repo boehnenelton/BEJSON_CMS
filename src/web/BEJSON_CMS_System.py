@@ -2,85 +2,20 @@
 Library:         BEJSON_CMS_System
 Family:          BEJSON_CMS
 Description:     System Cube (Foundation): self-heal/seed lifecycle (init_master_db, _ensure_uncategorized_category, _migrate_db, _seed_default_brand_and_author), Site Config, DB/asset export, Factory Reset. Imports _make_thumbnail from BEJSON_CMS_Media to regenerate the default brand thumbnail during seeding/reset.
-Version:         18.27
-Library_Version: 57
-Date:            2026-09-20
-RELATIONAL_ID:   842ad706-0538-4835-9c6c-5ec05b6b93bd
-CHANGE (2026-09-20): PKG139 -- deferred-item sweep decisions (Elton: "add
-app_created_at field" -- audit L-4). Added app_created_at to
-StandaloneApp's schema in init_master_db(), plus a dedicated self-heal
-step in _migrate_db() that backfills EXISTING apps with the migration
-run's own timestamp -- unlike the uuid self-heals elsewhere in this file,
-a single shared value across every pre-existing row is honest here, not
-wrong: there's no recoverable true creation date for an app that predates
-this field, so "the date we started tracking it" is the correct semantics
-for every one of them, not a per-row-distinct value that would falsely
-imply precision that doesn't exist. BEJSON_CMS_Publisher.py already read
-this field defensively (sa.get("app_created_at", <build-date fallback>)),
-so nothing there needed to change -- it just had nothing to read until
-new/backfilled data existed. Verified in an isolated sandbox before
-trusting it: two synthetic pre-existing apps both correctly got the SAME
-backfilled timestamp (the correct behavior here, unlike the uuid case).
-CHANGE (2026-09-16): PKG137 -- extended "give them all uuids" to PageRecord's
-FK-by-name fields (Elton: "keep making everything uuid based"). Added
-page_cat_uuid/page_author_uuid -- kept IN SYNC alongside the existing
-page_cat_name/page_author_name on every write, not replacing them:
-deliberately additive so no render/permalink/related-content path that
-already reads the name fields needed to change (that conversion is still a
-separate, larger decision, not made this pass). Schema added to both
-init_master_db() and _migrate_db()'s REQUIRED list. Added a dedicated
-self-heal resolver in _migrate_db() that backfills these two fields on
-existing pages by RESOLVING their current name against live Category/
-AuthorProfile -- not the generic FIELD-level migration loop, which
-backfills with one shared None for every row (wrong here: two pages in two
-different categories both getting None would look like a shared identity
-they don't have). A page whose name doesn't resolve to any live record
-correctly gets None -- that's the same orphan case `cms-manage.py doctor`
-already checks for, not a bug in the resolver. Verified in an isolated
-sandbox with synthetic data before trusting it: a page with a real,
-matching category/author resolved to the exact right UUIDs; a page with
-made-up names correctly got None for both, not a false match.
-
-While rewriting this REQUIRED list also found and fixed a leftover from
-pkg135: NavLink/MediaAsset/AI_Profile's entries in _migrate_db() (as
-opposed to init_master_db()) still had their pre-pkg135 field lists and
-primary_key values -- harmless today since these entities already exist in
-any real manifest, so this branch of _migrate_db() was never actually
-reached for them, but a real latent inconsistency between the two schema
-definitions this file maintains. Fixed to match.
-CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). Category,
-AuthorProfile, MediaAsset, NavLink, SiteConfig, SocialLink, AI_Profile all
-got a real UUID field for the first time (via tools/migrate_taxonomy.py,
-run live against real data, backed up first). This file: added the new
-uuid field + updated primary_key for all 7 entities in both
-init_master_db() (fresh-bootstrap schema) and the field lists reused by
-_migrate_db(); added a NEW, dedicated per-row UUID self-heal step to
-_migrate_db() (driven by lib_bejson_CMS_taxonomy.py's registry, one source
-of truth) -- deliberately NOT folded into the existing generic FIELD-level
-migration loop, which backfills missing fields with a single shared `None`
-for every row: correct for an ordinary new field, wrong for a UUID, where
-every row needs its own distinct value. Verified live in a throwaway
-sandbox copy of real data with the UUID field stripped back out: two
-existing rows got two distinct real UUIDs, not a shared None. Also added
-the uuid field to every add_record() call in this file that creates a
-Category/AuthorProfile/MediaAsset/SiteConfig row (4 seeding sites) --
-these were missed on a first pass and would otherwise have written
-`_uuid: None` into new rows, defeating the entire point.
-CHANGE (2026-09-12): PKG133 -- external audit remediation (M-5). site_config()'s
-POST handler wrote a "site_name" SiteConfig row on every save, byte-identical
-to "title" -- no code path anywhere read "site_name" (Publisher reads "title",
-per pkg125 M-3), so it was dead data silently accumulating on every save.
-Removed. (H-1, the AI_Profile manifest primary_key drift, was a one-cell fix
-in storage/mfdb/site_master/104a.mfdb.bejson itself -- this file's own
-init_master_db()/_migrate_db() REQUIRED specs already correctly declared
-"primary_key": "persona_name"; only the manifest's live Values row was stale.)
+Version:         18.24
+Library_Version: 58
+Date:            2026-10-25
+RELATIONAL_ID:   1c5b9e32-8d4a-4f71-9b06-4e2a7c8d3f91
 """
+
+VERSION = 1824
 
 import os
 import mimetypes
 import json
 import shutil
 import zipfile
+import logging
 from datetime import datetime
 from flask import Blueprint, request, redirect, flash, send_file
 
@@ -92,8 +27,7 @@ from BEJSON_CMS_Shared import (
 )
 from BEJSON_CMS_Media import _make_thumbnail, _get_file_hash, _THUMBABLE_EXT
 import lib_bejson_Core_mfdb_core as MFDBCore
-import lib_bejson_CMS_taxonomy as Taxonomy
-import uuid as _uuid
+from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_atomic_write
 
 system_cube = Blueprint('system', __name__)
 
@@ -106,12 +40,10 @@ def init_master_db():
     entities = [
         {
             "name": "Category",
-            "primary_key": "cat_uuid",
+            "primary_key": "cat_slug",
             "fields": [
-                {"name": "cat_uuid", "type": "string"},
                 {"name": "cat_name", "type": "string"},
                 {"name": "cat_slug", "type": "string"},
-                {"name": "cat_is_hidden_flag", "type": "boolean"},
             ],
         },
         {
@@ -129,10 +61,6 @@ def init_master_db():
                 {"name": "page_featured_img", "type": "string"},
                 {"name": "page_template_key", "type": "string"},
                 {"name": "page_featured_video_url", "type": "string"},
-                {"name": "page_cat_uuid",    "type": "string"},
-                {"name": "page_author_uuid", "type": "string"},
-                {"name": "page_is_standalone_flag", "type": "boolean"},
-                {"name": "page_is_hidden_flag",     "type": "boolean"},
             ],
         },
         {
@@ -145,14 +73,12 @@ def init_master_db():
                 {"name": "app_description",   "type": "string"},
                 {"name": "app_entry_file", "type": "string"},
                 {"name": "app_featured_img",  "type": "string"},
-                {"name": "app_created_at", "type": "string"},
             ],
         },
         {
             "name": "AuthorProfile",
-            "primary_key": "author_uuid",
+            "primary_key": "author_display_name",
             "fields": [
-                {"name": "author_uuid", "type": "string"},
                 {"name": "author_display_name", "type": "string"},
                 {"name": "author_bio",  "type": "string"},
                 {"name": "author_avatar_url",  "type": "string"},
@@ -172,27 +98,24 @@ def init_master_db():
         },
         {
             "name": "SiteConfig",
-            "primary_key": "sys_uuid",
+            "primary_key": "sys_key",
             "fields": [
-                {"name": "sys_uuid",  "type": "string"},
                 {"name": "sys_key",   "type": "string"},
                 {"name": "sys_value", "type": "string"},
             ],
         },
         {
             "name": "SocialLink",
-            "primary_key": "social_uuid",
+            "primary_key": "social_platform_name",
             "fields": [
-                {"name": "social_uuid", "type": "string"},
                 {"name": "social_platform_name", "type": "string"},
                 {"name": "social_target_url",      "type": "string"},
             ],
         },
         {
             "name": "NavLink",
-            "primary_key": "nav_uuid",
+            "primary_key": "nav_display_label",
             "fields": [
-                {"name": "nav_uuid", "type": "string"},
                 {"name": "nav_display_label", "type": "string"},
                 {"name": "nav_target_url",   "type": "string"},
             ],
@@ -219,34 +142,33 @@ def init_master_db():
             # defaults for every field it doesn't have its own UI control
             # for yet, so nothing reading the full schema breaks.
             "name": "AI_Profile",
-            "primary_key": "persona_uuid",
+            "primary_key": "Name",
             "fields": [
-                {"name": "persona_uuid",                  "type": "string"},
-                {"name": "persona_record_type",           "type": "string"},
-                {"name": "persona_name",                  "type": "string"},
-                {"name": "persona_archetype",              "type": "string"},
-                {"name": "persona_bio",                    "type": "string"},
-                {"name": "persona_system_instruction",     "type": "string"},
-                {"name": "persona_active",                 "type": "boolean"},
-                {"name": "persona_max_tokens",             "type": "integer"},
-                {"name": "persona_creativity",             "type": "number"},
-                {"name": "persona_tone",                   "type": "array"},
-                {"name": "persona_formality",              "type": "string"},
-                {"name": "persona_verbosity",               "type": "string"},
-                {"name": "persona_emotion_enabled",         "type": "boolean"},
-                {"name": "persona_emotion_intensity",       "type": "number"},
-                {"name": "persona_google_search_enabled",   "type": "boolean"},
-                {"name": "persona_code_interpreter_enabled","type": "boolean"},
-                {"name": "persona_ephemeral_memory",        "type": "boolean"},
-                {"name": "persona_code_parsing_mode",       "type": "string"},
-                {"name": "persona_code_parsing_languages",  "type": "array"},
-                {"name": "persona_code_structure_validation","type": "boolean"},
-                {"name": "persona_code_version_control",    "type": "boolean"},
-                {"name": "persona_thinking_supported",      "type": "boolean"},
-                {"name": "persona_forbidden_topics",        "type": "array"},
-                {"name": "persona_avatar_type",             "type": "string"},
-                {"name": "persona_avatar_source_url",       "type": "string"},
-                {"name": "persona_avatar_data",             "type": "string"},
+                {"name": "Record_Type_Parent",              "type": "string"},
+                {"name": "Name",                            "type": "string"},
+                {"name": "Archetype",                       "type": "string"},
+                {"name": "Persona",                         "type": "string"},
+                {"name": "SystemInstruction",               "type": "string"},
+                {"name": "Active",                          "type": "boolean"},
+                {"name": "MaxResponseTokens",               "type": "integer"},
+                {"name": "Creativity",                      "type": "number"},
+                {"name": "Tone",                            "type": "array"},
+                {"name": "Formality",                       "type": "string"},
+                {"name": "Verbosity",                       "type": "string"},
+                {"name": "EmotionalExpression_Enabled",     "type": "boolean"},
+                {"name": "EmotionalExpression_Intensity",   "type": "number"},
+                {"name": "GoogleSearch_Enabled",            "type": "boolean"},
+                {"name": "CodeInterpreter_Enabled",         "type": "boolean"},
+                {"name": "EphemeralMemory",                 "type": "boolean"},
+                {"name": "CodeParsing_Mode",                "type": "string"},
+                {"name": "CodeParsing_Languages",           "type": "array"},
+                {"name": "CodeParsing_StructureValidation", "type": "boolean"},
+                {"name": "CodeParsing_VersionControl",      "type": "boolean"},
+                {"name": "Thinking_Supported",              "type": "boolean"},
+                {"name": "ForbiddenTopics",                 "type": "array"},
+                {"name": "Avatar_Type",                     "type": "string"},
+                {"name": "Avatar_sourceUrl",                "type": "string"},
+                {"name": "Avatar_Data",                     "type": "string"},
             ],
         },
         {
@@ -271,30 +193,6 @@ def init_master_db():
                 {"name": "doc_version",          "type": "string"},
                 {"name": "doc_file_size",        "type": "integer"},
                 {"name": "doc_download_rules",   "type": "string"},
-            ],
-        },
-        {
-            "name": "MediaAsset",
-            "primary_key": "asset_uuid",
-            "fields": [
-                {"name": "asset_uuid",          "type": "string"},
-                {"name": "asset_filename",      "type": "string"},
-                {"name": "asset_original_name", "type": "string"},
-                {"name": "asset_file_hash",     "type": "string"},
-                {"name": "asset_file_size",     "type": "integer"},
-                {"name": "asset_mime_type",     "type": "string"},
-                {"name": "asset_uploaded_at",   "type": "string"},
-            ],
-        },
-        {
-            "name": "ExternalMedia",
-            "primary_key": "extmedia_uuid",
-            "fields": [
-                {"name": "extmedia_uuid", "type": "string"},
-                {"name": "extmedia_name", "type": "string"},
-                {"name": "extmedia_type", "type": "string"},
-                {"name": "extmedia_url",  "type": "string"},
-                {"name": "extmedia_created_at", "type": "string"},
             ],
         },
     ]
@@ -324,7 +222,7 @@ def _ensure_uncategorized_category():
     try:
         Existing_Category_Records = db.get_records("Category")
         if not any(c.get('cat_name') == 'Uncategorized' for c in Existing_Category_Records):
-            db.add_record("Category", {"cat_uuid": str(_uuid.uuid4()), "cat_name": "Uncategorized", "cat_slug": "uncategorized"})
+            db.add_record("Category", {"cat_name": "Uncategorized", "cat_slug": "uncategorized"})
     except Exception as e:
         print(f"[CMS] Failed to self-heal Uncategorized category: {e}")
 
@@ -349,7 +247,7 @@ def _seed_default_site_config():
         existing_keys = {c.get('sys_key') for c in db.get_records("SiteConfig")}
         for key, value in DEFAULT_SITE_CONFIG.items():
             if key not in existing_keys:
-                db.add_record("SiteConfig", {"sys_uuid": str(_uuid.uuid4()), "sys_key": key, "sys_value": value})
+                db.add_record("SiteConfig", {"sys_key": key, "sys_value": value})
     except Exception as e:
         print(f"[CMS] Failed to seed default SiteConfig: {e}")
 
@@ -370,7 +268,7 @@ def _seed_default_brand_and_author():
 
         cats = db.get_records("Category")
         if not any(c.get('cat_name') == 'BEJSON' for c in cats):
-            db.add_record("Category", {"cat_uuid": str(_uuid.uuid4()), "cat_name": "BEJSON", "cat_slug": "bejson"})
+            db.add_record("Category", {"cat_name": "BEJSON", "cat_slug": "bejson"})
 
         seeded_filenames = []
         if DEFAULT_BRAND_ASSETS_DIR.exists():
@@ -391,7 +289,6 @@ def _seed_default_brand_and_author():
                 if file_hash in existing_hashes:
                     continue  # identical content already registered under a different name
                 db.add_record("MediaAsset", {
-                    "asset_uuid": str(_uuid.uuid4()),
                     "asset_filename": src.name,
                     "asset_original_name": src.name,
                     "asset_file_hash": file_hash,
@@ -411,7 +308,6 @@ def _seed_default_brand_and_author():
         if not any(a.get('author_display_name') == DEFAULT_AUTHOR_NAME for a in authors):
             default_avatar = "bejson_brand_3_icon.jpeg" if "bejson_brand_3_icon.jpeg" in seeded_filenames else (seeded_filenames[0] if seeded_filenames else "")
             db.add_record("AuthorProfile", {
-                "author_uuid": str(_uuid.uuid4()),
                 "author_display_name": DEFAULT_AUTHOR_NAME,
                 "author_bio": "",
                 "author_avatar_url": default_avatar,
@@ -437,16 +333,6 @@ def _migrate_db():
     # Extend this list whenever a new entity is added.
     REQUIRED = [
         {
-            "name": "Category",
-            "primary_key": "cat_uuid",
-            "fields": [
-                {"name": "cat_uuid", "type": "string"},
-                {"name": "cat_name", "type": "string"},
-                {"name": "cat_slug", "type": "string"},
-                {"name": "cat_is_hidden_flag", "type": "boolean"},
-            ],
-        },
-        {
             "name": "PageRecord",
             "primary_key": "page_uuid",
             "fields": [
@@ -461,26 +347,20 @@ def _migrate_db():
                 {"name": "page_featured_img", "type": "string"},
                 {"name": "page_template_key", "type": "string"},
                 {"name": "page_featured_video_url", "type": "string"},
-                {"name": "page_cat_uuid",    "type": "string"},
-                {"name": "page_author_uuid", "type": "string"},
-                {"name": "page_is_standalone_flag", "type": "boolean"},
-                {"name": "page_is_hidden_flag",     "type": "boolean"},
             ],
         },
         {
             "name": "NavLink",
-            "primary_key": "nav_uuid",
+            "primary_key": "nav_display_label",
             "fields": [
-                {"name": "nav_uuid", "type": "string"},
                 {"name": "nav_display_label", "type": "string"},
                 {"name": "nav_target_url",   "type": "string"},
             ],
         },
         {
             "name": "MediaAsset",
-            "primary_key": "asset_uuid",
+            "primary_key": "asset_filename",
             "fields": [
-                {"name": "asset_uuid",          "type": "string"},
                 {"name": "asset_filename",      "type": "string"},
                 {"name": "asset_original_name", "type": "string"},
                 {"name": "asset_file_hash",     "type": "string"},
@@ -502,34 +382,33 @@ def _migrate_db():
         },
         {
             "name": "AI_Profile",
-            "primary_key": "persona_uuid",
+            "primary_key": "Name",
             "fields": [
-                {"name": "persona_uuid",                  "type": "string"},
-                {"name": "persona_record_type",           "type": "string"},
-                {"name": "persona_name",                  "type": "string"},
-                {"name": "persona_archetype",              "type": "string"},
-                {"name": "persona_bio",                    "type": "string"},
-                {"name": "persona_system_instruction",     "type": "string"},
-                {"name": "persona_active",                 "type": "boolean"},
-                {"name": "persona_max_tokens",             "type": "integer"},
-                {"name": "persona_creativity",             "type": "number"},
-                {"name": "persona_tone",                   "type": "array"},
-                {"name": "persona_formality",              "type": "string"},
-                {"name": "persona_verbosity",               "type": "string"},
-                {"name": "persona_emotion_enabled",         "type": "boolean"},
-                {"name": "persona_emotion_intensity",       "type": "number"},
-                {"name": "persona_google_search_enabled",   "type": "boolean"},
-                {"name": "persona_code_interpreter_enabled","type": "boolean"},
-                {"name": "persona_ephemeral_memory",        "type": "boolean"},
-                {"name": "persona_code_parsing_mode",       "type": "string"},
-                {"name": "persona_code_parsing_languages",  "type": "array"},
-                {"name": "persona_code_structure_validation","type": "boolean"},
-                {"name": "persona_code_version_control",    "type": "boolean"},
-                {"name": "persona_thinking_supported",      "type": "boolean"},
-                {"name": "persona_forbidden_topics",        "type": "array"},
-                {"name": "persona_avatar_type",             "type": "string"},
-                {"name": "persona_avatar_source_url",       "type": "string"},
-                {"name": "persona_avatar_data",             "type": "string"},
+                {"name": "Record_Type_Parent",              "type": "string"},
+                {"name": "Name",                            "type": "string"},
+                {"name": "Archetype",                       "type": "string"},
+                {"name": "Persona",                         "type": "string"},
+                {"name": "SystemInstruction",               "type": "string"},
+                {"name": "Active",                          "type": "boolean"},
+                {"name": "MaxResponseTokens",               "type": "integer"},
+                {"name": "Creativity",                      "type": "number"},
+                {"name": "Tone",                            "type": "array"},
+                {"name": "Formality",                       "type": "string"},
+                {"name": "Verbosity",                       "type": "string"},
+                {"name": "EmotionalExpression_Enabled",     "type": "boolean"},
+                {"name": "EmotionalExpression_Intensity",   "type": "number"},
+                {"name": "GoogleSearch_Enabled",            "type": "boolean"},
+                {"name": "CodeInterpreter_Enabled",         "type": "boolean"},
+                {"name": "EphemeralMemory",                 "type": "boolean"},
+                {"name": "CodeParsing_Mode",                "type": "string"},
+                {"name": "CodeParsing_Languages",           "type": "array"},
+                {"name": "CodeParsing_StructureValidation", "type": "boolean"},
+                {"name": "CodeParsing_VersionControl",      "type": "boolean"},
+                {"name": "Thinking_Supported",              "type": "boolean"},
+                {"name": "ForbiddenTopics",                 "type": "array"},
+                {"name": "Avatar_Type",                     "type": "string"},
+                {"name": "Avatar_sourceUrl",                "type": "string"},
+                {"name": "Avatar_Data",                     "type": "string"},
             ],
         },
         {
@@ -562,8 +441,11 @@ def _migrate_db():
         with open(MANIFEST_PATH, 'r', encoding='utf-8') as fh:
             manifest = json.load(fh)
 
-        # entity_name is always position 0 in each manifest value row
-        existing = {row[0] for row in manifest.get("Values", [])}
+        manifest_field_map_cache = bejson_core_get_field_map(manifest) if manifest.get("Fields") else {}
+        manifest_entity_name_col_idx = manifest_field_map_cache.get("entity_name", 0)
+        manifest_file_path_col_idx = manifest_field_map_cache.get("file_path", 1)
+
+        existing = {row[manifest_entity_name_col_idx] for row in manifest.get("Values", [])}
         site_dir  = os.path.dirname(MANIFEST_PATH)
         added     = []
 
@@ -585,10 +467,7 @@ def _migrate_db():
                 "Fields":           spec["fields"],
                 "Values":           [],
             }
-            tmp = abs_path + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as fh:
-                json.dump(entity_doc, fh, indent=2)
-            os.replace(tmp, abs_path)
+            bejson_core_atomic_write(abs_path, entity_doc)
 
             # Append row to manifest Values
             # Manifest fields: entity_name, file_path, description,
@@ -597,169 +476,6 @@ def _migrate_db():
                 [name, fp_rel, None, 0, "1.0", spec.get("primary_key")]
             )
             added.append(name)
-
-        # UUID self-heal (pkg135, "give them all uuids"): 7 entities
-        # (Category, AuthorProfile, MediaAsset, NavLink, SiteConfig,
-        # SocialLink, AI_Profile) were name-keyed with no UUID field at all
-        # until this pass. The live data for THIS project was already
-        # migrated directly via tools/migrate_taxonomy.py, but any other
-        # deployment of this codebase (an older checkout, a fresh clone that
-        # skipped the manual migration step) would still have pre-UUID data
-        # on next boot -- this makes that self-healing rather than a one-time
-        # manual step. Driven by lib_bejson_CMS_taxonomy.py's registry (one
-        # source of truth for which entities want a UUID and what it's
-        # called), not a second hardcoded list here.
-        #
-        # This is intentionally NOT folded into the generic FIELD-level
-        # migration loop below: that loop backfills every missing field with
-        # a single shared `None` value for every row, which is correct for
-        # an ordinary new field but WRONG for a UUID -- every row needs its
-        # own distinct value, or every pre-existing row would collide on the
-        # same `None` "identity". New field appended at the end (never
-        # inserted/reordered -- BEJSON is positional), matching this
-        # function's existing convention, even though the one-time manual
-        # migration put it first on the entities already migrated -- field
-        # position is irrelevant to correctness under Field Map Cache
-        # resolution (System Development Policy §6.2).
-        uuid_healed = []
-        for entity_name, meta in Taxonomy.TAXONOMY_PREFIX_REGISTRY.items():
-            uuid_field = meta.get("uuid_field")
-            if not uuid_field or entity_name not in existing:
-                continue
-            entity_row = next((v for v in manifest["Values"] if v[0] == entity_name), None)
-            if not entity_row:
-                continue
-            fp_rel = entity_row[1]
-            abs_path = os.path.join(site_dir, fp_rel)
-            if not os.path.exists(abs_path):
-                continue
-            with open(abs_path, 'r', encoding='utf-8') as fh:
-                entity_doc = json.load(fh)
-            current_field_names = [f["name"] for f in entity_doc.get("Fields", [])]
-            if uuid_field in current_field_names:
-                continue  # already has it (this project's live data, post pkg135)
-            entity_doc["Fields"] = entity_doc.get("Fields", []) + [{"name": uuid_field, "type": "string"}]
-            entity_doc["Values"] = [row + [str(_uuid.uuid4())] for row in entity_doc.get("Values", [])]
-            tmp = abs_path + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as fh:
-                json.dump(entity_doc, fh, indent=2)
-            os.replace(tmp, abs_path)
-            entity_row[5] = uuid_field  # manifest primary_key now points at the UUID
-            uuid_healed.append(f"{entity_name}(+{uuid_field})")
-
-        if uuid_healed:
-            print(f"[CMS] Migration: injected UUID fields on existing entities {uuid_healed}")
-            manifest_changed = True
-        else:
-            manifest_changed = False
-
-        # PageRecord FK-uuid self-heal (pkg137). page_cat_name/
-        # page_author_name are still plain strings (pkg135 deliberately
-        # left them that way -- converting every render/permalink path
-        # that reads them was a separate, larger decision). What pkg137
-        # adds is a genuine, resolvable identity link alongside them:
-        # page_cat_uuid/page_author_uuid, kept in sync automatically by
-        # every write path (page create/update/import, and category
-        # merge). Existing pages written before this field existed need
-        # it BACKFILLED BY RESOLUTION -- looking up their current
-        # page_cat_name/page_author_name against live Category/
-        # AuthorProfile records -- not by the generic FIELD-level
-        # migration loop below, which backfills missing fields with a
-        # single shared `None` for every row (fine for an ordinary new
-        # field, wrong here: two different pages in two different
-        # categories both getting `None` would make them look like they
-        # share an identity they don't). A page whose category/author name
-        # doesn't resolve to any live record (the exact orphan case
-        # `doctor` already checks for) correctly gets `None` here -- that
-        # is the honest state, not a bug.
-        page_fk_healed = 0
-        if "PageRecord" in existing:
-            page_row = next((v for v in manifest["Values"] if v[0] == "PageRecord"), None)
-            if page_row:
-                page_path = os.path.join(site_dir, page_row[1])
-                if os.path.exists(page_path):
-                    with open(page_path, 'r', encoding='utf-8') as fh:
-                        page_doc = json.load(fh)
-                    page_field_names = [f["name"] for f in page_doc.get("Fields", [])]
-                    if "page_cat_uuid" not in page_field_names or "page_author_uuid" not in page_field_names:
-                        # Read Category/AuthorProfile directly via the manifest,
-                        # same as everything else in this function -- _migrate_db()
-                        # deliberately never depends on CMSCore/db (see docstring).
-                        def _read_entity_name_to_uuid(entity_name, name_field, uuid_field):
-                            row = next((v for v in manifest["Values"] if v[0] == entity_name), None)
-                            if not row:
-                                return {}
-                            path = os.path.join(site_dir, row[1])
-                            if not os.path.exists(path):
-                                return {}
-                            with open(path, 'r', encoding='utf-8') as fh2:
-                                doc = json.load(fh2)
-                            fnames = [f["name"] for f in doc.get("Fields", [])]
-                            if name_field not in fnames or uuid_field not in fnames:
-                                return {}
-                            ni, ui = fnames.index(name_field), fnames.index(uuid_field)
-                            return {r[ni]: r[ui] for r in doc.get("Values", []) if ni < len(r) and ui < len(r)}
-                        cat_by_name = _read_entity_name_to_uuid("Category", "cat_name", "cat_uuid")
-                        author_by_name = _read_entity_name_to_uuid("AuthorProfile", "author_display_name", "author_uuid")
-                        new_fields = list(page_doc.get("Fields", []))
-                        add_cat = "page_cat_uuid" not in page_field_names
-                        add_author = "page_author_uuid" not in page_field_names
-                        if add_cat:
-                            new_fields.append({"name": "page_cat_uuid", "type": "string"})
-                        if add_author:
-                            new_fields.append({"name": "page_author_uuid", "type": "string"})
-                        cat_idx = page_field_names.index("page_cat_name") if "page_cat_name" in page_field_names else None
-                        author_idx = page_field_names.index("page_author_name") if "page_author_name" in page_field_names else None
-                        new_values = []
-                        for row in page_doc.get("Values", []):
-                            new_row = list(row)
-                            if add_cat:
-                                cat_name = row[cat_idx] if cat_idx is not None and cat_idx < len(row) else None
-                                new_row.append(cat_by_name.get(cat_name))
-                            if add_author:
-                                author_name = row[author_idx] if author_idx is not None and author_idx < len(row) else None
-                                new_row.append(author_by_name.get(author_name) if author_name else None)
-                            new_values.append(new_row)
-                        page_doc["Fields"] = new_fields
-                        page_doc["Values"] = new_values
-                        tmp = page_path + ".tmp"
-                        with open(tmp, 'w', encoding='utf-8') as fh:
-                            json.dump(page_doc, fh, indent=2)
-                        os.replace(tmp, page_path)
-                        page_fk_healed = len(new_values)
-        if page_fk_healed:
-            print(f"[CMS] Migration: resolved page_cat_uuid/page_author_uuid on {page_fk_healed} existing PageRecord row(s)")
-
-        # StandaloneApp app_created_at self-heal (pkg139, Elton: "add
-        # app_created_at field" -- audit L-4). Unlike the uuid self-heals
-        # above, a shared value across every pre-existing row is honest
-        # here, not wrong: there IS no recoverable true creation date for
-        # an app that predates this field, so every pre-existing app gets
-        # THIS migration run's timestamp -- "the date we started tracking
-        # it" -- rather than a per-row distinct value that would falsely
-        # imply precision that doesn't exist. New apps created after this
-        # point get their real creation date at creation time (see
-        # BEJSON_CMS_Content.py's apps_new() and cms-manage.py's app add).
-        app_fk_healed = 0
-        if "StandaloneApp" in existing:
-            app_row = next((v for v in manifest["Values"] if v[0] == "StandaloneApp"), None)
-            if app_row:
-                app_path = os.path.join(site_dir, app_row[1])
-                if os.path.exists(app_path):
-                    with open(app_path, 'r', encoding='utf-8') as fh:
-                        app_doc = json.load(fh)
-                    app_field_names = [f["name"] for f in app_doc.get("Fields", [])]
-                    if "app_created_at" not in app_field_names:
-                        now_iso = datetime.utcnow().isoformat()
-                        app_doc["Fields"] = list(app_doc.get("Fields", [])) + [{"name": "app_created_at", "type": "string"}]
-                        app_doc["Values"] = [row + [now_iso] for row in app_doc.get("Values", [])]
-                        tmp = app_path + ".tmp"
-                        with open(tmp, 'w', encoding='utf-8') as fh:
-                            json.dump(app_doc, fh, indent=2)
-                        os.replace(tmp, app_path)
-                        app_fk_healed = len(app_doc["Values"])
-        if app_fk_healed:
-            print(f"[CMS] Migration: backfilled app_created_at on {app_fk_healed} existing StandaloneApp row(s)")
 
         # FIELD-level migration: an entity that already exists may still be
         # missing fields added to its schema in a later version (the loop
@@ -777,39 +493,33 @@ def _migrate_db():
             name = spec["name"]
             if name not in existing:
                 continue  # just-created above, already has every field
-            entity_row = next((v for v in manifest["Values"] if v[0] == name), None)
+            entity_row = next((v for v in manifest["Values"] if v[manifest_entity_name_col_idx] == name), None)
             if not entity_row:
                 continue
-            fp_rel = entity_row[1]
+            fp_rel = entity_row[manifest_file_path_col_idx]
             abs_path = os.path.join(site_dir, fp_rel)
             if not os.path.exists(abs_path):
                 continue
             with open(abs_path, 'r', encoding='utf-8') as fh:
                 entity_doc = json.load(fh)
-            current_field_names = [f["name"] for f in entity_doc.get("Fields", [])]
-            missing_fields = [f for f in spec["fields"] if f["name"] not in current_field_names]
+            entity_field_map_cache = bejson_core_get_field_map(entity_doc) if entity_doc.get("Fields") else {}
+            missing_fields = [f for f in spec["fields"] if f["name"] not in entity_field_map_cache]
             if not missing_fields:
                 continue
             entity_doc["Fields"] = entity_doc.get("Fields", []) + missing_fields
             entity_doc["Values"] = [row + [None] * len(missing_fields) for row in entity_doc.get("Values", [])]
-            tmp = abs_path + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as fh:
-                json.dump(entity_doc, fh, indent=2)
-            os.replace(tmp, abs_path)
+            bejson_core_atomic_write(abs_path, entity_doc)
             field_migrated.append(f"{name}(+{len(missing_fields)} fields)")
 
         if field_migrated:
-            print(f"[CMS] Migration: backfilled fields on existing entities {field_migrated}")
+            logging.info(f"[CMS] Migration: backfilled fields on existing entities {field_migrated}")
 
-        if added or manifest_changed:
-            Manifest_Temp_Write_Path = str(MANIFEST_PATH) + ".tmp"
-            with open(Manifest_Temp_Write_Path, 'w', encoding='utf-8') as fh:
-                json.dump(manifest, fh, indent=2)
-            os.replace(Manifest_Temp_Write_Path, MANIFEST_PATH)
-            print(f"[CMS] Migration: added missing entities {added}")
+        if added:
+            bejson_core_atomic_write(str(MANIFEST_PATH), manifest)
+            logging.info(f"[CMS] Migration: added missing entities {added}")
 
     except Exception as exc:
-        print(f"[CMS] Migration warning (non-fatal): {exc}")
+        logging.warning(f"[CMS] Migration warning (non-fatal): {exc}")
 
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
@@ -817,10 +527,7 @@ def _migrate_db():
 def site_config():
     if request.method == "POST":
         configs = {
-            # "site_name" removed (audit M-5): duplicate of "title", written
-            # with the same value on every save but never read by the
-            # Publisher (which reads "title", per pkg125 M-3) or anywhere
-            # else -- was dead accumulating data.
+            "site_name": request.form.get("site_title", ""),
             "title": request.form.get("site_title", ""),
             "creator": request.form.get("site_creator", ""),
             "description": request.form.get("site_desc", ""),
@@ -834,7 +541,7 @@ def site_config():
             if match:
                 db.update_record("SiteConfig", "sys_key", k, {"sys_value": v})
             else:
-                db.add_record("SiteConfig", {"sys_uuid": str(_uuid.uuid4()), "sys_key": k, "sys_value": v})
+                db.add_record("SiteConfig", {"sys_key": k, "sys_value": v})
                 
         flash("Configuration saved!", "success")
         return redirect("/site")

@@ -1,0 +1,134 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "6872eb4e-19f7-56e3-8374-477e63a07c57",
+      "standard_book",
+      "Standard Book",
+      "A conventional non-fiction book.",
+      "nonfiction",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a non-fiction book. Each chapter has a title (no numbering) and a 2-4 sentence brief saying what it must cover and how it connects to the previous chapter. Group chapters into parts only when the book has more than ten chapters.",
+      "You are an experienced non-fiction author. Write engaging, well-structured chapters that build on one another and end by pointing to the next.",
+      [
+        {
+          "title": "Introduction",
+          "brief": "Why the subject matters and what the book will do.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Core Ideas",
+          "brief": "The central concepts, explained from first principles.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Putting It Into Practice",
+          "brief": "How the reader applies the ideas.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Conclusion",
+          "brief": "What was covered and where to go next.",
+          "kind": "chapter"
+        }
+      ],
+      null,
+      3,
+      40,
+      8,
+      500,
+      "standard",
+      [
+        "md",
+        "html",
+        "md_zip"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

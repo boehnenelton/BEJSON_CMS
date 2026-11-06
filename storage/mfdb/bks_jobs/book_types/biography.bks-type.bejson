@@ -1,0 +1,129 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "b3b23196-239d-586b-a2e2-ee9883e79c3a",
+      "biography",
+      "Biography",
+      "A biography told chronologically.",
+      "nonfiction",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a biography. Each chapter has a title (no numbering) and a 2-4 sentence brief saying what it must cover and how it connects to the previous chapter. Order chapters chronologically and name the period each covers.",
+      "You are a biographer. Write in a measured, evidence-based voice, distinguish fact from interpretation, and give each chapter a clear period.",
+      [
+        {
+          "title": "Origins",
+          "brief": "Family, place and early influences.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Formative Years",
+          "brief": "Education, first work and defining choices.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Peak and Legacy",
+          "brief": "Major achievements and lasting impact.",
+          "kind": "chapter"
+        }
+      ],
+      null,
+      5,
+      40,
+      12,
+      800,
+      "standard",
+      [
+        "md",
+        "html",
+        "md_zip"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

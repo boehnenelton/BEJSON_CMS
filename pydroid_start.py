@@ -21,10 +21,6 @@ SCRIPT_PATH = get_script_path()
 
 PROJECT_ROOT = SCRIPT_PATH
 FLASK_CMS_PATH = SCRIPT_PATH / "src" / "web" / "BEJSON_CMS_Admin.py"
-LIB_PATH = SCRIPT_PATH / "src" / "lib"
-CONFIG_PATH = SCRIPT_PATH / "config.json"
-sys.path.insert(0, str(LIB_PATH))
-import lib_bejson_CMS_cms_ports as CMSPorts
 
 
 def get_ip():
@@ -48,8 +44,7 @@ def launch():
         sys.exit(1)
 
     ip = get_ip()
-    admin_port = CMSPorts.get_port(str(CONFIG_PATH), "admin_port", "CMS_ADMIN_PORT")
-    url = f"http://127.0.0.1:{admin_port}"
+    url = f"http://127.0.0.1:5001"
     print(f"[*] Local IP: {ip}")
     print(f"[*] Starting CMS at {url}")
 

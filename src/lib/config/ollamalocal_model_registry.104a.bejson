@@ -1,0 +1,45 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "OllamaLocalModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "Qwen2.5-Coder 1.5B",
+      "qwen2.5-coder:1.5b",
+      true
+    ],
+    [
+      "Qwen2.5-Coder 0.5B",
+      "qwen2.5-coder:0.5b",
+      false
+    ],
+    [
+      "Qwen2.5-Coder 3B",
+      "qwen2.5-coder:3b",
+      false
+    ],
+    [
+      "Qwen2.5-Coder 7B",
+      "qwen2.5-coder:7b",
+      false
+    ]
+  ],
+  "Config_Version": 1
+}

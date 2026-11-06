@@ -1,0 +1,133 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "5535ee82-6304-58da-a49d-968fe616cfb9",
+      "tutorial_guide_4part",
+      "4-Part Practical Tutorial & Guide",
+      "Hands-on 4-part developer guide: Setup, Core Build, Integration, and Verification.",
+      "technical",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a 4-part practical developer tutorial. Each chapter has a title (no numbering) and a 2-4 sentence brief describing the hands-on steps covered.",
+      "You are a senior practitioner writing an actionable, copy-pasteable 4-part developer tutorial. Provide clear commands, configuration snippets, and verification checks at every step.",
+      [
+        {
+          "title": "Prerequisites, Environment & Bootstrapping",
+          "brief": "Configure the directory structure, environment dependencies, and initial bootstrap config.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Building the Core Module & Data Layer",
+          "brief": "Implement the primary data store, field map lookups, and core domain functions.",
+          "kind": "chapter"
+        },
+        {
+          "title": "CLI & Web Interface Integration",
+          "brief": "Wire the core logic into CLI flags and web endpoints with input validation.",
+          "kind": "chapter"
+        },
+        {
+          "title": "End-to-End Verification & Deployment Checklist",
+          "brief": "Run automated smoke tests, inspect output artifacts, and finalize deployment.",
+          "kind": "chapter"
+        }
+      ],
+      null,
+      4,
+      4,
+      4,
+      120,
+      "standard",
+      [
+        "md",
+        "html"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

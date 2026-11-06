@@ -1,0 +1,63 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "CMSJobLink"
+  ],
+  "Fields": [
+    {
+      "name": "job_slug",
+      "type": "string"
+    },
+    {
+      "name": "book_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug",
+      "type": "string"
+    },
+    {
+      "name": "target_page_uuid",
+      "type": "string"
+    },
+    {
+      "name": "category",
+      "type": "string"
+    },
+    {
+      "name": "author",
+      "type": "string"
+    },
+    {
+      "name": "page_type",
+      "type": "string"
+    },
+    {
+      "name": "provider",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "approval_status",
+      "type": "string"
+    },
+    {
+      "name": "merged_md_path",
+      "type": "string"
+    },
+    {
+      "name": "merged_html_path",
+      "type": "string"
+    },
+    {
+      "name": "approved_at",
+      "type": "string"
+    }
+  ],
+  "Values": []
+}

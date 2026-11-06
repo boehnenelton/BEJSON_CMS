@@ -1,0 +1,40 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "GrokModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "Grok 4.6",
+      "grok-4.6",
+      true
+    ],
+    [
+      "Grok 4 Fast",
+      "grok-4-fast",
+      false
+    ],
+    [
+      "Grok 3",
+      "grok-3",
+      false
+    ]
+  ],
+  "Config_Version": 2
+}

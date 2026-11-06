@@ -1,40 +1,28 @@
 """
-Library:        lib_bejson_Core_bejson_path_guard.py
-Family:         Core
-Description:    Secure path resolver and boundary protection logic.
-Version:        1.2.0
-Date:           2026-08-07
-CHANGE (2026-08-07): Fixed a sibling-directory bypass in bejson_safe_join()
-(found while fixing LIB-CH-H1, which delegates to this same helper). The
-`str(target_path).startswith(str(base_path))` check is a raw string
-prefix test: base_dir="/x/out" is a startswith-match for a resolved
-target of "/x/out_evil/secret" -- no traversal needed, just a
-similarly-named sibling. Replaced with Path.is_relative_to() (falls
-back to a manual parents walk on Python <3.9, though policy floors at
-3.10 so that branch is defensive only), which requires an exact
-directory-boundary match, not a string prefix.
-RELATIONAL_ID:  31305b9a-7172-4600-b45e-50355ec0b1c5
+Library:         lib_bejson_Core_bejson_path_guard.py
+Family:          Core
+Module Purpose:  Path-traversal guard and storage-path resolution; includes the check that an MFDB entity's Parent_Hierarchy cannot escape the MFDB root, plus safe_extract_zip() for zip-slip-safe archive extraction.
+Architecture:    Path security helper. Only _bejson_mfdb_escapes_root relates to MFDB (it validates the relative Parent_Hierarchy path of an entity file); nothing here is 104db-specific.
+Format_Scope:    None, except _bejson_mfdb_escapes_root (MFDB Parent_Hierarchy containment)
+Glossary:        BEJSON 104, 104a and 104db are the three file formats (Format_Version). 104db = ONE file holding 2+ entity types
+                 (Record_Type_Parent discriminator, null-padding). MFDB is NOT a format and NOT 104db: it is a layer made of one 104a manifest
+                 (104a.mfdb.bejson) plus dense 104 entity files linked by Parent_Hierarchy. MFDB-132 = an MFDB packed into one Chunked-104a document.
+Version:         1.3.0
 Release_Version: 300
-
-CMS-PROJECT MERGE NOTE (2026-08-22): the upstream version of this file no
-longer includes safe_extract_zip() -- it was removed there. This CMS
-project (BEJSON_CMS-V18_28) has 4 real call sites depending on it
-(BEJSON_CMS_Content.py x2, cms-manage.py x2 including the live restore
-path, lib_mfdb_chunker_v6.py), so it's been preserved below rather than
-dropped. It delegates to bejson_safe_join(), so it automatically inherits
-this version's sibling-directory-bypass fix. If a future upstream sync
-re-adds safe_extract_zip() with its own changes, reconcile rather than
-overwrite -- don't lose this note.
+Date:            2026-10-02
+Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
+Format_Creator:  Elton Boehnen
+RELATIONAL_ID:   826ad8d2-8944-4492-9507-9ae7473fdef9
 """
 
 import os
 from pathlib import Path
 
+# Joins paths under base_dir and raises if the resolved result is outside it (blocks .. traversal and sibling-prefix tricks).
 def bejson_safe_join(base_dir: str, *paths: str) -> str:
     """
     Safely join paths and ensure the result is within the base_dir.
-    Mitigates path traversal attacks (Phase 2), including sibling-directory
-    prefix bypasses (Phase 3, LIB-CH-H1 follow-up).
+    Blocks path traversal, including sibling-directory prefix bypasses.
     """
     base_path = Path(base_dir).resolve()
     # Handle environment variables in paths if any
@@ -54,9 +42,10 @@ def bejson_safe_join(base_dir: str, *paths: str) -> str:
     return str(target_path)
 
 
+# Resolves a path through the environment layer (placeholders, storage root) so callers stay free of absolute paths.
 def resolve_storage_path(path: str) -> str:
     """
-    Standardized resolve_path utility for environment abstraction (Phase 1).
+    Standardized resolve_path utility for environment abstraction.
     Prioritizes $BEJSON_STORAGE_ROOT.
     """
     storage_root = os.environ.get("BEJSON_STORAGE_ROOT")
@@ -67,12 +56,13 @@ def resolve_storage_path(path: str) -> str:
     if not path:
         return storage_root
 
-    # Standardize absolute paths from legacy hardcoding (if encountered)
+    # Map absolute Android storage paths onto the configured storage root
     if path.startswith("/storage/emulated/0"):
         return path.replace("/storage/emulated/0", storage_root)
         
     return path
 
+# MFDB check: True if a relative path (an entity's Parent_Hierarchy or file_path) would climb above the MFDB root. Normalizes separators and counts depth. This is the only MFDB-aware function in this module.
 def _bejson_mfdb_escapes_root(relative_path: str) -> bool:
     """
     Relative-depth path traversal check.  Normalizes separators then counts
@@ -103,6 +93,7 @@ def _bejson_mfdb_escapes_root(relative_path: str) -> bool:
     return False
 
 
+# Extracts every member of an open ZipFile into dest_dir after validating all paths with bejson_safe_join.
 def safe_extract_zip(zf, dest_dir: str) -> None:
     """
     Extract every member of an open ZipFile into dest_dir, rejecting the
@@ -113,11 +104,8 @@ def safe_extract_zip(zf, dest_dir: str) -> None:
     path, so a crafted archive can write anywhere the process can reach.
     Raises ValueError on the first unsafe member found, before extracting
     anything, so a malicious zip is rejected atomically rather than
-    partially extracted.
-
-    Preserved from the pre-upstream-sync version of this file (see module
-    docstring merge note) -- now benefits from the sibling-directory-bypass
-    fix in bejson_safe_join() above, since it delegates to it.
+    partially extracted. Uses bejson_safe_join()'s sibling-directory-safe
+    boundary check (v1.1.0+) rather than a raw prefix test.
     """
     dest_path = Path(dest_dir).resolve()
     for member in zf.infolist():
@@ -127,4 +115,4 @@ def safe_extract_zip(zf, dest_dir: str) -> None:
     zf.extractall(dest_dir)
 
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"

@@ -1,0 +1,19 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Records_Type": [
+    "ApiKey"
+  ],
+  "Fields": [
+    {
+      "name": "key",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "YOUR_KEY_HERE"
+    ]
+  ],
+  "Config_Version": 2
+}

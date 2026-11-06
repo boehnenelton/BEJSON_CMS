@@ -1,0 +1,135 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "BookType"
+  ],
+  "Fields": [
+    {
+      "name": "booktype_uuid",
+      "type": "string"
+    },
+    {
+      "name": "booktype_slug_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_name_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_description_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_family_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_plan_instruction_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_chapter_identity_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_outline_template_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_required_sections_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_min_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_max_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_default_chapters_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_min_words_per_chapter_count",
+      "type": "integer"
+    },
+    {
+      "name": "booktype_audit_profile_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_default_exports_list",
+      "type": "array"
+    },
+    {
+      "name": "booktype_is_builtin_flag",
+      "type": "boolean"
+    },
+    {
+      "name": "booktype_schema_version_text",
+      "type": "string"
+    },
+    {
+      "name": "booktype_created_at",
+      "type": "string"
+    },
+    {
+      "name": "booktype_updated_at",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "623c1735-fe5e-52e0-beea-3905e7c700c8",
+      "structural_report",
+      "Structural Analysis Report",
+      "A report that analyses how a system or document is structured.",
+      "analysis",
+      "Produce a book title, a subtitle and an ordered outline of {chapter_count} chapters for a structural analysis report. Each chapter has a title (no numbering) and a 2-4 sentence brief saying what it must cover and how it connects to the previous chapter.",
+      "You are an analyst producing a rigorous structural analysis. State findings plainly, support each with evidence, and end every chapter with a '## Summary' section.",
+      [
+        {
+          "title": "Scope and Method",
+          "brief": "What was analysed and how.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Structure Found",
+          "brief": "The components and how they relate.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Issues and Risks",
+          "brief": "Weak points, with evidence.",
+          "kind": "chapter"
+        },
+        {
+          "title": "Recommendations",
+          "brief": "Concrete next steps in priority order.",
+          "kind": "chapter"
+        }
+      ],
+      [
+        "Summary"
+      ],
+      3,
+      20,
+      7,
+      250,
+      "strict",
+      [
+        "md",
+        "html"
+      ],
+      true,
+      "bks-1.0.0",
+      "2026-10-25T09:00:00Z",
+      "2026-10-25T09:00:00Z"
+    ]
+  ]
+}

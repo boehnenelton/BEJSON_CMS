@@ -35,7 +35,6 @@ ENTITY_FILE_MAP = {
     "NavLink":       "navlink.bejson",
     "SiteConfig":    "siteconfig.bejson",
     "SocialLink":    "sociallink.bejson",
-    "AI_Profile":    "ai_profile.bejson",
 }
 
 def audit():

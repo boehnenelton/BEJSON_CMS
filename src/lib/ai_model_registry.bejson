@@ -1,0 +1,128 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "AIModel"
+  ],
+  "Fields": [
+    {
+      "name": "service",
+      "type": "string",
+      "description": "Service provider"
+    },
+    {
+      "name": "model_id",
+      "type": "string",
+      "description": "Canonical API model ID"
+    },
+    {
+      "name": "model_name",
+      "type": "string",
+      "description": "Human-readable display name"
+    },
+    {
+      "name": "flag",
+      "type": "string",
+      "description": "Optional tag \u2014 null means unclassified, ignored by tooling"
+    }
+  ],
+  "Values": [
+    [
+      "Gemini",
+      "gemini-3.8-flash",
+      "Gemini 3.8 Flash",
+      null
+    ],
+    [
+      "Gemini",
+      "gemini-3.7-flash",
+      "Gemini 3.7 Flash",
+      null
+    ],
+    [
+      "Gemini",
+      "gemini-3.6-flash",
+      "Gemini 3.6 Flash",
+      null
+    ],
+    [
+      "Gemini",
+      "gemini-3.5-flash",
+      "Gemini 3.5 Flash",
+      null
+    ],
+    [
+      "Gemini",
+      "gemini-3.5-flash-lite",
+      "Gemini 3.5 Flash Lite",
+      null
+    ],
+    [
+      "Groq",
+      "openai/gpt-oss-120b",
+      "GPT-OSS 120B",
+      null
+    ],
+    [
+      "Grok",
+      "grok-4.6",
+      "Grok 4.6",
+      null
+    ],
+    [
+      "HuggingFace",
+      "openai/gpt-oss-120b",
+      "GPT-OSS 120B",
+      null
+    ],
+    [
+      "Ollama",
+      "gpt-oss:120b-cloud",
+      "GPT-OSS 120B Cloud",
+      null
+    ],
+    [
+      "OpenRouter",
+      "google/gemma-4-31b-it:free",
+      "Google: Gemma 4 31B (free)",
+      "free"
+    ],
+    [
+      "TokenRoute",
+      "z-ai/glm-5.3-free",
+      "Z.AI GLM 5.3 (free)",
+      "free"
+    ],
+    [
+      "OllamaLocal",
+      "qwen2.5-coder:1.5b",
+      "Qwen2.5-Coder 1.5B",
+      null
+    ],
+    [
+      "OllamaLocal",
+      "qwen2.5-coder:0.5b",
+      "Qwen2.5-Coder 0.5B",
+      null
+    ],
+    [
+      "OllamaLocal",
+      "qwen2.5-coder:3b",
+      "Qwen2.5-Coder 3B",
+      null
+    ],
+    [
+      "OllamaLocal",
+      "qwen2.5-coder:7b",
+      "Qwen2.5-Coder 7B",
+      null
+    ],
+    [
+      "LiteRTLM",
+      "gemma-4-e2b",
+      "Gemma 4 E2B",
+      null
+    ]
+  ]
+}

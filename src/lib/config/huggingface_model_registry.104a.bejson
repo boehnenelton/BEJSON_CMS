@@ -1,0 +1,61 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "HuggingFaceModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    },
+    {
+      "name": "thinking_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "context_window",
+      "type": "integer"
+    }
+  ],
+  "Values": [
+    [
+      "GPT-OSS 120B (auto-routed provider)",
+      "openai/gpt-oss-120b",
+      true,
+      false,
+      131072
+    ],
+    [
+      "DeepSeek V3.1 (novita)",
+      "deepseek-ai/DeepSeek-V3.1:novita",
+      false,
+      true,
+      131072
+    ],
+    [
+      "Llama 3.3 70B (auto-routed provider)",
+      "meta-llama/Llama-3.3-70B-Instruct",
+      false,
+      false,
+      131072
+    ],
+    [
+      "Kimi K2 Instruct (groq)",
+      "moonshotai/Kimi-K2-Instruct-0905:groq",
+      false,
+      false,
+      131072
+    ]
+  ],
+  "Config_Version": 1
+}

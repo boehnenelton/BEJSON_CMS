@@ -1,37 +1,11 @@
 """
 Library:         BEJSON_CMS_Shared
 Family:          BEJSON_CMS
-Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB handle, base template/render helper, nav structure, auth guard.
-Version:         18.25
+Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB handle, base template/render helper, nav structure, auth guard, and shared media asset serving.
+Version:         18.24
 Library_Version: 58
-Date:            2026-10-11
-RELATIONAL_ID:   7c2e9a40-3b1f-4d85-a6e0-91f4b8d2c637
-CHANGE (2026-10-11): PKG144 -- import-freeze fix: native file choosers replaced by the
-in-app server-side picker (BEJSON_CMS_FileBrowser.py). BASE_TEMPLATE now loads the
-picker JS/CSS; Media Library nav gained Images/Video/Audio/Documents/YouTube/Links children.
-CHANGE (2026-09-18): PKG138 -- deferred-item sweep (Elton: "fix anything and
-finish anything deferred... if it's common sense just fix it"). Two real
-bugs found in the original pkg132 audit's LOW section, fixed:
-L-2: BASE_TEMPLATE's <title>{% block title %}BEJSON Manager{% endblock
-%}</title> was dead Jinja -- a {% block %} with no {% extends %} chain
-just renders its own default forever, so every admin page showed
-"BEJSON Manager" regardless of which page you were actually on. R()
-already passed **kwargs through to render_template_string(), so the fix
-is purely template-side: replaced with {{ page_title or "BEJSON Manager"
-}}. Verified both paths render correctly (no page_title -> default;
-page_title passed -> override) before touching any real route. No call
-site was updated to actually pass page_title yet -- that's a separate,
-larger expansion (every R() call across every blueprint), not done this
-pass; the mechanism just now supports it.
-L-3: the RotatingFileHandler attached to the root logger at this module's
-import time had no idempotency guard -- re-importing this module in the
-same process (module reload, or any future test harness importing
-multiple blueprints in one process) would attach a second, duplicate
-handler pointing at the same file. Not a production issue (each Flask app
-is its own process, per the audit's own note) but a real latent bug.
-Guarded by checking for an existing handler with the same baseFilename
-before adding another. Verified with an actual importlib.reload() --
-handler count stayed at 1, would have become 2 before this fix.
+Date:            2026-10-25
+RELATIONAL_ID:   c9f25d63-57fb-4c3f-b943-c5d3cdd2709c
 """
 
 import os
@@ -39,7 +13,9 @@ import sys
 import logging
 import logging.handlers
 from pathlib import Path
-from flask import request, render_template_string
+from flask import request, render_template_string, send_file
+
+VERSION = 1824
 
 # ─── HTTP Basic Auth ────────────────────────────────────────────────────────
 import functools
@@ -65,6 +41,15 @@ def require_auth(f):
             return _unauthorized()
         return f(*args, **kwargs)
     return decorated
+
+def enforce_auth_everywhere():
+    Request_Basic_Auth_Header = request.authorization
+    if not Request_Basic_Auth_Header or not _check_auth(Request_Basic_Auth_Header.username, Request_Basic_Auth_Header.password):
+        return _unauthorized()
+
+def register_auth_guard(flask_app):
+    """Registers the canonical HTTP Basic Auth before_request gate on a Flask app."""
+    flask_app.before_request(enforce_auth_everywhere)
 
 # ─── Script path resolution + BEJSON library imports ───────────────────────
 def get_script_path() -> Path:
@@ -123,25 +108,12 @@ def _debug_logging_enabled() -> bool:
     except Exception:
         return True  # fail open — never let a config read error silence diagnostics
 
-_LOG_FILE_PATH = str(LOGS_DIR / "import_debug.log")
-_root_logger = logging.getLogger()
-# Idempotency guard (pkg138, audit L-3): this module runs its self-heal at
-# import time (see bottom of this file), and importing the SAME module
-# twice in one process (e.g. multiple test files importing
-# BEJSON_CMS_Shared, or any future harness that imports several blueprint
-# modules in one process) would otherwise attach a second, duplicate
-# RotatingFileHandler pointing at the same file on every re-import --
-# harmless in production (each Flask app is its own process) but a real
-# source of duplicated log lines anywhere that isn't true. Check by target
-# file rather than a module-level "already ran" flag, since the latter
-# wouldn't survive Python's own module-cache-clearing reload paths.
-if not any(isinstance(h, logging.handlers.RotatingFileHandler) and getattr(h, "baseFilename", None) == os.path.abspath(_LOG_FILE_PATH) for h in _root_logger.handlers):
-    _log_handler = logging.handlers.RotatingFileHandler(
-        _LOG_FILE_PATH, maxBytes=2_000_000, backupCount=3, encoding="utf-8"
-    )
-    _log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    _root_logger.addHandler(_log_handler)
-_root_logger.setLevel(logging.DEBUG if _debug_logging_enabled() else logging.WARNING)
+_log_handler = logging.handlers.RotatingFileHandler(
+    str(LOGS_DIR / "import_debug.log"), maxBytes=2_000_000, backupCount=3, encoding="utf-8"
+)
+_log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+logging.getLogger().addHandler(_log_handler)
+logging.getLogger().setLevel(logging.DEBUG if _debug_logging_enabled() else logging.WARNING)
 logging.info("[CMS] Logging initialized. debug_import_logging=%s -> level=%s",
              _debug_logging_enabled(), logging.getLevelName(logging.getLogger().level))
 EXPORTS_DIR = STORAGE_ROOT / "exports"
@@ -173,9 +145,10 @@ NAV_SECTIONS = {
         'href': '/content',
         'children': [
             {'icon': '📄', 'label': 'All Pages', 'href': '/pages'},
+            {'icon': '📚', 'label': 'Blog Post Jobs (BKS-1)', 'href': '/jobs'},
             {'icon': '🔗', 'label': 'External Links', 'href': '/links'},
             {'icon': '📁', 'label': 'Categories', 'href': '/categories'},
-            {'icon': '📥', 'label': 'HTML Import', 'href': '/import'},
+            {'icon': '📥', 'label': 'HTML / MD Import', 'href': '/import'},
         ]
     },
     'apps': {
@@ -188,14 +161,7 @@ NAV_SECTIONS = {
         'icon': '🖼️',
         'label': 'Media Library',
         'href': '/assets',
-        'children': [
-            {'icon': '🖼️', 'label': 'Images', 'href': '/assets?type=images'},
-            {'icon': '🎬', 'label': 'Video', 'href': '/assets?type=video'},
-            {'icon': '🎵', 'label': 'Audio', 'href': '/assets?type=audio'},
-            {'icon': '📄', 'label': 'Documents', 'href': '/assets?type=docs'},
-            {'icon': '▶️', 'label': 'YouTube', 'href': '/assets?type=youtube'},
-            {'icon': '🔗', 'label': 'Links', 'href': '/assets?type=links'},
-        ]
+        'children': []
     },
     'site': {
         'icon': '⚙️',
@@ -233,7 +199,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ page_title or "BEJSON Manager" }}</title>
+    <title>{% block title %}BEJSON Manager{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -537,7 +503,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     </a>
                     <div class="nav-children {% if active_section == section_id %}expanded{% endif %}" id="children-{{ section_id }}">
                         {% for child in section.children %}
-                        <a href="{{ child.href }}" class="nav-item nav-child {% if request.path == child.href or request.full_path.rstrip(\'?\') == child.href %}active{% endif %}">
+                        <a href="{{ child.href }}" class="nav-item nav-child {% if request.path == child.href %}active{% endif %}">
                             <span class="icon">{{ child.icon }}</span>
                             <span>{{ child.label }}</span>
                         </a>
@@ -769,12 +735,6 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
 </body>
 </html>'''
 
-# pkg144: server-side file picker (replaces every native <input type=file> chooser,
-# which backgrounded the app on Android and got it killed). Tags are injected into
-# <head> once, so every admin page can open CMSFilePicker / use data-fb-pick.
-from BEJSON_CMS_FileBrowser import PICKER_HEAD_TAGS as _PICKER_HEAD_TAGS
-BASE_TEMPLATE = BASE_TEMPLATE.replace('</head>', _PICKER_HEAD_TAGS + '\n</head>', 1)
-
 # ─── Render helpers ─────────────────────────────────────────────────────────
 def R(content, **kwargs):
     """Helper to render with base template."""
@@ -833,6 +793,30 @@ def get_image_assets():
     return [a['asset_filename'] for a in assets if (a.get('asset_mime_type') or '').startswith('image/')]
 
 
+from lib_bejson_Core_bejson_path_guard import bejson_safe_join
+
+
+def serve_shared_asset(filename: str):
+    """Shared route handler for serving media assets across Admin/Media and PageEditorV2."""
+    try:
+        resolved_asset_target_path = bejson_safe_join(str(ASSETS_DIR), filename)
+    except ValueError:
+        return "Not found", 404
+    return send_file(resolved_asset_target_path)
+
+
+def serve_shared_thumb(filename: str):
+    """Shared route handler for serving media thumbnails with fallback to original asset."""
+    try:
+        resolved_thumb_target_path = bejson_safe_join(str(THUMBS_DIR), Path(filename).stem + ".jpg")
+        resolved_orig_target_path = bejson_safe_join(str(ASSETS_DIR), filename)
+    except ValueError:
+        return "Not found", 404
+    if os.path.exists(resolved_thumb_target_path):
+        return send_file(resolved_thumb_target_path)
+    return send_file(resolved_orig_target_path)
+
+
 _LEGACY_WEB_FILES = [
     "Flask_CMS.py", "Flask_CMS_Publisher.py", "Flask_Page_Editor.py",
     "Flask_Profile_Manager.py", "Page_Editor_v2.py",
@@ -855,7 +839,7 @@ def warn_about_legacy_files():
     web_dir = os.path.dirname(os.path.abspath(__file__))
     found = [f for f in _LEGACY_WEB_FILES if os.path.exists(os.path.join(web_dir, f))]
     if found:
-        print(f'''
+        logging.warning(f'''
     !! WARNING: Found old pre-rename file(s) still present: {", ".join(found)}
     !! These are leftovers from before the Blueprint split and should not
     !! exist any more -- they were replaced by BEJSON_CMS_Admin.py,
@@ -865,4 +849,5 @@ def warn_about_legacy_files():
     !! you will get old, unfixed behavior (this exact scenario has already
     !! caused real bugs). Delete them: they are not needed for anything.
         ''')
+
 

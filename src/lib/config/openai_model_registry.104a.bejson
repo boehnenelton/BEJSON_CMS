@@ -1,0 +1,60 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "OpenAIModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "GPT-4o (Flagship)",
+      "gpt-4o",
+      true
+    ],
+    [
+      "GPT-4o Mini (Fast/Efficient)",
+      "gpt-4o-mini",
+      false
+    ],
+    [
+      "GPT-4 Turbo",
+      "gpt-4-turbo",
+      false
+    ],
+    [
+      "GPT-3.5 Turbo (Legacy)",
+      "gpt-3.5-turbo",
+      false
+    ],
+    [
+      "o1 Reasoning Model",
+      "o1",
+      false
+    ],
+    [
+      "o1 Mini",
+      "o1-mini",
+      false
+    ],
+    [
+      "o3 Mini",
+      "o3-mini",
+      false
+    ]
+  ],
+  "Config_Version": 1
+}

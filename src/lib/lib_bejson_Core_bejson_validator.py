@@ -1,34 +1,18 @@
 """
-Library:        lib_bejson_Core_bejson_validator.py
-Family:         Core
-Description:    Structural integrity checker for positional values and mandatory keys.
-Version:        2.2.1
-Date:           2026-08-19
-Author:         Elton Boehnen
-Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
-Format_Creator: Elton Boehnen
-RELATIONAL_ID:  3e7a9c1f-5b8d-4e2a-9c6f-1d4a7b9e3f52
+Library:         lib_bejson_Core_bejson_validator.py
+Family:          Core
+Module Purpose:  Structural validator for BEJSON 104, 104a and 104db (mandatory keys, Records_Type, Fields, Values, version-specific rules). MFDB rules live in the mfdb_validator module.
+Architecture:    Format-level BEJSON layer that works on any BEJSON document (104, 104a, 104db) through positional Fields/Values and the field-map cache. It does not orchestrate MFDB and is not specific to 104db.
+Format_Scope:    104 | 104a | 104db (generic)
+Glossary:        BEJSON 104, 104a and 104db are the three file formats (Format_Version). 104db = ONE file holding 2+ entity types
+                 (Record_Type_Parent discriminator, null-padding). MFDB is NOT a format and NOT 104db: it is a layer made of one 104a manifest
+                 (104a.mfdb.bejson) plus dense 104 entity files linked by Parent_Hierarchy. MFDB-132 = an MFDB packed into one Chunked-104a document.
+Version:         2.2.7
 Release_Version: 300
-
-CHANGELOG:
-- 2.2.1 (2026-09-04): CORRECTIVE — restored the 104a "array"/"object" ban
-  that was erroneously reverted in 2.2.0. The spec (BEJSON_MFDB_Crash_Course
-  v24, §Version Differences / 104a) is explicit: 104a is primitives-only
-  (string, integer, number, boolean). Schemas requiring array/object fields
-  must use Format_Version "104" instead. The revert in 2.2.0 was wrong.
-- 2.2.0 (2026-09-04): ERRONEOUS — wrongly removed the 104a array/object ban.
-  Do not use this version. Superseded immediately by 2.2.1.
-- 2.1.0 (2026-08-19): bejson_validator_check_fields_structure now rejects
-  any Field whose "type" isn't exactly one of the 6 canonical values
-  (string/integer/number/boolean/array/object). Previously an unrecognized
-  type string (seen in practice: "any", "Number" capitalized) passed
-  structural validation cleanly, because bejson_validator_check_values'
-  type-check chain is an if/elif ladder that just silently skips value
-  checking for any type it doesn't recognize -- it was never actually
-  rejecting the bad declaration itself, just failing to police it. A file
-  with an invalid field type now fails validate_bejson with a clear error
-  naming the bad type and the exact allowed set, instead of reporting
-  valid=True. New VALID_FIELD_TYPES constant added and exported for reuse.
+Date:            2026-10-16
+Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
+Format_Creator:  Elton Boehnen
+RELATIONAL_ID:   21d67eaf-89ea-4f3e-b5fb-0c2e9395dd4a
 """
 
 import json
@@ -58,6 +42,8 @@ except ImportError as e:
 VALID_VERSIONS = {"104", "104a", "104db"}
 VALID_FIELD_TYPES = {"string", "integer", "number", "boolean", "array", "object"}
 MANDATORY_KEYS = ("Format", "Format_Version", "Format_Creator", "Records_Type", "Fields", "Values")
+IN_MEMORY_ONLY_KEYS = frozenset({"_nesting_field_map"})  # other in-memory caches (never persisted)
+FIELD_MAP_CACHE_KEY = "_bejson_field_map"  # in-memory only; legitimate on dict input, forbidden in files/strings
 
 @dataclass
 class ValidationResult:
@@ -66,28 +52,28 @@ class ValidationResult:
     warnings: List[str] = field(default_factory=list)
     current_file: str = ""
 
+    # Records a validation error and marks the result invalid.
     def add_error(self, message: str):
         self.valid = False
         self.errors.append(message)
 
+    # Records a non-fatal warning; the result stays valid.
     def add_warning(self, message: str):
         self.warnings.append(message)
 
+    # Property alias for .valid so both result.valid and result.is_valid work.
     @property
     def is_valid(self) -> bool:
-        """Alias for .valid. A caller reaching for result.is_valid instead
-        of result.valid is a reasonable, common guess at this class's own
-        API -- cheap to make both spellings work rather than requiring
-        every consumer to know the exact attribute name. (Synced from the
-        same fix applied in NewAgent's local copy of this file, 2026-08-13,
-        after an AttributeError surfaced in a PROFILER-style caller.)"""
+        """Alias for .valid, so both result.valid and result.is_valid work."""
         return self.valid
 
 class BEJSONValidationError(Exception):
+    # Exception for validation failures (BEJSONValidationError); `code` is the numeric E_* code.
     def __init__(self, message: str, code: int):
         super().__init__(message)
         self.code = code
 
+# Step 1: parses the input (JSON string, dict, or file path when is_file=True) and records a syntax error in `res` if it is not valid JSON.
 def bejson_validator_check_json_syntax(input_, res: ValidationResult, is_file=False):
     if is_file:
         path = Path(input_)
@@ -99,6 +85,8 @@ def bejson_validator_check_json_syntax(input_, res: ValidationResult, is_file=Fa
     try: return json.loads(text)
     except Exception as e: raise BEJSONValidationError(f"Invalid JSON: {e}", E_INVALID_JSON)
 
+# Step 2: all six mandatory top-level keys must exist (Format, Format_Version, Format_Creator, Records_Type, Fields, Values),
+# Format must be 'BEJSON' and Format_Creator must be 'Elton Boehnen'. Returns the Format_Version ('104', '104a' or '104db'). The same six keys apply to every version (and to MFDB manifest/entity files, which are 104a/104).
 def bejson_validator_check_mandatory_keys(doc):
     for key in MANDATORY_KEYS:
         if key not in doc: raise BEJSONValidationError(f"Missing key: {key}", E_MISSING_MANDATORY_KEY)
@@ -109,6 +97,7 @@ def bejson_validator_check_mandatory_keys(doc):
     if version not in VALID_VERSIONS: raise BEJSONValidationError(f"Invalid version: {version}", E_INVALID_VERSION)
     return version
 
+# Step 3: Records_Type must be a list. 104 and 104a require exactly ONE type; 104db requires TWO or more. (An MFDB manifest is 104a, so its Records_Type is the single entry ["mfdb"].)
 def bejson_validator_check_records_type(doc, version):
     rt = doc["Records_Type"]
     if not isinstance(rt, list):
@@ -121,6 +110,7 @@ def bejson_validator_check_records_type(doc, version):
         if count < 2:
             raise BEJSONValidationError("104db requires 2+ types", E_INVALID_RECORDS_TYPE)
 
+# Step 4 (104db only; no-op for 104/104a): the first field must be named Record_Type_Parent and every row's column-0 value must be one of Records_Type. This discriminator exists only in 104db -- MFDB entity files do not have it.
 def bejson_validator_check_record_type_parent(doc, version):
     if version != "104db": return True
     fields = doc["Fields"]
@@ -134,6 +124,7 @@ def bejson_validator_check_record_type_parent(doc, version):
             raise BEJSONValidationError(f"Invalid Record_Type_Parent '{rtp}' at row {i}", E_INVALID_RECORD_TYPE_PARENT)
     return True
 
+# Step 5: every field needs a name and a lowercase type from VALID_FIELD_TYPES. 104a forbids array/object types. In 104db every field except Record_Type_Parent must carry a Record_Type_Parent property naming the entity that owns it. Returns the field count.
 def bejson_validator_check_fields_structure(doc, version):
     fields = doc["Fields"]
     for i, f in enumerate(fields):
@@ -157,6 +148,7 @@ def bejson_validator_check_fields_structure(doc, version):
             raise BEJSONValidationError(f"Field '{fname}' missing Record_Type_Parent in 104db", E_INVALID_RECORD_TYPE_PARENT)
     return len(fields)
 
+# Step 6: every row must have exactly one cell per field and each non-null cell must match its field type (string, integer, number, boolean, array, object; bool is not accepted as integer/number). null is always allowed -- in 104db it is the null-padding for fields owned by other entities.
 def bejson_validator_check_values(doc, version, fields_count):
     fields = doc["Fields"]
     for i, record in enumerate(doc["Values"]):
@@ -182,25 +174,61 @@ def bejson_validator_check_values(doc, version, fields_count):
             elif ftype == "object" and not isinstance(val, dict):
                  raise BEJSONValidationError(f"Type mismatch at row {i}, col {j} ({fields[j]['name']}): expected object", E_TYPE_MISMATCH)
 
-def bejson_validator_check_custom_headers(doc, version):
+# Rejects a document whose Fields contain the same name twice (E_INVALID_FIELDS). Applies to 104, 104a and 104db; duplicate names would make field-map lookups ambiguous (the map keeps only the last index).
+def bejson_validator_check_field_names_unique(doc):
+    seen = set()
+    for i, f in enumerate(doc["Fields"]):
+        fname = f.get("name")
+        if fname in seen:
+            raise BEJSONValidationError(f"Duplicate field name '{fname}' at index {i}", E_INVALID_FIELDS)
+        seen.add(fname)
+
+# Handles the reserved in-memory key _bejson_field_map. A document loaded from a file or JSON string must NOT contain it (E_RESERVED_KEY_COLLISION): it is an in-memory cache only. A dict passed in memory may carry it, but it must match Fields exactly (whole-map check; validation is not a hot path), otherwise it is rejected as stale or forged.
+def bejson_validator_check_field_map_cache(doc, persisted):
+    """The field-map cache is an in-memory artifact. A persisted copy is hostile or stale; an
+    in-memory copy must agree with Fields (O(1) probe) or downstream lookups read wrong columns."""
+    if FIELD_MAP_CACHE_KEY not in doc: return
+    if persisted:
+        raise BEJSONValidationError(
+            f"Reserved key '{FIELD_MAP_CACHE_KEY}' must not be persisted (in-memory cache only)", E_RESERVED_KEY_COLLISION)
+    cached, fields = doc[FIELD_MAP_CACHE_KEY], doc["Fields"]
+    # Validation is not a hot path: verify the whole map, not just a probe.
+    expected = {(f.get("name") if isinstance(f, dict) else str(f)): i for i, f in enumerate(fields)}
+    ok = isinstance(cached, dict) and dict(cached) == expected and len(expected) == len(fields)
+    if not ok:
+        raise BEJSONValidationError(f"In-memory '{FIELD_MAP_CACHE_KEY}' does not match Fields (stale or forged)", E_RESERVED_KEY_COLLISION)
+
+# Step 7: custom top-level keys (the reserved in-memory key _bejson_field_map is skipped here and handled by check_field_map_cache). 104 and 104db forbid them (only the six mandatory keys plus Parent_Hierarchy are allowed). 104a allows custom headers (file-level metadata, PascalCase recommended). MFDB manifests use this 104a allowance for MFDB_Version, DB_Name, etc.
+def bejson_validator_check_custom_headers(doc, version, persisted=True):
     mandatory_set = set(MANDATORY_KEYS)
     for key in doc:
-        if key in mandatory_set or key == "Parent_Hierarchy": continue
+        if key in mandatory_set or key == "Parent_Hierarchy" or key == FIELD_MAP_CACHE_KEY: continue
+        # '_' prefix is reserved for in-memory caches: persisted input never carries one; in-memory input only the known ones.
+        if isinstance(key, str) and key.startswith("_"):
+            if persisted or key not in IN_MEMORY_ONLY_KEYS:
+                raise BEJSONValidationError(f"Reserved key collision: '{key}' uses the reserved '_' prefix", E_RESERVED_KEY_COLLISION)
+            continue
         if version in ("104", "104db"):
             raise BEJSONValidationError(f"Custom key '{key}' forbidden in {version}", E_RESERVED_KEY_COLLISION)
         # 104a: Custom headers allowed, no strict PascalCase enforcement
-        # Audit 2 Finding: Removed warning to avoid conflict with 104db rigidity.
+        # 104a custom headers carry file-level metadata only; PascalCase is recommended, not enforced.
+        # 104 and 104db forbid custom top-level keys (rejected above); Parent_Hierarchy is the built-in exception.
 
+# Runs all steps for a document, string or file and returns a ValidationResult (valid, errors, warnings). Handles 104, 104a and 104db. It validates BEJSON structure only; MFDB rules (manifest/entity relationship, Parent_Hierarchy, record_count) are in mfdb_validator.
+# Also rejects duplicate field names (E_INVALID_FIELDS) and, for file or string input, a persisted _bejson_field_map key (E_RESERVED_KEY_COLLISION). An in-memory dict may carry the cache only if it matches Fields exactly.
 def validate_bejson(input_data: Union[str, dict], is_file: bool = False) -> ValidationResult:
     """Thread-safe validation. Returns a ValidationResult object."""
     res = ValidationResult()
     try:
         doc = bejson_validator_check_json_syntax(input_data, res, is_file=is_file)
         version = bejson_validator_check_mandatory_keys(doc)
-        bejson_validator_check_custom_headers(doc, version)
+        persisted = is_file or not isinstance(input_data, dict)
+        bejson_validator_check_custom_headers(doc, version, persisted)
         bejson_validator_check_records_type(doc, version)
         bejson_validator_check_record_type_parent(doc, version)
         fields_count = bejson_validator_check_fields_structure(doc, version)
+        bejson_validator_check_field_names_unique(doc)
+        bejson_validator_check_field_map_cache(doc, persisted)
         bejson_validator_check_values(doc, version, fields_count)
     except BEJSONValidationError as e:
         res.add_error(str(e))
@@ -208,6 +236,7 @@ def validate_bejson(input_data: Union[str, dict], is_file: bool = False) -> Vali
         res.add_error(f"Unexpected validation error: {e}")
     return res
 
+# Runs validate_bejson and returns a human-readable report string.
 def bejson_validator_get_report(input_data, is_file: bool = False) -> str:
     """Return a human-readable validation report string."""
     res = validate_bejson(input_data, is_file=is_file)
@@ -224,13 +253,15 @@ def bejson_validator_get_report(input_data, is_file: bool = False) -> str:
             lines.append("    - " + w)
     return "\n".join(lines)
 
-# Compatibility wrappers (now internal state is gone)
+# Validates a JSON string; raises BEJSONValidationError on the first error, returns the result otherwise.
+# String/file validation wrappers that raise BEJSONValidationError on the first error
 def bejson_validator_validate_string(json_string):
     res = validate_bejson(json_string)
     if not res.valid:
         raise BEJSONValidationError(res.errors[0], E_INVALID_FORMAT)
     return True
 
+# Validates a BEJSON file on disk; raises BEJSONValidationError on the first error.
 def bejson_validator_validate_file(file_path):
     res = validate_bejson(file_path, is_file=True)
     if not res.valid:

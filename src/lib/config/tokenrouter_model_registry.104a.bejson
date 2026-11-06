@@ -1,0 +1,35 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "TokenRouterModel"
+  ],
+  "Fields": [
+    {
+      "name": "model_name",
+      "type": "string"
+    },
+    {
+      "name": "model_id",
+      "type": "string"
+    },
+    {
+      "name": "currently_active",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "GLM-5.3 Free (z-ai)",
+      "z-ai/glm-5.3-free",
+      true
+    ],
+    [
+      "GLM-5.3 Free (Short Alias)",
+      "glm-5.3-free",
+      false
+    ]
+  ],
+  "Config_Version": 1
+}

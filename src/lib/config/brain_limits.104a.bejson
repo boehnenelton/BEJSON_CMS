@@ -1,0 +1,154 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "ScriptConfig"
+  ],
+  "Fields": [
+    {
+      "name": "setting_name",
+      "type": "string"
+    },
+    {
+      "name": "setting_value",
+      "type": "any"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "max_categories",
+      32,
+      "Maximum non-archived categories."
+    ],
+    [
+      "max_ai_proposed_categories",
+      8,
+      "Maximum categories the AI may have waiting for approval."
+    ],
+    [
+      "max_memories",
+      2000,
+      "Maximum non-archived memories."
+    ],
+    [
+      "max_title_chars",
+      80,
+      "Memory title length cap."
+    ],
+    [
+      "max_content_chars",
+      2000,
+      "Memory content length cap."
+    ],
+    [
+      "max_category_name_chars",
+      40,
+      "Category name length cap."
+    ],
+    [
+      "max_keywords",
+      8,
+      "Keywords per memory."
+    ],
+    [
+      "keyword_min_chars",
+      4,
+      "Shortest allowed keyword."
+    ],
+    [
+      "keyword_max_chars",
+      32,
+      "Longest allowed keyword."
+    ],
+    [
+      "max_commands_per_batch",
+      10,
+      "AI commands per batch."
+    ],
+    [
+      "max_batches_per_turn",
+      1,
+      "AI batches per chat turn."
+    ],
+    [
+      "max_ai_writes_per_hour",
+      20,
+      "AI write operations per rolling hour."
+    ],
+    [
+      "max_xml_block_bytes",
+      16384,
+      "Largest AI command block accepted."
+    ],
+    [
+      "ai_max_priority",
+      60,
+      "Highest priority an AI-written memory can have."
+    ],
+    [
+      "auto_max_priority",
+      40,
+      "Highest priority an AI memory may have and still apply without review (policy auto)."
+    ],
+    [
+      "write_policy",
+      "review",
+      "auto = AI adds new unpinned low-priority memories directly; review = every AI write waits for approval."
+    ],
+    [
+      "memory_mode",
+      "pass",
+      "inline | pass | off."
+    ],
+    [
+      "snapshot_default_keep",
+      5,
+      "Default-tier snapshots kept besides the baseline."
+    ],
+    [
+      "snapshot_daily_keep",
+      7,
+      "Daily snapshots kept."
+    ],
+    [
+      "snapshot_monthly_keep",
+      1,
+      "Monthly snapshots kept."
+    ],
+    [
+      "audit_max_rows",
+      2000,
+      "Audit log rows kept."
+    ],
+    [
+      "lock_timeout_seconds",
+      10,
+      "Seconds to wait for the project lock."
+    ],
+    [
+      "recall_max_entries",
+      5,
+      "Memories injected per turn by keyword recall."
+    ],
+    [
+      "recall_max_entry_chars",
+      1200,
+      "Characters kept per recalled memory."
+    ],
+    [
+      "recall_match_bonus",
+      15,
+      "Score added per distinct keyword matched."
+    ],
+    [
+      "recall_cooldown_turns",
+      0,
+      "Turns a recalled memory is skipped afterwards. 0 = off (recall reads only the user's message, so repeats are intended)."
+    ]
+  ]
+}

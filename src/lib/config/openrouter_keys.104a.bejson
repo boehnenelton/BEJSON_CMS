@@ -1,0 +1,29 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "OpenRouterKeyRegistry",
+  "Records_Type": [
+    "ApiKey"
+  ],
+  "Fields": [
+    {
+      "name": "key_slot",
+      "type": "integer"
+    },
+    {
+      "name": "key",
+      "type": "string"
+    },
+    {
+      "name": "flag",
+      "type": "string"
+    },
+    {
+      "name": "service",
+      "type": "string"
+    }
+  ],
+  "Values": [],
+  "Config_Version": 3
+}

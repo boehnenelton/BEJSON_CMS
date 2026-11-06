@@ -1,19 +1,18 @@
 """
-Library:        lib_bejson_Core_mfdb_validator.py
-Family:         Core
-Description:    Bidirectional path and manifest-entity relationship validator.
-                Also owns MFDB-132-package validation (is/validate_mfdb132_package,
-                detect_mfdb_in_chunk) — relocated here from
-                lib_bejson_Core_bejson_chunking.py, which should only own
-                packaging/IO, not validation logic. See CHANGELOG note dated
-                2026-07-13.
-Version:        2.2.0
-Date:           2026-07-13
-Author:         Elton Boehnen
-Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
-Format_Creator: Elton Boehnen
-RELATIONAL_ID:  783f276c-7d6f-41d9-b10e-790e97442cac
+Library:         lib_bejson_Core_mfdb_validator.py
+Family:          Core
+Module Purpose:  MFDB validator: bidirectional path and manifest-entity relationship checks, plus MFDB-132 package validation (is/validate_mfdb132_package, detect_mfdb_in_chunk). The chunking library handles packaging and IO and calls these functions.
+Architecture:    MFDB (a database architecture layered on BEJSON, not a BEJSON format version): one BEJSON 104a manifest (104a.mfdb.bejson) registers many dense BEJSON 104 entity files linked by Parent_Hierarchy. MFDB-132 packs a whole MFDB into one Chunked-104a document and is handled here as a wrapper around the same manifest + entity structure. It is not 104db and uses no null-padding.
+Format_Scope:    MFDB only (104a manifest + 104 entity files; NOT 104db)
+Glossary:        BEJSON 104, 104a and 104db are the three file formats (Format_Version). 104db = ONE file holding 2+ entity types
+                 (Record_Type_Parent discriminator, null-padding). MFDB is NOT a format and NOT 104db: it is a layer made of one 104a manifest
+                 (104a.mfdb.bejson) plus dense 104 entity files linked by Parent_Hierarchy. MFDB-132 = an MFDB packed into one Chunked-104a document.
+Version:         2.2.4
 Release_Version: 300
+Date:            2026-10-02
+Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
+Format_Creator:  Elton Boehnen
+RELATIONAL_ID:   069574e8-7f27-4c36-80bf-0656a607980e
 """
 
 import json
@@ -58,6 +57,7 @@ except ImportError as e:
     raise SystemExit(1)
 
 class MFDBValidationError(Exception):
+    # Exception raised for MFDB validation failures; carries a numeric code and optional context dict.
     def __init__(self, message: str, code: int, context: dict = None):
         super().__init__(message)
         self.code = code
@@ -70,15 +70,18 @@ class MFDBValidationResult:
     warnings: List[str] = dc_field(default_factory=list)
     findings: Dict[str, Any] = dc_field(default_factory=dict)
     
+    # Records a hard error (structural failure) and marks the result invalid.
     def add_error(self, message: str, location: str = ""):
         self.valid = False
         entry = f"ERROR | Location: {location} | Message: {message}" if location else f"ERROR | Message: {message}"
         self.errors.append(entry)
 
+    # Records a warning (convention failure) without invalidating the result. MFDB standardization issues are warnings; structural issues are errors.
     def add_warning(self, message: str, location: str = ""):
         entry = f"WARNING | Location: {location} | Message: {message}" if location else f"WARNING | Message: {message}"
         self.warnings.append(entry)
 
+# Reads JSON from a file or from inside a .zip (an MFDB archive). Raises on missing/invalid JSON.
 # Internal helpers
 def _load_json(path: str) -> dict:
     p = Path(path)
@@ -91,16 +94,19 @@ def _load_json(path: str) -> dict:
             raise FileNotFoundError(f"104a.mfdb.bejson not found in archive: {path}")
     return json.loads(p.read_text(encoding="utf-8"))
 
+# Turns a BEJSON document's Values into a list of {field_name: value} dicts using Fields.
 def _rows_as_dicts(doc: dict) -> list[dict]:
     names = [f["name"] for f in doc["Fields"]]
     return [dict(zip(names, row)) for row in doc["Values"]]
 
+# Resolves an entity file_path (relative to the manifest) against the manifest's directory or archive path.
 def _resolve_entity_path(manifest_path: str, file_path_rel: str) -> str:
     if manifest_path.lower().endswith(".zip"):
         return os.path.join(manifest_path, file_path_rel)
     manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
     return os.path.normpath(os.path.join(manifest_dir, file_path_rel))
 
+# Validates a .mfdb.zip archive: is a zip, has a manifest, entity files exist and the contents validate as an MFDB.
 # Validation functions
 def validate_mfdb_archive(archive_path: str) -> MFDBValidationResult:
     res = MFDBValidationResult()
@@ -116,6 +122,8 @@ def validate_mfdb_archive(archive_path: str) -> MFDBValidationResult:
         res.add_error(f"Invalid zip: {e}", "Zip Parser")
     return res
 
+# Level 1: validates the manifest as a BEJSON 104a document named *.mfdb.bejson with Records_Type ["mfdb"] and the required manifest fields/headers (e.g. MFDB_Version, DB_Name).
+# A 104db file or a plain 104a that is not an MFDB manifest fails here.
 def validate_mfdb_manifest(manifest_path: str) -> MFDBValidationResult:
     res = MFDBValidationResult()
     p = Path(manifest_path)
@@ -158,6 +166,7 @@ def validate_mfdb_manifest(manifest_path: str) -> MFDBValidationResult:
     
     return res
 
+# Level 2: validates an entity file as a BEJSON 104 document (one Records_Type, Parent_Hierarchy present). With check_bidirectional=True also checks that the manifest lists this file back (two-way link).
 def validate_mfdb_entity_file(entity_path: str, check_bidirectional: bool = True) -> MFDBValidationResult:
     res = MFDBValidationResult()
     p = Path(entity_path)
@@ -187,6 +196,7 @@ def validate_mfdb_entity_file(entity_path: str, check_bidirectional: bool = True
 
     return res
 
+# Level 3: whole-database validation -- manifest, every entity file, record_count accuracy and *_fk conventions. strict_fk=True turns unresolved foreign-key values into errors; MFDB itself does not enforce foreign keys.
 def validate_mfdb_database(manifest_path: str, strict_fk: bool = False) -> MFDBValidationResult:
     res = validate_mfdb_manifest(manifest_path)
     if not res.valid: return res
@@ -199,25 +209,26 @@ def validate_mfdb_database(manifest_path: str, strict_fk: bool = False) -> MFDBV
             for err in ent_res.errors: res.add_error(err, f"Entity:{entry['entity_name']}")
     return res
 
+# Raising wrapper over validate_mfdb_manifest: raises MFDBValidationError on the first error.
 # Compatibility wrappers
 def mfdb_validator_validate_manifest(p):
     res = validate_mfdb_manifest(p)
     if not res.valid: raise MFDBValidationError(res.errors[0], E_MFDB_NOT_MANIFEST)
     return True
 
+# Raising wrapper over validate_mfdb_database: raises MFDBValidationError on the first error.
 def mfdb_validator_validate_database(p, strict_fk=False):
     res = validate_mfdb_database(p, strict_fk=strict_fk)
     if not res.valid: raise MFDBValidationError(res.errors[0], E_MFDB_NOT_MANIFEST)
     return True
 
 # ── MFDB 1.32 chunked-package validation ───────────────────────────────────────
-# Relocated from lib_bejson_Core_bejson_chunking.py (2026-07-13). The chunking
-# library still owns create_mfdb132_package/unchunk_mfdb132_package (packaging
-# and IO), but calls back into these functions for the actual validation —
-# validation logic belongs in the validator family, not the chunker.
+# The chunking library owns create_mfdb132_package/unchunk_mfdb132_package (packaging and IO)
+# and calls these functions for validation; validation logic lives in the validator family.
 
 MFDB_MANIFEST_FILENAME = "104a.mfdb.bejson"
 
+# True if a Chunked-104a document is a packaged MFDB-132 (an MFDB stored in one chunk document).
 def mfdb_validator_is_mfdb132_package(doc: Dict[str, Any]) -> bool:
     """
     Discovery check: True if a document represents a packaged MFDB 1.32
@@ -232,6 +243,7 @@ def mfdb_validator_is_mfdb132_package(doc: Dict[str, Any]) -> bool:
         and bool(doc.get("DB_Name"))
     )
 
+# Level-1 validation of an MFDB-132 package document (manifest row present, entity rows present, paths consistent). Returns a result dict.
 def mfdb_validator_validate_mfdb132_package(doc: Dict[str, Any]) -> Dict[str, Any]:
     """
     Level 1 validation for a chunked MFDB 1.32 package:
@@ -270,6 +282,7 @@ def mfdb_validator_validate_mfdb132_package(doc: Dict[str, Any]) -> Dict[str, An
 
     return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
+# Finds the chunk-document row whose Relative_Path equals rel_path; None if absent.
 def _mfdb_validator_find_row_by_relpath(doc: Dict[str, Any], rel_path: str) -> Optional[List[Any]]:
     fields = doc.get("Fields", [])
     fm = {f["name"]: i for i, f in enumerate(fields)}
@@ -281,6 +294,7 @@ def _mfdb_validator_find_row_by_relpath(doc: Dict[str, Any], rel_path: str) -> O
             return row
     return None
 
+# Finds an embedded MFDB inside any Chunked-104a document and validates it. Returns a report dict.
 def mfdb_validator_detect_mfdb_in_chunk(doc: Dict[str, Any]) -> Dict[str, Any]:
     """
     Scans any Chunked-104a document for an embedded, valid MFDB database

@@ -2,85 +2,11 @@
 Library:         BEJSON_CMS_Media
 Family:          BEJSON_CMS
 Description:     Media Cube: gallery, uploads, background thumbnail worker, external media links. In-process serial worker thread by design (no multiprocessing) — see comment block below.
-Version:         18.33
+Version:         18.29
 Library_Version: 59
-Date:            2026-10-11
-RELATIONAL_ID:   d3b7a1f0-52c4-4e8a-9a61-7c0f2e5b9d18
-CHANGE (2026-10-11): PKG144 -- import-freeze fix + Media Library sections.
-(1) ROOT CAUSE of the long-standing import freeze: every upload used the
-browser's native file chooser (<input type=file>), which sends the browser/
-app to the background on Android; the OS then killed the backgrounded process.
-Uploads now go through the in-app server-side picker (BEJSON_CMS_FileBrowser.py
-+ fb_assets/becss-filepicker.*): the page never leaves the foreground and the
-chosen files are copied by this process straight from disk. New routes
-POST /assets/import_server {paths, kind} and POST /assets/replace_server/<f>
-{path}; both validate every path through FileBrowser.resolve_pick(). The
-legacy multipart routes (/assets/upload, /assets/replace/<f>) are left in
-place but no longer linked from any page.
-(2) The Media Library used to blend every uploaded file into one "Files"
-list (PDFs, video and audio mixed in with images). It is now split into
-sections selected by ?type=: Images / Video / Audio / Documents / YouTube /
-Links, each with its own count, pagination and bulk-select. Sidebar
-children link to each section.
-CHANGE (2026-09-20): PKG140 -- found while continuing the sweep right after
-pkg139 shipped: the CSP/upload-sanitization work only covered serve_asset()
-and the upload handler. Two more gaps in the SAME file, same attack class:
-(1) serve_thumb()'s fallback path (serves the raw original when no
-thumbnail exists yet -- which for .svg is ALWAYS, since .svg is not in
-_THUMBABLE_EXT) had no CSP header, even though the gallery view's <img>
-tags always request /assets/thumb/<file> for every asset row regardless of
-type -- this was a live, reachable path, not theoretical. Fixed with the
-same header logic as serve_asset(). (2) assets_replace() -- overwriting an
-existing asset's content while keeping the same stored filename -- never
-sanitized at all, for any extension, meaning "replace" was an entirely
-separate, unprotected write path to the same files the upload handler had
-just been locked down: someone could overwrite an already-sanitized SVG's
-content with raw malicious bytes under the same filename. Fixed to run the
-same sanitize_svg() check when the existing file's extension is .svg.
-Verified live: created a real SVG asset, replaced it with a payload
-containing <script>+onload= cookie exfiltration, confirmed the on-disk
-content came out completely inert (down to a bare <svg/>); confirmed
-serve_thumb()'s fallback now sends the CSP header for a real SVG request.
-Also confirmed a non-.svg asset is completely unaffected by either change.
-CHANGE (2026-09-20): PKG139 -- SVG re-enabled (Elton's call, resolving audit
-H-3 -- disabled since pkg133 pending a sanitizer). ".svg" added back to
-ALLOWED_ASSET_EXTENSIONS. Upload path now runs every .svg through the new
-lib_bejson_Core_svg_sanitizer.sanitize_svg() (stdlib-only, strict
-allowlist) before writing to disk -- a file that fails sanitization is
-rejected outright, no partial/unsafe version is ever saved. serve_asset()
-adds Content-Security-Policy: script-src 'none'; sandbox; on .svg
-responses as defense in depth on top of upload-time sanitization.
-Live-verified through the real Flask upload route, not just the sanitizer
-library's own unit tests: a malicious SVG (<script> + onload= cookie
-exfiltration) came out the other end on disk completely inert; a
-genuinely broken file was correctly rejected with nothing written or
-queued; confirmed the CSP header is actually present on a served .svg
-response. All test assets cleaned up after, live data confirmed back to
-its 4-asset baseline.
-CHANGE (2026-09-13): PKG135 -- "give them all uuids" (Elton). MediaAsset's
-upload-commit add_record() call now includes a real asset_uuid -- it
-didn't, so every uploaded asset was landing with asset_uuid: None. Rename/
-delete for MediaAsset deliberately left keyed by asset_filename (not
-converted to asset_uuid) -- asset_filename is already a stable,
-collision-free identifier (uuid.hex-based, generated once at upload and
-never changed by rename, per the pkg133 H-2 audit finding), so this isn't
-the same bug class as AuthorProfile/Category; the new asset_uuid field
-exists for future FK use (e.g. a video/document page type referencing a
-specific asset by stable ID) rather than fixing an active identity bug
-here.
-CHANGE (2026-09-12): PKG133 -- external audit remediation (H-2, H-3). H-2:
-the external-links table and YouTube-card "Copy URL" buttons still
-interpolated extmedia_url raw into an inline onclick="copyAssetPath('...')"
-string -- html.escape() alone doesn't make a value safe inside inline
-event-handler JS source, since the browser decodes entities in an
-attribute value before running onclick as JS (same bug class as the
-pkg123/pkg124 rename/lightbox fixes; these two call sites were missed by
-both passes). Converted both to data-url + the existing document.body
-delegation handler (added a .copy-url-btn branch). H-3: removed ".svg"
-from ALLOWED_ASSET_EXTENSIONS -- serve_asset() does send_file() with no
-content inspection, so an uploaded SVG carrying <script>/on*= payloads was
-served back verbatim (stored XSS); no sanitizer exists. Zero-risk fix per
-audit; re-add once sanitization/CSP is implemented.
+Date:            2026-10-25
+RELATIONAL_ID:   4b9a6e21-5d8c-4f37-8a1e-9c2d7b4f6e83
+CHANGE (2026-10-25): Centralized /assets and /assets/thumb route handlers in BEJSON_CMS_Shared.
 CHANGE (2026-08-06): PKG74 - added "PDF" as a selectable Type on the
 External Media Link form (was Image/Video/Other only), so an external
 PDF URL can be tagged and picked up by the new Insert-PDF picker in
@@ -91,6 +17,8 @@ non-thumbable file falls back to serving the raw original bytes as an
 "image" (broken icon in the browser). Now renders a file-type badge
 (📄/🎬/🎵/📦) instead for any extension outside _THUMBABLE_EXT.
 """
+
+VERSION = 1829
 
 import os
 import re
@@ -109,14 +37,9 @@ from werkzeug.utils import secure_filename
 
 from BEJSON_CMS_Shared import (
     db, R, get_breadcrumbs, require_auth,
-    ASSETS_DIR, THUMBS_DIR,
+    ASSETS_DIR, THUMBS_DIR, serve_shared_asset, serve_shared_thumb,
 )
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
-from lib_bejson_Core_svg_sanitizer import sanitize_svg
-from BEJSON_CMS_FileBrowser import (
-    resolve_pick, resolve_picks, PickError, copy_file_chunked, guess_mime,
-    IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, DOCUMENT_EXTENSIONS,
-)
 
 try:
     from PIL import Image
@@ -126,38 +49,9 @@ except ImportError:
 
 ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
                               '.pdf', '.mp4', '.mp3', '.ogg', '.webm', '.ico'}
-# SVG re-added (pkg139, Elton: "build sanitizer + re-enable" -- resolves
-# audit H-3, open since pkg133). Every .svg upload is now run through
-# lib_bejson_Core_svg_sanitizer.sanitize_svg() before being written to
-# disk -- see the upload handler below. A file that fails sanitization
-# (doesn't parse, isn't an <svg> document) is rejected outright, not
-# saved in any form.
+# NOTE: SVG is allowed but sanitize SVG content before serving to prevent XSS.
 
 media_cube = Blueprint('media', __name__)
-
-# Media Library sections (pkg144): ?type=<key>. File sections hold MediaAsset
-# rows by extension; youtube/links hold ExternalMedia rows.
-_FILE_VIEWS = ('images', 'video', 'audio', 'docs')
-_ASSET_VIEWS = _FILE_VIEWS + ('youtube', 'links')
-_VIEW_TITLES = {'images': 'Images', 'video': 'Video', 'audio': 'Audio', 'docs': 'Documents',
-                'youtube': 'YouTube', 'links': 'Links'}
-_VIEW_PICKER_KIND = {'images': 'image', 'video': 'video', 'audio': 'audio', 'docs': 'document'}
-_VIEW_EMPTY_TEXT = {'images': 'No images yet.', 'video': 'No video files yet.',
-                    'audio': 'No audio files yet.', 'docs': 'No documents yet.'}
-_PICKER_KIND_FOR_IMPORT = ('image', 'video', 'audio', 'document', 'media')
-_MAX_SVG_BYTES = 5 * 1024 * 1024
-
-
-def _asset_category(filename: str) -> str:
-    """Section a stored asset belongs to: images / video / audio / docs."""
-    extension = Path(filename or '').suffix.lower()
-    if extension in IMAGE_EXTENSIONS:
-        return 'images'
-    if extension in VIDEO_EXTENSIONS:
-        return 'video'
-    if extension in AUDIO_EXTENSIONS:
-        return 'audio'
-    return 'docs'   # PDFs and anything unrecognised
 
 # ─── Background thumbnail engine ────────────────────────────────────────────
 # =============================================================================
@@ -251,7 +145,6 @@ def _process_uploaded_asset(job: dict) -> None:
 
         fsize = dest_path.stat().st_size
         db.add_record("MediaAsset", {
-            "asset_uuid": str(uuid.uuid4()),
             "asset_filename": stored_name,
             "asset_original_name": job["asset_original_name"],
             "asset_file_hash": file_hash,
@@ -289,82 +182,11 @@ def _asset_worker():
 
 _threading.Thread(target=_asset_worker, daemon=True).start()
 
-
-def _queue_asset_from_path(source_path: Path):
-    """Copy ONE already-validated server file into the asset store and queue it
-    for the serial background worker (hash/dedupe/DB/thumbnail). Same rules as
-    assets_upload(): extension allowlist, SVG sanitising, chunked copy. Returns
-    None on success or a user-facing error string."""
-    extension = source_path.suffix.lower()
-    if extension not in ALLOWED_ASSET_EXTENSIONS:
-        return f'"{source_path.name}" skipped — file type not allowed.'
-    stored_name = f"{uuid.uuid4().hex}{extension}"
-    destination_path = ASSETS_DIR / stored_name
-    try:
-        if extension == '.svg':
-            if source_path.stat().st_size > _MAX_SVG_BYTES:
-                return f'"{source_path.name}" skipped — SVG larger than {_MAX_SVG_BYTES // (1024 * 1024)} MB.'
-            sanitized_svg = sanitize_svg(source_path.read_bytes())
-            if sanitized_svg is None:
-                return f'"{source_path.name}" skipped — not a valid/safe SVG file.'
-            with open(destination_path, 'wb') as output_handle:
-                output_handle.write(sanitized_svg)
-        else:
-            copy_file_chunked(source_path, destination_path)
-        _asset_process_queue.put({
-            "stored_name": stored_name,
-            "asset_original_name": source_path.name,
-            "asset_mime_type": guess_mime(source_path),
-        })
-    except Exception as error:  # noqa: BLE001
-        destination_path.unlink(missing_ok=True)
-        logging.error(f"[ASSETS] import_server failed for {source_path.name}: {error}")
-        return f'Error saving "{source_path.name}": {error}'
-    return None
-
 # ─── Routes ──────────────────────────────────────────────────────────────────
 ASSETS_PER_PAGE = 24
 
-@media_cube.route('/assets/<path:filename>')
-def serve_asset(filename):
-    try:
-        safe_path = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    response = send_file(safe_path)
-    if filename.lower().endswith('.svg'):
-        # Defense in depth alongside upload-time sanitization (pkg139): even
-        # a sanitized SVG is still parsed and rendered as a document by the
-        # browser (not a flat raster image), so a strict CSP here means a
-        # sanitizer gap or a future regression doesn't automatically become
-        # an executable one -- inline scripts/handlers still won't run even
-        # if one somehow made it through.
-        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
-        response.headers['Content-Type'] = 'image/svg+xml'
-    return response
-
-
-@media_cube.route('/assets/thumb/<path:filename>')
-def serve_thumb(filename):
-    try:
-        safe_name = bejson_safe_join(str(THUMBS_DIR), Path(filename).stem + ".jpg")
-        safe_orig = bejson_safe_join(str(ASSETS_DIR), filename)
-    except ValueError:
-        return "Not found", 404
-    if os.path.exists(safe_name):
-        return send_file(safe_name)
-    response = send_file(safe_orig)  # fallback: original, until thumb generation catches up
-    if filename.lower().endswith('.svg'):
-        # Same CSP defense-in-depth as serve_asset() (pkg139) -- SVG is
-        # never in _THUMBABLE_EXT, so this fallback is the ONLY path an
-        # SVG is ever served through when requested via /assets/thumb/,
-        # which the gallery view (below) always does for every asset row
-        # regardless of type. Found and fixed same-session as the original
-        # SVG re-enable, before it shipped as an inconsistency between the
-        # two routes that serve the same files.
-        response.headers['Content-Security-Policy'] = "script-src 'none'; sandbox;"
-        response.headers['Content-Type'] = 'image/svg+xml'
-    return response
+media_cube.add_url_rule('/assets/<path:filename>', 'serve_asset', serve_shared_asset)
+media_cube.add_url_rule('/assets/thumb/<path:filename>', 'serve_thumb', serve_shared_thumb)
 
 
 @media_cube.route('/assets/list.json', methods=['GET'])
@@ -394,21 +216,7 @@ def assets_gallery():
     all_assets = db.get_records("MediaAsset")
     all_assets.sort(key=lambda a: a.get('asset_uploaded_at') or '', reverse=True)
 
-    # pkg144: sectioned library -- Images / Video / Audio / Documents are
-    # MediaAsset rows split by extension; YouTube / Links are ExternalMedia.
-    view = request.args.get('type', 'images')
-    if view not in _ASSET_VIEWS:
-        view = 'images'
-    category_counts = {key: 0 for key in _FILE_VIEWS}
-    for asset_row in all_assets:
-        category_counts[_asset_category(asset_row.get('asset_filename', ''))] += 1
-    grand_total = len(all_assets)
-    all_assets = [a for a in all_assets if _asset_category(a.get('asset_filename', '')) == view] if view in _FILE_VIEWS else []
-
-    try:
-        page = max(1, int(request.args.get('page', 1) or 1))
-    except ValueError:
-        page = 1
+    page = max(1, int(request.args.get('page', 1) or 1))
     total = len(all_assets)
     total_pages = max(1, (total + ASSETS_PER_PAGE - 1) // ASSETS_PER_PAGE)
     page = min(page, total_pages)
@@ -453,7 +261,10 @@ def assets_gallery():
           <div class="media-row-details">
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('/assets/{fname}')">Copy Path</button>
             <button type="button" class="btn btn-secondary btn-sm rename-asset-btn" data-fname="{fname}" data-name="{display_name}">Rename</button>
-            <button type="button" class="btn btn-secondary btn-sm replace-asset-btn" data-fname="{fname}" data-kind="{_VIEW_PICKER_KIND.get(view, 'media')}">Replace&hellip;</button>
+            <form method="post" action="/assets/replace/{fname}" enctype="multipart/form-data" class="media-replace-form">
+              <input type="file" name="file" required>
+              <button type="submit" class="btn btn-secondary btn-sm">Replace</button>
+            </form>
             <form method="post" action="/assets/delete/{fname}" onsubmit="return confirm('Remove this file?')">
               <button type="submit" class="btn btn-danger btn-sm">Remove</button>
             </form>
@@ -469,7 +280,7 @@ def assets_gallery():
           <td><a href="{_html_escape.escape(e.get('extmedia_url','') or '')}" target="_blank" style="color:var(--accent);">{_html_escape.escape((e.get('extmedia_url') or '')[:60])}</a></td>
           <td>{_html_escape.escape(e.get('extmedia_type') or '')}</td>
           <td>
-            <button type="button" class="btn btn-secondary btn-sm copy-url-btn" data-url="{_html_escape.escape(e.get('extmedia_url','') or '')}">Copy URL</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{_html_escape.escape(e.get('extmedia_url','') or '')}')">Copy URL</button>
             <button type="button" class="btn btn-secondary btn-sm rename-ext-btn" data-uuid="{e.get('extmedia_uuid','')}" data-name="{e_name}">Rename</button>
             <form method="post" action="/assets/external/delete/{e.get('extmedia_uuid','')}" style="display:inline;" onsubmit="return confirm('Delete this link?')">
               <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -493,7 +304,7 @@ def assets_gallery():
           <div class="yt-card-body">
             <span class="yt-card-name">{e_name}</span>
             <div class="yt-card-actions">
-              <button type="button" class="btn btn-secondary btn-sm copy-url-btn" data-url="{_html_escape.escape(e.get('extmedia_url','') or '')}">Copy URL</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{_html_escape.escape(e.get('extmedia_url','') or '')}')">Copy URL</button>
               <button type="button" class="btn btn-secondary btn-sm rename-ext-btn" data-uuid="{e.get('extmedia_uuid','')}" data-name="{e_name}">Rename</button>
               <form method="post" action="/assets/external/delete/{e.get('extmedia_uuid','')}" style="display:inline;" onsubmit="return confirm('Delete this video link?')">
                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -506,7 +317,7 @@ def assets_gallery():
     if total_pages > 1:
         for p in range(1, total_pages + 1):
             active = 'btn-primary' if p == page else 'btn-secondary'
-            pagination += f'<a href="/assets?type={view}&page={p}" class="btn {active} btn-sm" style="margin-right:4px;">{p}</a>'
+            pagination += f'<a href="/assets?page={p}" class="btn {active} btn-sm" style="margin-right:4px;">{p}</a>'
 
     processing_banner = ''
     if pending_count > 0:
@@ -521,28 +332,22 @@ def assets_gallery():
             '<script>setTimeout(function(){ location.reload(); }, 2000);</script>'
         )
 
-    tab_counts = dict(category_counts)
-    tab_counts['youtube'] = len(youtube_links)
-    tab_counts['links'] = len(other_externals)
-    tabs_html = ''.join(
-        f'<a class="media-tab{" active" if key == view else ""}" href="/assets?type={key}">{_VIEW_TITLES[key]}'
-        f'{(" (" + str(tab_counts[key]) + ")") if tab_counts.get(key) else ""}</a>'
-        for key in _ASSET_VIEWS
-    )
-
     html = f'''
-    <div class="page-header"><h1>Media Library &mdash; {_VIEW_TITLES[view]}</h1><p>{(str(total) + ' file(s) &mdash; page ' + str(page) + ' of ' + str(total_pages) + ' &middot; ') if view in _FILE_VIEWS else ''}{grand_total} stored file(s) in total</p></div>
+    <div class="page-header"><h1>Media Library</h1><p>{total} file(s) &mdash; page {page} of {total_pages}</p></div>
 
     <div class="media-tabs">
-      {tabs_html}
+      <button type="button" class="media-tab active" id="tab-btn-files" onclick="switchMediaTab('files')">Files</button>
+      <button type="button" class="media-tab" id="tab-btn-youtube" onclick="switchMediaTab('youtube')">YouTube{(' (' + str(len(youtube_links)) + ')') if youtube_links else ''}</button>
+      <button type="button" class="media-tab" id="tab-btn-links" onclick="switchMediaTab('links')">Links{(' (' + str(len(other_externals)) + ')') if other_externals else ''}</button>
     </div>
 
-    <div id="tab-panel-files" class="media-tab-panel" style="{'' if view in _FILE_VIEWS else 'display:none;'}">
+    <div id="tab-panel-files" class="media-tab-panel">
       <div class="card">
-        <div class="card-header"><span class="card-title">Import {_VIEW_TITLES.get(view, 'Files')}</span></div>
-        <p style="color:var(--text-secondary);font-size:.85rem;margin-bottom:12px;">Browse the device inside the app &mdash; nothing is uploaded through the browser, so the page never leaves the foreground.</p>
-        <button type="button" class="btn btn-primary" id="media-import-btn" data-kind="{_VIEW_PICKER_KIND.get(view, 'media')}">&#128193; Browse &amp; Import {_VIEW_TITLES.get(view, 'Files')}&hellip;</button>
-        <span id="media-import-status" style="margin-left:10px;font-size:.85rem;color:var(--text-secondary);"></span>
+        <div class="card-header"><span class="card-title">Upload Files</span></div>
+        <form method="post" action="/assets/upload" enctype="multipart/form-data">
+          <input type="file" name="files" multiple accept="image/*,.pdf,.mp4,.mp3,.ogg,.webm" class="form-control" style="margin-bottom:12px;">
+          <button type="submit" class="btn btn-primary">Upload</button>
+        </form>
       </div>
 
       {processing_banner}
@@ -559,12 +364,12 @@ def assets_gallery():
       </div>
 
       <div class="media-list">
-        {rows if rows else '<div class="card empty-state"><p>' + _VIEW_EMPTY_TEXT.get(view, 'No files yet.') + '</p></div>'}
+        {rows if rows else '<div class="card empty-state"><p>No files uploaded yet.</p></div>'}
       </div>
       <div style="margin-bottom:30px;">{pagination}</div>
     </div>
 
-    <div id="tab-panel-youtube" class="media-tab-panel" style="{'' if view == 'youtube' else 'display:none;'}">
+    <div id="tab-panel-youtube" class="media-tab-panel" style="display:none;">
       <div class="card">
         <div class="card-header"><span class="card-title">Add YouTube Video</span></div>
         <form method="post" action="/assets/external/add" onsubmit="return prepYtSubmit(this)">
@@ -579,7 +384,7 @@ def assets_gallery():
       </div>
     </div>
 
-    <div id="tab-panel-links" class="media-tab-panel" style="{'' if view == 'links' else 'display:none;'}">
+    <div id="tab-panel-links" class="media-tab-panel" style="display:none;">
       <div class="card">
         <div class="card-header"><span class="card-title">Add External Media Link</span></div>
         <form method="post" action="/assets/external/add">
@@ -609,8 +414,8 @@ def assets_gallery():
     </div>
 
     <style>
-    .media-tabs {{ display:flex; gap:4px; margin:20px 0 16px; border-bottom:1px solid var(--border); overflow-x:auto; white-space:nowrap; scrollbar-width:none; }}
-    .media-tab {{ display:inline-block; text-decoration:none; background:none; border:none; padding:12px 16px; font-size:.9rem; font-weight:600; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; flex-shrink:0; }}
+    .media-tabs {{ display:flex; gap:4px; margin:20px 0 16px; border-bottom:1px solid var(--border); }}
+    .media-tab {{ background:none; border:none; padding:10px 18px; font-size:.9rem; font-weight:600; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; }}
     .media-tab.active {{ color:var(--accent); border-bottom-color:var(--accent); }}
     .yt-card-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-top:20px; }}
     .yt-card {{ background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; overflow:hidden; }}
@@ -633,6 +438,8 @@ def assets_gallery():
     .media-row.expanded .media-row-chevron {{ transform:rotate(90deg); }}
     .media-row-details {{ display:none; padding:0 14px 14px 70px; gap:10px; flex-wrap:wrap; align-items:center; }}
     .media-row.expanded .media-row-details {{ display:flex; }}
+    .media-replace-form {{ display:flex; align-items:center; gap:6px; }}
+    .media-replace-form input[type=file] {{ max-width:180px; font-size:.78rem; }}
     .media-lightbox {{ display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; text-align:center; cursor:zoom-out; }}
     .media-lightbox.open {{ display:flex; flex-direction:column; align-items:center; justify-content:center; }}
     .media-lightbox img {{ max-width:92vw; max-height:82vh; object-fit:contain; box-shadow:0 0 40px rgba(0,0,0,0.6); }}
@@ -641,30 +448,13 @@ def assets_gallery():
     </style>
 
     <script>
-    // pkg144: server-side picker replaces the native file chooser (see
-    // BEJSON_CMS_FileBrowser.py). The picker returns SERVER paths; the
-    // routes below copy them in directly -- nothing is uploaded.
-    function mediaImportFinish(statusEl, text) {{ if (statusEl) {{ statusEl.textContent = text; }} }}
-    function mediaImportRun(url, body, statusEl) {{
-        mediaImportFinish(statusEl, 'Importing...');
-        return CMSFilePicker.postJSON(url, body).then(function (data) {{
-            mediaImportFinish(statusEl, 'Done - refreshing...');
-            window.location.reload();
-        }}).catch(function (err) {{
-            mediaImportFinish(statusEl, '');
-            alert(err.message || 'Import failed.');
-            window.location.reload();
-        }});
-    }}
-    var mediaImportBtn = document.getElementById('media-import-btn');
-    if (mediaImportBtn) {{
-        mediaImportBtn.addEventListener('click', function () {{
-            var kind = mediaImportBtn.dataset.kind || 'media';
-            CMSFilePicker.open({{ kind: kind, multiple: true }}).then(function (result) {{
-                if (!result) {{ return; }}
-                mediaImportRun('/assets/import_server', {{ paths: result.paths, kind: kind }}, document.getElementById('media-import-status'));
-            }});
-        }});
+    function switchMediaTab(name) {{
+        document.getElementById('tab-panel-files').style.display = (name === 'files') ? '' : 'none';
+        document.getElementById('tab-panel-youtube').style.display = (name === 'youtube') ? '' : 'none';
+        document.getElementById('tab-panel-links').style.display = (name === 'links') ? '' : 'none';
+        document.getElementById('tab-btn-files').classList.toggle('active', name === 'files');
+        document.getElementById('tab-btn-youtube').classList.toggle('active', name === 'youtube');
+        document.getElementById('tab-btn-links').classList.toggle('active', name === 'links');
     }}
     function ytIdFromUrl(raw) {{
         // Same rule as BEJSON_CMS_PageEditorV2.py's ytIdFromUrlV2() and
@@ -744,16 +534,9 @@ def assets_gallery():
     // here rather than per-row, so it also covers rows added later without
     // re-binding.
     document.body.addEventListener('click', function(ev) {{
-        var t = ev.target.closest('.lightbox-trigger, .rename-asset-btn, .rename-ext-btn, .yt-thumb-link, .copy-url-btn, .replace-asset-btn');
+        var t = ev.target.closest('.lightbox-trigger, .rename-asset-btn, .rename-ext-btn, .yt-thumb-link');
         if (!t) return;
-        if (t.classList.contains('replace-asset-btn')) {{
-            ev.stopPropagation();
-            var replaceName = t.dataset.fname;
-            CMSFilePicker.open({{ kind: t.dataset.kind || 'media', multiple: false, title: 'Choose the replacement file', confirmLabel: 'Replace' }}).then(function (result) {{
-                if (!result) {{ return; }}
-                mediaImportRun('/assets/replace_server/' + encodeURIComponent(replaceName), {{ path: result.paths[0] }}, null);
-            }});
-        }} else if (t.classList.contains('lightbox-trigger')) {{
+        if (t.classList.contains('lightbox-trigger')) {{
             ev.stopPropagation();
             openLightbox(t.dataset.src, t.dataset.caption);
         }} else if (t.classList.contains('rename-asset-btn')) {{
@@ -762,8 +545,6 @@ def assets_gallery():
             renameExternalLink(t.dataset.uuid, t.dataset.name);
         }} else if (t.classList.contains('yt-thumb-link')) {{
             window.open(t.dataset.url, '_blank');
-        }} else if (t.classList.contains('copy-url-btn')) {{
-            copyAssetPath(t.dataset.url);
         }}
     }}, true);
     function closeLightbox() {{
@@ -797,21 +578,7 @@ def assets_upload():
         stored_name = f"{uuid.uuid4().hex}{Uploaded_File_Extension}"
         dest_path = ASSETS_DIR / stored_name
         try:
-            if Uploaded_File_Extension == '.svg':
-                # SVGs are sanitized, not streamed straight through -- this
-                # requires reading the whole file into memory (unlike every
-                # other extension here), but SVGs are icons/logos/diagrams,
-                # never large enough for that to matter in practice.
-                raw = f.read()
-                sanitized = sanitize_svg(raw)
-                if sanitized is None:
-                    flash(f'"{f.filename}" skipped — not a valid/safe SVG file.', 'error')
-                    skipped_count += 1
-                    continue
-                with open(dest_path, 'wb') as out:
-                    out.write(sanitized)
-            else:
-                f.save(str(dest_path))  # streams straight to disk — never reads whole file into memory
+            f.save(str(dest_path))  # streams straight to disk — never reads whole file into memory
             _asset_process_queue.put({
                 "stored_name": stored_name,
                 "asset_original_name": f.filename,
@@ -828,94 +595,6 @@ def assets_upload():
         flash(f'No files queued — {skipped_count} skipped.', 'error')
 
     return redirect('/assets')
-
-
-@media_cube.route('/assets/import_server', methods=['POST'])
-def assets_import_server():
-    """pkg144: import files the in-app picker chose. JSON body
-    {"paths": [absolute server paths], "kind": image|video|audio|document|media}.
-    Every path is validated by FileBrowser.resolve_pick() (root containment,
-    symlink resolution, extension + size caps) before anything is copied."""
-    db.mount()
-    payload = request.get_json(silent=True) or {}
-    kind = payload.get('kind', 'media')
-    if kind not in _PICKER_KIND_FOR_IMPORT:
-        return jsonify({"ok": False, "error": "Unknown import kind."}), 400
-    try:
-        valid_paths, rejected = resolve_picks(payload.get('paths'), kind)
-    except PickError as error:
-        return jsonify({"ok": False, "error": str(error)}), 400
-
-    skipped_messages = [item['error'] for item in rejected]
-    queued_count = 0
-    for source_path in valid_paths:
-        failure = _queue_asset_from_path(source_path)
-        if failure:
-            skipped_messages.append(failure)
-        else:
-            queued_count += 1
-
-    want_flash = payload.get('flash', True) is not False
-    for message in (skipped_messages[:10] if want_flash else []):
-        flash(message, 'error')
-    if queued_count and want_flash:
-        flash(f'{queued_count} file(s) queued for processing.' + (f' Skipped {len(skipped_messages)}.' if skipped_messages else ''), 'success')
-    return jsonify({
-        "ok": queued_count > 0,
-        "queued": queued_count,
-        "skipped": skipped_messages,
-        "pending": _asset_process_queue.qsize(),
-        "error": '; '.join(skipped_messages[:3]) if not queued_count else "",
-    }), (200 if queued_count else 400)
-
-
-@media_cube.route('/assets/replace_server/<path:filename>', methods=['POST'])
-def assets_replace_server(filename):
-    """pkg144: replace an asset's content from a server path the picker chose.
-    Same guarantees as assets_replace() (stored filename + DB record kept, so
-    page references stay valid; SVG sanitised; hash/size/thumbnail refreshed),
-    plus: the new file must be the same kind as the old one (SVG<->SVG,
-    image<->image, video<->video ...), so a PDF can't silently replace a PNG."""
-    db.mount()
-    filename = secure_filename(filename)
-    existing = next((a for a in db.get_records("MediaAsset") if a.get('asset_filename') == filename), None)
-    if not existing:
-        return jsonify({"ok": False, "error": "File not found in Media Library."}), 404
-    payload = request.get_json(silent=True) or {}
-    old_extension = Path(filename).suffix.lower()
-    section = _asset_category(filename)
-    try:
-        source_path = resolve_pick(payload.get('path'), _VIEW_PICKER_KIND.get(section, 'document'))
-    except PickError as error:
-        return jsonify({"ok": False, "error": str(error)}), 400
-    if (source_path.suffix.lower() == '.svg') != (old_extension == '.svg'):
-        return jsonify({"ok": False, "error": "Replace an SVG only with an SVG (and a non-SVG only with a non-SVG)."}), 400
-
-    destination_path = ASSETS_DIR / filename
-    try:
-        if old_extension == '.svg':
-            if source_path.stat().st_size > _MAX_SVG_BYTES:
-                return jsonify({"ok": False, "error": "SVG is too large."}), 400
-            sanitized_svg = sanitize_svg(source_path.read_bytes())
-            if sanitized_svg is None:
-                return jsonify({"ok": False, "error": "Replacement file is not a valid/safe SVG — not replaced."}), 400
-            with open(destination_path, 'wb') as output_handle:
-                output_handle.write(sanitized_svg)
-        else:
-            copy_file_chunked(source_path, destination_path)
-        db.update_record("MediaAsset", "asset_filename", filename, {
-            "asset_file_hash": _get_file_hash(destination_path),
-            "asset_file_size": destination_path.stat().st_size,
-            "asset_mime_type": guess_mime(source_path) or existing.get("asset_mime_type", ""),
-            "asset_uploaded_at": datetime.utcnow().isoformat(),
-        })
-        if old_extension in _THUMBABLE_EXT:
-            _make_thumbnail(filename)
-    except Exception as error:  # noqa: BLE001
-        logging.error(f"[ASSETS] replace_server failed for {filename}: {error}")
-        return jsonify({"ok": False, "error": f"Replace failed: {error}"}), 500
-    flash('File replaced.', 'success')
-    return jsonify({"ok": True})
 
 
 @media_cube.route('/assets/delete/<path:filename>', methods=['POST'])
@@ -986,23 +665,7 @@ def assets_replace(filename):
     ext = Path(filename).suffix.lower()
     dest_path = ASSETS_DIR / filename
     try:
-        if ext == '.svg':
-            # Same sanitization as the upload path (pkg139) -- without
-            # this, "replace" was a way to overwrite an already-sanitized
-            # SVG's content with unsanitized raw bytes under the same
-            # stored filename, completely bypassing the upload-time check.
-            # Found in the same sweep that added sanitization to upload,
-            # before shipping as a second, unprotected write path to the
-            # same files.
-            raw = f.read()
-            sanitized = sanitize_svg(raw)
-            if sanitized is None:
-                flash('Replacement file is not a valid/safe SVG — not replaced.', 'error')
-                return redirect('/assets')
-            with open(dest_path, 'wb') as out:
-                out.write(sanitized)
-        else:
-            f.save(str(dest_path))  # overwrites in place, same stored filename
+        f.save(str(dest_path))  # overwrites in place, same stored filename
         file_hash = _get_file_hash(dest_path)
         db.update_record("MediaAsset", "asset_filename", filename, {
             "asset_file_hash": file_hash,

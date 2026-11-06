@@ -2,13 +2,13 @@
 """
 Script:        cms-manage.py
 Description:   Unified CLI Toolkit for BEJSON_CMS management.
-Version:       18.7
+Version:       18.9
 Author:        Elton Boehnen
-Date:          2026-08-21
-Relational_ID: 4e8b1a7c-3f2d-4c9e-b0a5-7d6e3f1c9b2c
+Date:          2026-11-06
+Relational_ID: 7b46276a-8838-4f3c-8038-25074de32c3a
 """
 
-VERSION = "18.7"
+VERSION = "18.9"
 
 
 import os
@@ -146,25 +146,156 @@ def _write_page_content_file(page_uuid, title, html_body):
     with open(tmp, "w") as f:
         json.dump(doc, f, indent=2)
     os.replace(tmp, pfile)  # atomic write per Golden Rule/System Dev Policy conventions
-    return pfile
+def cmd_publish(args=None):
+    """Compile and publish the static site directly from MFDB storage."""
+    print("[*] Triggering static site publish...")
+    try:
+        web_dir = str(SCRIPT_PATH / "web")
+        if web_dir not in sys.path:
+            sys.path.insert(0, web_dir)
+        from BEJSON_CMS_Publisher import _execute
+        _execute()
+        print("[✓] Static site successfully republished.")
+    except Exception as err:
+        print(f"[!] Static site build error: {err}")
 
 def cmd_page_add(args):
     db = get_db()
     new_uuid = str(uuid.uuid4())
-    slug = re.sub(r'[^a-z0-9]', '-', args.title.lower()).strip('-')
-    html_body = args.body or f"<h2>{args.title}</h2><p>Start writing your content here...</p>"
+    slug = getattr(args, "slug", None) or re.sub(r'[^a-z0-9]', '-', args.title.lower()).strip('-')
+    
+    html_body = ""
+    if getattr(args, "body_file", None):
+        with open(args.body_file, "r", encoding="utf-8") as f:
+            html_body = f.read()
+    elif getattr(args, "md_file", None):
+        try:
+            from lib_bejson_CMS_md2html import md_to_html
+            with open(args.md_file, "r", encoding="utf-8") as f:
+                html_body = md_to_html(f.read())
+        except Exception:
+            with open(args.md_file, "r", encoding="utf-8") as f:
+                html_body = f"<pre>{f.read()}</pre>"
+    elif getattr(args, "body", None):
+        html_body = args.body
+    else:
+        html_body = f"<h2>{args.title}</h2><p>Start writing your content here...</p>"
+
+    featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
+
     if db.add_record("PageRecord", {
         "page_uuid": new_uuid, "page_title": args.title, "page_slug": slug,
         "page_cat_name": args.category, "page_type": args.type,
-        "page_created_at": datetime.now().strftime("%Y-%m-%d"),
-        "page_external_url": None, "page_author_name": args.author or "",
-        "page_featured_img": DEFAULT_FEATURED_IMAGE,
-        "page_featured_video_url": args.featured_video or ""
+        "page_created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "page_external_url": "", "page_author_name": args.author or "",
+        "page_featured_img": featured_img,
+        "page_template_key": "post.html",
+        "page_featured_video_url": getattr(args, "featured_video", "") or ""
     }):
         _write_page_content_file(new_uuid, args.title, html_body)
-        print(f"Page created: {args.title} (UUID: {new_uuid})")
+        print(f"[✓] Page created: {args.title} (UUID: {new_uuid}, Slug: {slug})")
+        if getattr(args, "publish", False):
+            cmd_publish(args)
     else:
         print(f"Failed to create page: {args.title}")
+
+def cmd_page_append(args):
+    db = get_db()
+    pfile = os.path.join(get_pages_db_dir(), f"{args.uuid}.json")
+    if not os.path.exists(pfile):
+        print(f"Page file not found: {pfile}")
+        return
+    content_to_append = ""
+    if getattr(args, "body_file", None):
+        with open(args.body_file, "r", encoding="utf-8") as f:
+            content_to_append = f.read()
+    elif getattr(args, "md_file", None):
+        try:
+            from lib_bejson_CMS_md2html import md_to_html
+            with open(args.md_file, "r", encoding="utf-8") as f:
+                content_to_append = md_to_html(f.read())
+        except Exception:
+            with open(args.md_file, "r", encoding="utf-8") as f:
+                content_to_append = f"<pre>{f.read()}</pre>"
+    elif getattr(args, "body", None):
+        content_to_append = args.body
+    if not content_to_append:
+        print("Error: No content provided to append. Specify --body, --body-file, or --md-file.")
+        return
+    with open(pfile, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    field_map = BEJSONCore.bejson_core_get_field_map(data)
+    p_idx = field_map.get("Record_Type_Parent", -1)
+    h_idx = field_map.get("html_body", -1)
+    updated = False
+    for row in data.get("Values", []):
+        if p_idx != -1 and row[p_idx] == "Content" and h_idx != -1:
+            row[h_idx] = (row[h_idx] or "") + "\n" + content_to_append
+            updated = True
+    if updated:
+        tmp = pfile + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, pfile)
+        print(f"[✓] Successfully appended content to page {args.uuid}")
+        if getattr(args, "publish", False):
+            cmd_publish(args)
+    else:
+        print(f"Failed to locate Content row in {pfile}")
+
+def cmd_quick_post(args):
+    """High-speed one-command post creator with auto-category resolution and static compile."""
+    db = get_db()
+    new_uuid = str(uuid.uuid4())
+    slug = getattr(args, "slug", None) or re.sub(r'[^a-z0-9]', '-', args.title.lower()).strip('-')
+    
+    # Auto-resolve / auto-create category
+    cats = [c.get("cat_name") for c in db.get_records("Category")]
+    if args.category not in cats:
+        cat_slug = re.sub(r'[^a-z0-9]', '-', args.category.lower()).strip('-')
+        db.add_record("Category", {"cat_name": args.category, "cat_slug": cat_slug})
+        print(f"[+] Auto-created missing category: '{args.category}' ({cat_slug})")
+    
+    html_body = ""
+    if getattr(args, "body_file", None):
+        with open(args.body_file, "r", encoding="utf-8") as f:
+            html_body = f.read()
+    elif getattr(args, "md_file", None):
+        try:
+            from lib_bejson_CMS_md2html import md_to_html
+            with open(args.md_file, "r", encoding="utf-8") as f:
+                html_body = md_to_html(f.read())
+        except Exception:
+            with open(args.md_file, "r", encoding="utf-8") as f:
+                html_body = f"<pre>{f.read()}</pre>"
+    elif getattr(args, "body", None):
+        html_body = args.body
+    else:
+        html_body = f"<h2>{args.title}</h2><p>Content body...</p>"
+
+    featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
+    author_name = getattr(args, "author", None) or "Leethaxor69"
+    post_type = getattr(args, "type", None) or "blog"
+
+    if db.add_record("PageRecord", {
+        "page_uuid": new_uuid, "page_title": args.title, "page_slug": slug,
+        "page_cat_name": args.category, "page_type": post_type,
+        "page_created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "page_external_url": "", "page_author_name": author_name,
+        "page_featured_img": featured_img,
+        "page_template_key": "post.html",
+        "page_featured_video_url": getattr(args, "featured_video", "") or ""
+    }):
+        _write_page_content_file(new_uuid, args.title, html_body)
+        print(f"[✓] Quick post created: '{args.title}'")
+        print(f"    UUID:     {new_uuid}")
+        print(f"    Slug:     {slug}")
+        print(f"    Category: {args.category}")
+        print(f"    Author:   {author_name}")
+        if getattr(args, "publish", False):
+            cmd_publish(args)
+    else:
+        print(f"Failed to create quick post: {args.title}")
 
 def cmd_page_update(args):
     db = get_db()
@@ -400,15 +531,18 @@ def cmd_author_list(args):
 
 def cmd_category_add(args):
     db = get_db()
-    if args.desc or args.type:
+    if getattr(args, "desc", None) or getattr(args, "type", None):
         print("Note: --desc/--type are not supported by the live Category schema "
               "(cat_name, cat_slug only) -- ignored.")
-    existing = next((c for c in db.get_records("Category") if c.get("cat_slug") == args.slug), None)
+    slug = getattr(args, "slug", None) or re.sub(r'[^a-z0-9]', '-', args.name.lower()).strip('-')
+    existing = next((c for c in db.get_records("Category") if c.get("cat_slug") == slug), None)
     if existing:
-        print(f"Error: a category with slug '{args.slug}' already exists.")
+        print(f"Error: a category with slug '{slug}' already exists.")
         return
-    if db.add_record("Category", {"cat_name": args.name, "cat_slug": args.slug}):
-        print(f"Category added: {args.name} ({args.slug})")
+    if db.add_record("Category", {"cat_name": args.name, "cat_slug": slug}):
+        print(f"Category added: {args.name} ({slug})")
+        if getattr(args, "publish", False):
+            cmd_publish(args)
     else:
         print(f"Failed to add category: {args.name}")
 
@@ -803,6 +937,17 @@ def cmd_reset(args):
     # Step 3: bootstrap minimum schema
     print()
     print("Step 3/3: Re-bootstrapping live schema...")
+    web_dir = str(SCRIPT_PATH / "web")
+    if web_dir not in sys.path:
+        sys.path.insert(0, web_dir)
+    import BEJSON_CMS_System
+    BEJSON_CMS_System.init_master_db()
+    BEJSON_CMS_System._migrate_db()
+    try:
+        from lib_bejson_CMS_bks_blog_jobs import cms_bks_bootstrap
+        cms_bks_bootstrap(SCRIPT_PATH.parent)
+    except Exception:
+        pass
     db = get_db()
     _bootstrap_live_schema(db)
 
@@ -811,7 +956,7 @@ def cmd_reset(args):
     print("Your pre-reset data is in the safety backup under:")
     print(f"  {os.path.join(storage_root, 'exports')}")
 
-_LIVE_BACKUP_DIRS = ["site_master", "pages_db", "assets", "standalone_apps"]
+_LIVE_BACKUP_DIRS = ["site_master", "pages_db", "assets", "standalone_apps", "bks_jobs"]
 
 def cmd_backup(args):
     # Real live-data backup: zips storage/mfdb/{site_master,pages_db,assets,
@@ -1073,9 +1218,21 @@ def main():
     p_padd.add_argument("title", help="Page title")
     p_padd.add_argument("--category", default="Uncategorized", help="Category NAME (not slug) -- must match a live Category's cat_name exactly, e.g. 'Uncategorized' or 'BEJSON'. Run 'category list' to see valid names.")
     p_padd.add_argument("--type", default="blog", help="Page type")
+    p_padd.add_argument("--slug", help="Custom page slug (auto-derived if omitted)")
     p_padd.add_argument("--body", help="HTML body content")
+    p_padd.add_argument("--body-file", help="Path to file containing raw HTML content")
+    p_padd.add_argument("--md-file", help="Path to markdown file to convert and insert")
     p_padd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
+    p_padd.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets)")
     p_padd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Rendered above the article body on publish.")
+    p_padd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after creation")
+
+    p_papp = page_sub.add_parser("append", help="Append content to an existing page's html_body")
+    p_papp.add_argument("uuid", help="Page UUID")
+    p_papp.add_argument("--body", help="HTML string to append")
+    p_papp.add_argument("--body-file", help="File containing HTML to append")
+    p_papp.add_argument("--md-file", help="Markdown file to convert and append")
+    p_papp.add_argument("--publish", action="store_true", help="Trigger immediate static site republish")
 
     p_pupd = page_sub.add_parser("update", help="Update a page")
     p_pupd.add_argument("uuid", help="Page UUID")
@@ -1172,9 +1329,10 @@ def main():
     
     p_cadd = cat_sub.add_parser("add", help="Add a category")
     p_cadd.add_argument("name", help="Category name")
-    p_cadd.add_argument("slug", help="Category slug")
+    p_cadd.add_argument("slug", nargs="?", default=None, help="Category slug (auto-derived if omitted)")
     p_cadd.add_argument("--desc", help="Category description")
     p_cadd.add_argument("--type", help="Feed type (blog, portfolio, etc)")
+    p_cadd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish")
 
     p_cupd = cat_sub.add_parser("update", help="Update a category")
     p_cupd.add_argument("slug", help="Category slug")
@@ -1292,6 +1450,23 @@ def main():
     p_list.add_argument("entity", choices=["authors", "pages", "categories", "assets", "apps", "ads", "navlinks"], help="Entity type")
     p_list.add_argument("--filter", help="Filter value (only supported for 'pages', matched against page_cat_name -- a category NAME like 'Uncategorized', not a slug)")
 
+    # Quick Post
+    p_qp = subparsers.add_parser("quick-post", help="High-speed atomic post creation with auto-category resolution and publishing")
+    p_qp.add_argument("title", help="Post title")
+    p_qp.add_argument("--category", default="Uncategorized", help="Category name (auto-created if missing)")
+    p_qp.add_argument("--author", default="Leethaxor69", help="Author display name")
+    p_qp.add_argument("--slug", help="Custom URL slug (auto-generated if omitted)")
+    p_qp.add_argument("--body", help="HTML body content string")
+    p_qp.add_argument("--body-file", help="Path to file containing raw HTML content")
+    p_qp.add_argument("--md-file", help="Path to markdown file to convert and insert")
+    p_qp.add_argument("--featured-img", default=DEFAULT_FEATURED_IMAGE, help="Featured image filename")
+    p_qp.add_argument("--featured-video", help="Featured video watch URL or ID")
+    p_qp.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type (default: blog)")
+    p_qp.add_argument("--publish", action="store_true", help="Trigger immediate static build after creation")
+
+    # Static Publish
+    subparsers.add_parser("publish", help="Compile and publish static site to storage/builds")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -1306,7 +1481,9 @@ def main():
         "mount": cmd_mount,
         "commit": cmd_commit,
         "repack": cmd_commit,
-        "page": lambda a: {"add": cmd_page_add, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
+        "publish": cmd_publish,
+        "quick-post": cmd_quick_post,
+        "page": lambda a: {"add": cmd_page_add, "append": cmd_page_append, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
         "job": lambda a: {"templates": cmd_job_templates, "list": cmd_job_list, "create": cmd_job_create, "run": cmd_job_run, "merge": cmd_job_merge, "approve": cmd_job_approve}.get(a.op)(a) if a.op else None,
         "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
         "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,

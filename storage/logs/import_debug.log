@@ -3358,3 +3358,9 @@ lib_bejson_Core_bejson_core.BEJSONCoreError: Failed to update field 'page_is_sta
 2026-11-03 10:26:18,840 INFO Resized post_105_mobile_hero.png: (412, 915) -> (189, 420) (60624 bytes)
 2026-11-03 10:26:18,850 INFO Verification report written to: /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/tmp/playwright_verification_report.json
 2026-11-03 10:26:18,850 INFO [✓] ALL PLAYWRIGHT SCREENSHOTS SUCCESSFULLY CAPTURED AND RESIZED!
+2026-11-06 15:26:42,346 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-06 15:27:37,253 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-06 15:28:11,266 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG
+2026-11-06 15:28:15,077 DEBUG STREAM b'IHDR' 16 13
+2026-11-06 15:28:15,077 DEBUG STREAM b'IDAT' 41 2732
+2026-11-06 15:28:15,380 WARNING [FB] thumbnail failed for bad.png: cannot identify image file '/data/data/com.termux/files/usr/tmp/pytest-of-u0_a327/pytest-9/test_corrupt_image_thumbnail_d0/storage_root/bad.png'

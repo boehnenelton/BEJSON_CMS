@@ -51,7 +51,7 @@
       "PageRecord",
       "data/pagerecord.bejson",
       null,
-      7,
+      6,
       "1.0",
       "page_uuid"
     ],
@@ -107,7 +107,7 @@
       "AI_Profile",
       "data/ai_profile.bejson",
       null,
-      3,
+      4,
       "1.0",
       "Name"
     ],

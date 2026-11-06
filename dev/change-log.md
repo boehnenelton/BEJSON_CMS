@@ -1,5 +1,24 @@
 # BEJSON_CMS Change Log
 
+## [18.31-PKG139] - 2026-11-06
+
+### Added
+- **Consolidation & Clean Article Reset**:
+  - Consolidated drift across development repositories, anchoring `/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS` as the sole canonical master repository.
+  - Reset articles to exclusively host the 6 new deep-dive books/articles written in the `Leethaxor69` persona:
+    1. *The Elite Hacker's No-BS Guide to BEJSON & MFDB Architecture* (`7573cc7d-8b2d-4c23-8007-98beb8db8328`)
+    2. *BEJSON 105 & MFDB 1.40: The Identity Era & Cryptographic Integrity Masterclass* (`b9161aaf-c14c-4f5a-a444-9ff7399687b0`)
+    3. *The Polyglot Parity Bible: BEJSON 104 Core Across Python, JS, TS, and Bash* (`7513e7fe-f937-4eaf-9908-96224251b66f`)
+    4. *The Polyglot Parity Bible Part II: BEJSON 105 Core & MFDB v1.40 Across Python, JS, TS, and Bash* (`ebe88c9c-47bd-47a4-9f8d-35463bd523f1`)
+    5. *The Polyglot Parity Bible Part III: Inside the BEJSON 104 Core AI Family* (`d0dc2f5b-ab44-47a1-ba62-fcf566309907`)
+    6. *Shadow Link's Awakening: Dissecting the Zero-Hardcoded BEJSON 105 React Action-RPG Engine* (`89b6ebfa-ad88-4521-a700-bf6f43d2ac37`)
+  - Integrated `Leethaxor69` AI profile into `ai_profile.bejson` matching the 24-field zero-leakage schema.
+- **Rapid CLI Tooling**:
+  - Upgraded `src/cms-manage.py` (v18.9) with atomic `quick-post`, $O(1)$ `page append`, headless `publish`, and optional category auto-slugs.
+  - Added standalone `src/lib/cli/cms_quick_poster.py` (v100) utility.
+- **Full Verification**:
+  - All 73 tests in `tests/` pass. Static build compiles cleanly across `BEJSON`, `Projects`, and `Uncategorized`.
+
 ## [18.31-PKG135] - 2026-11-02
 
 ### Added

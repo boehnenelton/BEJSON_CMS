@@ -92,15 +92,14 @@ SCHEMA_MODEL_REGISTRY_GEMINI = {
         {"name": "model_id",              "type": "string"},  # 1
         {"name": "currently_active",      "type": "boolean"}, # 2
         {"name": "thinking_enabled",      "type": "boolean"}, # 3
-        {"name": "google_search_enabled", "type": "boolean"}, # 4
-        {"name": "flag",                  "type": "string"},  # 5 (unused; e.g. "paid")
-        {"name": "service",               "type": "string"},  # 6 (unused; e.g. "image")
+        {"name": "flag",                  "type": "string"},  # 4 (unused; e.g. "paid")
+        {"name": "service",               "type": "string"},  # 5 (unused; e.g. "image")
     ],
     "Values": [
-        ["Gemini 3.6 Flash", "gemini-3.6-flash", True, True, True, "", ""],
-        ["Gemini 3.1 Pro (Preview)", "gemini-3.1-pro-preview", False, True, True, "", ""],
-        ["Gemini 3.1 Flash-Lite", "gemini-3.1-flash-lite", False, False, False, "", ""],
-        ["Gemini 2.5 Flash", "gemini-2.5-flash", False, False, False, "", ""]
+        ["Gemini 3.6 Flash", "gemini-3.6-flash", True, True, "", ""],
+        ["Gemini 3.1 Pro (Preview)", "gemini-3.1-pro-preview", False, True, "", ""],
+        ["Gemini 3.1 Flash-Lite", "gemini-3.1-flash-lite", False, False, "", ""],
+        ["Gemini 2.5 Flash", "gemini-2.5-flash", False, False, "", ""]
     ]
 }
 

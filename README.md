@@ -22,11 +22,12 @@
   - [4. Media Asset Pipeline & Thumbnails](#4-media-asset-pipeline--thumbnails)
   - [5. Standalone Web Application Hosting](#5-standalone-web-application-hosting)
   - [6. Static Site Compilation & Cloudflare Publishing](#6-static-site-compilation--cloudflare-publishing)
+  - [7. AI Persona Management & Cognitive Directives in Persona Editor](#7-ai-persona-management--cognitive-directives-in-persona-editor)
 - [System Architecture & Microservice Topology](#system-architecture--microservice-topology)
   - [Admin Suite (:5001) & Architectural Blueprints](#admin-suite-5001--architectural-blueprints)
   - [Static Site Publisher (:5002)](#static-site-publisher-5002)
   - [Page Editor V1 (:5003)](#page-editor-v1-5003)
-  - [Profile Manager (:5004)](#profile-manager-5004)
+  - [Persona Editor (:5004)](#persona-editor-5004)
   - [Page Editor V2 Workspace (:5005 / :5010)](#page-editor-v2-workspace-5005--5010)
   - [Shared Web Infrastructure (BEJSON_CMS_Shared.py)](#shared-web-infrastructure-bejson_cms_sharedpy)
 - [Data Storage Engine & BEJSON Schemas](#data-storage-engine--bejson-schemas)
@@ -239,8 +240,18 @@ A responsive, dual-mode content engineering studio:
   - *AI Architect / BKS-1 Studio*: 4-part structured planning, part-by-part content generation, and one-click post merging.
 - **Asset Integration Drawers**: Quick-insert modals for local image assets, YouTube video players, and inline PDF viewports.
 
-### 5. Profile Manager (`http://127.0.0.1:5004/`)
-Manages both public author profiles and internal system personas. Configure author display names, biographies, avatars, contact emails, and social media handles.
+### 5. Persona Editor & Profile Manager (`http://127.0.0.1:5004/`)
+A modernized, responsive 5-tab identity and cognitive directives studio:
+- **Interactive 3D Isometric Cube Avatars**: Deterministic, color-mapped HTML5 Canvas 3D cube visualizer generated from profile name hashes with interactive rotation controls.
+- **Dual-Entity Synchronization**: Seamlessly synchronizes public author attribution records (`AuthorProfile`) and AI generation profiles (`AI_Profile`).
+- **5-Tab Multi-Tier Workspace**:
+  - *Identity*: Author display name, avatar URL, biography, contact email, website URL, and social media handles.
+  - *Model Parameters*: Engine and provider selection (Gemini, Groq, OpenRouter), temperature, top_p, top_k, max output tokens, and Python code interpreter execution gates.
+  - *Tone Matrix*: Interactive tone matrix chips (Technical & Grounded, Direct, Academic, Conversational, Playful, Authoritative, Minimalist, Poetic) and vocabulary tiers.
+  - *Cognitive Directives*: Target audience, domain authority, content density, forbidden phrases, narrative perspective, structural quirks, and system instruction seeds.
+  - *Prompt Preview*: Live compiled system prompt inspector displaying exact prompt assembly, line counts, and character statistics.
+- **Offline-First Privacy**: Complete eradication of third-party Google Search Grounding to prevent external data leaks and guarantee offline reliability.
+- **Mobile Responsive Controls**: Segmented view switcher enabling fluid navigation between touch catalog lists and full-screen editor panes.
 
 ### 6. Static Site Publisher (`http://127.0.0.1:5002/`)
 The build operations center. Monitors database mount status, tracks output file counts, streams build logs during static site compilation, provides a local test server controller, and deploys directly to edge networks.
@@ -295,8 +306,20 @@ BEJSON CMS provides a comprehensive suite of content management, static compilat
 - **57-Column TUI Supervisor**: Full-featured process monitor and terminal manager for resource-constrained development environments.
 
 
-![Figure: 05 Profile Manager](images/05_profile_manager.png)
-*_Figure 5: Profile Manager for Author Attribution and Personas_*
+![Figure: 05a Persona Editor Desktop Initial](images/05_profile_manager.png)
+*_Figure 5a: Persona Editor Desktop Workspace with Interactive 3D Isometric Cube Avatar, Dual Entity Sync, and Tone Matrix Chips_*
+
+
+![Figure: 05b Persona Editor Desktop Prompt Preview](images/audit_captures/persona_hub_desktop_tab_preview.png)
+*_Figure 5b: Persona Editor Live Assembled System Prompt Inspector Tab with Real-Time Directive Telemetry_*
+
+
+![Figure: 05c Persona Editor Mobile Catalog Drawer](images/audit_captures/persona_hub_mobile_catalog.png)
+*_Figure 5c: Persona Editor Mobile Touch Catalog Drawer with Active State Badges and Touch Targets_*
+
+
+![Figure: 05d Persona Editor Mobile Form View](images/audit_captures/persona_hub_mobile_editor.png)
+*_Figure 5d: Persona Editor Mobile Form View with Segmented Navigation and Touch-Optimized Form Controls_*
 
 
 ---
@@ -471,6 +494,67 @@ Host interactive HTML/CSS/JavaScript web applications directly within BEJSON CMS
 
 ---
 
+### 7. AI Persona Management & Cognitive Directives in Persona Editor
+
+The **Persona Editor** (`src/web/BEJSON_CMS_ProfileManager.py`, port 5004) is a specialized identity and cognitive directive management microservice. It provides a unified 5-tab workspace for defining human author identities (stored in `authorprofile.bejson`) and AI generation profiles (persisted in `ai_profile.bejson`).
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          Persona Editor 5-Tab Architecture                      │
+├─────────────────┬─────────────────┬─────────────────┬─────────────┬─────────────┤
+│ 1. Identity     │ 2. Model        │ 3. Tone Matrix  │ 4. Directives│ 5. Live    │
+│    Attribution  │    Parameters   │    & Style Chips│    & Scope  │    Preview  │
+│ (Author Profile)│ (Temp/TopP/API) │ (Dynamic Chips) │ (Audience)  │ (Assembled) │
+└─────────────────┴─────────────────┴─────────────────┴─────────────┴─────────────┘
+```
+
+#### Operational Workflow:
+1. **Access Workspace**: Navigate to `http://127.0.0.1:5004/` in your browser, or select menu option 6 in the TUI supervisor (`python3 advanced_launcher.py`).
+2. **Select or Create Profile**:
+   - Choose an existing profile from the left sidebar catalog (or mobile touch drawer).
+   - Click **+ New Persona** to initialize a clean structural template with default baseline parameters.
+3. **Configure Across the 5 Tabs**:
+   - **Tab 1: Identity & Author Attribution**: Set the public author display name, biography, contact email, website URL, social link handles, and avatar URL. Changes made here automatically propagate to the master `AuthorProfile` table (`storage/mfdb/site_master/data/authorprofile.bejson`), ensuring consistent author dropdown attribution in Page Editor V2.
+   - **Tab 2: Model Parameters & Provider Dispatch**: Select the cloud provider (`gemini`, `groq`, `openrouter`) and model identifier (e.g., `gemini-2.5-flash`, `llama-3.3-70b-versatile`, `deepseek-chat`). Adjust generation sliders:
+     - `Temperature` (`0.00` to `2.00`): Controls generation randomness and creative entropy.
+     - `Top-P` (`0.00` to `1.00`): Nucleus sampling cutoff threshold.
+     - `Top-K` (`1` to `100`): Token candidate pool constraint.
+     - `Max Output Tokens`: Hard upper bound for generated responses (default: `4096`).
+     - `Python Code Interpreter`: Toggle execution permissions for sandboxed script execution during article generation.
+   - **Tab 3: Tone Matrix & Style Chips**: Click interactive style chips to instantly populate writing style presets:
+     - `Technical & Grounded`: Strict focus on facts, verifiable specifications, and zero fluff.
+     - `Direct & Concise`: Short sentences, punchy explanations, minimal elaboration.
+     - `Academic Rigor`: Formal third-person academic structure with citations and precision.
+     - `Conversational`: Friendly, approachable engineering dialogue.
+     - `Playful & Dynamic`: Energetic technical narration with vivid metaphors.
+     - `Authoritative`: Senior architecture lead perspective with decisive recommendations.
+     - `Minimalist`: Bulleted high-signal takeaways with zero adjectives.
+     - `Poetic & Stylized`: Evocative, rhythmic phrasing and narrative symmetry.
+     - Configure the **Vocabulary Tier** (`General Public`, `Technical Professional`, `Academic Postgraduate`, `Specialized Domain`).
+   - **Tab 4: Cognitive Directives & Guardrails**:
+     - `Target Audience`: Specify reader assumptions (e.g., "Senior DevOps and Distributed Systems Engineers").
+     - `Domain Authority`: Anchor voice credibility (e.g., "Unix systems engineer specializing in low-latency flat-file storage").
+     - `Content Density`: Information density rating from 1 (expanded pedagogical explanations) to 5 (dense reference specifications).
+     - `Forbidden Phrases`: List banned marketing buzzwords, clichés, or filler words (e.g., `"game-changer"`, `"cutting-edge"`, `"delve"`).
+     - `Perspective`: Select narrative voice (`First-Person Singular (I/Me)`, `First-Person Plural (We/Our)`, `Third-Person Objective (It/They)`).
+     - `Structural Quirks`: Mandatory output structures (e.g., "Always summarize code with an ASCII diagram").
+     - `System Instruction Seed`: Core foundational system directive prepended to all generated prompt contexts.
+   - **Tab 5: Live Assembled Prompt Preview**:
+     - Live inspection pane rendering the exact compiled prompt string that is injected into the AI Writer's 48k Context Bubble.
+     - Real-time telemetry displaying character count, estimated line count, and token allotment metrics.
+4. **Interactive 3D Isometric Cube Visualizer**:
+   - Every persona features a mathematically generated 3D Isometric Cube rendered via an HTML5 Canvas.
+   - The cube's geometry and shading are seeded deterministically from the persona name's hash.
+   - Supports interactive mouse and touch drag rotation, providing immediate visual identity feedback.
+5. **Offline-First Architectural Guarantee (No Search Grounding)**:
+   - Third-party Google Search Grounding (`google_search_enabled`) has been completely excised across all schemas, AI libraries, and model registries.
+   - Guarantees zero unmonitored external network queries, prevents proprietary context leaks to public search APIs, ensures deterministic offline-capable generation, and eliminates third-party search billing surcharges.
+6. **Save Changes**:
+   - Press `Ctrl+S` (or `Cmd+S` on macOS) or click **Save Profile**.
+   - The backend validates all 24 schema fields and atomically flushes changes to disk.
+
+---
+
 ## System Architecture & Microservice Topology
 
 BEJSON CMS is architected as five decoupled Flask applications backed by shared authentication and middleware layers:
@@ -518,9 +602,18 @@ The administrative suite is structured using modular Flask Blueprints:
 - Implemented in `BEJSON_CMS_PageEditor.py`.
 - Traditional server-rendered interface featuring code-mirror style inputs, instant live iframe preview, and media insertion modals.
 
-### Profile Manager (:5004)
-- Implemented in `BEJSON_CMS_ProfileManager.py`.
-- Dedicated interface for managing author identities and system personas used during content drafting.
+### Persona Editor (:5004)
+- Implemented in `src/web/BEJSON_CMS_ProfileManager.py` (Version 14).
+- Modern responsive 5-tab identity and cognitive directive management microservice:
+  - **Tab 1: Identity & Attribution**: Public author profile synchronization (`authorprofile.bejson`), display names, avatar URLs, contact emails, website links, and social handles.
+  - **Tab 2: Model Parameters**: Multi-provider selection (`gemini`, `groq`, `openrouter`), temperature, top-p, top-k, token limits, and Python code interpreter sandbox flags.
+  - **Tab 3: Tone Matrix**: Fast-tag interactive tone matrix chips (Technical & Grounded, Direct, Academic, Conversational, Playful, Authoritative, Minimalist, Poetic) and vocabulary tiers.
+  - **Tab 4: Cognitive Directives**: Target audience, domain authority, content density ratings (1–5), forbidden phrases, perspective, structural quirks, and system instruction seeds.
+  - **Tab 5: Prompt Preview**: Live compiled system prompt inspector with line count, character count, and token estimations.
+- **Interactive 3D Isometric Cube Visualizer**: Deterministic HTML5 Canvas rendering seeded by profile name hash with touch/mouse drag rotation controls.
+- **Offline-First Architectural Guarantee**: Complete excision of third-party Google Search Grounding across all schemas, AI libraries, and model registries for zero network leakage.
+- **Dual-Write Atomic Persistence**: Atomically syncs changes to both `ai_profile.bejson` (24 positional fields) and `authorprofile.bejson`.
+- **Keyboard Shortcuts**: Global `Ctrl+S` / `Cmd+S` key binding for immediate atomic saves.
 
 ### Page Editor V2 Workspace (:5005 / :5010)
 - Implemented in `BEJSON_CMS_PageEditorV2.py`.
@@ -606,14 +699,15 @@ The central manifest at `storage/mfdb/site_master/104a.mfdb.bejson` registers al
     ["tbl_config", "SiteConfig", "data/siteconfig.bejson", 6, "104"],
     ["tbl_social", "SocialLink", "data/sociallink.bejson", 3, "104"],
     ["tbl_video_meta", "PageVideoMetadata", "data/pagevideometadata.bejson", 1, "104"],
-    ["tbl_doc_meta", "PageDocumentMetadata", "data/pagedocumentmetadata.bejson", 1, "104"]
+    ["tbl_doc_meta", "PageDocumentMetadata", "data/pagedocumentmetadata.bejson", 1, "104"],
+    ["tbl_ai_profiles", "AI_Profile", "data/ai_profile.bejson", 3, "104"]
   ]
 }
 ```
 
 ### Full Relational Entity Schema Roster
 
-The 12 relational entity tables enforce consistent column naming conventions:
+The 13 relational entity tables enforce consistent column naming conventions:
 
 1. **PageRecord (`data/pagerecord.bejson`)**:
    - `page_uuid` (string, PK): Unique UUIDv4 identifier.
@@ -700,6 +794,33 @@ The 12 relational entity tables enforce consistent column naming conventions:
     - `doc_page_count` (integer): Page count.
     - `doc_file_size` (integer): File size in bytes.
     - `doc_download_rules` (string): Access restrictions.
+
+13. **AI_Profile (`data/ai_profile.bejson`)**:
+    - `Record_Type_Parent` (string): Entity taxonomy anchor (`"AI_Profile"`).
+    - `Name` (string, PK): Unique persona identifier.
+    - `Archetype` (string): Persona archetype category.
+    - `Persona` (string): Descriptive identity and authorial background summary.
+    - `SystemInstruction` (string): Foundational system directive seed.
+    - `Active` (boolean): Active status toggle.
+    - `MaxResponseTokens` (integer): Maximum output generation token ceiling.
+    - `Creativity` (number): Temperature / sampling randomness scalar (`0.00` to `2.00`).
+    - `Tone` (array): Configured tone styles and active matrix chips.
+    - `Formality` (string): Language formality tier.
+    - `Verbosity` (string): Output response detail level.
+    - `EmotionalExpression_Enabled` (boolean): Emotive tone modulation toggle.
+    - `EmotionalExpression_Intensity` (number): Emotional modulation weight.
+    - `CodeInterpreter_Enabled` (boolean): Execution permissions for Python interpreter sandbox.
+    - `EphemeralMemory` (boolean): Session-only ephemeral memory toggle.
+    - `CodeParsing_Mode` (string): Syntax parser routing mode.
+    - `CodeParsing_Languages` (array): Target programming languages.
+    - `CodeParsing_StructureValidation` (boolean): Abstract Syntax Tree structural validation flag.
+    - `CodeParsing_VersionControl` (boolean): Code diff and version tracking flag.
+    - `Thinking_Supported` (boolean): Extended reasoning/thinking model flag.
+    - `ForbiddenTopics` (array): Banned subjects, phrases, and marketing buzzwords.
+    - `Avatar_Type` (string): Avatar visualization mode (`"cube"`, `"url"`, `"svg"`).
+    - `Avatar_sourceUrl` (string): Fallback static avatar asset path.
+    - `Avatar_Data` (string): Canvas 3D cube parameters or serialized SVG asset data.
+    *(Note: Third-party Google Search Grounding was excised across all 24 schema fields to guarantee zero external data leakage and deterministic offline execution).*
 
 
 ![Figure: 08 BKS-1 Job Studio Playwright Capture](images/audit_captures/02_playwright_bks_jobs_studio.png)
@@ -1430,6 +1551,11 @@ BEJSON_CMS/
 │       ├── 07_playwright_published_article_mobile.png
 │       ├── category_projects_desktop.png
 │       ├── home_feed_desktop.png
+│       ├── persona_hub_desktop_initial.png      # Persona Editor desktop with 3D canvas cube avatar
+│       ├── persona_hub_desktop_tab_preview.png  # Persona Editor live assembled prompt preview tab
+│       ├── persona_hub_mobile_catalog.png       # Persona Editor mobile touch catalog drawer
+│       ├── persona_hub_mobile_editor.png        # Persona Editor mobile form view
+│       ├── persona_hub_mobile_initial.png       # Persona Editor mobile initial viewport
 │       ├── post_105_desktop_full.png
 │       └── post_105_mobile_hero.png
 │
@@ -1462,7 +1588,7 @@ BEJSON_CMS/
 │       ├── BEJSON_CMS_Publisher.py              # Static site generator & preview host
 │       ├── BEJSON_CMS_PageEditor.py             # Classic server-rendered code editor
 │       ├── BEJSON_CMS_PageEditorV2.py           # API-driven editor & BKS-1 job studio
-│       ├── BEJSON_CMS_ProfileManager.py         # Author profile and persona manager
+│       ├── BEJSON_CMS_ProfileManager.py         # Persona Editor (5-tab workspace, 3D cube canvas)
 │       ├── BEJSON_CMS_FileBrowser.py            # Media file browser modal provider
 │       ├── BEJSON_CMS_Renderers.py              # Polymorphic static page renderers
 │       └── BEJSON_CMS_Shared.py                 # Shared auth guards and asset middleware
@@ -1472,7 +1598,7 @@ BEJSON_CMS/
 │   ├── exports/                     # Database and asset backup archives
 │   ├── logs/                        # Application and supervisor log files
 │   ├── mfdb/                        # Active Multi-File Database
-│   │   ├── site_master/             # Master manifest and 12 relational entity files
+│   │   ├── site_master/             # Master manifest and 13 relational entity files (including 24-field ai_profile.bejson)
 │   │   ├── pages_db/                # Individual 104db page content files
 │   │   ├── assets/                  # Uploaded media assets and thumbnails
 │   │   ├── bks_jobs/                # BKS-1 job plans, drafts, and templates

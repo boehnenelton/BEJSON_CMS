@@ -153,7 +153,6 @@ _GEMINI_MODEL_LEGACY = {
     "model_id": 1, 
     "currently_active": 2,
     "thinking_enabled": 3, 
-    "google_search_enabled": 4
 }
 
 # --- Registry Managers ---
@@ -164,7 +163,7 @@ _GEMINI_MODEL_LEGACY = {
 # base doesn't have: (1) the original comma-joined GEMINI_API_KEYS env var
 # is kept working alongside the new GEMINI_KEY_1.._21 numbered-slot
 # convention (confirmed against the live secure env store), and (2) the
-# total-load-failure fallback rebuilds thinking/search positionally from
+# total-load-failure fallback rebuilds thinking positionally from
 # SCHEMA_MODEL_REGISTRY rather than the base's generic single-entry
 # fallback.
 
@@ -199,10 +198,8 @@ class GeminiModelRegistry(ModelRegistryBase):
 
     def _extra_fields(self, row, fmap):
         think_idx = fmap.get("thinking_enabled", _GEMINI_MODEL_LEGACY["thinking_enabled"])
-        search_idx = fmap.get("google_search_enabled", _GEMINI_MODEL_LEGACY["google_search_enabled"])
         return {
             "thinking": row[think_idx] if think_idx != -1 and think_idx < len(row) else False,
-            "search": row[search_idx] if search_idx != -1 and search_idx < len(row) else False,
         }
 
     def load(self) -> None:

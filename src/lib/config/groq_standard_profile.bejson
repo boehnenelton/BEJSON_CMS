@@ -71,10 +71,6 @@
       "type": "number"
     },
     {
-      "name": "GoogleSearch_Enabled",
-      "type": "boolean"
-    },
-    {
       "name": "CodeInterpreter_Enabled",
       "type": "boolean"
     }
@@ -100,7 +96,6 @@
       "Balanced",
       false,
       0.0,
-      false,
       true
     ]
   ],

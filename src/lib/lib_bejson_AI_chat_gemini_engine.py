@@ -88,7 +88,7 @@ class GeminiChatEngine:
 
     # ---- payload -----------------------------------------------------------
     def build_payload(self, history: List[Dict[str, Any]], *, system_instruction: str = "", temperature: float = 0.7,
-                      max_output_tokens: int = 8192, thinking: bool = False, google_search: bool = False,
+                      max_output_tokens: int = 8192, thinking: bool = False,
                       code_execution: bool = False) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "contents": history,
@@ -100,8 +100,6 @@ class GeminiChatEngine:
         if thinking:
             payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": self.thinking_budget, "includeThoughts": True}
         tools: List[Dict[str, Any]] = []
-        if google_search:
-            tools.append({"googleSearch": {}})
         if code_execution:
             tools.append({"codeExecution": {}})
         if tools:

@@ -122,7 +122,6 @@ GROQ_PROFILE_SCHEMA = {
         {"name": "Verbosity", "type": "string"},
         {"name": "EmotionalExpression_Enabled", "type": "boolean"},
         {"name": "EmotionalExpression_Intensity", "type": "number"},
-        {"name": "GoogleSearch_Enabled", "type": "boolean"},
         {"name": "CodeInterpreter_Enabled", "type": "boolean"},
     ],
     "Values": [
@@ -132,7 +131,7 @@ GROQ_PROFILE_SCHEMA = {
             "You are a helpful assistant. Provide clear, accurate, and concise information.",
             [], "Emoji", "", "\U0001F916", 8192, 0.7,
             ["Professional", "Helpful"], "Formal", "Balanced",
-            False, 0.0, False, True,
+            False, 0.0, True,
         ]
     ]
 }

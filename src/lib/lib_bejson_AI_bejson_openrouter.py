@@ -193,7 +193,6 @@ SCHEMA_AI_PROFILE = {
         {"name": "Verbosity", "type": "string"},
         {"name": "EmotionalExpression_Enabled", "type": "boolean"},
         {"name": "EmotionalExpression_Intensity", "type": "number"},
-        {"name": "GoogleSearch_Enabled", "type": "boolean"},
         {"name": "CodeInterpreter_Enabled", "type": "boolean"},
         {"name": "EphemeralMemory", "type": "boolean"},
         {"name": "CodeParsing_Mode", "type": "string"},
@@ -210,7 +209,7 @@ SCHEMA_AI_PROFILE = {
             "A helpful and professional AI assistant.",
             "You are a helpful assistant. Provide clear, accurate, and concise information.",
             [], "Emoji", "", "🚀", 16384, 0.7, ["Professional", "Helpful"], "Formal", "Balanced", 
-            False, 0.0, False, True, True, "complete", ["python", "javascript"], True, True, True
+            False, 0.0, True, True, "complete", ["python", "javascript"], True, True, True
         ]
     ]
 }

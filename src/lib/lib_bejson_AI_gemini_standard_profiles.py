@@ -69,7 +69,7 @@ Changelog:
           Migrated all field names to This_Case convention
           (System_Instruction, Forbidden_Topics, Avatar_Source_Url,
           Max_Response_Tokens, Emotional_Expression_Enabled,
-          Emotional_Expression_Intensity, Google_Search_Enabled,
+          Emotional_Expression_Intensity,
           Code_Interpreter_Enabled, Ephemeral_Memory, Code_Parsing_Mode,
           Code_Parsing_Languages, Code_Parsing_Structure_Validation,
           Code_Parsing_Version_Control, Thinking_Supported).
@@ -127,7 +127,6 @@ PROFILE_FIELDS: List[Dict[str, str]] = [
     {"name": "Verbosity",                      "type": "string"},
     {"name": "Emotional_Expression_Enabled",   "type": "boolean"},
     {"name": "Emotional_Expression_Intensity", "type": "number"},
-    {"name": "Google_Search_Enabled",          "type": "boolean"},
     {"name": "Code_Interpreter_Enabled",       "type": "boolean"},
     {"name": "Ephemeral_Memory",               "type": "boolean"},
     {"name": "Code_Parsing_Mode",              "type": "string"},
@@ -246,7 +245,6 @@ def gemini_profiles_create(
         kwargs.get("Verbosity", "Balanced"),
         kwargs.get("Emotional_Expression_Enabled", False),
         kwargs.get("Emotional_Expression_Intensity", 0.0),
-        kwargs.get("Google_Search_Enabled", True),
         kwargs.get("Code_Interpreter_Enabled", True),
         kwargs.get("Ephemeral_Memory", True),
         kwargs.get("Code_Parsing_Mode", "complete"),

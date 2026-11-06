@@ -1,7 +1,7 @@
 """
 Library:         lib_bejson_AI_chat_interactions_engine.py
 Family:          AI
-Module Purpose:  Chat adapter over the existing Gemini Interactions provider (lib_bejson_AI_bejson_interactions.GeminiInteractionsAPI): key rotation with cool-off, server-side conversation chaining via previous_interaction_id, text/image/document inputs, optional google_search / code_execution tools, typed errors.
+Module Purpose:  Chat adapter over the existing Gemini Interactions provider (lib_bejson_AI_bejson_interactions.GeminiInteractionsAPI): key rotation with cool-off, server-side conversation chaining via previous_interaction_id, text/image/document inputs, optional code_execution tools, typed errors.
 Architecture:    Wraps the provider (>= 1.2.0). Keys come from a ChatKeyRotator and are passed per call (api_key=). generation_config is opt-in (constructor flag) and UNVERIFIED against the live API, so a 400 retries without it. Failures raise the typed errors of lib_bejson_AI_bejson_errors; no new error codes.
 Version:         1.1.0
 Release_Version: 300
@@ -37,9 +37,8 @@ except BaseException as _e:             # the provider calls sys.exit() on a mis
 
 logger = logging.getLogger("lib_bejson_AI_chat_interactions_engine")
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 RETRYABLE_STATUS = {429, 500, 503}
-TOOL_GOOGLE_SEARCH = {"type": "google_search"}
 TOOL_CODE_EXECUTION = {"type": "code_execution"}
 
 
@@ -157,15 +156,13 @@ class InteractionsChatEngine:
 
     # `input_parts`: Interactions content blocks ({"type":"text"|"image"|"document", ...}).
     def chat_turn(self, input_parts: List[Dict[str, Any]], model: str, *, system_instruction: str = "",
-                  previous_interaction_id: Optional[str] = None, google_search: bool = False,
+                  previous_interaction_id: Optional[str] = None,
                   code_execution: bool = False, temperature: Optional[float] = None,
                   max_output_tokens: Optional[int] = None, thinking: bool = False) -> InteractionReply:
         chat_engine_validate_model_id(model)
         if self.rotator.key_count() == 0:
             raise NoAPIKeysError("No Gemini API keys loaded. Add GEMINI_KEY_1.. to secureenv_file.json.")
         tools: List[Dict[str, Any]] = []
-        if google_search:
-            tools.append(dict(TOOL_GOOGLE_SEARCH))
         if code_execution:
             tools.append(dict(TOOL_CODE_EXECUTION))
         gen_cfg: Dict[str, Any] = {}

@@ -4,8 +4,8 @@
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
   "Project_Version": "18.31",
-  "Package_Version": "137",
-  "Project_Modified_Date": "2026-11-05",
+  "Package_Version": "138",
+  "Project_Modified_Date": "2026-11-06",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -490,11 +490,16 @@
       "pkg137 -- Standardized CLI flags (--version, --help, --about) across root executables and tools, synced MFDB entity counts, and guarded optional PDF dependencies.",
       "2026-11-05",
       "1. Added standard CLI argument parsing (-v/--version, -h/--help, --about, --status, --probe) to advanced_launcher.py (v3, RELATIONAL_ID d65d31c6-a0eb-4fed-b399-e5baff8c622b) per Policy §4.7. 2. Added -v/--version and --dry-run CLI handling to tools/migrate_taxonomy.py (v1.0.1, RELATIONAL_ID 66306f88-19fe-4e69-b2de-952615bd3ca6) using descriptive variable names per Policy §6.1. 3. Added -v/--version and --about CLI handling to tools/audit_taxonomy.py (v1.0.1, RELATIONAL_ID 5258cca7-e3fc-4424-adf0-db5a9db79e37). 4. Injected CLI argument handling (-v/--version, --about, -o/--output) into generate_taxonomy_report.py (v1.0.1, RELATIONAL_ID 650e9da1-c360-431e-a985-57fcd7c6b392) and safely guarded optional reportlab imports. 5. Synchronized live entity count declarations in storage/mfdb/site_master/104a.mfdb.bejson (MediaAsset: 4 -> 28)."
+    ],
+    [
+      "pkg138 -- Modernized Persona Editor (v14) with 5-tab responsive architecture and 3D Isometric Cube Canvas, eradicated third-party Google Search Grounding across all schemas/libraries, added Playwright test captures, and comprehensively updated README.",
+      "2026-11-06",
+      "1. Fully refactored BEJSON_CMS_ProfileManager.py (v14) on port 5004 featuring 5-tab workspace (Identity, Model, Tone, Directives, Preview), interactive HTML5 Canvas 3D Isometric Cube avatars seeded by name hash, tone matrix fast-tag chips, live compiled prompt inspector, and mobile touch drawer/segmented views. 2. Eradicated third-party Google Search Grounding across all AI libraries (lib_bejson_AI_*), standard profile presets, model registries, and schemas, bringing AI_Profile to strictly 24 positional fields for zero data leakage. 3. Automated Playwright test suite (test_persona_playwright.py) capturing desktop/mobile audit screenshots in images/audit_captures/ and updated images/05_profile_manager.png. 4. Comprehensively updated README.md with Figures 5a-5d, Section 7 User Workflow guide, expanded Microservice Topology specifications, updated 13-entity schema roster, and directory map."
     ]
   ],
   "Type": "python",
   "Status": "Active",
   "Versioned_UUID": "9e92eca3-7d7b-4eb8-addf-43669e8757ad",
-  "Archive_Filename": "BEJSON_CMS-V18_31-PKG137.zip",
+  "Archive_Filename": "BEJSON_CMS-V18_31-PKG138.zip",
   "Package_Checksum_SHA256": "cdfa028f7cdb9df0a898b389f4d979df00035d6e6c144d2b2b8dd108dfc30580"
 }

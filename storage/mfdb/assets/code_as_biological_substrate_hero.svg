@@ -1,134 +1,84 @@
 <svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="substrateGlow" cx="50%" cy="45%" r="65%">
-      <stop offset="0%" stop-color="#1a0404" stop-opacity="0.95" />
-      <stop offset="50%" stop-color="#08080c" stop-opacity="0.8" />
-      <stop offset="100%" stop-color="#000000" stop-opacity="1" />
-    </radialGradient>
-    <linearGradient id="nucleusTop" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="100%" stop-color="#E0E0E0" />
-    </linearGradient>
-    <linearGradient id="nucleusLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#888888" />
-      <stop offset="100%" stop-color="#333333" />
-    </linearGradient>
-    <linearGradient id="nucleusRight" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#666666" />
-      <stop offset="100%" stop-color="#1a1a1a" />
-    </linearGradient>
-    <filter id="membraneGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
-  </defs>
+  <!-- Obsidian Substrate -->
+  <rect width="1280" height="640" fill="#111113" />
 
-  <!-- Deep Background Substrate -->
-  <rect width="1280" height="640" fill="#000000" />
-  <rect width="1280" height="640" fill="url(#substrateGlow)" />
+  <!-- Top Crosshair Ticks -->
+  <path d="M 72 24 L 72 40 M 64 32 L 80 32" stroke="#262630" stroke-width="1.5" />
+  <path d="M 1208 24 L 1208 40 M 1200 32 L 1216 32" stroke="#262630" stroke-width="1.5" />
 
-  <!-- Cellular Cytoplasm Grid (32px quantization) -->
-  <g stroke="#DE2626" stroke-width="0.5" opacity="0.12">
-    <line x1="0" y1="64" x2="1280" y2="64" />
-    <line x1="0" y1="128" x2="1280" y2="128" />
-    <line x1="0" y1="192" x2="1280" y2="192" />
-    <line x1="0" y1="256" x2="1280" y2="256" />
-    <line x1="0" y1="320" x2="1280" y2="320" />
-    <line x1="0" y1="384" x2="1280" y2="384" />
-    <line x1="0" y1="448" x2="1280" y2="448" />
-    <line x1="0" y1="512" x2="1280" y2="512" />
-    <line x1="0" y1="576" x2="1280" y2="576" />
-    <line x1="160" y1="0" x2="160" y2="640" />
-    <line x1="320" y1="0" x2="320" y2="640" />
-    <line x1="480" y1="0" x2="480" y2="640" />
-    <line x1="640" y1="0" x2="640" y2="640" />
-    <line x1="800" y1="0" x2="800" y2="640" />
-    <line x1="960" y1="0" x2="960" y2="640" />
-    <line x1="1120" y1="0" x2="1120" y2="640" />
+  <!-- Header Block -->
+  <text x="72" y="58" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" letter-spacing="1.5">BEJSON 104a • METABOLISM</text>
+  <text x="72" y="98" fill="#FFFFFF" font-size="30" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.5">CODE AS BIOLOGICAL SUBSTRATE</text>
+  <text x="72" y="128" fill="#A1A1AA" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="500" letter-spacing="0.5">SELF-ORGANIZING ARCHITECTURAL METABOLISM · TABULAR CONTINUITY</text>
+  <line x1="72" y1="146" x2="1208" y2="146" stroke="#262630" stroke-width="1.5" />
+
+  <!-- Left Sharp Visual Box (rx=0) -->
+  <rect x="72" y="166" width="480" height="400" rx="0" fill="#0E0E12" stroke="#26262E" stroke-width="1.5" />
+  <path d="M 72 186 L 72 166 L 92 166" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+  <path d="M 532 166 L 552 166 L 552 186" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+  <path d="M 72 546 L 72 566 L 92 566" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+  <path d="M 532 566 L 552 566 L 552 546" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+
+  <!-- 3D Open Isometric Cube Model (No lasers or orbital clutter) -->
+  <g transform="translate(312, 336)">
+    <circle cx="0" cy="0" r="105" fill="none" stroke="#262630" stroke-width="1" stroke-dasharray="4,4" />
+    <circle cx="0" cy="0" r="75" fill="none" stroke="#DE2626" stroke-width="1" opacity="0.25" />
+    <!-- Top Face -->
+    <polygon points="0,-64 56,-32 0,0 -56,-32" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round" />
+    <polygon points="0,-50 40,-27 0,-4 -40,-27" fill="#111113" opacity="0.9" />
+    <!-- Left Face -->
+    <polygon points="-56,-32 0,0 0,64 -56,32" fill="#1C1C22" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round" />
+    <!-- Right Face -->
+    <polygon points="0,0 56,-32 56,32 0,64" fill="#DE2626" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round" />
   </g>
+  <text x="312" y="525" fill="#71717A" font-size="12" font-family="monospace" font-weight="600" text-anchor="middle" letter-spacing="1.5">CANONICAL BEJSON SUBSTRATE</text>
 
-  <!-- Header Branding Strip -->
-  <rect x="0" y="0" width="1280" height="48" fill="#08080a" />
-  <line x1="0" y1="48" x2="1280" y2="48" stroke="#DE2626" stroke-width="1.5" />
-  <text x="32" y="30" fill="#DE2626" font-size="13" font-family="monospace" font-weight="700" letter-spacing="2">BEJSON CMS // BIOLOGICAL SUBSTRATE</text>
-  <text x="640" y="30" fill="#888899" font-size="11" font-family="monospace" text-anchor="middle" letter-spacing="1">HOMEOSTATIC CELLULAR DAEMONS &#8226; GENETIC POSITIONAL CODONS</text>
-  <text x="1248" y="30" fill="#AAAAAA" font-size="12" font-family="monospace" text-anchor="end" font-weight="600">BEJSON 104a &#8226; MFDB v1.32</text>
+  <!-- Right Sharp Card (rx=0) -->
+  <rect x="584" y="166" width="624" height="400" rx="0" fill="#16161A" stroke="#26262E" stroke-width="1.5" />
+  <rect x="584" y="166" width="4" height="400" rx="0" fill="#DE2626" />
+  <text x="614" y="198" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" letter-spacing="1.5">ARCHITECTURAL SPECIFICATION</text>
 
-  <!-- Protective Cellular Membrane (Outer Envelope Ring) -->
-  <ellipse cx="640" cy="320" rx="460" ry="240" fill="none" stroke="#DE2626" stroke-width="1.5" stroke-dasharray="8,6" opacity="0.4" filter="url(#membraneGlow)" />
-  <ellipse cx="640" cy="320" rx="440" ry="225" fill="none" stroke="#DE2626" stroke-width="0.8" opacity="0.25" />
+  <!-- Numbered Specification Chips -->
+    <g transform="translate(614, 238)">
+      <rect x="0" y="-18" width="564" height="46" rx="0" fill="#111115" stroke="#26262E" stroke-width="1" />
+      <rect x="0" y="-18" width="36" height="46" rx="0" fill="#1C1C22" />
+      <text x="18" y="10" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" text-anchor="middle">[01]</text>
+      <text x="48" y="0" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">METABOLIC ENGINE</text>
+      <text x="48" y="18" fill="#A1A1AA" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="400">Subsystem Module</text>
+    </g>
+    <g transform="translate(614, 298)">
+      <rect x="0" y="-18" width="564" height="46" rx="0" fill="#111115" stroke="#26262E" stroke-width="1" />
+      <rect x="0" y="-18" width="36" height="46" rx="0" fill="#1C1C22" />
+      <text x="18" y="10" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" text-anchor="middle">[02]</text>
+      <text x="48" y="0" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">CELLULAR MATRICES</text>
+      <text x="48" y="18" fill="#A1A1AA" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="400">Subsystem Module</text>
+    </g>
+    <g transform="translate(614, 358)">
+      <rect x="0" y="-18" width="564" height="46" rx="0" fill="#111115" stroke="#26262E" stroke-width="1" />
+      <rect x="0" y="-18" width="36" height="46" rx="0" fill="#1C1C22" />
+      <text x="18" y="10" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" text-anchor="middle">[03]</text>
+      <text x="48" y="0" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">GENOME STORE</text>
+      <text x="48" y="18" fill="#A1A1AA" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="400">Subsystem Module</text>
+    </g>
 
-  <!-- Neural Signaling Pathways (Laser Rays to Organelles) -->
-  <g stroke="#DE2626" stroke-width="1.5" opacity="0.75" filter="url(#membraneGlow)">
-    <line x1="280" y1="180" x2="560" y2="290" />
-    <line x1="280" y1="440" x2="560" y2="350" />
-    <line x1="1000" y1="180" x2="720" y2="290" />
-    <line x1="1000" y1="440" x2="720" y2="350" />
+  <!-- System Highlight Container (rx=0) -->
+  <rect x="614" y="440" width="564" height="106" rx="0" fill="#1E1E26" stroke="#2B2B36" stroke-width="1" />
+  <text x="634" y="468" fill="#DE2626" font-size="11" font-family="monospace" font-weight="800" letter-spacing="1">SYSTEM HIGHLIGHT</text>
+  <text x="634" y="494" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="500">Deterministic verification across all boundary interfaces.</text>
+  <text x="634" y="520" fill="#A1A1AA" font-size="12" font-family="monospace">Zero syntax hallucinations · O(1) field cache · Atomic disk commits</text>
+
+  <!-- Footer Line & Metadata -->
+  <line x1="72" y1="584" x2="1208" y2="584" stroke="#262630" stroke-width="1" />
+  <text x="72" y="612" fill="#71717A" font-size="12" font-family="monospace" font-weight="600" letter-spacing="1">ELTON BOEHNEN • ZERO-SQL ARCHITECTURE</text>
+
+  <!-- Bottom-Right Brand Lock -->
+  <g transform="translate(1048, 592)">
+    <text x="0" y="20" fill="#FFFFFF" font-size="20" font-family="system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="1.5">BEJSON</text>
+    <g transform="translate(98, 2)">
+      <polygon points="12,2 22,7 12,12 2,7" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+      <polygon points="12,4 18,7 12,10 6,7" fill="#111113" opacity="0.9" />
+      <polygon points="2,7 12,12 12,24 2,19" fill="#1C1C22" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+      <polygon points="12,12 22,7 22,19 12,24" fill="#DE2626" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+    </g>
   </g>
-
-  <!-- ORGANELLE 1 (Top-Left): Cellular Membrane / Kernel Lock -->
-  <g transform="translate(180, 130)">
-    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
-    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">MEMBRANE ENVELOPE</text>
-    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">POSIX flock(LOCK_EX)</text>
-    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Non-blocking Isolation</text>
-    <circle cx="180" cy="24" r="4" fill="#DE2626" />
-  </g>
-
-  <!-- ORGANELLE 2 (Bottom-Left): Ribosome / Field Map Cache -->
-  <g transform="translate(180, 390)">
-    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
-    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">RIBOSOME TRANSLATOR</text>
-    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">FieldMapCache O(1)</text>
-    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Policy &#167;6.2 Compliance</text>
-    <circle cx="180" cy="24" r="4" fill="#DE2626" />
-  </g>
-
-  <!-- ORGANELLE 3 (Top-Right): Mitochondria / Compute Daemons -->
-  <g transform="translate(900, 130)">
-    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
-    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">MITOCHONDRIA WORKER</text>
-    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">Detached setsid()</text>
-    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Survives PTY Dropouts</text>
-    <circle cx="180" cy="24" r="4" fill="#DE2626" />
-  </g>
-
-  <!-- ORGANELLE 4 (Bottom-Right): Epimorphic Blastema / Shards -->
-  <g transform="translate(900, 390)">
-    <rect width="200" height="90" rx="4" fill="#0c0c10" stroke="#DE2626" stroke-width="1" />
-    <text x="16" y="28" fill="#DE2626" font-size="12" font-family="monospace" font-weight="700">BLASTEMA RECOVERY</text>
-    <text x="16" y="48" fill="#FFFFFF" font-size="11" font-family="monospace">Epimorphic Healing</text>
-    <text x="16" y="68" fill="#888899" font-size="10" font-family="monospace">Resurrects from Shards</text>
-    <circle cx="180" cy="24" r="4" fill="#DE2626" />
-  </g>
-
-  <!-- CENTRAL NUCLEUS NODE (BEJSON 104 Isometric Cube) -->
-  <g transform="translate(640, 320)">
-    <!-- Central Glow Pulse -->
-    <circle cx="0" cy="0" r="110" fill="#DE2626" opacity="0.12" filter="url(#membraneGlow)" />
-    
-    <!-- Isometric Cube: Top Face -->
-    <polygon points="0,-75 85,-32 0,11 -85,-32" fill="url(#nucleusTop)" stroke="#FFFFFF" stroke-width="1.5" />
-    
-    <!-- Isometric Cube: Left Face -->
-    <polygon points="-85,-32 0,11 0,98 -85,55" fill="url(#nucleusLeft)" stroke="#AAAAAA" stroke-width="1.5" />
-    
-    <!-- Isometric Cube: Right Face -->
-    <polygon points="0,11 85,-32 85,55 0,98" fill="url(#nucleusRight)" stroke="#666666" stroke-width="1.5" />
-
-    <!-- Red Laser Core Ring -->
-    <ellipse cx="0" cy="11" rx="92" ry="46" fill="none" stroke="#DE2626" stroke-width="2" filter="url(#membraneGlow)" />
-    
-    <!-- Nucleus Center Label -->
-    <text x="0" y="-8" fill="#DE2626" font-size="13" font-family="monospace" font-weight="900" text-anchor="middle" letter-spacing="2">CELL NUCLEUS</text>
-    <text x="0" y="8" fill="#000000" font-size="10" font-family="monospace" font-weight="700" text-anchor="middle">BEJSON 104 MATRIX</text>
-  </g>
-
-  <!-- Footer Banner Title & Subtitle -->
-  <text x="640" y="475" fill="#FFFFFF" font-size="24" font-family="sans-serif" font-weight="900" text-anchor="middle" letter-spacing="1">CODE AS BIOLOGICAL SUBSTRATE</text>
-  <text x="640" y="505" fill="#DE2626" font-size="14" font-family="monospace" font-weight="700" text-anchor="middle" letter-spacing="2">THE LIVING ARCHITECTURE OF RESILIENT AUTONOMOUS SYSTEMS</text>
-  <text x="640" y="530" fill="#888899" font-size="11" font-family="monospace" text-anchor="middle" letter-spacing="1">ELTON BOEHNEN &#8226; ZERO-SQL CELLULAR RUNTIME</text>
-
-  <!-- Bottom Accent Status Line -->
-  <line x1="0" y1="636" x2="1280" y2="636" stroke="#DE2626" stroke-width="4" />
 </svg>

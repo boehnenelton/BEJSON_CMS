@@ -16,19 +16,19 @@
 - [Visual Interface Tour & Audit Telemetry](#visual-interface-tour--audit-telemetry)
 - [Complete Feature Catalog & Capabilities Matrix](#complete-feature-catalog--capabilities-matrix)
 - [User Workflows & Operational Guides](#user-workflows--operational-guides)
-  - [1. Article Authoring & Editing in PageEditor V2](#1-article-authoring--editing-in-pageeditor-v2)
+  - [1. Article Authoring & Topical Links in Page Editor](#1-article-authoring--topical-links-in-page-editor)
   - [2. AI Writer & Standardized 4-Part BKS-1 System](#2-ai-writer--standardized-4-part-bks-1-system)
   - [3. Markdown Import & Batch Conversion Pipeline](#3-markdown-import--batch-conversion-pipeline)
-  - [4. Media Asset Pipeline & Thumbnails](#4-media-asset-pipeline--thumbnails)
+  - [4. Media Asset Pipeline, Thumbnails & Global External Links](#4-media-asset-pipeline-thumbnails--global-external-links)
   - [5. Standalone Web Application Hosting](#5-standalone-web-application-hosting)
   - [6. Static Site Compilation & Cloudflare Publishing](#6-static-site-compilation--cloudflare-publishing)
   - [7. AI Persona Management & Cognitive Directives in Persona Editor](#7-ai-persona-management--cognitive-directives-in-persona-editor)
 - [System Architecture & Microservice Topology](#system-architecture--microservice-topology)
   - [Admin Suite (:5001) & Architectural Blueprints](#admin-suite-5001--architectural-blueprints)
   - [Static Site Publisher (:5002)](#static-site-publisher-5002)
-  - [Page Editor V1 (:5003)](#page-editor-v1-5003)
+  - [Primary Page Editor (:5003)](#primary-page-editor-5003)
   - [Persona Editor (:5004)](#persona-editor-5004)
-  - [Page Editor V2 Workspace (:5005 / :5010)](#page-editor-v2-workspace-5005--5010)
+  - [Page Editor V2 (Deprecated & Archived)](#page-editor-v2-deprecated--archived)
   - [Shared Web Infrastructure (BEJSON_CMS_Shared.py)](#shared-web-infrastructure-bejson_cms_sharedpy)
 - [Data Storage Engine & BEJSON Schemas](#data-storage-engine--bejson-schemas)
   - [The Positional Matrix Paradigm](#the-positional-matrix-paradigm)
@@ -115,9 +115,9 @@ export CMS_SECRET_KEY="generate-secure-random-token"    # Flask session signing 
 # Microservice Port Allocations
 export CMS_ADMIN_PORT="5001"                            # Admin Suite & Blueprints
 export CMS_PUBLISHER_PORT="5002"                        # Static Publisher & Preview Server
-export CMS_PAGEEDITOR_PORT="5003"                       # Page Editor V1 (Classic Code)
-export CMS_PROFILES_PORT="5004"                         # Author & Persona Profile Hub
-export CMS_PAGEEDITORV2_PORT="5005"                     # Page Editor V2 (API Workspace)
+export CMS_PAGEEDITOR_PORT="5003"                       # Primary Page Editor (HTML, Markdown & Topical Links)
+export CMS_PROFILES_PORT="5004"                         # Author & Persona Profile Hub (Persona Editor v1.5)
+export CMS_PAGEEDITORV2_PORT="5005"                     # Legacy Port Allocation (PageEditor V2 Deprecated/Archived)
 
 # Filesystem & Data Store Overrides (For custom mount targets)
 export CMS_DATA_ROOT="./storage/mfdb"                   # Master MFDB database root
@@ -127,14 +127,14 @@ export CMS_ASSETS_ROOT="./storage/mfdb/assets"          # Local media asset repo
 
 | Variable | Default Value | Target Config Key | Architectural Role |
 | :--- | :--- | :--- | :--- |
-| `CMS_USER` | `admin` | `admin_user` | HTTP Basic Auth identity across all 5 web apps. |
+| `CMS_USER` | `admin` | `admin_user` | HTTP Basic Auth identity across all web apps. |
 | `CMS_PASSWORD` | `changeme` | `admin_password` | Master password protection on all service endpoints. |
 | `CMS_SECRET_KEY` | Dynamic Hex | `secret_key` | Cryptographic secret for signing client session cookies. |
 | `CMS_ADMIN_PORT` | `5001` | `admin_port` | Primary administrative hub (Content, Media, System, Interface). |
 | `CMS_PUBLISHER_PORT` | `5002` | `publisher_port` | Static compiler, build log streamer, and preview host. |
-| `CMS_PAGEEDITOR_PORT` | `5003` | `pageeditor_port` | Monolithic HTML editor with live iframe preview. |
-| `CMS_PROFILES_PORT` | `5004` | `profiles_port` | Profile repository for author bios and system personas. |
-| `CMS_PAGEEDITORV2_PORT`| `5005` | `pageeditorv2_port` | Modern reactive editing workspace with BKS-1 job studio. |
+| `CMS_PAGEEDITOR_PORT` | `5003` | `pageeditor_port` | Primary Page Editor with live iframe preview and Topical Links modal. |
+| `CMS_PROFILES_PORT` | `5004` | `profiles_port` | Persona Editor v1.5 for author bios and 24-field AI personas. |
+| `CMS_PAGEEDITORV2_PORT`| `5005` | `pageeditorv2_port` | Deprecated/Archived PageEditor V2 (`dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip`). |
 | `CMS_DATA_ROOT` | `storage/mfdb` | `mfdb_path` | Working database manifest directory. |
 
 
@@ -150,27 +150,27 @@ BEJSON CMS provides three distinct process supervisors engineered for different 
 
 ### 1. Advanced TUI Multi-Service Supervisor (`advanced_launcher.py`)
 
-The primary operational launcher is `advanced_launcher.py`. Engineered with a strict 57-column viewport boundary, it functions reliably even on narrow mobile terminal sessions while monitoring all 5 services concurrently.
+The primary operational launcher is `advanced_launcher.py`. Engineered with a strict 57-column viewport boundary, it functions reliably even on narrow mobile terminal sessions while monitoring the active services concurrently.
 
 ```bash
 python3 advanced_launcher.py
 ```
 
 #### Key Capabilities & Features of the TUI Launcher:
-- **5-Row Positional Service Table**: Live display of service ID, runtime status (`RUN` / `OFF`), process ID (PID), port binding, active uptime timer, and friendly service identifier.
+- **Positional Service Table**: Live display of service ID, runtime status (`RUN` / `OFF`), process ID (PID), port binding, active uptime timer, and friendly service identifier.
 - **Persistent State Tracking**: Real-time process states, process IDs, and port assignments are recorded atomically into `storage/tmp/launcher_registry.104a.bejson` using field-map cached writes.
 - **Direct Compound Control Grammar**:
-  - `1`–`5`: Toggle service on or off (`1` Admin, `2` Publisher, `3` Editor V1, `4` Profiles, `5` Editor V2).
-  - `r1`–`r5` (or `R`): Perform a clean service restart.
-  - `k1`–`k5` (or `K`): Send an immediate `SIGKILL` to clear hung sockets.
-  - `l1`–`l5` (or `L`): View the trailing 30 lines of service log streams (`storage/logs/launcher_<service>.log`).
-  - `o1`–`o5` (or `O`): Trigger external browser dispatch directly to the service URL.
+  - `1`–`4`: Toggle active service on or off (`1` Admin, `2` Publisher, `3` Primary Page Editor, `4` Persona Editor / Profiles; slot `5` Page Editor V2 is deprecated and archived at `dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip`).
+  - `r1`–`r4` (or `R`): Perform a clean service restart.
+  - `k1`–`k4` (or `K`): Send an immediate `SIGKILL` to clear hung sockets.
+  - `l1`–`l4` (or `L`): View the trailing 30 lines of service log streams (`storage/logs/launcher_<service>.log`).
+  - `o1`–`o4` (or `O`): Trigger external browser dispatch directly to the service URL.
   - `S`: Start all configured services sequentially.
   - `Z`: Terminate all active CMS services cleanly.
-  - `P`: Execute live TCP socket health probes across all 5 target ports.
+  - `P`: Execute live TCP socket health probes across target ports.
   - `C`: Launch the interactive port configuration editor.
   - `E`: Inspect environment variable overrides.
-  - `Q`: Detach from the TUI interface while allowing background background services to continue running.
+  - `Q`: Detach from the TUI interface while allowing background services to continue running.
   - `X`: Cleanly shut down all child services and exit.
 
 ### 2. Isolated Single-Service Shell Launcher (`cms_launcher.sh`)
@@ -184,15 +184,15 @@ For embedded environments, continuous integration runners, or minimal mobile har
 # Launch Static Site Publisher (Port 5002)
 ./cms_launcher.sh publisher
 
-# Launch Page Editor V1 (Port 5003)
+# Launch Primary Page Editor (Port 5003)
 ./cms_launcher.sh editor
 
-# Launch Profile Manager (Port 5004)
+# Launch Persona Editor / Profile Manager (Port 5004)
 ./cms_launcher.sh profiles
-
-# Launch Page Editor V2 Workspace (Port 5005)
-./cms_launcher.sh editorv2
 ```
+
+> [!WARNING]
+> **Deprecation & Archival Notice**: `BEJSON_CMS_PageEditorV2.py` (Second Page Editor) is officially deprecated and has been archived to `dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip`. All page editing, Markdown authoring, media insertion, and Topical Links attachment are consolidated in the primary `BEJSON_CMS_PageEditor.py` (`:5003`).
 
 ### 3. One-Tap Mobile Entry Point (`pydroid_start.py`)
 
@@ -214,51 +214,53 @@ This automatically verifies dependencies, initializes the local filesystem struc
 The BEJSON CMS interface enforces a unified tri-color palette (`#000000` deep canvas, `#FFFFFF` crisp typography, `#DE2626` high-contrast interactive accent) providing clear visual hierarchy across all viewports.
 
 ### 1. Admin Suite Dashboard (`http://127.0.0.1:5001/`)
-The executive nerve center of the CMS. It displays real-time entity count telemetry across Pages, Standalone Applications, Categories, and Media Assets. Quick-action buttons provide instant access to the Page Creator, Media Upload modal, Static Site Publisher, and System Diagnostics.
+The central administrative hub of the CMS. It displays real-time entity count telemetry across Pages, Standalone Applications, Categories, and Media Assets. Quick-action buttons provide instant access to the Page Creator, Media Upload modal, AI Writer (`/jobs`), Static Site Publisher, and System Diagnostics.
 
 ### 2. Content & Pages Manager (`http://127.0.0.1:5001/pages`)
 A unified interface for managing written content. Features include:
 - Categorized tab filtering for quick browsing across topics.
 - Live search filtering by title, slug, or author.
 - One-click page duplication for rapid article templating.
-- Direct links to both Page Editor V1 and PageEditor V2 workspaces.
+- Direct links to the Primary Page Editor (`:5003`) workspace.
 - Inline status badges indicating publication state and featured media associations.
 
-### 3. Media Library & Embed Engine (`http://127.0.0.1:5001/assets`)
-A comprehensive digital asset management system:
+### 3. Media Library & Global External Link Registry (`http://127.0.0.1:5001/assets` & `/media`)
+A comprehensive digital asset and global external link management system:
 - **Local Media Tab**: Displays uploaded graphics, audio, and documents with file size, SHA-256 integrity hash, dimensions, and MIME type.
-- **YouTube Embed Tab**: Embeds external videos, parses YouTube video IDs, and displays video card previews.
-- **External Documents Tab**: Registers externally hosted files (such as whitepapers and PDFs) with direct preview links.
+- **Global External Links & Media (`ExternalMedia`)**: Centralized repository (`storage/mfdb/site_master/data/externalmedia.bejson`) for cataloging external links across 8 canonical link types (`github`, `video`, `demo`, `doc`, `website`, `pdf`, `image`, `other`) with type badges, labels, and target URLs.
+- **Topical Links JSON API**: Exposes `/api/media/external_links` and `/api/media/external/add` so external resources can be registered once in the Media Library and attached to any number of pages.
 - **Asset Replacement**: Allows in-place replacement of existing files without breaking relational references across published pages.
 
-### 4. Page Editor V2 Workspace (`http://127.0.0.1:5005/`)
-A responsive, dual-mode content engineering studio:
-- **Metadata Pane**: Configure page title, URL slug, category, author attribution, template layout, featured image, and featured video link.
-- **Content Tabs**:
-  - *HTML Editor*: Monolithic raw HTML editing with responsive side-by-side or stacked preview.
-  - *Markdown Source*: Full CommonMark editor with real-time conversion preview and format validation.
-  - *AI Architect / BKS-1 Studio*: 4-part structured planning, part-by-part content generation, and one-click post merging.
-- **Asset Integration Drawers**: Quick-insert modals for local image assets, YouTube video players, and inline PDF viewports.
+### 4. Primary Page Editor (`http://127.0.0.1:5003/`)
+The canonical authoring and resource-linking studio (`src/web/BEJSON_CMS_PageEditor.py`):
+- **Metadata & Content Editing**: Configure page title, URL slug, category, author attribution, layout template, featured image, featured video URL, HTML body, and Markdown source with live iframe preview.
+- **Topical Links Selector Modal (`🔗 Topical Links`)**:
+  - Opens a modal populated from the global `ExternalMedia` registry with live search filtering by label, type, or URL.
+  - Checkbox selection attaches any combination of external links (`extmedia_uuid` references) to the current page's `page_topical_links` field via `GET/POST /api/topical_links`.
+  - Includes an inline **+ New Link** form to register new GitHub repositories, YouTube videos, live demos, or documentation links directly into the global `ExternalMedia` table and auto-check them for the active page.
+- **Asset Integration Modals**: Quick-insert pickers for local images, YouTube video players, and inline PDF viewports.
 
 ### 5. Persona Editor & Profile Manager (`http://127.0.0.1:5004/`)
-A modernized, responsive 5-tab identity and cognitive directives studio:
-- **Interactive 3D Isometric Cube Avatars**: Deterministic, color-mapped HTML5 Canvas 3D cube visualizer generated from profile name hashes with interactive rotation controls.
-- **Dual-Entity Synchronization**: Seamlessly synchronizes public author attribution records (`AuthorProfile`) and AI generation profiles (`AI_Profile`).
+A hardened, responsive 5-tab identity and cognitive directives studio (`src/web/BEJSON_CMS_ProfileManager.py` v1.5, paired with `src/lib/lib_cms_persona_writer.py` v2.0):
+- **Interactive 3D Isometric Cube & Sanitized SVG Avatars**: Deterministic HTML5 Canvas 3D cube visualizer seeded from persona name hashes, plus support for static image URLs and server-sanitized custom SVG / `data:image/svg+xml` payloads (`lib_bejson_Core_svg_sanitizer.py`).
+- **Dual-Entity Synchronization & Rename Cascade**: Synchronizes public author records (`AuthorProfile`) and 24-field AI generation profiles (`AI_Profile`, registered in `lib_bejson_CMS_taxonomy.py`). Renaming a persona cascades atomically across `AI_Profile.Name`, `AuthorProfile.author_id` / `author_display_name`, and `PageRecord.page_author_name`. The canonical default persona (`boehnenelton2024`) is protected against deletion.
 - **5-Tab Multi-Tier Workspace**:
-  - *Identity*: Author display name, avatar URL, biography, contact email, website URL, and social media handles.
-  - *Model Parameters*: Engine and provider selection (Gemini, Groq, OpenRouter), temperature, top_p, top_k, max output tokens, and Python code interpreter execution gates.
-  - *Tone Matrix*: Interactive tone matrix chips (Technical & Grounded, Direct, Academic, Conversational, Playful, Authoritative, Minimalist, Poetic) and vocabulary tiers.
-  - *Cognitive Directives*: Target audience, domain authority, content density, forbidden phrases, narrative perspective, structural quirks, and system instruction seeds.
-  - *Prompt Preview*: Live compiled system prompt inspector displaying exact prompt assembly, line counts, and character statistics.
-- **Offline-First Privacy**: Complete eradication of third-party Google Search Grounding to prevent external data leaks and guarantee offline reliability.
-- **Mobile Responsive Controls**: Segmented view switcher enabling fluid navigation between touch catalog lists and full-screen editor panes.
+  - *1. Identity*: Persona `Name`, `Archetype` (`Technical Writer`, `Systems Architect`, `Security Researcher`, `Educator`, `Editor`, `Custom`), `Active` status toggle, `Avatar_Type` (`cube`, `url`, `svg`), `Avatar_sourceUrl`, `Avatar_Data`, `Persona` summary, and `SystemInstruction` seed, plus synchronized `AuthorProfile` fields (`author_bio`, `author_email`, `author_website_url`, `author_social_links`).
+  - *2. Tones*: Interactive 16-chip Tone Matrix (`Technical`, `Direct`, `Pragmatic`, `Analytical`, `Rigorous`, `Skeptical`, `Concise`, `Formal`, `Conversational`, `Didactic`, `Socratic`, `Objective`, `Minimalist`, `Authoritative`, `Empathetic`, `Witty`), custom tone tags, `Formality` (`Low`, `Medium`, `High`, `Academic`), `Verbosity` (`Concise`, `Balanced`, `Comprehensive`, `Exhaustive`), and `EmotionalExpression_Enabled` / `EmotionalExpression_Intensity` (`0.0`–`1.0`).
+  - *3. Cognition*: `Creativity` temperature slider (`0.0`–`2.0`), `MaxResponseTokens` (`64`–`65536`), `Thinking_Supported`, `EphemeralMemory`, and `ForbiddenTopics` chip editor.
+  - *4. Tools & Code*: `CodeInterpreter_Enabled`, `CodeParsing_Mode` (` strict `, `permissive`, `ast_verified`, `disabled`), `CodeParsing_StructureValidation`, `CodeParsing_VersionControl`, and `CodeParsing_Languages` chip editor.
+  - *5. Prompt & Preview*: Live assembled system instruction preview with 1-to-1 parity between client-side `updateLivePreview()` and backend `PersonaWriter.assemble_system_instruction()` across all 11 directive blocks (`[IDENTITY]`, `[TONE]`, `[DELIVERY]`, `[EMOTIONAL_EXPRESSION]`, `[COGNITIVE_GATES]`, `[CODE_PARSING]`, `[VOICE_DIRECTIVES]`, `[SYSTEM_INSTRUCTION]`, `[LANGUAGES]`, `[FORBIDDEN_TOPICS]`, `[SAFETY_BOUNDARIES]`), plus a live AI Test Playground.
+- **Inactive Persona Execution Gate**: Setting `Active=False` blocks the persona from being loaded by `PersonaWriter.get_persona()` or executed via `PersonaWriter.dispatch_ai()` (unless `allow_inactive=True` is explicitly requested for administrative inspection).
+- **Same-Origin CSRF Guard**: All state-changing POST routes (`/save`, `/delete/<name>`, `/duplicate/<name>`, `/seed-defaults`, `/api/test-generate`) enforce strict `Origin` / `Referer` host verification.
 
 ### 6. Static Site Publisher (`http://127.0.0.1:5002/`)
-The build operations center. Monitors database mount status, tracks output file counts, streams build logs during static site compilation, provides a local test server controller, and deploys directly to edge networks.
+The build operations center (`src/web/BEJSON_CMS_Publisher.py`). Monitors database mount status, tracks output file counts, streams build logs during static site compilation, provides a local test server controller, and compiles:
+- **2-Column Topical Links Grid (`.topical-links-grid`)**: Automatically resolves each page's `page_topical_links` UUID list against `ExternalMedia` and renders a responsive 2-column card grid (collapsing to 1 column on `<640px` mobile viewports) directly below the article body.
+- **Canonical Footer Attribution**: Renders the centered small-print footer notice `Polyglot Non Commercial - BEJSON_CMS` across all compiled pages, with `BEJSON_CMS` linked to `https://github.com/boehnenelton/BEJSON_CMS`.
 
 
 ![Figure: 04 Page Editor V2](images/04_page_editor_v2.png)
-*_Figure 4: Page Editor V2 Workspace with Responsive Content Controls_*
+*_Figure 4: Historical Capture of Page Editor Workspace_*
 
 
 ---
@@ -269,24 +271,25 @@ BEJSON CMS provides a comprehensive suite of content management, static compilat
 
 ### 1. Data Persistence & Architecture
 - **Zero-SQL Flat Matrix Engine**: All data resides in human-readable, version-controlled BEJSON files.
-- **Multi-File Database Federation (MFDB)**: Central manifest (`104a.mfdb.bejson`) tracks 12 relational entity files with verified Parent-Hierarchy header links.
+- **Multi-File Database Federation (MFDB)**: Central manifest (`104a.mfdb.bejson`) tracks 13 relational entity files (`PageRecord`, `Category`, `AuthorProfile`, `MediaAsset`, `ExternalMedia`, `AdUnit`, `StandaloneApp`, `NavLink`, `SiteConfig`, `SocialLink`, `PageVideoMetadata`, `PageDocumentMetadata`, `AI_Profile`) with verified Parent-Hierarchy header links.
 - **O(1) Field Map Caching**: Compiles in-memory index dictionaries to eliminate hardcoded column indices and prevent field-drift bugs.
 - **Atomic File Operations**: Employs POSIX-compliant atomic temporary file creation, byte flushing, `fsync()`, and file replacement to guarantee zero data corruption during power interruptions or process termination.
 - **Manifest Count Synchronization**: Automatically calculates and synchronizes record counts between physical entity files and the master manifest.
 
-### 2. Content Creation & Authoring
-- **Dual Cross-Compatible Editors**: Choose between classic server-rendered Page Editor V1 or the modern API-driven Page Editor V2.
+### 2. Content Creation, Authoring & Topical Links
+- **Consolidated Primary Page Editor (`:5003`)**: Unified HTML and CommonMark Markdown authoring with live preview and asset modals (`BEJSON_CMS_PageEditorV2.py` is deprecated and archived at `dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip`).
+- **Global Topical Links & 2-Column Resource Grid**: Attach reusable external links (`github`, `video`, `demo`, `doc`, `website`, `pdf`, `image`, `other`) from the global `ExternalMedia` library to any article via the Page Editor's `🔗 Topical Links` modal (`PageRecord.page_topical_links`), rendering a responsive 2-column `.topical-links-grid` below published posts.
 - **Hybrid Markdown & HTML Storage**: Store raw Markdown source code alongside rendered HTML bodies in individual `pages_db/<uuid>.json` containers.
-- **BKS-1 4-Part Job System**: Built-in 4-part structured blog post generator supporting automated planning, outline drafting, part-by-part expansion, and seamless target post replacement.
+- **BKS-1 4-Part Job System**: Built-in 4-part structured blog post generator (`/jobs`) supporting automated planning, outline drafting, part-by-part expansion, and seamless target post replacement.
 - **CommonMark Markdown Import**: CLI and web-based import pipeline converting external `.md` files or directory trees into formatted CMS articles with callout blocks, tables, code highlighting, and metadata extraction.
 - **Polymorphic Page Types**: Supports standard articles, video landing pages with responsive 16:9 players, document downloads with PDF viewports, and custom web applications.
 
-### 3. Media Asset Management
+### 3. Media Asset & External Link Management
 - **Streaming Uploads**: Direct-to-disk 64KB chunked stream processing capable of handling large media files with minimal RAM consumption.
 - **SHA-256 Deduplication**: Generates cryptographic digests on ingest; duplicate uploads automatically reuse existing storage assets.
 - **Asynchronous Thumbnail Worker**: Dedicated background serial queue creates downscaled image thumbnails using Pillow with automatic garbage collection between tasks.
 - **WebP Optimization**: Built-in CLI command converts PNG assets to high-efficiency WebP format while updating database references in place.
-- **External Media Registration**: Catalog external YouTube videos, Vimeo streams, and remote PDFs without consuming local disk space.
+- **Global External Media & Link Registry**: Catalog external GitHub repositories, YouTube videos, live demos, documentation sites, and remote PDFs in `externalmedia.bejson` without consuming local disk space.
 
 ### 4. Standalone Application Hosting
 - **Containerized Zip Extraction**: Upload standalone single-page applications, interactive calculators, or HTML5 tools as `.zip` packages.
@@ -295,14 +298,17 @@ BEJSON CMS provides a comprehensive suite of content management, static compilat
 
 ### 5. Static Publishing & Edge Deployment
 - **Zero-Dependency Static HTML**: Compiles all dynamic entities into pre-rendered static files in `storage/builds/`.
-- **Tri-Color Design Themes**: Bundled dark (`dark.css`) and light (`light.css`) theme stylesheets adhering to strict typographic scales.
+- **Canonical Footer Attribution**: Every published page renders a centered small-print footer notice (`Polyglot Non Commercial - BEJSON_CMS`) linking `BEJSON_CMS` to `https://github.com/boehnenelton/BEJSON_CMS`.
+- **Tri-Color Design Themes**: Bundled dark (`dark.css`) and light (`light.css`) theme stylesheets adhering to strict typographic scales and responsive `.topical-links-grid` rules.
 - **Automated Sitemaps & Feeds**: Generates `sitemap.xml`, `robots.txt`, and categorized archive feeds automatically on every build.
 - **Built-in Local Preview Server**: Integrated HTTP server controller on port 8080 allows local verification of static builds before deployment.
 - **Cloudflare Pages Hook**: One-click webhook trigger deploys compiled static files directly to global edge networks.
 
-### 6. Security & Infrastructure
+### 6. Security, Persona Governance & Infrastructure
 - **Comprehensive Path Traversal Protection**: Uses `bejson_safe_join()` to resolve absolute canonical paths and verify directory boundaries across all file-serving endpoints.
-- **Centralized Basic Authentication**: Single shared `@app.before_request` hook secures all five microservices against unauthorized access.
+- **Same-Origin CSRF & SVG Sanitization**: State-changing POST requests in the Persona Editor validate `Origin` / `Referer` headers against `request.host`, and custom SVG / Data URI avatars are stripped of `<script>`, `<foreignObject>`, and `on*` event attributes via `lib_bejson_Core_svg_sanitizer.py`.
+- **1-to-1 Persona Prompt Parity & Execution Gating**: `PersonaWriter.assemble_system_instruction()` compiles all 24 `AI_Profile` fields identically to the live UI preview and blocks inactive (`Active=False`) personas from AI dispatch.
+- **Centralized Basic Authentication**: Single shared `@app.before_request` hook secures all microservices against unauthorized access.
 - **57-Column TUI Supervisor**: Full-featured process monitor and terminal manager for resource-constrained development environments.
 
 
@@ -326,24 +332,27 @@ BEJSON CMS provides a comprehensive suite of content management, static compilat
 
 ## User Workflows & Operational Guides
 
-### 1. Article Authoring & Editing in PageEditor V2
+### 1. Article Authoring & Topical Links in Page Editor
 
-Page Editor V2 provides an intuitive interface for drafting and publishing articles:
+The Primary Page Editor (`src/web/BEJSON_CMS_PageEditor.py`, port 5003) provides a unified workspace for drafting articles, managing metadata, and attaching global Topical Links:
 
-1. **Access Workspace**: Navigate to `http://127.0.0.1:5005/` in your browser.
-2. **Select or Create**: Choose an existing article from the left drawer or click **+ New Page**.
+1. **Access Workspace**: Navigate to `http://127.0.0.1:5003/` in your browser (or click **Edit** on any page in `:5001/pages`).
+2. **Select or Create**: Choose an existing article from the left page list or create a new page.
 3. **Configure Metadata**:
-   - Set the **Page Title** and verify the automatically generated **URL Slug**.
-   - Assign the appropriate **Category** from the dropdown menu.
-   - Select the **Author Attribution** profile.
-   - Choose a layout template (`default`, `full-width`, `minimal`).
+   - Set the **Page Title** and verify the **URL Slug**.
+   - Assign the **Category**, **Page Type** (`blog`, `article`, `video`, `document`, `page`), and **Author Attribution** profile.
+   - Choose a layout template (`default`, `full-width`, `minimal`), featured image, or featured video URL.
 4. **Author Content**:
-   - Write directly in the **HTML Editor** or switch to the **Markdown Source** tab.
-   - Click **Media Picker** to insert image references from the local asset library.
-   - Click **Insert Video** or **Insert PDF** to embed media players or document viewports.
-5. **Save & Preview**:
-   - Click **Save Changes** (or press `Ctrl+S`). The editor validates JSON payloads and atomically updates `pages_db/<uuid>.json` and `pagerecord.bejson`.
-   - Review changes in real time in the live preview pane.
+   - Write directly in the **HTML Editor** or **Markdown Source** editor and use `/api/md2html` to convert CommonMark to semantic CMS HTML.
+   - Use the **Media Picker**, **Video**, or **PDF** tools to insert local assets or embeds.
+5. **Attach Topical Links (`🔗 Topical Links` Modal)**:
+   - Click the **🔗 Topical Links** button in the Page Editor toolbar to open the global link selector modal (`#topical-links-modal`).
+   - Check off any existing external links from the global `ExternalMedia` library (`github`, `video`, `demo`, `doc`, `website`, `pdf`, `image`, `other`) or filter links using the search bar.
+   - Need a new link for your project? Use the inline **+ New Link** form inside the modal to create a new global `ExternalMedia` entry (`POST /api/media/external/add`); it is immediately saved to `externalmedia.bejson` and automatically checked for the current page.
+   - Click **Save Topical Links** (`POST /api/topical_links`) or save the page (`POST /api/save`); the selected `extmedia_uuid` array is persisted to `PageRecord.page_topical_links`.
+6. **Save & Preview**:
+   - Click **Save** (or press `Ctrl+S`). The editor atomically updates `pages_db/<uuid>.json` and `pagerecord.bejson` and refreshes the live preview iframe.
+   - On static site build (`python3 src/cms-manage.py publish`), attached Topical Links render below the article content in a responsive 2-column grid (`.topical-links-grid`).
 
 ---
 
@@ -361,7 +370,7 @@ BEJSON CMS includes a standardized 4-part job framework for long-form technical 
 └─────────────────┴─────────────────┴─────────────┴───────────────┘
 ```
 
-#### Executing a Job via AI Writer Studio (`:5001/jobs` or PageEditor V2 `:5005 #t-tasking`):
+#### Executing a Job via AI Writer Studio (`:5001/jobs`):
 1. **Choose Template / BookType**:
    - `blog_post_4part`: Standard 4-part publication (Introduction, Core Architecture, Implementation, Future Horizons).
    - `technical_deep_dive_4part`: Rigorous engineering breakdown with code blocks and specifications.
@@ -424,18 +433,24 @@ python3 src/cms-manage.py page md-import   --category "Guides"   --recursive   -
 
 ---
 
-### 4. Media Asset Pipeline & Thumbnails
+### 4. Media Asset Pipeline, Thumbnails & Global External Links
 
-1. **Upload Asset**: Navigate to `:5001/assets` or use the CLI:
+1. **Upload Local Asset**: Navigate to `:5001/assets` (or `/media`) or use the CLI:
    ```bash
    python3 src/cms-manage.py asset add ./brand_graphics/hero_banner.png
    ```
-2. **Processing Pipeline**:
+2. **Local Asset Processing Pipeline**:
    - The file is streamed to `storage/mfdb/assets/<filename>` in 64KB chunks.
    - The SHA-256 hash is computed. If an identical file exists, the existing record is reused.
    - A background worker creates a downscaled thumbnail in `storage/mfdb/assets/_thumbs/<filename>`.
    - The record is appended to `storage/mfdb/site_master/data/mediaasset.bejson`.
-3. **WebP Optimization**:
+3. **Global External Links (`ExternalMedia`)**:
+   - Register reusable external links (`github`, `video`, `demo`, `doc`, `website`, `pdf`, `image`, `other`) in `:5001/media` (External Media & Links section), via `POST /api/media/external/add`, or via CLI:
+     ```bash
+     python3 src/cms-manage.py asset add-external "Project GitHub Repo" "github" "https://github.com/boehnenelton/BEJSON_CMS"
+     ```
+   - Registered links are stored globally in `storage/mfdb/site_master/data/externalmedia.bejson` and can be checked off on any article using the Page Editor's `🔗 Topical Links` modal.
+4. **WebP Optimization**:
    ```bash
    # Convert all PNG assets to WebP and update database references in place
    python3 src/cms-manage.py asset optimize
@@ -464,21 +479,25 @@ Host interactive HTML/CSS/JavaScript web applications directly within BEJSON CMS
 
 1. **Trigger Static Build**:
    ```bash
-   # Trigger build via HTTP POST from CLI
+   # Trigger build via CLI
+   python3 src/cms-manage.py publish
+
+   # Or trigger build via HTTP POST
    curl -u admin:changeme -X POST http://127.0.0.1:5002/publish/build
    ```
 2. **Verify Output**: The compiled static website is assembled in `storage/builds/`:
    ```
    storage/builds/
-   ├── index.html                   # Home page with recent article feeds
-   ├── style.css                    # Active theme stylesheet
+   ├── index.html                   # Home page with recent article feeds & footer attribution
+   ├── style.css                    # Active theme stylesheet (including .topical-links-grid)
    ├── sitemap.xml                  # Search engine XML sitemap
    ├── robots.txt                   # Web crawler configuration
    ├── assets/                      # Referenced media files and thumbnails
    ├── apps/                        # Standalone web applications
    ├── categories/                  # Category archive feeds
-   └── <page_slug>.html             # Rendered static article pages
+   └── <page_slug>.html             # Rendered static article pages with 2-col Topical Links grid
    ```
+   Every compiled page includes the centered small-print footer notice `Polyglot Non Commercial - BEJSON_CMS` (linking `BEJSON_CMS` to `https://github.com/boehnenelton/BEJSON_CMS`), and any page with `page_topical_links` renders a responsive 2-column `.topical-links-grid` directly below the article body.
 3. **Preview Locally**:
    - Click **Start Local Preview Server** in the Publisher interface (`:5002`).
    - Open `http://127.0.0.1:8080/` in your browser.
@@ -496,68 +515,42 @@ Host interactive HTML/CSS/JavaScript web applications directly within BEJSON CMS
 
 ### 7. AI Persona Management & Cognitive Directives in Persona Editor
 
-The **Persona Editor** (`src/web/BEJSON_CMS_ProfileManager.py`, port 5004) is a specialized identity and cognitive directive management microservice. It provides a unified 5-tab workspace for defining human author identities (stored in `authorprofile.bejson`) and AI generation profiles (persisted in `ai_profile.bejson`).
+The **Persona Editor** (`src/web/BEJSON_CMS_ProfileManager.py` v1.5, port 5004) and **`PersonaWriter`** (`src/lib/lib_cms_persona_writer.py` v2.0) provide a hardened 5-tab workspace for defining public human author identities (`authorprofile.bejson`) and 24-field AI generation personas (`ai_profile.bejson`).
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                          Persona Editor 5-Tab Architecture                      │
+│                     Persona Editor v1.5 (5-Tab Architecture)                    │
 ├─────────────────┬─────────────────┬─────────────────┬─────────────┬─────────────┤
-│ 1. Identity     │ 2. Model        │ 3. Tone Matrix  │ 4. Directives│ 5. Live    │
-│    Attribution  │    Parameters   │    & Style Chips│    & Scope  │    Preview  │
-│ (Author Profile)│ (Temp/TopP/API) │ (Dynamic Chips) │ (Audience)  │ (Assembled) │
+│ 1. Identity     │ 2. Tones        │ 3. Cognition    │ 4. Tools &  │ 5. Prompt & │
+│    & Author     │    & Delivery   │    & Memory     │    Code     │    Preview  │
+│ (Avatar/Bio/Seed│ (16 Tone Chips) │ (Temp/Tokens)   │ (AST/VC/Int)│ (1:1 Parity)│
 └─────────────────┴─────────────────┴─────────────────┴─────────────┴─────────────┘
 ```
 
 #### Operational Workflow:
-1. **Access Workspace**: Navigate to `http://127.0.0.1:5004/` in your browser, or select menu option 6 in the TUI supervisor (`python3 advanced_launcher.py`).
-2. **Select or Create Profile**:
-   - Choose an existing profile from the left sidebar catalog (or mobile touch drawer).
-   - Click **+ New Persona** to initialize a clean structural template with default baseline parameters.
+1. **Access Workspace**: Navigate to `http://127.0.0.1:5004/` in your browser, or toggle service `4` in `python3 advanced_launcher.py`.
+2. **Select, Create, Duplicate, or Seed Profiles**:
+   - Choose an existing profile from the left sidebar catalog (`/edit/<name>`) or mobile touch drawer.
+   - Click **+ New** (`GET /new`) to initialize an empty draft (`is_new=1`) without polluting the database until explicitly saved (`POST /save`).
+   - Use **Duplicate** (`POST /duplicate/<name>`) to clone an existing persona or **Seed Defaults** (`POST /seed-defaults`) to restore the 3 canonical personas (`boehnenelton2024`, `Academic_Researcher`, `Conversational_Guide`).
 3. **Configure Across the 5 Tabs**:
-   - **Tab 1: Identity & Author Attribution**: Set the public author display name, biography, contact email, website URL, social link handles, and avatar URL. Changes made here automatically propagate to the master `AuthorProfile` table (`storage/mfdb/site_master/data/authorprofile.bejson`), ensuring consistent author dropdown attribution in Page Editor V2.
-   - **Tab 2: Model Parameters & Provider Dispatch**: Select the cloud provider (`gemini`, `groq`, `openrouter`) and model identifier (e.g., `gemini-2.5-flash`, `llama-3.3-70b-versatile`, `deepseek-chat`). Adjust generation sliders:
-     - `Temperature` (`0.00` to `2.00`): Controls generation randomness and creative entropy.
-     - `Top-P` (`0.00` to `1.00`): Nucleus sampling cutoff threshold.
-     - `Top-K` (`1` to `100`): Token candidate pool constraint.
-     - `Max Output Tokens`: Hard upper bound for generated responses (default: `4096`).
-     - `Python Code Interpreter`: Toggle execution permissions for sandboxed script execution during article generation.
-   - **Tab 3: Tone Matrix & Style Chips**: Click interactive style chips to instantly populate writing style presets:
-     - `Technical & Grounded`: Strict focus on facts, verifiable specifications, and zero fluff.
-     - `Direct & Concise`: Short sentences, punchy explanations, minimal elaboration.
-     - `Academic Rigor`: Formal third-person academic structure with citations and precision.
-     - `Conversational`: Friendly, approachable engineering dialogue.
-     - `Playful & Dynamic`: Energetic technical narration with vivid metaphors.
-     - `Authoritative`: Senior architecture lead perspective with decisive recommendations.
-     - `Minimalist`: Bulleted high-signal takeaways with zero adjectives.
-     - `Poetic & Stylized`: Evocative, rhythmic phrasing and narrative symmetry.
-     - Configure the **Vocabulary Tier** (`General Public`, `Technical Professional`, `Academic Postgraduate`, `Specialized Domain`).
-   - **Tab 4: Cognitive Directives & Guardrails**:
-     - `Target Audience`: Specify reader assumptions (e.g., "Senior DevOps and Distributed Systems Engineers").
-     - `Domain Authority`: Anchor voice credibility (e.g., "Unix systems engineer specializing in low-latency flat-file storage").
-     - `Content Density`: Information density rating from 1 (expanded pedagogical explanations) to 5 (dense reference specifications).
-     - `Forbidden Phrases`: List banned marketing buzzwords, clichés, or filler words (e.g., `"game-changer"`, `"cutting-edge"`, `"delve"`).
-     - `Perspective`: Select narrative voice (`First-Person Singular (I/Me)`, `First-Person Plural (We/Our)`, `Third-Person Objective (It/They)`).
-     - `Structural Quirks`: Mandatory output structures (e.g., "Always summarize code with an ASCII diagram").
-     - `System Instruction Seed`: Core foundational system directive prepended to all generated prompt contexts.
-   - **Tab 5: Live Assembled Prompt Preview**:
-     - Live inspection pane rendering the exact compiled prompt string that is injected into the AI Writer's 48k Context Bubble.
-     - Real-time telemetry displaying character count, estimated line count, and token allotment metrics.
-4. **Interactive 3D Isometric Cube Visualizer**:
-   - Every persona features a mathematically generated 3D Isometric Cube rendered via an HTML5 Canvas.
-   - The cube's geometry and shading are seeded deterministically from the persona name's hash.
-   - Supports interactive mouse and touch drag rotation, providing immediate visual identity feedback.
-5. **Offline-First Architectural Guarantee (No Search Grounding)**:
-   - Third-party Google Search Grounding (`google_search_enabled`) has been completely excised across all schemas, AI libraries, and model registries.
-   - Guarantees zero unmonitored external network queries, prevents proprietary context leaks to public search APIs, ensures deterministic offline-capable generation, and eliminates third-party search billing surcharges.
-6. **Save Changes**:
-   - Press `Ctrl+S` (or `Cmd+S` on macOS) or click **Save Profile**.
-   - The backend validates all 24 schema fields and atomically flushes changes to disk.
+   - **Tab 1: Identity**: Configure `Name` (`[A-Za-z0-9_.\- ]{1,64}`), `Archetype` (`Technical Writer`, `Systems Architect`, `Security Researcher`, `Educator`, `Editor`, `Custom`), `Active` status toggle, `Avatar_Type` (`cube`, `url`, `svg`), `Avatar_sourceUrl`, `Avatar_Data` (cube color JSON or sanitized inline SVG), `Persona` summary, `SystemInstruction` seed, and public `AuthorProfile` fields (`author_display_name`, `author_bio`, `author_email`, `author_website_url`, `author_social_links`).
+   - **Tab 2: Tones**: Toggle interactive 16-chip Tone Matrix presets (`Technical`, `Direct`, `Pragmatic`, `Analytical`, `Rigorous`, `Skeptical`, `Concise`, `Formal`, `Conversational`, `Didactic`, `Socratic`, `Objective`, `Minimalist`, `Authoritative`, `Empathetic`, `Witty`) plus custom tone tags, `Formality` (`Low`, `Medium`, `High`, `Academic`), `Verbosity` (`Concise`, `Balanced`, `Comprehensive`, `Exhaustive`), and `EmotionalExpression_Enabled` / `EmotionalExpression_Intensity` (`0.0`–`1.0`).
+   - **Tab 3: Cognition**: Adjust `Creativity` temperature (`0.0`–`2.0`), `MaxResponseTokens` (`64`–`65536`), `Thinking_Supported`, `EphemeralMemory`, and `ForbiddenTopics` chips.
+   - **Tab 4: Tools & Code**: Configure `CodeInterpreter_Enabled`, `CodeParsing_Mode` (`strict`, `permissive`, `ast_verified`, `disabled`), `CodeParsing_StructureValidation`, `CodeParsing_VersionControl`, and `CodeParsing_Languages` chips.
+   - **Tab 5: Prompt & Preview**: Inspect the live assembled system instruction with guaranteed 1-to-1 parity between the client-side `updateLivePreview()` and backend `PersonaWriter.assemble_system_instruction()` across all 11 directive blocks (`[IDENTITY]`, `[TONE]`, `[DELIVERY]`, `[EMOTIONAL_EXPRESSION]`, `[COGNITIVE_GATES]`, `[CODE_PARSING]`, `[VOICE_DIRECTIVES]`, `[SYSTEM_INSTRUCTION]`, `[LANGUAGES]`, `[FORBIDDEN_TOPICS]`, `[SAFETY_BOUNDARIES]`), and test generation directly in the AI Playground (`POST /api/test-generate`).
+4. **Rename Cascade & Default Persona Protection**:
+   - Renaming an existing persona atomically cascades the new identifier across `AI_Profile.Name`, `AuthorProfile.author_id` / `author_display_name`, and every matching `PageRecord.page_author_name`.
+   - The canonical default persona (`boehnenelton2024`) is protected against deletion (`POST /delete/boehnenelton2024` is rejected with an error flash).
+5. **Inactive Persona Gate & Security Hardening**:
+   - Setting `Active=False` prevents the persona from being returned by `PersonaWriter.get_persona()` or executed via `PersonaWriter.dispatch_ai()`.
+   - Custom SVG uploads and `data:image/svg+xml` URLs are sanitized via `lib_bejson_Core_svg_sanitizer.py` before persistence, and all POST mutations verify same-origin `Origin` / `Referer` headers.
 
 ---
 
 ## System Architecture & Microservice Topology
 
-BEJSON CMS is architected as five decoupled Flask applications backed by shared authentication and middleware layers:
+BEJSON CMS is architected as four active Flask microservices (with `BEJSON_CMS_PageEditorV2.py` deprecated and archived) backed by shared authentication and middleware layers:
 
 ```
                             ┌─────────────────────────────────┐
@@ -565,59 +558,50 @@ BEJSON CMS is architected as five decoupled Flask applications backed by shared 
                             │  System, Content, Media, Inter  │
                             └────────────────┬────────────────┘
                                              │
-      ┌────────────────────────┬─────────────┴────────────┬────────────────────────┐
-      │                        │                          │                        │
-┌─────▼──────────────────┐ ┌───▼──────────────────┐ ┌─────▼──────────────────┐ ┌───▼──────────────────┐
-│   Editor V1 (:5003)    │ │   Publisher (:5002)  │ │   Profiles (:5004)     │ │   Editor V2 (:5005)    │
-│  Classic HTML Editor   │ │  Static Site Builder │ │  Author & Persona Hub  │ │  Modern API Studio     │
-└─────┬──────────────────┘ └───┬──────────────────┘ └─────┬──────────────────┘ └─────┬──────────────────┘
-      │                        │                          │                        │
-      └────────────────────────┼──────────────────────────┴────────────────────────┘
-                               │
-                   ┌───────────▼──────────────────────────┐
-                   │        BEJSON_CMS_Shared.py          │
-                   │   Auth Guards, Asset I/O, Safe Join  │
-                   └───────────┬──────────────────────────┘
-                               │
-                   ┌───────────▼──────────────────────────┐
-                   │        CMSCore & MFDBCore            │
-                   │  104a Manifest + 12 Positional Files │
-                   └──────────────────────────────────────┘
+              ┌──────────────────────────────┼──────────────────────────────┐
+              │                              │                              │
+    ┌─────────▼──────────────┐     ┌─────────▼──────────────┐     ┌─────────▼──────────────┐
+    │  Page Editor (:5003)   │     │   Publisher (:5002)    │     │ Persona Editor (:5004) │
+    │ Primary Editor & Links │     │  Static Site Builder   │     │ Author & AI Profile v1.5│
+    └─────────┬──────────────┘     └─────────┬──────────────┘     └─────────┬──────────────┘
+              │                              │                              │
+              └──────────────────────────────┼──────────────────────────────┘
+                                             │
+                                 ┌───────────▼──────────────────────────┐
+                                 │        BEJSON_CMS_Shared.py          │
+                                 │   Auth Guards, Asset I/O, Safe Join  │
+                                 └───────────┬──────────────────────────┘
+                                             │
+                                 ┌───────────▼──────────────────────────┐
+                                 │        CMSCore & MFDBCore            │
+                                 │  104a Manifest + 13 Positional Files │
+                                 └──────────────────────────────────────┘
 ```
 
 ### Admin Suite (:5001) & Architectural Blueprints
 The administrative suite is structured using modular Flask Blueprints:
-- **`BEJSON_CMS_System.py` (`system_cube`)**: Handles system telemetry, database export, asset bundle downloading, and factory reset routines.
-- **`BEJSON_CMS_Content.py` (`content_cube`)**: Manages page CRUD, category definitions, author profiles, external links, standalone app hosting, and the BKS-1 Job Studio.
-- **`BEJSON_CMS_Media.py` (`media_cube`)**: Controls media asset uploads, thumbnail generation queues, asset deletion, renaming, and external media cataloging.
+- **`BEJSON_CMS_System.py` (`system_cube`)**: Handles system telemetry, database export, asset bundle downloading, and factory reset routines (including seeding `AI_Profile` and `AuthorProfile` tables).
+- **`BEJSON_CMS_Content.py` (`content_cube`)**: Manages page CRUD, category definitions, author profiles, standalone app hosting, and the BKS-1 AI Writer Studio (`/jobs`).
+- **`BEJSON_CMS_Media.py` (`media_cube`)**: Controls local media asset uploads, thumbnail generation queues, asset deletion/renaming, and the global `ExternalMedia` link catalog (`/api/media/external_links`, `/api/media/external/add`).
 - **`BEJSON_CMS_Interface.py` (`interface_cube`)**: Manages navigation links, social profile links, advertising banners, and theme selection.
 
 ### Static Site Publisher (:5002)
-- Implemented in `BEJSON_CMS_Publisher.py`.
+- Implemented in `src/web/BEJSON_CMS_Publisher.py`.
 - Harvesters read all registered entities from `104a.mfdb.bejson`.
-- Dispatches rendering tasks to polymorphic renderers (`StandardPageRenderer`, `VideoPageRenderer`, `DocumentPageRenderer`).
+- Dispatches rendering tasks to polymorphic renderers (`StandardPageRenderer`, `VideoPageRenderer`, `DocumentPageRenderer`), injects the responsive 2-column `.topical-links-grid` for pages with `page_topical_links`, and renders the centered footer attribution (`Polyglot Non Commercial - BEJSON_CMS`).
 - Bundles static assets, compiles `sitemap.xml`, and manages the local port 8080 preview server.
 
-### Page Editor V1 (:5003)
-- Implemented in `BEJSON_CMS_PageEditor.py`.
-- Traditional server-rendered interface featuring code-mirror style inputs, instant live iframe preview, and media insertion modals.
+### Primary Page Editor (:5003)
+- Implemented in `src/web/BEJSON_CMS_PageEditor.py`.
+- Primary authoring workspace featuring HTML and CommonMark Markdown editing, live iframe preview, media insertion modals, and the `🔗 Topical Links` selector modal (`GET/POST /api/topical_links`) connected to the global `ExternalMedia` library.
 
 ### Persona Editor (:5004)
-- Implemented in `src/web/BEJSON_CMS_ProfileManager.py` (Version 14).
-- Modern responsive 5-tab identity and cognitive directive management microservice:
-  - **Tab 1: Identity & Attribution**: Public author profile synchronization (`authorprofile.bejson`), display names, avatar URLs, contact emails, website links, and social handles.
-  - **Tab 2: Model Parameters**: Multi-provider selection (`gemini`, `groq`, `openrouter`), temperature, top-p, top-k, token limits, and Python code interpreter sandbox flags.
-  - **Tab 3: Tone Matrix**: Fast-tag interactive tone matrix chips (Technical & Grounded, Direct, Academic, Conversational, Playful, Authoritative, Minimalist, Poetic) and vocabulary tiers.
-  - **Tab 4: Cognitive Directives**: Target audience, domain authority, content density ratings (1–5), forbidden phrases, perspective, structural quirks, and system instruction seeds.
-  - **Tab 5: Prompt Preview**: Live compiled system prompt inspector with line count, character count, and token estimations.
-- **Interactive 3D Isometric Cube Visualizer**: Deterministic HTML5 Canvas rendering seeded by profile name hash with touch/mouse drag rotation controls.
-- **Offline-First Architectural Guarantee**: Complete excision of third-party Google Search Grounding across all schemas, AI libraries, and model registries for zero network leakage.
-- **Dual-Write Atomic Persistence**: Atomically syncs changes to both `ai_profile.bejson` (24 positional fields) and `authorprofile.bejson`.
-- **Keyboard Shortcuts**: Global `Ctrl+S` / `Cmd+S` key binding for immediate atomic saves.
+- Implemented in `src/web/BEJSON_CMS_ProfileManager.py` (v1.5) and `src/lib/lib_cms_persona_writer.py` (v2.0).
+- Responsive 5-tab identity and cognitive directive studio (`1. Identity`, `2. Tones`, `3. Cognition`, `4. Tools & Code`, `5. Prompt & Preview`) with 1-to-1 live prompt assembly parity across all 24 `AI_Profile` fields, deterministic 3D cube and sanitized SVG avatars, atomic dual-write sync (`ai_profile.bejson` + `authorprofile.bejson`), rename cascade across `PageRecord.page_author_name`, inactive persona gating, and same-origin CSRF protection.
 
-### Page Editor V2 Workspace (:5005 / :5010)
-- Implemented in `BEJSON_CMS_PageEditorV2.py`.
-- Modern API-driven single-page architecture featuring category-filtered page loading, draft management, CommonMark Markdown editor, and integrated BKS-1 Job Studio.
+### Page Editor V2 (Deprecated & Archived)
+- `BEJSON_CMS_PageEditorV2.py` (Second Page Editor) is officially **deprecated** and removed from active runtime in `src/web/`.
+- The historical source is preserved in `dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip` for archival reference only. Use `BEJSON_CMS_PageEditor.py` (`:5003`) exclusively.
 
 ### Shared Web Infrastructure (`BEJSON_CMS_Shared.py`)
 - **`register_auth_guard(app)`**: Centralized `@app.before_request` hook enforcing HTTP Basic Authentication across all endpoints.
@@ -721,6 +705,7 @@ The 13 relational entity tables enforce consistent column naming conventions:
    - `page_featured_img` (string): Filename of featured image in assets.
    - `page_template_key` (string): Layout template identifier (`default`, `full-width`).
    - `page_featured_video_url` (string): Optional YouTube video embed URL.
+   - `page_topical_links` (string): Serialized JSON array of `extmedia_uuid` references rendered as a 2-column `.topical-links-grid` below the article body.
 
 2. **Category (`data/category.bejson`)**:
    - `cat_name` (string, PK): Display name.
@@ -745,9 +730,9 @@ The 13 relational entity tables enforce consistent column naming conventions:
 
 5. **ExternalMedia (`data/externalmedia.bejson`)**:
    - `extmedia_uuid` (string, PK): Unique UUIDv4 identifier.
-   - `extmedia_name` (string): Asset label.
-   - `extmedia_type` (string): Type (`video`, `pdf`, `doc`, `audio`).
-   - `extmedia_url` (string): Fully qualified external URL.
+   - `extmedia_name` (string): Resource / link label.
+   - `extmedia_type` (string): Link category (`github`, `video`, `demo`, `doc`, `website`, `pdf`, `image`, `other`).
+   - `extmedia_url` (string): Fully qualified external URL (`http://` or `https://`).
    - `extmedia_created_at` (string): ISO 8601 timestamp.
 
 6. **AdUnit (`data/adunit.bejson`)**:
@@ -795,32 +780,32 @@ The 13 relational entity tables enforce consistent column naming conventions:
     - `doc_file_size` (integer): File size in bytes.
     - `doc_download_rules` (string): Access restrictions.
 
-13. **AI_Profile (`data/ai_profile.bejson`)**:
+13. **AI_Profile (`data/ai_profile.bejson`, registered in `lib_bejson_CMS_taxonomy.py` with `prefix: "aiprof_"`, `uuid_field: "Name"`)**:
     - `Record_Type_Parent` (string): Entity taxonomy anchor (`"AI_Profile"`).
     - `Name` (string, PK): Unique persona identifier.
     - `Archetype` (string): Persona archetype category.
     - `Persona` (string): Descriptive identity and authorial background summary.
     - `SystemInstruction` (string): Foundational system directive seed.
-    - `Active` (boolean): Active status toggle.
-    - `MaxResponseTokens` (integer): Maximum output generation token ceiling.
+    - `Active` (boolean): Active status toggle (inactive personas are blocked from `PersonaWriter` execution).
+    - `MaxResponseTokens` (integer): Maximum output generation token ceiling (`64`–`65536`).
     - `Creativity` (number): Temperature / sampling randomness scalar (`0.00` to `2.00`).
     - `Tone` (array): Configured tone styles and active matrix chips.
-    - `Formality` (string): Language formality tier.
-    - `Verbosity` (string): Output response detail level.
+    - `Formality` (string): Language formality tier (`Low`, `Medium`, `High`, `Academic`).
+    - `Verbosity` (string): Output response detail level (`Concise`, `Balanced`, `Comprehensive`, `Exhaustive`).
     - `EmotionalExpression_Enabled` (boolean): Emotive tone modulation toggle.
-    - `EmotionalExpression_Intensity` (number): Emotional modulation weight.
+    - `EmotionalExpression_Intensity` (number): Emotional modulation weight (`0.0` to `1.0`).
     - `CodeInterpreter_Enabled` (boolean): Execution permissions for Python interpreter sandbox.
     - `EphemeralMemory` (boolean): Session-only ephemeral memory toggle.
-    - `CodeParsing_Mode` (string): Syntax parser routing mode.
+    - `CodeParsing_Mode` (string): Syntax parser routing mode (`strict`, `permissive`, `ast_verified`, `disabled`).
     - `CodeParsing_Languages` (array): Target programming languages.
     - `CodeParsing_StructureValidation` (boolean): Abstract Syntax Tree structural validation flag.
     - `CodeParsing_VersionControl` (boolean): Code diff and version tracking flag.
     - `Thinking_Supported` (boolean): Extended reasoning/thinking model flag.
     - `ForbiddenTopics` (array): Banned subjects, phrases, and marketing buzzwords.
     - `Avatar_Type` (string): Avatar visualization mode (`"cube"`, `"url"`, `"svg"`).
-    - `Avatar_sourceUrl` (string): Fallback static avatar asset path.
-    - `Avatar_Data` (string): Canvas 3D cube parameters or serialized SVG asset data.
-    *(Note: Third-party Google Search Grounding was excised across all 24 schema fields to guarantee zero external data leakage and deterministic offline execution).*
+    - `Avatar_sourceUrl` (string): Fallback static avatar asset path or sanitized `data:image/svg+xml` URI.
+    - `Avatar_Data` (string): Canvas 3D cube parameters JSON or sanitized inline SVG markup.
+    *(Note: All 24 fields are compiled deterministically into the 11-block system instruction by `PersonaWriter.assemble_system_instruction()` with 1-to-1 parity in the Persona Editor UI).*
 
 
 ![Figure: 08 BKS-1 Job Studio Playwright Capture](images/audit_captures/02_playwright_bks_jobs_studio.png)
@@ -865,27 +850,27 @@ This decoupled design allows the CMS to read lightweight metadata lists without 
 
 
 ![Figure: 09 Page Editor V2 Full Playwright Capture](images/audit_captures/03_playwright_page_editor_v2.png)
-*_Figure 9: Playwright Full-Page Verification Capture of Page Editor V2_*
+*_Figure 9: Historical Playwright Verification Capture of Page Editor Workspace_*
 
 
 ---
 
 ## AI Writer Architecture & 48k Context Bubble Engine
 
-The **AI Writer** subsystem in BEJSON CMS is an enterprise-grade, zero-SQL structured content generation engine powered by Elton Boehnen's BKS-1 Book and JobMaker specification and the CLI_AI 48 library family. It is exposed natively across two primary administrative interfaces:
-1. **Admin Suite AI Writer Studio** (`/jobs` mounted via `src/web/BEJSON_CMS_Content.py`): Accessible from the left sidebar navigation under **AI Writer** and labeled prominently at the top of the body section (`<h1>AI Writer</h1>`). Features real-time job switching, interactive server file selection via `CMSFilePicker`, live 48k token budget telemetry, one-click execution of sequential parts, and atomic CMS post overwriting.
-2. **PageEditor V2 AI Writer Workspace** (`#t-tasking` mounted via `src/web/BEJSON_CMS_PageEditorV2.py`): An integrated multi-tab editorial environment accessible via the **AI Writer** navigation link and section header (`<h2>AI Writer</h2>`), pairing real-time article drafting with live Context Bubble inspection and model parameter tuning.
+The **AI Writer** subsystem in BEJSON CMS is a zero-SQL structured content generation engine powered by Elton Boehnen's BKS-1 Book and JobMaker specification and the CLI_AI 48 library family:
+1. **Admin Suite AI Writer Studio** (`/jobs` mounted via `src/web/BEJSON_CMS_Content.py`): Accessible from the left sidebar navigation under **AI Writer** and labeled at the top of the body section (`<h1>AI Writer</h1>`). Features real-time job switching, interactive server file selection via `CMSFilePicker`, live 48k token budget telemetry, one-click execution of sequential parts, and atomic CMS post overwriting.
+2. **CLI BKS-1 Job Runner** (`src/cms-manage.py job ...`): Headless CLI commands for generating plans, executing parts, merging Markdown/HTML, and approving target post updates. *(Note: `BEJSON_CMS_PageEditorV2.py` is deprecated and archived at `dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip`).*
 
 ---
 
 ### Subsystem Overview & Admin UI Integration
 
-The AI Writer bridges high-throughput Large Language Model inference with deterministic BEJSON positional persistence. Unlike conventional CMS plugins that execute unstructured, single-turn prompts against arbitrary external databases, the AI Writer decomposes technical publications into mathematically verifiable, 4-part structured documents where narrative context, plan invariants, and preceding chapter drafts are dynamically pipelined across execution stages.
+The AI Writer bridges Large Language Model inference with deterministic BEJSON positional persistence. Unlike conventional CMS plugins that execute unstructured, single-turn prompts against external databases, the AI Writer decomposes technical publications into 4-part structured documents where narrative context, plan invariants, and preceding chapter drafts are dynamically pipelined across execution stages.
 
 ```
 +---------------------------------------------------------------------------------------------------+
-|                                  ADMIN UI / PAGE EDITOR V2 WORKSPACE                             |
-|                                    (Sidebar & Header: 'AI Writer')                                |
+|                                     ADMIN UI AI WRITER STUDIO                                     |
+|                                  (:5001/jobs — Header: 'AI Writer')                               |
 +---------------------------------------------------------------------------------------------------+
                                                   |
                      +----------------------------+----------------------------+
@@ -1344,27 +1329,44 @@ The AI Writer exposes a comprehensive suite of JSON endpoints across the Admin S
 
 BEJSON CMS exposes a clean REST API across its microservices:
 
-### Content & Page Management API (Port 5001 / 5005)
+### Content, Page Editor & Topical Links API (Port 5001 / 5003)
 
 | Endpoint | Method | Payload / Parameters | Response | Purpose |
 | :--- | :---: | :--- | :--- | :--- |
-| `/api/get/<uuid>` | `GET` | — | JSON Page Payload | Retrieve full page metadata, HTML body, and Markdown source. |
-| `/api/save` | `POST` | JSON: `{uuid, title, slug, category, author, html_body, markdown_body, ...}` | `{"status": "ok"}` | Save page metadata and content atomically. |
+| `/api/get/<uuid>` | `GET` | — | JSON Page Payload | Retrieve full page metadata, HTML body, Markdown source, and `page_topical_links`. |
+| `/api/save` | `POST` | JSON: `{uuid, title, slug, category, author, html_body, markdown_body, page_topical_links, ...}` | `{"status": "ok"}` | Save page metadata, content, and topical link UUIDs atomically. |
+| `/api/topical_links` | `GET` | `?page_uuid=<uuid>` | `{"ok": true, "all_links": [...], "selected_uuids": [...]}` | Fetch all global `ExternalMedia` links and the active page's checked `extmedia_uuid` list. |
+| `/api/topical_links` | `POST` | JSON: `{page_uuid, topical_links: ["<uuid>", ...]}` | `{"ok": true, "selected_uuids": [...]}` | Update `PageRecord.page_topical_links` for a specific page. |
 | `/api/md2html` | `POST` | JSON: `{markdown: "## Source"}` | `{"html": "<h2>Source</h2>"}` | Convert Markdown text to semantic CMS HTML. |
 | `/pages/delete/<uuid>` | `POST` | — | Redirect / Status | Delete page and remove its `pages_db` container. |
 | `/pages/duplicate/<uuid>` | `POST` | — | Redirect | Clone existing page with a fresh UUID and `-copy` slug. |
 
-### Media Management API (Port 5001)
+### Media & Global External Links API (Port 5001 / 5003)
 
 | Endpoint | Method | Payload / Parameters | Response | Purpose |
 | :--- | :---: | :--- | :--- | :--- |
-| `/assets/list.json` | `GET` | — | JSON Array of Assets | List all registered media assets with hashes and sizes. |
+| `/assets/list.json` | `GET` | — | JSON Array of Assets | List all registered local media assets with hashes and sizes. |
 | `/assets/upload` | `POST` | Multipart form data: `file` | `{"filename": "..."}` | Stream asset upload, compute hash, queue thumbnail. |
 | `/assets/delete/<filename>`| `POST`| — | Redirect | Delete media asset and its corresponding thumbnail. |
 | `/assets/replace/<filename>`| `POST`| Multipart form data: `file` | Redirect | Replace physical file while maintaining filename. |
 | `/assets/rename/<filename>` | `POST`| Form data: `new_name` | Redirect | Rename asset record in database. |
+| `/api/media/external_links` | `GET` | — | `{"ok": true, "links": [...]}` | List all global `ExternalMedia` links (`github`, `video`, `demo`, `doc`, `website`, `pdf`, `image`, `other`). |
+| `/api/media/external/add` | `POST` | JSON / Form: `{name, type, url}` | `{"ok": true, "link": {...}}` | Create a new global `ExternalMedia` record in `externalmedia.bejson`. |
 
-### BKS-1 Job Studio API (Port 5001 / 5005)
+### Persona Editor & Profile Manager API (Port 5004)
+
+| Endpoint | Method | Payload / Parameters | Response | Purpose |
+| :--- | :---: | :--- | :--- | :--- |
+| `/` or `/edit/<name>` | `GET` | — | HTML Studio | Render 5-tab Persona Editor workspace for the selected persona. |
+| `/new` | `GET` | — | Redirect (`?is_new=1`) | Open a clean, unsaved draft persona template without writing to disk until saved. |
+| `/save` | `POST` | Form data (24 `AI_Profile` fields + `AuthorProfile` fields) | Redirect | Validate enums/ranges, sanitize SVG avatars, cascade renames, and atomically sync `ai_profile.bejson` + `authorprofile.bejson`. |
+| `/duplicate/<name>` | `POST` | — | Redirect | Clone an existing persona into `<name>_Copy`. |
+| `/delete/<name>` | `POST` | — | Redirect | Delete persona from `AI_Profile` and `AuthorProfile` (`boehnenelton2024` is protected). |
+| `/seed-defaults` | `POST` | — | Redirect | Seed canonical default personas (`boehnenelton2024`, `Academic_Researcher`, `Conversational_Guide`). |
+| `/api/persona/<name>` | `GET` | — | JSON Persona Payload | Return 24-field `AI_Profile` record, `AuthorProfile` record, and assembled system instruction. |
+| `/api/test-generate` | `POST` | JSON: `{persona_name, provider, model_id, prompt}` | `{"ok": true, "output": "..."}` | Dispatch a test prompt through `PersonaWriter.dispatch_ai()` (blocks inactive personas). |
+
+### BKS-1 Job Studio API (Port 5001)
 
 | Endpoint | Method | Payload / Parameters | Response | Purpose |
 | :--- | :---: | :--- | :--- | :--- |
@@ -1460,7 +1462,7 @@ python3 src/cms-manage.py asset add ./images/diagram.png
 # Optimize PNG assets to WebP
 python3 src/cms-manage.py asset optimize
 
-# Register an external video or PDF
+# Register a global external link (github, video, demo, doc, website, pdf, image, other)
 python3 src/cms-manage.py asset add-external "Reference Whitepaper" "pdf" "https://example.com/paper.pdf"
 
 # Install a standalone web application
@@ -1486,22 +1488,21 @@ The TUI supervisor provides an operational control surface for multi-service env
 ├────┼───────┼───────┼──────┼─────────┼───────────────────┤
 │ 1  │  RUN  │ 28140 │ 5001 │ 01h 14m │ Admin Suite       │
 │ 2  │  RUN  │ 28145 │ 5002 │ 01h 14m │ Static Publisher  │
-│ 3  │  OFF  │   -   │ 5003 │    -    │ Page Editor V1    │
-│ 4  │  OFF  │   -   │ 5004 │    -    │ Profile Manager   │
-│ 5  │  RUN  │ 28152 │ 5005 │ 01h 14m │ Page Editor V2    │
+│ 3  │  RUN  │ 28150 │ 5003 │ 01h 14m │ Page Editor       │
+│ 4  │  RUN  │ 28155 │ 5004 │ 01h 14m │ Profile Manager   │
 ├────┴───────┴───────┴──────┴─────────┴───────────────────┤
-│ COMMANDS: [1-5] Toggle | [S]tart All | [Z] Stop All     │
-│ [r1-r5] Restart | [k1-k5] Kill | [l1-l5] Logs           │
+│ COMMANDS: [1-4] Toggle | [S]tart All | [Z] Stop All     │
+│ [r1-r4] Restart | [k1-k4] Kill | [l1-l4] Logs           │
 │ [P]robe Ports | [C]onfig Ports | [Q]uit | [X] Exit All   │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ### Key Commands:
-- **`1`–`5`**: Toggle individual services on or off.
-- **`r1`–`r5`**: Restart a specific service cleanly.
-- **`k1`–`k5`**: Send an immediate `SIGKILL` to clear hung sockets.
-- **`l1`–`l5`**: View the last 30 lines of service logs.
-- **`P`**: Probe all five ports with active TCP socket connections to verify responsiveness.
+- **`1`–`4`**: Toggle active services on or off (`1` Admin Suite, `2` Static Publisher, `3` Primary Page Editor, `4` Persona Editor / Profile Manager).
+- **`r1`–`r4`**: Restart a specific service cleanly.
+- **`k1`–`k4`**: Send an immediate `SIGKILL` to clear hung sockets.
+- **`l1`–`l4`**: View the last 30 lines of service logs.
+- **`P`**: Probe active ports with TCP socket connections to verify responsiveness.
 - **`C`**: Interactive port configuration editor.
 - **`Q`**: Quit the supervisor interface while leaving background services running.
 - **`X`**: Stop all running services and exit.
@@ -1518,6 +1519,7 @@ The TUI supervisor provides an operational control surface for multi-service env
 ```
 BEJSON_CMS/
 ├── README.md                        # Master documentation and reference guide
+├── AGENTS.md                        # Workspace architectural & deprecation rules
 ├── CHANGELOG.md                     # Human-readable release version notes
 ├── LICENSE                          # PolyForm Noncommercial 1.0.0 license terms
 ├── SECURITY.md                      # Security model and vulnerability disclosure
@@ -1527,6 +1529,10 @@ BEJSON_CMS/
 ├── advanced_launcher.py             # 57-column TUI multi-service supervisor
 ├── cms_launcher.sh                  # Single-service isolated shell launcher
 ├── pydroid_start.py                 # Mobile quick-start entry point
+│
+├── dev/                             # Development tracking and archived components
+│   └── archive/
+│       └── BEJSON_CMS_PageEditorV2_Archived.zip # Archived deprecated PageEditor V2
 │
 ├── images/                          # Documentation screenshots and audit captures (420p constraint)
 │   ├── 01_admin_dashboard.png       # Resized 420p UI captures
@@ -1561,15 +1567,16 @@ BEJSON_CMS/
 │
 ├── resources/                       # Static templates, styles, and seed assets
 │   ├── default_brand_assets/        # Seed brand images for factory resets
-│   ├── styles/                      # CSS themes (dark.css, light.css)
-│   └── templates/                   # HTML skeleton templates for static export
+│   ├── styles/                      # CSS themes (dark.css, light.css with .topical-links-grid)
+│   └── templates/                   # HTML skeletons (Global_Skeleton.html, Article_Skeleton.html, etc.)
 │
 ├── src/                             # Core application source code
 │   ├── cms-manage.py                # Headless CLI management tool
-│   ├── lib/                         # Persistence, domain, and utility libraries
+│   ├── lib/                         # Persistence, domain, AI, and utility libraries
 │   │   ├── lib_bejson_Core_bejson_core.py       # Positional matrix reader & atomic writer
 │   │   ├── lib_bejson_Core_bejson_validator.py  # BEJSON 104/104a/104db structural validator
 │   │   ├── lib_bejson_Core_bejson_path_guard.py # Safe path resolution & traversal guards
+│   │   ├── lib_bejson_Core_svg_sanitizer.py     # XML/SVG sanitizer stripping <script> & on* handlers
 │   │   ├── lib_bejson_Core_mfdb_core.py         # Multi-File Database manifest orchestrator
 │   │   ├── lib_bejson_Core_mfdb_validator.py    # Manifest and entity referential validator
 │   │   ├── lib_bejson_CMS_cms_core.py           # High-level CMS entity operations wrapper
@@ -1577,18 +1584,18 @@ BEJSON_CMS/
 │   │   ├── lib_bejson_CMS_md2html.py            # CommonMark to semantic HTML converter
 │   │   ├── lib_bejson_CMS_bks_blog_jobs.py      # BKS-1 4-part blog post job engine
 │   │   ├── lib_bejson_CMS_cms_ports.py          # Port configuration resolver
-│   │   └── lib_bejson_CMS_taxonomy.py           # Field prefix and entity taxonomies
+│   │   ├── lib_bejson_CMS_taxonomy.py           # Field prefix and 13-entity taxonomies
+│   │   └── lib_cms_persona_writer.py            # PersonaWriter v2.0 (24-field prompt compiler & AI gate)
 │   │
 │   └── web/                         # Flask microservice applications
-│       ├── BEJSON_CMS_Admin.py                  # Main administrative suite entry point
-│       ├── BEJSON_CMS_Content.py                # Content management blueprint
-│       ├── BEJSON_CMS_Media.py                  # Media asset management blueprint
+│       ├── BEJSON_CMS_Admin.py                  # Main administrative suite entry point (:5001)
+│       ├── BEJSON_CMS_Content.py                # Content & BKS-1 AI Writer blueprint
+│       ├── BEJSON_CMS_Media.py                  # Local media & global ExternalMedia link blueprint
 │       ├── BEJSON_CMS_Interface.py              # Navigation, social & ads blueprint
-│       ├── BEJSON_CMS_System.py                 # System telemetry & backup blueprint
-│       ├── BEJSON_CMS_Publisher.py              # Static site generator & preview host
-│       ├── BEJSON_CMS_PageEditor.py             # Classic server-rendered code editor
-│       ├── BEJSON_CMS_PageEditorV2.py           # API-driven editor & BKS-1 job studio
-│       ├── BEJSON_CMS_ProfileManager.py         # Persona Editor (5-tab workspace, 3D cube canvas)
+│       ├── BEJSON_CMS_System.py                 # System telemetry, backup & factory-reset blueprint
+│       ├── BEJSON_CMS_Publisher.py              # Static site generator & preview host (:5002)
+│       ├── BEJSON_CMS_PageEditor.py             # Primary Page Editor with Topical Links modal (:5003)
+│       ├── BEJSON_CMS_ProfileManager.py         # Persona Editor v1.5 (5-tab studio, 3D cube canvas) (:5004)
 │       ├── BEJSON_CMS_FileBrowser.py            # Media file browser modal provider
 │       ├── BEJSON_CMS_Renderers.py              # Polymorphic static page renderers
 │       └── BEJSON_CMS_Shared.py                 # Shared auth guards and asset middleware
@@ -1598,14 +1605,19 @@ BEJSON_CMS/
 │   ├── exports/                     # Database and asset backup archives
 │   ├── logs/                        # Application and supervisor log files
 │   ├── mfdb/                        # Active Multi-File Database
-│   │   ├── site_master/             # Master manifest and 13 relational entity files (including 24-field ai_profile.bejson)
+│   │   ├── site_master/             # Master manifest and 13 relational entity files (including ai_profile.bejson & externalmedia.bejson)
 │   │   ├── pages_db/                # Individual 104db page content files
 │   │   ├── assets/                  # Uploaded media assets and thumbnails
 │   │   ├── bks_jobs/                # BKS-1 job plans, drafts, and templates
 │   │   └── standalone_apps/         # Extracted containerized web applications
 │   └── tmp/                         # Runtime state and temporary upload staging
 │
-├── tests/                           # Automated verification test suite
+├── tests/                           # Automated verification test suite (82 tests across 7 files)
+│   ├── test_bejson_cms_admin_auth.py
+│   ├── test_bejson_cms_app_uuid_validation.py
+│   ├── test_bejson_cms_filebrowser.py
+│   ├── test_bejson_cms_profile_manager.py
+│   ├── test_lib_bejson_CMS_cms_core.py
 │   ├── test_lib_bejson_Core_bejson_path_guard.py
 │   └── test_lib_bejson_Core_mfdb_validator.py
 │
@@ -1648,11 +1660,10 @@ Standalone web applications and ZIP backup archives are audited before decompres
 - **Compression Ratio Check**: Detects recursive compression bombs.
 - **Traversal Guard**: Inspects all archive member paths before extraction to ensure no files escape the target destination directory.
 
-### 5. Centralized HTTP Basic Authentication
-Authentication is enforced globally via `BEJSON_CMS_Shared.register_auth_guard(app)`:
-- Every incoming HTTP request is checked before route handlers are invoked.
-- Requests without valid HTTP Basic Authentication headers receive an immediate `401 Unauthorized` response with a `WWW-Authenticate` challenge.
-- Static preview servers bound strictly to `127.0.0.1` run without external exposure.
+### 5. Centralized HTTP Basic Authentication, Same-Origin CSRF & SVG Sanitization
+- **HTTP Basic Auth**: Enforced globally via `BEJSON_CMS_Shared.register_auth_guard(app)`; requests without valid credentials receive an immediate `401 Unauthorized` response.
+- **Same-Origin CSRF Verification**: All state-changing POST endpoints in `BEJSON_CMS_ProfileManager.py` verify `Origin` and `Referer` headers against `request.host` (`_verify_same_origin_on_state_change`), returning `403 Forbidden` on cross-origin tampering.
+- **SVG & Data URI Sanitization**: Custom SVG markup (`Avatar_Data`) and `data:image/svg+xml` URLs (`Avatar_sourceUrl`) are parsed and sanitized through `lib_bejson_Core_svg_sanitizer.py` to strip `<script>`, `<foreignObject>`, and inline `on*` event attributes before storage.
 
 
 ![Figure: 15 Home Feed Desktop Capture](images/audit_captures/home_feed_desktop.png)
@@ -1663,11 +1674,11 @@ Authentication is enforced globally via `BEJSON_CMS_Shared.register_auth_guard(a
 
 ## Testing, Auditing & Verification Suite
 
-BEJSON CMS includes automated test suites covering path security, schema validation, and responsive browser layout rendering:
+BEJSON CMS includes an 82-test automated verification suite covering path security, schema validation, authentication, file browser boundaries, Persona Editor CRUD/CSRF/SVG sanitization/prompt parity, and responsive browser layout rendering:
 
 ```bash
-# 1. Run the pytest test suite
-pytest tests/ -v
+# 1. Run the full 82-test pytest suite
+python3 -m pytest tests/ -v
 
 # 2. Syntax-check all Python source files
 python3 -m compileall -q src/ tools/ tests/
@@ -1680,9 +1691,9 @@ python3 storage/tmp/playwright_cms_verify.py
 ```
 
 ### Playwright Viewport Verification Targets:
-- **Desktop (1280x800)**: Verifies full navigation layout, sidebar rendering, and horizontal overflow bounds (`scrollWidth == clientWidth`).
+- **Desktop (1280x800)**: Verifies full navigation layout, sidebar rendering, 2-column `.topical-links-grid`, 1-to-1 Persona Editor prompt preview parity, and horizontal overflow bounds (`scrollWidth == clientWidth`).
 - **Tablet (768x1024)**: Validates responsive grid collapsing from multi-column to dual-column layouts.
-- **Mobile (375x812)**: Confirms mobile menu drawer behavior, button wrapping, and zero horizontal overflow on small screens.
+- **Mobile (375x812)**: Confirms mobile menu drawer behavior, 1-column `.topical-links-grid` stacking, and zero horizontal overflow on small screens.
 
 
 ![Figure: 16 Mobile Hero Viewport Capture](images/audit_captures/post_105_mobile_hero.png)

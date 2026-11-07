@@ -1,0 +1,70 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#111113"/>
+  <path d="M 72 28 L 72 44 M 64 36 L 80 36" stroke="#262630" stroke-width="1.5"/>
+  <path d="M 1208 28 L 1208 44 M 1200 36 L 1216 36" stroke="#262630" stroke-width="1.5"/>
+  <text x="72" y="68" fill="#DE2626" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="1.5">PILLAR 01 · ARCHITECTURAL SPECIFICATION</text>
+  <text x="72" y="112" fill="#FFFFFF" font-size="34" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.5">POLYGLOT 104 RUNTIME PARITY MATRIX</text>
+  <text x="72" y="148" fill="#A1A1AA" font-size="16" font-family="system-ui, -apple-system, sans-serif" font-weight="500" letter-spacing="0.5">UNIFORM MEMORY I/O &amp; O(1) FIELD CACHE ACROSS 4 RUNTIMES</text>
+  <line x1="72" y1="178" x2="1208" y2="178" stroke="#262630" stroke-width="1.5"/>
+
+  <!-- Left Container (rx=0) -->
+  <rect x="72" y="216" width="548" height="392" rx="0" fill="#141418" stroke="#26262E" stroke-width="1.5"/>
+  <rect x="72" y="216" width="548" height="4" rx="0" fill="#DE2626"/>
+  <rect x="92" y="236" width="220" height="26" rx="0" fill="#2A1515"/>
+  <text x="102" y="253" fill="#DE2626" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="1">FORBIDDEN: HARDCODED POSITIONAL INDICES</text>
+  <rect x="92" y="276" width="508" height="312" rx="0" fill="#0D0D10" stroke="#1F1F26" stroke-width="1"/>
+  <rect x="92" y="276" width="36" height="312" rx="0" fill="#111114"/>
+  <text x="110" y="306" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">01</text>
+  <text x="110" y="332" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">02</text>
+  <text x="110" y="358" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">03</text>
+  <text x="110" y="384" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">04</text>
+  <text x="110" y="410" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">05</text>
+  <text x="110" y="436" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">06</text>
+  <text x="110" y="462" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">07</text>
+  <text x="110" y="488" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">08</text>
+  <text x="144" y="306" fill="#DE2626" font-size="13" font-family="'Roboto Mono', monospace"># Hardcoded column index anti-pattern (outlawed)</text>
+  <text x="144" y="332" fill="#A1A1AA" font-size="13" font-family="'Roboto Mono', monospace">row = bejson[&quot;Values&quot;][i]</text>
+  <text x="144" y="358" fill="#A1A1AA" font-size="13" font-family="'Roboto Mono', monospace">user_name = row[2]     # CRITICAL: Schema drift crashes code</text>
+  <text x="144" y="384" fill="#DE2626" font-size="13" font-family="'Roboto Mono', monospace">user_email = row[5]    # Blind access strictly prohibited</text>
+  <text x="144" y="410" fill="#A1A1AA" font-size="13" font-family="'Roboto Mono', monospace"></text>
+  <text x="144" y="436" fill="#71717A" font-size="13" font-family="'Roboto Mono', monospace"># Unvalidated in-place mutation</text>
+  <text x="144" y="462" fill="#A1A1AA" font-size="13" font-family="'Roboto Mono', monospace">row[2] = new_value     # Missing boundary sanitization</text>
+  <text x="144" y="488" fill="#A1A1AA" font-size="13" font-family="'Roboto Mono', monospace">with open(path, &#x27;w&#x27;) as f:</text>
+
+  <!-- Right Container (rx=0) -->
+  <rect x="660" y="216" width="548" height="392" rx="0" fill="#141418" stroke="#26262E" stroke-width="1.5"/>
+  <rect x="660" y="216" width="548" height="4" rx="0" fill="#FFFFFF"/>
+  <rect x="680" y="236" width="220" height="26" rx="0" fill="#1E281E"/>
+  <text x="690" y="253" fill="#FFFFFF" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="1">CANONICAL: O(1) FIELD-MAP CACHE CONTRACT</text>
+  <rect x="680" y="276" width="508" height="312" rx="0" fill="#0D0D10" stroke="#1F1F26" stroke-width="1"/>
+  <rect x="680" y="276" width="36" height="312" rx="0" fill="#111114"/>
+  <text x="698" y="306" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">01</text>
+  <text x="698" y="332" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">02</text>
+  <text x="698" y="358" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">03</text>
+  <text x="698" y="384" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">04</text>
+  <text x="698" y="410" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">05</text>
+  <text x="698" y="436" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">06</text>
+  <text x="698" y="462" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">07</text>
+  <text x="698" y="488" fill="#4B4B58" font-size="12" font-family="'Roboto Mono', monospace" text-anchor="middle">08</text>
+  <text x="732" y="306" fill="#FFFFFF" font-size="13" font-family="'Roboto Mono', monospace"># Fast O(1) Named Field Map Caching (Python, JS, TS, Bash)</text>
+  <text x="732" y="332" fill="#E4E4E7" font-size="13" font-family="'Roboto Mono', monospace">field_map = {f[&quot;name&quot;]: i for i, f in enumerate(bejson[&quot;Fields&quot;])}</text>
+  <text x="732" y="358" fill="#E4E4E7" font-size="13" font-family="'Roboto Mono', monospace">name_idx = field_map[&quot;user_name&quot;]</text>
+  <text x="732" y="384" fill="#FFFFFF" font-size="13" font-family="'Roboto Mono', monospace">email_idx = field_map[&quot;user_email&quot;]</text>
+  <text x="732" y="410" fill="#DE2626" font-size="13" font-family="'Roboto Mono', monospace">user_name = row[name_idx] # O(1) dynamic column lookup</text>
+  <text x="732" y="436" fill="#E4E4E7" font-size="13" font-family="'Roboto Mono', monospace"></text>
+  <text x="732" y="462" fill="#71717A" font-size="13" font-family="'Roboto Mono', monospace"># Two-Phase Atomic Disk Persistence Protocol</text>
+  <text x="732" y="488" fill="#E4E4E7" font-size="13" font-family="'Roboto Mono', monospace">temp_file = path.with_suffix(&quot;.tmp&quot;)</text>
+
+  <!-- Footer Line & Metadata -->
+  <line x1="72" y1="664" x2="1208" y2="664" stroke="#262630" stroke-width="1"/>
+  <text x="72" y="692" fill="#71717A" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="600" letter-spacing="1">SLIDE 01 / 10 · TABULAR DATA SUBSTRATE</text>
+  <g transform="translate(1050, 662)">
+  <text x="0" y="22" fill="#FFFFFF" font-size="24" font-family="system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="1.5">BEJSON</text>
+  <g transform="translate(112, 0)">
+    <polygon points="14,2 26,8 14,14 2,8" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round"/>
+    <polygon points="14,5 22,9 14,13 6,9" fill="#111113" opacity="0.9"/>
+    <polygon points="2,8 14,14 14,28 2,22" fill="#1C1C22" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round"/>
+    <polygon points="14,14 26,8 26,22 14,28" fill="#DE2626" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round"/>
+  </g>
+</g>
+</svg>

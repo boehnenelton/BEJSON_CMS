@@ -54,6 +54,10 @@
     {
       "name": "page_topical_links",
       "type": "string"
+    },
+    {
+      "name": "page_featured_diagram",
+      "type": "string"
     }
   ],
   "Values": [
@@ -69,6 +73,7 @@
       "default_page_image.webp",
       "standard",
       "",
+      "",
       ""
     ],
     [
@@ -82,6 +87,7 @@
       "boehnenelton2024",
       "default_page_image.webp",
       "standard",
+      "",
       "",
       ""
     ],
@@ -97,6 +103,7 @@
       "default_page_image.webp",
       "standard",
       "",
+      "",
       ""
     ],
     [
@@ -110,6 +117,7 @@
       "Leethaxor69",
       "/assets/bejson_brand_1.png",
       "post.html",
+      "",
       "",
       ""
     ],
@@ -125,6 +133,7 @@
       "/assets/bejson_brand_1.png",
       "post.html",
       "",
+      "",
       ""
     ],
     [
@@ -139,7 +148,23 @@
       "/assets/bejson_brand_1.png",
       "post.html",
       "",
-      "link-github-sword-slasher,link-youtube-sword-slasher"
+      "link-github-sword-slasher,link-youtube-sword-slasher",
+      ""
+    ],
+    [
+      "11986eaf-b66c-4243-89ae-7c9012543f01",
+      "The Leethaxor Disassembly: Inside the Zero-SQL BEJSON Diagrammer & Spatial Validation Engine",
+      "the-leethaxor-disassembly--inside-the-zero-sql-bejson-diagrammer---spatial-validation-engine",
+      "BEJSON",
+      "blog",
+      "2026-11-07 01:40:15",
+      "",
+      "Leethaxor69",
+      "bejson_diagrammer_ecosystem_hero.svg",
+      "post.html",
+      "",
+      null,
+      "b308859b-a444-4c12-9769-9fddd9dd0520.diag.json"
     ]
   ]
 }

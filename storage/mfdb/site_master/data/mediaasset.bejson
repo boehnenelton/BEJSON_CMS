@@ -256,6 +256,62 @@
       74508,
       "image/webp",
       "2026-11-02T18:45:16.117540+00:00"
+    ],
+    [
+      "3d335683-8a92-45f6-9690-e41a4d4d65ef.diag.json",
+      "4_Tier_Hierarchy_and_Tracker_Governance_Plan.json",
+      "81cbdf9295545ee2ff7a31cf914946c3f354801589a4c4c58b47696306ee77a0",
+      8567,
+      "application/vnd.bejson.diagram+json",
+      "2026-11-07T09:27:01.793111+00:00"
+    ],
+    [
+      "7bb1f86d-7268-44c3-8f2c-b0fbb70bc322.diag.json",
+      "BEJSON_Validator_Process_Plan.json",
+      "21da5ae6285e85d49f9965316f973d5516202fde5a2852d3e848c3b47c49c6c3",
+      7896,
+      "application/vnd.bejson.diagram+json",
+      "2026-11-07T09:30:33.924296+00:00"
+    ],
+    [
+      "562e0125-8a7a-4e43-9c38-a0d85f018782.diag.json",
+      "Management_CMS_and_Admin_Repos_Plan.json",
+      "5cdb57b08bf44ff38e89f36c5728a8be356f7f4c25de702b410d8721ddc77211",
+      6769,
+      "application/vnd.bejson.diagram+json",
+      "2026-11-07T09:30:35.739092+00:00"
+    ],
+    [
+      "b308859b-a444-4c12-9769-9fddd9dd0520.diag.json",
+      "BEJSON_Diagram_System_Architecture_Plan.json",
+      "d06a0a4ee29c6f7017326175d9c93963539f151a93370ebb67a42489e7703fb3",
+      4820,
+      "application/vnd.bejson.diagram+json",
+      "2026-11-07T09:39:10.306886+00:00"
+    ],
+    [
+      "bejson_diagrammer_ecosystem_hero.svg",
+      "bejson_diagrammer_ecosystem_hero.svg",
+      "1b9e3a0d0dddfd25060e42407aa4ba2aafaea076ae52bdbc7b47b84812632756",
+      6677,
+      "image/svg+xml",
+      "2026-11-07T09:39:34.444391+00:00"
+    ],
+    [
+      "bejson_diagrammer_ecosystem_hero.png",
+      "bejson_diagrammer_ecosystem_hero.png",
+      "d9b5c1ec3fbcf0e53d36e526b54c0a1897b92d57e4c6b0265da37fb28fab5968",
+      152744,
+      "image/png",
+      "2026-11-07T09:39:34.449641+00:00"
+    ],
+    [
+      "bejson_diagrammer_ecosystem_hero.webp",
+      "bejson_diagrammer_ecosystem_hero.webp",
+      "4ae2ec375899d32934898920128cc1714bf1741ac7be7455f3db8f838b500f8f",
+      78346,
+      "image/webp",
+      "2026-11-07T09:39:34.456747+00:00"
     ]
   ]
 }

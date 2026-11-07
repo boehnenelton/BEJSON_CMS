@@ -121,10 +121,12 @@ def page_new():
             return "Category required", 400
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
+        featured_diagram = request.form.get('page_featured_diagram', '').strip()
         db.mount()
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": title, "page_slug": slug,
             "page_cat_name": category, "page_type": "page", "page_created_at": datetime.now().strftime("%Y-%m-%d"),
-            "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE})
+            "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE,
+            "page_featured_diagram": featured_diagram})
         
         pfile = os.path.join(PAGES_DB_DIR, f"{new_uuid}.json")
         New_Page_Content_Doc = {
@@ -151,6 +153,12 @@ def page_new():
         
         return redirect(f'/edit/{new_uuid}')
 
+    all_media_for_new = db.get_records("MediaAsset")
+    diagram_assets_for_new = [
+        a for a in all_media_for_new
+        if (a.get('asset_mime_type') or '').lower() == 'application/vnd.bejson.diagram+json'
+        or (a.get('asset_filename') or '').lower().endswith(('.diag.json', '.json', '.bejson'))
+    ]
     html = '''
     <div class="page-header"><h1>Create New Page</h1><p>Add a new page to your website</p></div>
     <form method="POST" class="card">
@@ -159,9 +167,16 @@ def page_new():
             <div class="form-group"><label class="form-label">Category *</label><select name="category" class="form-control" required><option value="" disabled selected>-- Select Category --</option>{% for c in categories %}<option value="{{ c.cat_name }}">{{ c.cat_name }}</option>{% endfor %}</select></div>
             <div class="form-group"><label class="form-label">Author</label><select name="author" class="form-control"><option value="">-- Select author --</option>{% for a in authors %}<option value="{{ a.author_display_name }}">{{ a.author_display_name }}</option>{% endfor %}</select></div>
         </div>
+        <div class="form-group">
+            <label class="form-label">Header Diagram (Above Page Content / Below Featured Image)</label>
+            <select name="page_featured_diagram" class="form-control">
+                <option value="">-- No Header Diagram --</option>
+                {% for d in diagram_assets %}<option value="{{ d.asset_filename }}">📊 {{ d.asset_original_name or d.asset_filename }}</option>{% endfor %}
+            </select>
+        </div>
         <div style="display:flex;gap:10px;margin-top:30px;"><button type="submit" class="btn btn-primary">Create Page</button><a href="/pages" class="btn btn-secondary">Cancel</a></div>
     </form>'''
-    return R(html, categories=categories, authors=authors,
+    return R(html, categories=categories, authors=authors, diagram_assets=diagram_assets_for_new,
              breadcrumbs=get_breadcrumbs(request.path), active_section='content')
 
 
@@ -202,6 +217,7 @@ def edit_content(page_uuid):
         convert_md_on_save = request.form.get('convert_md_on_save') == 'on'
         title = request.form.get('title', page['page_title'])
         featured_img = request.form.get('page_featured_img', page.get('page_featured_img', ''))
+        featured_diagram = request.form.get('page_featured_diagram', page.get('page_featured_diagram', ''))
         author = request.form.get('page_author_name', page.get('page_author_name', ''))
         category = request.form.get('page_cat_name', page.get('page_cat_name', ''))
         page_type = request.form.get('page_type', page.get('page_type', 'page'))
@@ -234,6 +250,7 @@ def edit_content(page_uuid):
         db.update_record("PageRecord", "page_uuid", page_uuid, {
             "page_title": title,
             "page_featured_img": featured_img,
+            "page_featured_diagram": featured_diagram,
             "page_author_name": author,
             "page_cat_name": category,
             "page_type": page_type,
@@ -260,21 +277,18 @@ def edit_content(page_uuid):
                 break
     except Exception: pass
     
-    # BUGFIX (2026-08-02): Featured Image and Insert Image used to read from two
-    # different sources of truth -- this route now pulls both from the same
-    # MediaAsset MFDB table (db.get_records("MediaAsset")) that the Media
-    # Library page (/assets) and its API already use, instead of a raw
-    # os.listdir() of ASSETS_DIR (get_assets()). A raw directory listing shows
-    # every file physically sitting in ASSETS_DIR whether or not it's actually
-    # a tracked, current asset -- so any orphaned file left on disk (failed
-    # upload, manual copy, restored backup, anything not cleanly deleted
-    # through the real Delete button) stays visible forever, in a pool that
-    # doesn't shrink even after Delete or Factory Reset touch the database.
-    # Reading MediaAsset records instead means both pickers only ever show
-    # what the database says exists, and both change together.
     db.mount()
     media_assets = db.get_records("MediaAsset")
     media_assets.sort(key=lambda a: a.get('asset_uploaded_at') or '', reverse=True)
+    diagram_assets = [
+        a for a in media_assets
+        if (a.get('asset_mime_type') or '').lower() == 'application/vnd.bejson.diagram+json'
+        or (a.get('asset_filename') or '').lower().endswith(('.diag.json', '.json', '.bejson'))
+    ]
+    image_media_assets = [
+        a for a in media_assets
+        if a not in diagram_assets and not (a.get('asset_filename') or '').lower().endswith('.pdf')
+    ]
     pdf_assets = [a for a in media_assets if (a.get('asset_filename') or '').lower().endswith('.pdf')]
     pdf_links = [e for e in db.get_records("ExternalMedia") if (e.get('extmedia_type') or '').lower() == 'pdf']
     video_links = [e for e in db.get_records("ExternalMedia") if (e.get('extmedia_type') or '').lower() == 'video']
@@ -291,7 +305,7 @@ def edit_content(page_uuid):
                     <label class="form-label">Featured Image</label>
                     <select name="page_featured_img" id="featured_img_select" class="form-control">
                         <option value="">-- No image --</option>
-                        {% for a in media_assets %}<option value="{{ a.asset_filename }}" {% if a.asset_filename == page.page_featured_img and page.page_featured_img and page.page_featured_img != 'None' %}selected{% endif %}>{{ a.asset_original_name or a.asset_filename }}</option>{% endfor %}
+                        {% for a in image_media_assets %}<option value="{{ a.asset_filename }}" {% if a.asset_filename == page.page_featured_img and page.page_featured_img and page.page_featured_img != 'None' %}selected{% endif %}>{{ a.asset_original_name or a.asset_filename }}</option>{% endfor %}
                     </select>
                     <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
                         <input type="file" id="featured_img_upload" accept="image/*" style="flex:1; font-size:0.8rem;">
@@ -299,6 +313,23 @@ def edit_content(page_uuid):
                     </div>
                     <div id="featured_img_upload_status" style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;"></div>
                     <div id="featured_img_preview" style="margin-top:8px;">{% if page.page_featured_img and page.page_featured_img != 'None' %}<img src="/assets/{{ page.page_featured_img }}" style="max-height:80px;border-radius:6px;border:1px solid var(--border);" alt="current">{% endif %}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Header Diagram (Above Page Content / Below Featured Image)</label>
+                    <select name="page_featured_diagram" id="featured_diagram_select" class="form-control">
+                        <option value="">-- No Header Diagram --</option>
+                        {% for d in diagram_assets %}<option value="{{ d.asset_filename }}" {% if d.asset_filename == page.page_featured_diagram and page.page_featured_diagram and page.page_featured_diagram != 'None' %}selected{% endif %}>📊 {{ d.asset_original_name or d.asset_filename }}</option>{% endfor %}
+                    </select>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                        <input type="file" id="featured_diagram_upload" accept=".json,.bejson,.html" style="flex:1; font-size:0.8rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="uploadFeaturedDiagram()">&#8593; Validate &amp; Upload Diagram</button>
+                    </div>
+                    <div id="featured_diagram_upload_status" style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;"></div>
+                    <div id="featured_diagram_preview_link" style="margin-top:6px;">
+                        {% if page.page_featured_diagram and page.page_featured_diagram != 'None' %}
+                        <a href="/assets/diagram/preview/{{ page.page_featured_diagram }}" target="_blank" class="btn btn-secondary btn-sm">📊 Preview &amp; Validate Selected Header Diagram</a>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Author</label>
@@ -332,7 +363,7 @@ def edit_content(page_uuid):
             <div id="md2html-status" style="font-size:0.8rem;color:var(--text-secondary);margin-top:6px;"></div>
         </div>
         <div class="card">
-            <div class="card-header"><span class="card-title">HTML Content Editor</span><div><button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'asset-modal\')">&#128444; Insert Image</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'pdf-insert-modal\')">&#128196; Insert PDF</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'yt-insert-modal\')">&#9654; Insert YouTube</button></div></div>
+            <div class="card-header"><span class="card-title">HTML Content Editor</span><div><button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'asset-modal\')">&#128444; Insert Image</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'diagram-insert-modal\')">📊 Insert Diagram</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'pdf-insert-modal\')">&#128196; Insert PDF</button> <button type="button" class="btn btn-secondary btn-sm" onclick="openModal(\'yt-insert-modal\')">&#9654; Insert YouTube</button></div></div>
             <div class="editor-toolbar"><button type="button" onclick="insertTag(\'h2\')">H2</button><button type="button" onclick="insertTag(\'h3\')">H3</button><button type="button" onclick="insertTag(\'p\')">P</button><button type="button" onclick="insertTag(\'b\')">Bold</button><button type="button" onclick="insertTag(\'br\')">Break</button><button type="button" onclick="insertTag(\'a\')">Link</button></div>
             <textarea id="html-editor" name="html_content" class="editor-area"></textarea>
             <script>
@@ -425,11 +456,101 @@ def edit_content(page_uuid):
                     })
                     .catch(function() { statusEl.textContent = 'Could not check upload status.'; });
             }
+
+            function uploadFeaturedDiagram() {
+                var input = document.getElementById('featured_diagram_upload');
+                var statusEl = document.getElementById('featured_diagram_upload_status');
+                if (!input.files || !input.files[0]) {
+                    statusEl.textContent = 'Choose a .json, .bejson, or .html diagram file first.';
+                    return;
+                }
+                var select = document.getElementById('featured_diagram_select');
+                var before = new Set();
+                for (var i = 0; i < select.options.length; i++) { before.add(select.options[i].value); }
+
+                var fd = new FormData();
+                fd.append('files', input.files[0]);
+                statusEl.textContent = 'Validating & uploading diagram...';
+
+                fetch('/assets/upload', { method: 'POST', body: fd })
+                    .then(function() {
+                        statusEl.textContent = 'Processing validated diagram...';
+                        pollForNewDiagram(before, 0);
+                    })
+                    .catch(function() { statusEl.textContent = 'Diagram upload failed.'; });
+            }
+
+            function pollForNewDiagram(before, attempt) {
+                var statusEl = document.getElementById('featured_diagram_upload_status');
+                if (attempt > 15) {
+                    statusEl.textContent = 'Validation failed or still processing -- check Media Library for error details.';
+                    return;
+                }
+                fetch('/api/media/diagrams')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var newDiag = (data.diagrams || []).find(function(d) { return !before.has(d.asset_filename); });
+                        if (newDiag) {
+                            var select = document.getElementById('featured_diagram_select');
+                            var opt = document.createElement('option');
+                            opt.value = newDiag.asset_filename;
+                            opt.textContent = '📊 ' + (newDiag.asset_original_name || newDiag.asset_filename);
+                            opt.selected = true;
+                            select.appendChild(opt);
+                            select.value = newDiag.asset_filename;
+                            document.getElementById('featured_diagram_preview_link').innerHTML =
+                                '<a href="/assets/diagram/preview/' + newDiag.asset_filename + '" target="_blank" class="btn btn-secondary btn-sm">📊 Preview &amp; Validate Selected Header Diagram</a>';
+                            statusEl.style.color = '#10b981';
+                            statusEl.textContent = 'Passed 104 Validation and selected as Header Diagram!';
+                            document.getElementById('featured_diagram_upload').value = '';
+                        } else {
+                            setTimeout(function() { pollForNewDiagram(before, attempt + 1); }, 600);
+                        }
+                    })
+                    .catch(function() { statusEl.textContent = 'Could not check diagram upload status.'; });
+            }
+
+            function insertInlineDiagramComponent(filename) {
+                fetch('/api/media/diagram/render_inline/' + encodeURIComponent(filename))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (!data.success || !data.inline_html) {
+                            alert('Diagram validation failed: ' + (data.error || 'Unknown error'));
+                            return;
+                        }
+                        var ta = document.getElementById('html-editor');
+                        var start = ta.selectionStart || ta.value.length;
+                        var end = ta.selectionEnd || ta.value.length;
+                        ta.value = ta.value.substring(0, start) + '\\n' + data.inline_html + '\\n' + ta.value.substring(end);
+                        closeModal('diagram-insert-modal');
+                    })
+                    .catch(function(err) { alert('Failed to render inline diagram: ' + err); });
+            }
             </script>
         </div>
         <div style="display:flex;gap:10px;margin-top:20px;"><button type="submit" class="btn btn-primary">&#128190; Save Changes</button><a href="/pages" class="btn btn-secondary">&#8592; Back to Pages</a></div>
     </form>
-    <div id="asset-modal" class="modal-overlay" onclick="if(event.target===this)closeModal(\'asset-modal\')"><div class="modal"><div class="modal-header"><h3>Select Image</h3><button class="close-btn" onclick="closeModal(\'asset-modal\')">&times;</button></div><div class="modal-body"><div class="asset-grid">{% for a in media_assets %}<div class="asset-item" onclick="insertImage(\'{{ a.asset_filename }}\')"><img src="/assets/{{ a.asset_filename }}" alt="{{ a.asset_original_name or a.asset_filename }}" loading="lazy"><div class="asset-name">{{ a.asset_original_name or a.asset_filename }}</div></div>{% endfor %}</div></div></div></div>
+    <div id="asset-modal" class="modal-overlay" onclick="if(event.target===this)closeModal(\'asset-modal\')"><div class="modal"><div class="modal-header"><h3>Select Image</h3><button class="close-btn" onclick="closeModal(\'asset-modal\')">&times;</button></div><div class="modal-body"><div class="asset-grid">{% for a in image_media_assets %}<div class="asset-item" onclick="insertImage(\'{{ a.asset_filename }}\')"><img src="/assets/{{ a.asset_filename }}" alt="{{ a.asset_original_name or a.asset_filename }}" loading="lazy"><div class="asset-name">{{ a.asset_original_name or a.asset_filename }}</div></div>{% endfor %}</div></div></div></div>
+    <div id="diagram-insert-modal" class="modal-overlay" onclick="if(event.target===this)closeModal(\'diagram-insert-modal\')">
+      <div class="modal">
+        <div class="modal-header"><h3>Insert Interactive 3-Tab Diagram Component</h3><button class="close-btn" onclick="closeModal(\'diagram-insert-modal\')">&times;</button></div>
+        <div class="modal-body">
+          <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">Click a validated diagram below to inject its self-contained 3-tab HTML component at the cursor position (or use the <strong>Header Diagram</strong> dropdown above to place it at the top of the page below the Featured Image).</p>
+          {% if diagram_assets %}
+          <div class="asset-grid">
+            {% for d in diagram_assets %}
+            <div class="asset-item" onclick="insertInlineDiagramComponent(\'{{ d.asset_filename }}\')" style="cursor:pointer;padding:14px;text-align:center;">
+              <div style="font-size:2rem;">📊</div>
+              <div class="asset-name">{{ d.asset_original_name or d.asset_filename }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div style="padding:20px;text-align:center;color:var(--text-secondary);font-size:.85rem;">No diagrams uploaded yet — use the Header Diagram uploader above or upload under Media Library.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
     <div id="pdf-insert-modal" class="modal-overlay" onclick="if(event.target===this)closeModal(\'pdf-insert-modal\')">
       <div class="modal">
         <div class="modal-header"><h3>Insert PDF</h3><button class="close-btn" onclick="closeModal(\'pdf-insert-modal\')">&times;</button></div>
@@ -481,6 +602,7 @@ def edit_content(page_uuid):
     </div>'''
     breadcrumbs = [{'label': 'Content', 'href': '/content'}, {'label': 'Pages', 'href': '/pages'}, {'label': page['page_title'], 'href': None}]
     return R(html, page=page, page_uuid=page_uuid, html_content=html_content, markdown_content=markdown_content, media_assets=media_assets,
+             image_media_assets=image_media_assets, diagram_assets=diagram_assets,
              pdf_assets=pdf_assets, pdf_links=pdf_links, video_links=video_links,
              categories=categories, authors=authors, breadcrumbs=breadcrumbs, active_section='content')
 
@@ -530,6 +652,7 @@ def duplicate_page(page_uuid):
         "page_cat_name": source.get("page_cat_name"), "page_type": source.get("page_type", "page"),
         "page_created_at": datetime.now().strftime("%Y-%m-%d"), "page_external_url": None,
         "page_author_name": source.get("page_author_name"), "page_featured_img": source.get("page_featured_img"),
+        "page_featured_diagram": source.get("page_featured_diagram", ""),
         "page_template_key": source.get("page_template_key"),
     })
 

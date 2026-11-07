@@ -93,6 +93,7 @@ def init_master_db():
                 {"name": "page_template_key", "type": "string"},
                 {"name": "page_featured_video_url", "type": "string"},
                 {"name": "page_topical_links", "type": "string"},
+                {"name": "page_featured_diagram", "type": "string"},
             ],
         },
         {
@@ -330,6 +331,7 @@ def _migrate_db():
                 {"name": "page_template_key", "type": "string"},
                 {"name": "page_featured_video_url", "type": "string"},
                 {"name": "page_topical_links", "type": "string"},
+                {"name": "page_featured_diagram", "type": "string"},
             ],
         },
         {

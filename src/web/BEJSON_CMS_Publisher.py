@@ -315,6 +315,7 @@ class SkeletonBuilder:
         <h1 class="article-title">{{article_title}}</h1>
     </header>
     {{featured_image_html}}
+    {{featured_diagram_html}}
     <div class="article-body">{{article_body}}</div>
     
     {{topical_links_section}}
@@ -972,6 +973,7 @@ def _execute():
             p_author = item.get("page_author_name") or default_author
             p_date   = item.get("page_created_at") or datetime.now().strftime("%Y-%m-%d")
             f_img    = item.get("page_featured_img")
+            f_diag   = (item.get("page_featured_diagram") or "").strip()
             
             # Handle missing or "None" images with the seeded default image
             if not f_img or str(f_img).lower() == "none":
@@ -979,6 +981,20 @@ def _execute():
             else:
                 feat_img_html = f"<img src='../../../assets/{f_img}' class='article-featured-image'>"
             
+            feat_diag_html = ""
+            if f_diag and f_diag.lower() != "none":
+                diag_file_path = os.path.join(ASSETS_SRC, f_diag)
+                if os.path.exists(diag_file_path):
+                    try:
+                        from lib_bejson_CMS_diagrams import cms_diagrams_render_inline_from_file
+                        rendered_inline_diagram_html = cms_diagrams_render_inline_from_file(diag_file_path)
+                        if rendered_inline_diagram_html:
+                            feat_diag_html = rendered_inline_diagram_html
+                        else:
+                            _log(f"Warning: Header Diagram '{f_diag}' failed validation or rendering on {item.get('page_title')}")
+                    except Exception as diag_err:
+                        _log(f"Warning: Error rendering Header Diagram '{f_diag}': {diag_err}")
+
             related_html       = _generate_related_block(items, item, default_author, categories)
             ad_html            = _generate_ad_block(ad_units, "../../../")
             topical_links_html = _generate_topical_links_block(item, external_media)
@@ -986,6 +1002,10 @@ def _execute():
             # Render page content via strategy renderer dispatch
             from BEJSON_CMS_Renderers import render_page
             rendered_article_content = render_page(itype, {"page_title": item.get("page_title", ""), "html_body": html_body, "page_external_url": item.get("page_external_url"), "page_featured_img": f_img, "page_featured_video_url": item.get("page_featured_video_url")})
+
+            article_skel = _read_skel("Article_Skeleton.html")
+            if feat_diag_html and "{{featured_diagram_html}}" not in article_skel:
+                feat_img_html = feat_img_html + "\n" + feat_diag_html
 
             # Build Page Tags
             page_tags = base_tags.copy()
@@ -1003,13 +1023,13 @@ def _execute():
                 "category": item.get("page_cat_name", "Uncategorized"),
                 "article_body": rendered_article_content,
                 "featured_image_html": feat_img_html,
+                "featured_diagram_html": feat_diag_html,
                 "topical_links_section": topical_links_html,
                 "related_content_section": related_html + ad_html,
                 "timestamp": f"{p_date} \u2022 {p_author}"
             })
 
             # Assemble Page
-            article_skel = _read_skel("Article_Skeleton.html")
             main_content = _apply_tags(article_skel, page_tags)
             page_tags["main_content_injection"] = main_content
             

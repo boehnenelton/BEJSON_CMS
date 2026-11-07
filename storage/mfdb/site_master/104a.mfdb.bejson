@@ -51,7 +51,7 @@
       "PageRecord",
       "data/pagerecord.bejson",
       null,
-      6,
+      7,
       "1.0",
       "page_uuid"
     ],
@@ -131,7 +131,7 @@
       "MediaAsset",
       "data/mediaasset.bejson",
       null,
-      28,
+      32,
       "1.0",
       "asset_filename"
     ],

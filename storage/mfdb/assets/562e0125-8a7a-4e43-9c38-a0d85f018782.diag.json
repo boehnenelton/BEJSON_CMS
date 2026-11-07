@@ -1,0 +1,230 @@
+{
+  "diagramId": "e3a89047-8172-4682-841f-82bb3056c071",
+  "name": "MFDB Diagram - Management CMS & Admin Repos",
+  "description": "Architecture map of Management_CMS and its integration within Admin Repos (/storage/emulated/0/Admin/Dev/Repos). Details the repository cluster, Flask application core, administrative services (Notes, Links, Todos), public CMS hosting layer, security and write-locking controls, sectional MFDB persistence (104a.mfdb.bejson), and the static HTML export pipeline.",
+  "shapes": [
+    {
+      "id": "node_repos_root",
+      "label": "Admin Repos Root",
+      "text": "/storage/emulated/0/Admin/Dev/Repos ($ADMIN_REPOS)\nCentral checkout domain for active BEJSON & Python projects.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 350,
+      "cy": 150,
+      "parentId": null
+    },
+    {
+      "id": "node_cms_cluster",
+      "label": "CMS & Framework Repos",
+      "text": "Management_CMS, BEJSON_CMS, Experimental_CMS.\nModular Web_Framework scaffolds with per-section MFDB stores.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 350,
+      "cy": 300,
+      "parentId": "node_repos_root"
+    },
+    {
+      "id": "node_lib_cluster",
+      "label": "Core Libraries & Tooling",
+      "text": "BEJSON_104, BEJSON_105, MFDB_132_Compiler, CLI_AI.\nSupplies foundational O(1) field cache and atomic storage.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 350,
+      "cy": 450,
+      "parentId": "node_repos_root"
+    },
+    {
+      "id": "node_management_cms_entry",
+      "label": "Management_CMS Ingress",
+      "text": "Dev/Repos/Management_CMS\nUnified administrative portal and public publishing microservice.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 350,
+      "cy": 600,
+      "parentId": "node_cms_cluster"
+    },
+    {
+      "id": "node_app_routing",
+      "label": "Flask Web Engine (app.py)",
+      "text": "Core router binding administrative endpoints, CSRF/Token auth, and content controllers.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 1000,
+      "cy": 150,
+      "parentId": "node_management_cms_entry"
+    },
+    {
+      "id": "node_admin_services",
+      "label": "Admin Data Services",
+      "text": "Categorized Notes, Links directory, and expandable Todo task management services.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1000,
+      "cy": 300,
+      "parentId": "node_app_routing"
+    },
+    {
+      "id": "node_content_layer",
+      "label": "Public CMS Content Layer",
+      "text": "Pages, Posts, Categories, Navigation trees, and Media management via lib/Management_CMS.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1000,
+      "cy": 450,
+      "parentId": "node_app_routing"
+    },
+    {
+      "id": "node_security_guard",
+      "label": "Security & Atomic Mutex",
+      "text": "Rate-limited admin token (0600), SVG download enforcement, and atomic file lock cycles.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1000,
+      "cy": 600,
+      "parentId": "node_app_routing"
+    },
+    {
+      "id": "node_mfdb_manifest",
+      "label": "Root MFDB (104a.mfdb.bejson)",
+      "text": "Master database manifest linking TaxonomyType, ComponentMap, and SkeletonStore entities.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 1650,
+      "cy": 150,
+      "parentId": "node_content_layer"
+    },
+    {
+      "id": "node_section_mfdb",
+      "label": "Sectional MFDB Stores",
+      "text": "Content/Notes, Content/Page, Content/Post, Content/Tasks, Content/media data partitions.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1650,
+      "cy": 350,
+      "parentId": "node_mfdb_manifest"
+    },
+    {
+      "id": "node_static_export",
+      "label": "Static Site Build (Export/)",
+      "text": "Static compiler generating auto-TOC, related posts, clean sitemaps, 404, and compiled HTML.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1650,
+      "cy": 550,
+      "parentId": "node_section_mfdb"
+    }
+  ],
+  "connectors": [
+    {
+      "id": "conn_repos_cms",
+      "from": "node_repos_root",
+      "to": "node_cms_cluster",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_repos_libs",
+      "from": "node_repos_root",
+      "to": "node_lib_cluster",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_cms_mgmt",
+      "from": "node_cms_cluster",
+      "to": "node_management_cms_entry",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_mgmt_app",
+      "from": "node_management_cms_entry",
+      "to": "node_app_routing",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_app_admin",
+      "from": "node_app_routing",
+      "to": "node_admin_services",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_app_content",
+      "from": "node_app_routing",
+      "to": "node_content_layer",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_app_sec",
+      "from": "node_app_routing",
+      "to": "node_security_guard",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_content_manifest",
+      "from": "node_content_layer",
+      "to": "node_mfdb_manifest",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_manifest_sections",
+      "from": "node_mfdb_manifest",
+      "to": "node_section_mfdb",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_sections_export",
+      "from": "node_section_mfdb",
+      "to": "node_static_export",
+      "flow": "forward"
+    }
+  ],
+  "territories": [
+    {
+      "id": "zone_admin_repos",
+      "kind": "rect",
+      "cx": 350,
+      "cy": 450,
+      "size": 550,
+      "label": "Zone 1: Admin Repos Domain (/storage/emulated/0/Admin/Dev/Repos)",
+      "color": "#000000"
+    },
+    {
+      "id": "zone_cms_core",
+      "kind": "rect",
+      "cx": 1000,
+      "cy": 450,
+      "size": 550,
+      "label": "Zone 2: Management_CMS Application Engine (app.py)",
+      "color": "#DE2626"
+    },
+    {
+      "id": "zone_persistence_build",
+      "kind": "rect",
+      "cx": 1650,
+      "cy": 450,
+      "size": 550,
+      "label": "Zone 3: MFDB Persistence & Static Site Compiler",
+      "color": "#000000"
+    }
+  ]
+}

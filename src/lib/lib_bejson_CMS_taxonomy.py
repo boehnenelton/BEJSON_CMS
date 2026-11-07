@@ -108,6 +108,7 @@ TAXONOMY_FIELD_ALIAS_MAP: Dict[str, Dict[str, str]] = {
         "external_url":   "page_external_url",
         "author_ref":     "page_author_name",   # transition: still stores name string
         "featured_img":   "page_featured_img",  # keeps asset filename for now
+        "featured_diagram": "page_featured_diagram",  # diagram asset filename for header diagram
         "template_key":   "page_template_key",  # prefix normalise
     },
 

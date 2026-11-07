@@ -1,0 +1,272 @@
+{
+  "diagramId": "d8f42e10-9a11-4c73-b205-71a930c84d12",
+  "name": "MFDB Diagram - Directory Hierarchy",
+  "description": "Architecture diagram of the 4-Tier Directory Organization Framework (Tier 1 Catalog -> Tier 2 Gallery -> Tier 3 Project or Purpose Folder -> Tier 4 Dependent Folder), Binary Path-vs-Project Mutual Exclusion (.path.bejson vs bejson_project.json), >=75% Confidence Anomaly Remediation (flags, action=MOVE, action_modifier), <Status>/<Type> Archive Routing, and Antigravity Lifecycle Hooks.",
+  "shapes": [
+    {
+      "id": "node_admin_root",
+      "label": "Depth 0: Admin Root",
+      "text": "/storage/emulated/0/Admin\nContains root .path.bejson manifest.\nAnchors all Tier 1 Catalogs.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 350,
+      "cy": 150,
+      "parentId": null
+    },
+    {
+      "id": "node_tier1_catalog",
+      "label": "Tier 1: Catalog (Depth 1)",
+      "text": "Primary domain buckets: Core, Dev, Libraries, Processing, Resources, SD_Fallback, System.\nTracked via .path.bejson.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 350,
+      "cy": 300,
+      "parentId": "node_admin_root"
+    },
+    {
+      "id": "node_tier2_gallery",
+      "label": "Tier 2: Gallery (Depth 2)",
+      "text": "Thematic sub-categories: Dev/Tools, Dev/Repos, Dev/Python, Resources/Images, System/Job_Management.\nTracked via .path.bejson.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 350,
+      "cy": 450,
+      "parentId": "node_tier1_catalog"
+    },
+    {
+      "id": "node_tier3_purpose",
+      "label": "Tier 3A: Purpose Folder",
+      "text": "Dedicated non-project organizational or asset folder (e.g. Images/icons, Python/Stable, Jobs).\nReceives .path.bejson.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#FFFFFF",
+      "fontColor": "#000000",
+      "cx": 200,
+      "cy": 600,
+      "parentId": "node_tier2_gallery"
+    },
+    {
+      "id": "node_tier3_project",
+      "label": "Tier 3B: Project / Tool Folder",
+      "text": "Immutable self-contained project, repo, library bundle, or CLI/web tool.\nMoves as a unified block. Tracked via bejson_project.json.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 500,
+      "cy": 600,
+      "parentId": "node_tier2_gallery"
+    },
+    {
+      "id": "node_tier4_dependent",
+      "label": "Tier 4: Dependent Folders",
+      "text": "Standard internal subdirectories strictly inside a Tier 3 Project: lib, config, data, exports, backups, dev, docs, assets, logs, out.\nExcluded from .path.bejson.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 500,
+      "cy": 750,
+      "parentId": "node_tier3_project"
+    },
+    {
+      "id": "node_path_bejson",
+      "label": ".path.bejson (Schema v101)",
+      "text": "BEJSON 104a Path Declaration:\n1. id (UUIDv4)\n2. purpose\n3. current_path\n4. alias_history\n5. flags (>=75% confidence)\n6. action (MOVE)\n7. action_modifier (dest path)",
+      "kind": "rect",
+      "sizeClass": "large",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 900,
+      "cy": 250,
+      "parentId": null
+    },
+    {
+      "id": "node_anomaly_remediation",
+      "label": ">=75% Confidence Remediation",
+      "text": "Flags MISPLACED or JUNK folders only when confidence >= 75%.\nPopulates action='MOVE' and action_modifier='<destination>' for automated file/folder routing.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 900,
+      "cy": 450,
+      "parentId": "node_path_bejson"
+    },
+    {
+      "id": "node_project_tracker",
+      "label": "bejson_project.json Tracker",
+      "text": "Project Tracker & Project Chunker Registry:\nEnforces solid integer Version, Project_GUID, Status (Active, Inactive, Archived, Legacy), and Type ($PROJECT_TYPE_LEDGER).",
+      "kind": "rect",
+      "sizeClass": "large",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1150,
+      "cy": 600,
+      "parentId": null
+    },
+    {
+      "id": "node_archive_routing",
+      "label": "Projects_Archive/<Status>/<Type>",
+      "text": "Routes archived projects by Status first (Active, Inactive, Legacy, Archived) then by canonical Type (python, bash, react, website, app, skill, library).",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 1150,
+      "cy": 750,
+      "parentId": "node_project_tracker"
+    },
+    {
+      "id": "node_skill_manager",
+      "label": "file-hierarchy-manager (Layer 3)",
+      "text": "hierarchy_governor.py:\n--sweep-paths (in-memory lazy-write)\n--audit-drift (relocation & exclusivity check)\n--audit-trackers (Status/Type validation)",
+      "kind": "rect",
+      "sizeClass": "large",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 1650,
+      "cy": 250,
+      "parentId": null
+    },
+    {
+      "id": "node_pre_tool_hook",
+      "label": "PreToolUse Hook Guardrail",
+      "text": "pre_tool_use_guardrail.py:\nBlocks .path.bejson inside Project or Tier 4 Dependent folders.\nBlocks bejson_project.json inside Path folders.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1650,
+      "cy": 450,
+      "parentId": null
+    },
+    {
+      "id": "node_post_turn_hooks",
+      "label": "PostInvocation & Chunker Hooks",
+      "text": "post_invocation_auditor.py & project_chunker_hook.py:\nAudits modified trackers, enforces mutual exclusion, and syncs Status/Type on --track --chunk.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1650,
+      "cy": 650,
+      "parentId": null
+    }
+  ],
+  "connectors": [
+    {
+      "id": "conn_root_t1",
+      "from": "node_admin_root",
+      "to": "node_tier1_catalog",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_t1_t2",
+      "from": "node_tier1_catalog",
+      "to": "node_tier2_gallery",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_t2_t3a",
+      "from": "node_tier2_gallery",
+      "to": "node_tier3_purpose",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_t2_t3b",
+      "from": "node_tier2_gallery",
+      "to": "node_tier3_project",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_t3b_t4",
+      "from": "node_tier3_project",
+      "to": "node_tier4_dependent",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_purpose_path",
+      "from": "node_tier3_purpose",
+      "to": "node_path_bejson",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_path_remed",
+      "from": "node_path_bejson",
+      "to": "node_anomaly_remediation",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_proj_tracker",
+      "from": "node_tier3_project",
+      "to": "node_project_tracker",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_tracker_archive",
+      "from": "node_project_tracker",
+      "to": "node_archive_routing",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_skill_path",
+      "from": "node_skill_manager",
+      "to": "node_path_bejson",
+      "flow": "bidirectional"
+    },
+    {
+      "id": "conn_skill_tracker",
+      "from": "node_skill_manager",
+      "to": "node_project_tracker",
+      "flow": "bidirectional"
+    },
+    {
+      "id": "conn_prehook_path",
+      "from": "node_pre_tool_hook",
+      "to": "node_path_bejson",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_posthook_tracker",
+      "from": "node_post_turn_hooks",
+      "to": "node_project_tracker",
+      "flow": "forward"
+    }
+  ],
+  "territories": [
+    {
+      "id": "zone_four_tier",
+      "kind": "rect",
+      "cx": 350,
+      "cy": 450,
+      "size": 550,
+      "label": "4-Tier Directory Organization Framework (/storage/emulated/0/Admin)",
+      "color": "#000000"
+    },
+    {
+      "id": "zone_trackers",
+      "kind": "rect",
+      "cx": 1000,
+      "cy": 450,
+      "size": 550,
+      "label": "Binary Path-vs-Project Trackers & Archive Routing",
+      "color": "#DE2626"
+    },
+    {
+      "id": "zone_governance",
+      "kind": "rect",
+      "cx": 1650,
+      "cy": 450,
+      "size": 550,
+      "label": "file-hierarchy-manager Skill & Lifecycle Hooks",
+      "color": "#000000"
+    }
+  ]
+}

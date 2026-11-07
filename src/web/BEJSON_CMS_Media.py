@@ -40,6 +40,11 @@ from BEJSON_CMS_Shared import (
     ASSETS_DIR, THUMBS_DIR, serve_shared_asset, serve_shared_thumb,
 )
 from lib_bejson_Core_bejson_path_guard import bejson_safe_join
+from lib_bejson_CMS_diagrams import (
+    cms_diagrams_validate_and_remediate,
+    cms_diagrams_validate_file,
+    cms_diagrams_render_inline_from_file,
+)
 
 try:
     from PIL import Image
@@ -48,8 +53,13 @@ except ImportError:
     _PIL_OK = False
 
 ALLOWED_ASSET_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
-                              '.pdf', '.mp4', '.mp3', '.ogg', '.webm', '.ico'}
+                              '.pdf', '.mp4', '.mp3', '.ogg', '.webm', '.ico',
+                              '.json', '.bejson', '.html'}
+DIAGRAM_RAW_EXTENSIONS = {'.json', '.bejson', '.html'}
+DIAGRAM_MIME_TYPE = 'application/vnd.bejson.diagram+json'
 # NOTE: SVG is allowed but sanitize SVG content before serving to prevent XSS.
+# NOTE: .json, .bejson, and .html are strictly gated by cms_diagrams_validate_and_remediate()
+# before saving and converted to normalized .diag.json diagram assets.
 
 media_cube = Blueprint('media', __name__)
 
@@ -205,7 +215,11 @@ def assets_list_json():
     db.mount()
     assets = db.get_records("MediaAsset")
     return jsonify({"files": [
-        {"asset_filename": a.get("asset_filename"), "asset_original_name": a.get("asset_original_name") or a.get("asset_filename")}
+        {
+            "asset_filename": a.get("asset_filename"),
+            "asset_original_name": a.get("asset_original_name") or a.get("asset_filename"),
+            "asset_mime_type": a.get("asset_mime_type") or "",
+        }
         for a in assets
     ]})
 
@@ -240,8 +254,16 @@ def assets_gallery():
         display_name = _html_escape.escape(a.get('asset_original_name') or fname)
         size_kb = f"{(a.get('asset_file_size') or 0) / 1024:.1f} KB"
         ext = Path(fname).suffix.lower()
-        if ext in _THUMBABLE_EXT:
+        asset_mime = (a.get('asset_mime_type') or '').lower()
+        is_diagram_asset = (
+            asset_mime == DIAGRAM_MIME_TYPE
+            or fname.lower().endswith('.diag.json')
+            or ext in DIAGRAM_RAW_EXTENSIONS
+        )
+        if ext in _THUMBABLE_EXT and not is_diagram_asset:
             thumb_html = f'<img src="/assets/thumb/{fname}" loading="lazy" class="media-row-thumb lightbox-trigger" data-src="/assets/{fname}" data-caption="{display_name}">'
+        elif is_diagram_asset:
+            thumb_html = f'<div class="media-row-thumb media-row-thumb-badge" onclick="event.stopPropagation(); window.open(\'/assets/diagram/preview/{fname}\', \'_blank\');" title="BEJSON Diagram (Click to Preview)">📊</div>'
         else:
             # Non-thumbable asset (PDF, video, audio, etc.) - the thumb route
             # would otherwise fall back to serving the raw original as an
@@ -249,16 +271,21 @@ def assets_gallery():
             # type badge instead and open the raw file directly on click.
             badge = {'.pdf': '📄', '.mp4': '🎬', '.webm': '🎬', '.mp3': '🎵', '.ogg': '🎵'}.get(ext, '📦')
             thumb_html = f'<div class="media-row-thumb media-row-thumb-badge" onclick="event.stopPropagation(); window.open(\'/assets/{fname}\', \'_blank\');" title="{ext} file">{badge}</div>'
+        diagram_preview_btn = (
+            f'<a href="/assets/diagram/preview/{fname}" target="_blank" class="btn btn-secondary btn-sm">📊 Preview &amp; Validate</a>'
+            if is_diagram_asset else ''
+        )
         rows += f'''
         <div class="media-row" data-filename="{fname}">
           <div class="media-row-header" onclick="toggleMediaRow(this)">
             <input type="checkbox" class="media-select" value="{fname}" onclick="event.stopPropagation(); updateBulkToolbar();">
             {thumb_html}
-            <span class="media-row-name">{display_name}</span>
+            <span class="media-row-name">{display_name}{' <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:rgba(222,38,38,0.12); color:#DE2626; font-weight:700; margin-left:6px;">DIAGRAM</span>' if is_diagram_asset else ''}</span>
             <span class="media-row-size">{size_kb}</span>
             <span class="media-row-chevron">&#9656;</span>
           </div>
           <div class="media-row-details">
+            {diagram_preview_btn}
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('/assets/{fname}')">Copy Path</button>
             <button type="button" class="btn btn-secondary btn-sm rename-asset-btn" data-fname="{fname}" data-name="{display_name}">Rename</button>
             <form method="post" action="/assets/replace/{fname}" enctype="multipart/form-data" class="media-replace-form">
@@ -355,10 +382,11 @@ def assets_gallery():
 
     <div id="tab-panel-files" class="media-tab-panel">
       <div class="card">
-        <div class="card-header"><span class="card-title">Upload Files</span></div>
+        <div class="card-header"><span class="card-title">Upload Files &amp; BEJSON Diagrams</span></div>
         <form method="post" action="/assets/upload" enctype="multipart/form-data">
-          <input type="file" name="files" multiple accept="image/*,.pdf,.mp4,.mp3,.ogg,.webm" class="form-control" style="margin-bottom:12px;">
-          <button type="submit" class="btn btn-primary">Upload</button>
+          <input type="file" name="files" multiple accept="image/*,.pdf,.mp4,.mp3,.ogg,.webm,.json,.bejson,.html" class="form-control" style="margin-bottom:8px;">
+          <small style="display:block; color:var(--text-secondary); margin-bottom:12px;">Supports images, PDFs, audio/video, and BEJSON 104 Diagrams (<code>.json</code> plan, <code>.mfdb132.bejson</code> package, or <code>.html</code> component — verified by the 104 Diagram Validator on upload).</small>
+          <button type="submit" class="btn btn-primary">Upload &amp; Validate</button>
         </form>
       </div>
 
@@ -591,6 +619,44 @@ def assets_upload():
             skipped_count += 1
             continue
 
+        if Uploaded_File_Extension in DIAGRAM_RAW_EXTENSIONS:
+            try:
+                raw_diagram_bytes = f.read()
+                raw_diagram_text = raw_diagram_bytes.decode('utf-8', errors='replace')
+                validation_report = cms_diagrams_validate_and_remediate(
+                    raw_diagram_text, source_filename_str=f.filename
+                )
+                if not validation_report.get('valid') or not validation_report.get('diagram'):
+                    error_summary = "; ".join(validation_report.get('errors') or ['Invalid diagram schema'])
+                    flash(f'"{f.filename}" failed 104 Diagram Validation: {error_summary}', 'error')
+                    skipped_count += 1
+                    continue
+                import json as _json_mod
+                remediated_diagram_payload = validation_report['diagram']
+                stored_name = f"{uuid.uuid4().hex}.diag.json"
+                dest_path = ASSETS_DIR / stored_name
+                dest_path.write_text(_json_mod.dumps(remediated_diagram_payload, indent=2), encoding='utf-8')
+                diagram_display_name = remediated_diagram_payload.get('name') or Path(f.filename).stem
+                if not diagram_display_name.lower().endswith('.diag.json'):
+                    diagram_display_name = f"{diagram_display_name} ({f.filename})"
+                _asset_process_queue.put({
+                    "stored_name": stored_name,
+                    "asset_original_name": diagram_display_name,
+                    "asset_mime_type": DIAGRAM_MIME_TYPE,
+                })
+                queued_count += 1
+                flash(
+                    f'Diagram "{f.filename}" passed 104 Validation '
+                    f'({validation_report["shape_count"]} shapes, '
+                    f'{validation_report["connector_count"]} connectors, '
+                    f'{validation_report["territory_count"]} territories).',
+                    'success'
+                )
+            except Exception as diagram_upload_exc:
+                flash(f'Error validating diagram "{f.filename}": {diagram_upload_exc}', 'error')
+                skipped_count += 1
+            continue
+
         stored_name = f"{uuid.uuid4().hex}{Uploaded_File_Extension}"
         dest_path = ASSETS_DIR / stored_name
         try:
@@ -792,6 +858,116 @@ def api_media_external_add():
             "extmedia_type": media_type,
             "extmedia_url": media_url
         }
+    })
+
+
+@media_cube.route('/assets/diagram/preview/<path:filename>', methods=['GET'])
+def assets_diagram_preview(filename):
+    db.mount()
+    safe_diagram_filename = secure_filename(filename)
+    diagram_asset_path = ASSETS_DIR / safe_diagram_filename
+    if not diagram_asset_path.is_file():
+        flash('Diagram file not found in Media Library.', 'error')
+        return redirect('/assets')
+
+    validation_report = cms_diagrams_validate_file(str(diagram_asset_path))
+    inline_component_html = cms_diagrams_render_inline_from_file(str(diagram_asset_path))
+
+    status_badge_html = (
+        '<span style="padding:4px 10px; border-radius:4px; background:rgba(34,197,94,0.15); color:#22c55e; font-weight:700;">PASSED 104 VALIDATION</span>'
+        if validation_report.get('valid')
+        else '<span style="padding:4px 10px; border-radius:4px; background:rgba(222,38,38,0.15); color:#DE2626; font-weight:700;">ISSUES DETECTED</span>'
+    )
+    errors_list_html = "".join(
+        f'<li style="color:#DE2626;">{_html_escape.escape(err_msg)}</li>'
+        for err_msg in (validation_report.get('errors') or [])
+    )
+    warnings_list_html = "".join(
+        f'<li style="color:#eab308;">{_html_escape.escape(warn_msg)}</li>'
+        for warn_msg in (validation_report.get('warnings') or [])
+    )
+
+    preview_page_html = f'''
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1>Diagram Validator &amp; Preview</h1>
+        <p>File: <code>{_html_escape.escape(safe_diagram_filename)}</code> &bull; Format: <code>{_html_escape.escape(validation_report.get("detected_format") or "unknown")}</code></p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        {status_badge_html}
+        <a href="/assets" class="btn btn-secondary btn-sm">&larr; Back to Media</a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><span class="card-title">104 Structural &amp; Relational Validation Report</span></div>
+      <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:0.9rem; margin-bottom:10px;">
+        <div><strong>Shapes:</strong> {validation_report.get("shape_count", 0)}</div>
+        <div><strong>Connectors:</strong> {validation_report.get("connector_count", 0)}</div>
+        <div><strong>Territories:</strong> {validation_report.get("territory_count", 0)}</div>
+      </div>
+      {f'<ul style="margin:8px 0 0 18px;">{errors_list_html}{warnings_list_html}</ul>' if (errors_list_html or warnings_list_html) else '<p style="color:var(--text-secondary); margin:0;">Zero structural errors or warnings.</p>'}
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Interactive 3-Tab Header Component Preview</span></div>
+      {inline_component_html if inline_component_html else '<p style="color:#DE2626;">Could not render inline diagram component.</p>'}
+    </div>
+    '''
+    return R(preview_page_html, breadcrumbs=get_breadcrumbs(request.path), active_section='assets')
+
+
+@media_cube.route('/api/media/diagrams', methods=['GET'])
+def api_media_diagrams_list():
+    db.mount()
+    all_media_records = db.get_records("MediaAsset")
+    diagram_records_list = []
+    for asset_row in all_media_records:
+        asset_fname = asset_row.get("asset_filename") or ""
+        asset_mime = (asset_row.get("asset_mime_type") or "").lower()
+        asset_ext = Path(asset_fname).suffix.lower()
+        if (
+            asset_mime == DIAGRAM_MIME_TYPE
+            or asset_fname.lower().endswith(".diag.json")
+            or asset_ext in DIAGRAM_RAW_EXTENSIONS
+        ):
+            diagram_records_list.append({
+                "asset_filename": asset_fname,
+                "asset_original_name": asset_row.get("asset_original_name") or asset_fname,
+                "asset_file_size": asset_row.get("asset_file_size") or 0,
+                "asset_uploaded_at": asset_row.get("asset_uploaded_at") or "",
+            })
+    diagram_records_list.sort(key=lambda item: item.get("asset_uploaded_at") or "", reverse=True)
+    return jsonify({"diagrams": diagram_records_list})
+
+
+@media_cube.route('/api/media/diagram/render_inline/<path:filename>', methods=['GET'])
+def api_media_diagram_render_inline(filename):
+    safe_diagram_filename = secure_filename(filename)
+    diagram_asset_path = ASSETS_DIR / safe_diagram_filename
+    if not diagram_asset_path.is_file():
+        return jsonify({"success": False, "error": "Diagram file not found."}), 404
+    validation_report = cms_diagrams_validate_file(str(diagram_asset_path))
+    if not validation_report.get("diagram"):
+        return jsonify({
+            "success": False,
+            "error": "; ".join(validation_report.get("errors") or ["Invalid diagram."]),
+            "validation": validation_report,
+        }), 400
+    inline_html = cms_diagrams_render_inline_from_file(str(diagram_asset_path))
+    return jsonify({
+        "success": True,
+        "filename": safe_diagram_filename,
+        "inline_html": inline_html,
+        "validation": {
+            "valid": validation_report["valid"],
+            "detected_format": validation_report["detected_format"],
+            "shape_count": validation_report["shape_count"],
+            "connector_count": validation_report["connector_count"],
+            "territory_count": validation_report["territory_count"],
+            "errors": validation_report["errors"],
+            "warnings": validation_report["warnings"],
+        },
     })
 
 

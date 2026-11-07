@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>__DIAGRAM_TITLE__</title>
+  <style>
+    /*
+     * BEJSON Diagrammer - 3-Tab Portable Diagram Component
+     * Architecture: Portable Widget Contract (Release_Version 300)
+     * Author: Elton Boehnen · boehnenelton2024@gmail.com · Roseburg, Oregon
+     * Layout:
+     *   Row 1: Horizontally Scrollable Top Header (Brand + 3-Tab Switcher)
+     *   Tab 1: Diagram Canvas with Docked Zoom/Pan Toolbar & Interactive Node Info Popup Card
+     *   Tab 2: Description & Schema in a Dedicated Vertically Scrollable Container
+     *   Tab 3: About & Attribution in a Dedicated Vertically Scrollable Container
+     */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ {
+      --dc-bg: #060606;
+      --dc-fg: #FFFFFF;
+      --dc-panel: #111111;
+      --dc-panel-hdr: #161616;
+      --dc-accent: #DE2626;
+      --dc-accent-hover: #b91c1c;
+      --dc-border: #262626;
+      --dc-grid: #161616;
+      --dc-muted: #888888;
+      --dc-code-bg: #0a0a0a;
+
+      position: relative;
+      width: 100%;
+      height: 640px;
+      min-height: 480px;
+      background-color: var(--dc-bg);
+      color: var(--dc-fg);
+      border: 1px solid var(--dc-border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      box-sizing: border-box;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__.light {
+      --dc-bg: #FFFFFF;
+      --dc-fg: #000000;
+      --dc-panel: #F8F8F8;
+      --dc-panel-hdr: #EEEEEE;
+      --dc-border: #D0D0D0;
+      --dc-grid: #E8E8E8;
+      --dc-muted: #666666;
+      --dc-code-bg: #F0F0F0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ * {
+      box-sizing: border-box;
+    }
+
+    /* ROW 1: Top Bar with Brand & 3-Tab Switcher (Horizontally Scrollable, Never Cut Off) */
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-hdr {
+      height: 46px;
+      min-height: 46px;
+      background-color: var(--dc-panel);
+      border-bottom: 1px solid var(--dc-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      z-index: 10;
+      flex-shrink: 0;
+      gap: 12px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-hdr::-webkit-scrollbar {
+      height: 3px;
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-hdr::-webkit-scrollbar-thumb {
+      background: var(--dc-border);
+      border-radius: 2px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-brand-area {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-brand-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--dc-accent);
+      border-radius: 2px;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(222, 38, 38, 0.5);
+    }
+
+    /* 3-Tab Switcher Bar */
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background-color: var(--dc-panel-hdr);
+      padding: 3px;
+      border-radius: 6px;
+      border: 1px solid var(--dc-border);
+      flex-shrink: 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-tab-btn {
+      padding: 4px 11px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: var(--dc-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-tab-btn:hover {
+      color: var(--dc-fg);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-tab-btn.active {
+      background-color: var(--dc-accent);
+      color: #FFFFFF;
+      font-weight: 700;
+    }
+
+    /* TAB 1: Diagram Canvas Panel with Docked Toolbar and Fixed Position Popup */
+    #w-diag-inst-__INSTANCE_ID__ #tab-panel-diagram-__INSTANCE_ID__ {
+      display: none;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      height: calc(100% - 46px);
+      position: relative;
+      overflow: hidden;
+      flex-direction: column;
+    }
+    #w-diag-inst-__INSTANCE_ID__ #tab-panel-diagram-__INSTANCE_ID__.active {
+      display: flex;
+    }
+
+    /* Docked Dedicated Toolbar for Pan/Zoom Controls (Directly below top row on Tab 1) */
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-docked-toolbar {
+      height: 38px;
+      min-height: 38px;
+      background-color: var(--dc-panel-hdr);
+      border-bottom: 1px solid var(--dc-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      z-index: 9;
+      flex-shrink: 0;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-docked-toolbar::-webkit-scrollbar {
+      height: 2px;
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-docked-toolbar::-webkit-scrollbar-thumb {
+      background: var(--dc-border);
+      border-radius: 2px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-toolbar-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-tool-btn {
+      height: 26px;
+      padding: 0 9px;
+      background-color: var(--dc-panel);
+      color: var(--dc-fg);
+      border: 1px solid var(--dc-border);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      white-space: nowrap;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-tool-btn:hover {
+      background-color: var(--dc-accent);
+      color: #FFFFFF;
+      border-color: var(--dc-accent);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-tool-btn:active {
+      transform: scale(0.96);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-zoom-indicator {
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      color: var(--dc-fg);
+      font-weight: 700;
+      min-width: 44px;
+      text-align: center;
+      padding: 3px 6px;
+      background: var(--dc-bg);
+      border: 1px solid var(--dc-border);
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-toolbar-hint {
+      font-size: 10px;
+      color: var(--dc-muted);
+      margin-right: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    /* Clean Diagram Viewport Surface */
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-viewport {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      position: relative;
+      overflow: auto;
+      background-color: var(--dc-bg);
+      cursor: grab;
+      touch-action: pan-x pan-y;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-viewport.panning {
+      cursor: grabbing;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-canvas-container {
+      max-width: none !important;
+      max-height: none !important;
+      width: 3200px;
+      height: 2600px;
+      position: relative;
+      background-color: var(--dc-bg);
+      background-image: linear-gradient(var(--dc-grid) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--dc-grid) 1px, transparent 1px);
+      background-size: 50px 50px;
+      transform-origin: 0 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ svg.w-diag-svg {
+      max-width: none !important;
+      max-height: none !important;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /*
+     * INTERACTIVE NODE POPUP CARD (Docked in visible bottom-right of diagram window)
+     */
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-node-popup {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 360px;
+      max-width: calc(100% - 32px);
+      max-height: 320px;
+      background-color: var(--dc-panel);
+      border: 1.5px solid var(--dc-accent);
+      border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      pointer-events: auto;
+      animation: wDiagPopupIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-node-popup.show {
+      display: flex;
+    }
+
+    @keyframes wDiagPopupIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-hdr {
+      padding: 10px 14px;
+      background-color: var(--dc-panel-hdr);
+      border-bottom: 1px solid var(--dc-border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-tag {
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--dc-accent);
+      margin-bottom: 2px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--dc-fg);
+      line-height: 1.3;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-close {
+      background: none;
+      border: none;
+      color: var(--dc-muted);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+      border-radius: 4px;
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-close:hover {
+      color: var(--dc-accent);
+      background-color: var(--dc-panel);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-body {
+      padding: 12px 14px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scrollbar-width: thin;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-text {
+      color: var(--dc-fg);
+      background-color: var(--dc-code-bg);
+      border: 1px solid var(--dc-border);
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--dc-muted);
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-meta span {
+      background: var(--dc-panel-hdr);
+      padding: 4px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--dc-border);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-goto-btn {
+      width: 100%;
+      padding: 7px;
+      background-color: var(--dc-accent);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-goto-btn:hover {
+      background-color: var(--dc-accent-hover);
+    }
+
+    /*
+     * DEDICATED VERTICAL SCROLL CONTAINERS FOR ALL NON-DIAGRAM TABS
+     */
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-panel {
+      display: none;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      height: calc(100% - 46px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      background-color: var(--dc-bg);
+      scrollbar-width: thin;
+      scrollbar-color: var(--dc-accent) var(--dc-panel);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-panel.active {
+      display: block;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-panel::-webkit-scrollbar-track {
+      background: var(--dc-panel);
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-panel::-webkit-scrollbar-thumb {
+      background: var(--dc-accent);
+      border-radius: 4px;
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-panel::-webkit-scrollbar-thumb:hover {
+      background: var(--dc-accent-hover);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-body {
+      padding: 20px 24px 70px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-card {
+      background-color: var(--dc-panel);
+      border: 1px solid var(--dc-border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-sec-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--dc-accent);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-box {
+      width: 100%;
+      background-color: var(--dc-code-bg);
+      color: var(--dc-fg);
+      border: 1px solid var(--dc-border);
+      border-radius: 4px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      outline: none;
+      resize: vertical;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-copy-btn {
+      padding: 6px 12px;
+      background-color: var(--dc-accent);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s ease;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-copy-btn:hover {
+      background-color: var(--dc-accent-hover);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-copy-btn:active {
+      transform: scale(0.97);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-meta-item {
+      padding: 8px 12px;
+      background-color: var(--dc-panel-hdr);
+      border: 1px solid var(--dc-border);
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-about-header {
+      border-bottom: 2px solid var(--dc-accent);
+      padding-bottom: 12px;
+      margin-bottom: 4px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-author-name {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--dc-fg);
+      margin-bottom: 4px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-author-meta {
+      font-size: 12px;
+      color: var(--dc-muted);
+      line-height: 1.5;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-author-links a {
+      color: var(--dc-accent);
+      text-decoration: none;
+      font-weight: 600;
+      margin-right: 14px;
+      font-size: 12px;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-author-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* Mobile 100px Lower Browser Toolbar Inset Standard */
+    @media (max-width: 768px) {
+      #w-diag-inst-__INSTANCE_ID__ .w-diag-node-popup {
+        bottom: calc(100px + env(safe-area-inset-bottom, 0px) + 16px) !important;
+        right: 12px !important;
+        left: 12px !important;
+        width: auto !important;
+        max-width: calc(100% - 24px) !important;
+      }
+
+      #w-diag-inst-__INSTANCE_ID__ .w-diag-scroll-body {
+        padding: 16px 16px calc(100px + env(safe-area-inset-bottom, 0px) + 30px) 16px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="w-diag-comp" id="w-diag-inst-__INSTANCE_ID__">
+    <!-- ROW 1: Top Bar (Brand + 3-Tab Switcher, Horizontally Scrollable) -->
+    <header class="w-diag-hdr">
+      <div class="w-diag-brand-area">
+        <div class="w-diag-brand-dot"></div>
+        <span class="w-diag-title-text">__DIAGRAM_TITLE__</span>
+      </div>
+
+      <!-- 3 Tab Switcher Tabs -->
+      <nav class="w-diag-tabs" aria-label="Component Tabs">
+        <button type="button" class="w-diag-tab-btn active" data-tab="diagram">📊 Diagram</button>
+        <button type="button" class="w-diag-tab-btn" data-tab="description">📝 Description &amp; Schema</button>
+        <button type="button" class="w-diag-tab-btn" data-tab="about">ℹ️ About</button>
+      </nav>
+    </header>
+
+    <!-- TAB 1: Diagram Canvas Panel with Docked Toolbar and Fixed Position Popup -->
+    <div class="w-diag-tab-panel active" id="tab-panel-diagram-__INSTANCE_ID__">
+      <!-- ROW 2: Docked Dedicated Toolbar for Pan/Zoom Controls -->
+      <div class="w-diag-docked-toolbar">
+        <div class="w-diag-toolbar-group">
+          <button type="button" class="w-diag-tool-btn w-diag-btn-fit" title="Fit to Viewport">🔍 Fit View</button>
+          <button type="button" class="w-diag-tool-btn w-diag-btn-out" title="Zoom Out">➖ Zoom Out</button>
+          <span class="w-diag-zoom-indicator">85%</span>
+          <button type="button" class="w-diag-tool-btn w-diag-btn-in" title="Zoom In">➕ Zoom In</button>
+          <button type="button" class="w-diag-tool-btn w-diag-btn-reset" title="Reset to 100%">🎯 100%</button>
+        </div>
+
+        <div class="w-diag-toolbar-group">
+          <span class="w-diag-toolbar-hint">✋ Drag to Pan • 🖱️ Scroll to Zoom</span>
+          <button type="button" class="w-diag-tool-btn w-diag-btn-aspect" title="Toggle Aspect Ratio / Layout Orientation">📐 Flip Ratio</button>
+          <button type="button" class="w-diag-tool-btn w-diag-btn-theme" title="Toggle Light/Dark Theme">🌓 Theme</button>
+        </div>
+      </div>
+
+      <!-- Clean Diagram Viewport Surface -->
+      <div class="w-diag-viewport">
+        <div class="w-diag-canvas-container">
+          <svg class="w-diag-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+
+      <!-- Interactive Node Info Popup: Placed OUTSIDE viewport so it stays cleanly docked in visible window -->
+      <div class="w-diag-node-popup" id="w-diag-node-popup-__INSTANCE_ID__">
+        <div class="w-diag-popup-hdr">
+          <div>
+            <div class="w-diag-popup-tag">Node Inspector</div>
+            <h3 class="w-diag-popup-title">Element Title</h3>
+          </div>
+          <button type="button" class="w-diag-popup-close" title="Close Popup">✕</button>
+        </div>
+        <div class="w-diag-popup-body">
+          <div class="w-diag-popup-text">Node details and descriptions.</div>
+          <div class="w-diag-popup-meta">
+            <span><b>Type:</b> rect</span>
+            <span><b>Size:</b> medium</span>
+            <span><b>Pos:</b> (0, 0)</span>
+            <span><b>Parent:</b> root</span>
+          </div>
+          <button type="button" class="w-diag-popup-goto-btn">📖 View Full Spec in Tab 2 ➔</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Description & Schema in a Dedicated Vertically Scrollable Container -->
+    <div class="w-diag-scroll-panel" id="tab-panel-description-__INSTANCE_ID__">
+      <div class="w-diag-scroll-body">
+        <!-- Diagram Scope & Narrative -->
+        <div class="w-diag-card">
+          <div class="w-diag-sec-title">Diagram Overview &amp; Scope</div>
+          <div id="w-diag-scope-text" style="font-size: 13px; line-height: 1.6; color: var(--dc-fg);">
+            __DIAGRAM_DESCRIPTION__
+          </div>
+        </div>
+
+        <!-- Selected Element Inspector -->
+        <div class="w-diag-card">
+          <div class="w-diag-sec-title">Inspected Element</div>
+          <div id="w-diag-inspect-area">
+            <div style="color: var(--dc-muted); font-size: 12px; font-style: italic;">
+              Click any node or territory zone on the Diagram tab to inspect its technical parameters.
+            </div>
+          </div>
+        </div>
+
+        <!-- Iframe URL Embedder -->
+        <div class="w-diag-card">
+          <div class="w-diag-sec-title">
+            <span>Iframe URL Embed Code</span>
+            <button type="button" class="w-diag-copy-btn w-diag-btn-copy-iframe">📋 Copy Iframe Code</button>
+          </div>
+          <textarea class="w-diag-box w-diag-iframe-box" style="height: 60px;" readonly spellcheck="false"></textarea>
+        </div>
+
+        <!-- BEJSON Schema Copy Box -->
+        <div class="w-diag-card">
+          <div class="w-diag-sec-title">
+            <span>Diagram Schema (BEJSON)</span>
+            <button type="button" class="w-diag-copy-btn w-diag-btn-copy-schema">📋 Copy Schema JSON</button>
+          </div>
+          <textarea id="w-diag-schema-box" class="w-diag-box w-diag-schema-box" style="height: 200px;" readonly spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: About & Author Attribution in a Dedicated Vertically Scrollable Container -->
+    <div class="w-diag-scroll-panel" id="tab-panel-about-__INSTANCE_ID__">
+      <div class="w-diag-scroll-body">
+        <div class="w-diag-card">
+          <div class="w-diag-about-header">
+            <div class="w-diag-author-name">Elton Boehnen</div>
+            <div class="w-diag-author-meta">Architect &amp; Format Creator · Roseburg, Oregon, United States</div>
+          </div>
+          <p style="font-size: 13px; line-height: 1.6; color: var(--dc-fg); margin: 12px 0;">
+            Created adhering to Elton Boehnen's <strong>BEJSON 104 Ecosystem</strong> and <strong>Portable Widget Contract</strong> (Release_Version 300).
+          </p>
+          <div class="w-diag-meta-grid" style="margin: 16px 0;">
+            <div class="w-diag-meta-item"><strong>Format:</strong> BEJSON 104 Tabular Schema</div>
+            <div class="w-diag-meta-item"><strong>Release:</strong> Release_Version 300</div>
+            <div class="w-diag-meta-item"><strong>Jurisdiction:</strong> Roseburg, Oregon, USA</div>
+            <div class="w-diag-meta-item"><strong>Grid Rhythm:</strong> 50px Quantization / Ry=32px</div>
+            <div class="w-diag-meta-item"><strong>Style Theme:</strong> BECSS Tri-Color Standard</div>
+            <div class="w-diag-meta-item"><strong>Dependencies:</strong> Zero External CDN / Offline Ready</div>
+          </div>
+          <div class="w-diag-author-links" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--dc-border);">
+            <a href="mailto:boehnenelton2024@gmail.com">boehnenelton2024@gmail.com</a>
+            <a href="https://boehnenelton2024.pages.dev" target="_blank" rel="noopener noreferrer">boehnenelton2024.pages.dev</a>
+            <a href="https://github.com/boehnenelton" target="_blank" rel="noopener noreferrer">github.com/boehnenelton</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Injected Diagram Data Slot -->
+    <script class="w-diag-data" type="application/json">
+/* __DIAGRAM_DATA__ */
+    </script>
+
+    <!-- Encapsulated Controller -->
+    <script>
+    (function () {
+      const root = document.getElementById("w-diag-inst-__INSTANCE_ID__");
+      if (!root) return;
+
+      const instanceId = "__INSTANCE_ID__";
+
+      // If standalone full-page view, expand to 100vh
+      if (window.self === window.top) {
+        root.style.height = "100vh";
+        if (window.innerWidth <= 768) {
+          root.style.height = "calc(100vh - 100px)";
+          if (window.visualViewport) {
+            root.style.height = `${window.visualViewport.height}px`;
+          }
+        }
+        root.style.borderRadius = "0";
+        root.style.border = "none";
+      }
+
+      const SIZE_CLASSES = {
+        small:  { w: 100, h: 100 },
+        medium: { w: 200, h: 100 },
+        large:  { w: 300, h: 150 },
+        huge:   { w: 600, h: 300 },
+      };
+
+      // Diagram Arrival Sanitization (Section 4 protocol)
+      function remediateDiagram(diag) {
+        const shapes = (diag.shapes || []).map((s, idx) => ({
+          id: s.id || s.tempId || ("shape_" + (idx + 1)),
+          label: s.label || ("Node " + (idx + 1)),
+          text: s.text || "",
+          kind: s.kind || "rect",
+          sizeClass: s.sizeClass || "medium",
+          color: s.color || "#d9d9d9",
+          fontColor: s.fontColor || "auto",
+          cx: typeof s.cx === "number" ? Math.round(s.cx / 50) * 50 : 300,
+          cy: typeof s.cy === "number" ? Math.round(s.cy / 50) * 50 : 200,
+          parentId: s.parentId || s.parentTempId || null
+        }));
+
+        const shapeMap = new Map(shapes.map(s => [s.id, s]));
+        shapes.forEach(s => {
+          if (s.parentId && !shapeMap.has(s.parentId)) s.parentId = null;
+          const visited = new Set();
+          let cur = s;
+          while (cur && cur.parentId) {
+            if (visited.has(cur.id)) { s.parentId = null; break; }
+            visited.add(cur.id);
+            cur = shapeMap.get(cur.parentId);
+          }
+        });
+
+        const connectors = (diag.connectors || []).map((c, idx) => ({
+          id: c.id || ("conn_" + (idx + 1)),
+          from: c.from || c.fromTempId || "",
+          to: c.to || c.toTempId || "",
+          flow: c.flow || "forward"
+        })).filter(c => shapeMap.has(c.from) && shapeMap.has(c.to) && c.from !== c.to);
+
+        const territories = (diag.territories || []).map((t, idx) => ({
+          id: t.id || ("terr_" + (idx + 1)),
+          kind: t.kind || "rect",
+          cx: typeof t.cx === "number" ? Math.round(t.cx / 50) * 50 : 300,
+          cy: typeof t.cy === "number" ? Math.round(t.cy / 50) * 50 : 300,
+          size: typeof t.size === "number" ? Math.max(80, Math.round(t.size / 50) * 50) : 280,
+          label: t.label || ("Zone " + (idx + 1)),
+          color: t.color || "#000000"
+        }));
+
+        return {
+          diagramId: diag.diagramId || ("diag_" + Date.now()),
+          name: diag.name || diag.DB_Name || "__DIAGRAM_TITLE__",
+          description: diag.description || "__DIAGRAM_DESCRIPTION__",
+          shapes,
+          connectors,
+          territories
+        };
+      }
+
+      let diagram = {
+        diagramId: "diag_init",
+        name: "__DIAGRAM_TITLE__",
+        description: "__DIAGRAM_DESCRIPTION__",
+        shapes: [],
+        connectors: [],
+        territories: []
+      };
+
+      // Load data
+      const dataTag = root.querySelector("script.w-diag-data");
+      if (dataTag) {
+        const raw = dataTag.textContent.trim();
+        if (raw && !raw.startsWith("/* " + "__DIAGRAM_DATA__" + " */")) {
+          try {
+            const parsed = JSON.parse(raw);
+            diagram = remediateDiagram(parsed);
+          } catch (_) {}
+        }
+      }
+
+      const titleEl = root.querySelector(".w-diag-title-text");
+      if (titleEl && diagram.name) titleEl.textContent = diagram.name;
+
+      const scopeTextEl = root.querySelector("#w-diag-scope-text");
+      if (scopeTextEl && diagram.description && diagram.description !== "__DIAGRAM_DESCRIPTION__") {
+        scopeTextEl.textContent = diagram.description;
+      }
+
+      // Populate Tab 2 schema box with the clean Diagram Schema
+      const schemaBox = root.querySelector(".w-diag-schema-box");
+      if (schemaBox) schemaBox.value = JSON.stringify(diagram, null, 2);
+
+      const iframeBox = root.querySelector(".w-diag-iframe-box");
+      if (iframeBox) {
+        const curUrl = window.location.href.split("#")[0];
+        iframeBox.value = `<iframe src="${curUrl}" width="100%" height="640" frameborder="0" style="border:1px solid #262626; border-radius:8px;"></iframe>`;
+      }
+
+      // Tab Switching
+      const tabBtns = root.querySelectorAll(".w-diag-tab-btn");
+      const tabPanels = {
+        diagram: root.querySelector("#tab-panel-diagram-" + instanceId),
+        description: root.querySelector("#tab-panel-description-" + instanceId),
+        about: root.querySelector("#tab-panel-about-" + instanceId)
+      };
+
+      tabBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          tabBtns.forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const target = btn.dataset.tab;
+          Object.entries(tabPanels).forEach(([key, panel]) => {
+            if (panel) panel.classList.toggle("active", key === target);
+          });
+          if (target === "diagram") setTimeout(fitView, 50);
+        });
+      });
+
+      // Viewport & Zoom Controls
+      const viewport = root.querySelector(".w-diag-viewport");
+      const container = root.querySelector(".w-diag-canvas-container");
+      const svg = root.querySelector("svg.w-diag-svg");
+      const zoomText = root.querySelector(".w-diag-zoom-indicator");
+      const inspectArea = root.querySelector("#w-diag-inspect-area");
+      const nodePopup = root.querySelector("#w-diag-node-popup-" + instanceId);
+
+      let zoom = 0.85;
+      let isPanning = false;
+      let panStart = { x: 0, y: 0, sLeft: 0, sTop: 0 };
+      let selectedId = null;
+
+      function setZoom(z) {
+        zoom = Math.max(0.15, Math.min(3.0, z));
+        container.style.transform = `scale(${zoom})`;
+        if (zoomText) zoomText.textContent = `${Math.round(zoom * 100)}%`;
+      }
+
+      let isFlippedRatio = false;
+
+      function getTransformedElements() {
+        if (!isFlippedRatio) {
+          return {
+            shapes: (diagram.shapes || []).map(s => ({ ...s })),
+            territories: (diagram.territories || []).map(t => ({ ...t }))
+          };
+        }
+
+        // VERTICAL STACKED COLUMN TRANSFORMATION:
+        // Stacks horizontal columns/zones into a single vertical column (Left on top -> Middle below -> Right bottom)
+        const territories = (diagram.territories || []).map(t => ({ ...t }));
+        const shapes = (diagram.shapes || []).map(s => ({ ...s }));
+
+        if (territories.length >= 2) {
+          const sortedTerrs = [...territories].sort((a, b) => a.cx - b.cx);
+          const firstTerr = sortedTerrs[0];
+          const targetColX = firstTerr.cx;
+
+          const terrShapesMap = new Map();
+          sortedTerrs.forEach(t => terrShapesMap.set(t.id, []));
+
+          shapes.forEach(s => {
+            let bestTerr = sortedTerrs[0];
+            let bestDist = Math.abs(s.cx - bestTerr.cx);
+            for (let i = 1; i < sortedTerrs.length; i++) {
+              const d = Math.abs(s.cx - sortedTerrs[i].cx);
+              if (d < bestDist) {
+                bestDist = d;
+                bestTerr = sortedTerrs[i];
+              }
+            }
+            terrShapesMap.get(bestTerr.id).push(s);
+          });
+
+          let currentBottomY = 0;
+          const zoneGap = 60;
+
+          sortedTerrs.forEach((t, idx) => {
+            const zShapes = terrShapesMap.get(t.id) || [];
+            const tSize = t.size || 280;
+            const originalTopY = t.cy - tSize / 2;
+            const originalBottomY = t.cy + tSize / 2;
+
+            if (idx === 0) {
+              currentBottomY = originalBottomY;
+            } else {
+              const shiftX = targetColX - t.cx;
+              const newTopY = currentBottomY + zoneGap;
+              const shiftY = newTopY - originalTopY;
+
+              t.cx = targetColX;
+              t.cy = Math.round(t.cy + shiftY);
+
+              zShapes.forEach(s => {
+                s.cx = Math.round(s.cx + shiftX);
+                s.cy = Math.round(s.cy + shiftY);
+              });
+
+              currentBottomY = newTopY + tSize;
+            }
+          });
+
+          let minX = Infinity, minY = Infinity;
+          shapes.forEach(s => {
+            const d = SIZE_CLASSES[s.sizeClass] || SIZE_CLASSES.medium;
+            minX = Math.min(minX, s.cx - d.w / 2);
+            minY = Math.min(minY, s.cy - d.h / 2);
+          });
+          territories.forEach(t => {
+            const sz = t.size || 280;
+            minX = Math.min(minX, t.cx - sz / 2);
+            minY = Math.min(minY, t.cy - sz / 2);
+          });
+
+          const normShiftX = 60 - minX;
+          const normShiftY = 50 - minY;
+
+          shapes.forEach(s => {
+            s.cx = Math.round(s.cx + normShiftX);
+            s.cy = Math.round(s.cy + normShiftY);
+          });
+          territories.forEach(t => {
+            t.cx = Math.round(t.cx + normShiftX);
+            t.cy = Math.round(t.cy + normShiftY);
+          });
+
+          return { shapes, territories };
+        } else {
+          // Fallback if no territories: partition shapes into columns by X
+          const sortedShapes = [...shapes].sort((a, b) => a.cx - b.cx);
+          const cols = [];
+          sortedShapes.forEach(s => {
+            let col = cols.find(c => Math.abs(c.cx - s.cx) < 160);
+            if (!col) {
+              col = { cx: s.cx, shapes: [] };
+              cols.push(col);
+            }
+            col.shapes.push(s);
+          });
+          cols.sort((a, b) => a.cx - b.cx);
+
+          const targetX = cols[0].cx;
+          let curBottomY = 0;
+          cols.forEach((col, idx) => {
+            let cMinY = Infinity, cMaxY = -Infinity;
+            col.shapes.forEach(s => {
+              const d = SIZE_CLASSES[s.sizeClass] || SIZE_CLASSES.medium;
+              cMinY = Math.min(cMinY, s.cy - d.h / 2);
+              cMaxY = Math.max(cMaxY, s.cy + d.h / 2);
+            });
+            if (idx === 0) {
+              curBottomY = cMaxY;
+            } else {
+              const shiftX = targetX - col.cx;
+              const newTop = curBottomY + 80;
+              const shiftY = newTop - cMinY;
+              col.shapes.forEach(s => {
+                s.cx = Math.round(s.cx + shiftX);
+                s.cy = Math.round(s.cy + shiftY);
+              });
+              curBottomY = newTop + (cMaxY - cMinY);
+            }
+          });
+
+          let minX = Infinity, minY = Infinity;
+          shapes.forEach(s => {
+            const d = SIZE_CLASSES[s.sizeClass] || SIZE_CLASSES.medium;
+            minX = Math.min(minX, s.cx - d.w / 2);
+            minY = Math.min(minY, s.cy - d.h / 2);
+          });
+          const normShiftX = 60 - minX;
+          const normShiftY = 50 - minY;
+          shapes.forEach(s => {
+            s.cx = Math.round(s.cx + normShiftX);
+            s.cy = Math.round(s.cy + normShiftY);
+          });
+          return { shapes, territories };
+        }
+      }
+
+      function fitView() {
+        const { shapes, territories } = getTransformedElements();
+        if ((!shapes || shapes.length === 0) &&
+            (!territories || territories.length === 0)) {
+          setZoom(0.85);
+          return;
+        }
+        let minX = 99999, maxX = 0, minY = 99999, maxY = 0;
+        shapes.forEach(s => {
+          const d = SIZE_CLASSES[s.sizeClass] || SIZE_CLASSES.medium;
+          minX = Math.min(minX, s.cx - d.w / 2);
+          maxX = Math.max(maxX, s.cx + d.w / 2);
+          minY = Math.min(minY, s.cy - d.h / 2);
+          maxY = Math.max(maxY, s.cy + d.h / 2);
+        });
+
+        territories.forEach(t => {
+          const sz = t.size || 280;
+          minX = Math.min(minX, t.cx - sz / 2);
+          maxX = Math.max(maxX, t.cx + sz / 2);
+          minY = Math.min(minY, t.cy - sz / 2);
+          maxY = Math.max(maxY, t.cy + sz / 2);
+        });
+
+        const isMobile = window.innerWidth <= 768;
+        const vpW = viewport.clientWidth || 600;
+        const vpH = viewport.clientHeight || 500;
+
+        if (isFlippedRatio) {
+          // VERTICAL MODE: Restrict canvas width and preserve high-res text readability (fit to column width)
+          const diagWidth = (maxX - minX) + (isMobile ? 40 : 80);
+          const canvasW = Math.max(vpW, diagWidth);
+          const canvasH = (maxY - minY) + (isMobile ? 200 : 160);
+
+          if (container) {
+            container.style.width = `${canvasW}px`;
+            container.style.height = `${canvasH}px`;
+          }
+
+          // Fit to width with high zoom floor (0.80 - 1.05) so text is crisp and fully legible
+          const targetZoom = Math.min(1.05, Math.max(0.80, (vpW - 24) / diagWidth));
+          setZoom(targetZoom);
+
+          // Center column horizontally and start cleanly at top
+          viewport.scrollLeft = Math.max(0, ((canvasW - diagWidth) / 2) * targetZoom);
+          viewport.scrollTop = 0;
+        } else {
+          // HORIZONTAL MODE: Standard 2D diagram fitting
+          const padX = isMobile ? 60 : 100;
+          const padYTop = isMobile ? 60 : 100;
+          const padYBottom = isMobile ? 160 : 100;
+          const w = (maxX - minX) + padX * 2;
+          const h = (maxY - minY) + padYTop + padYBottom;
+
+          if (container) {
+            container.style.width = Math.max(3200, maxX + 400) + "px";
+            container.style.height = Math.max(2600, maxY + 400) + "px";
+          }
+
+          const targetZoom = Math.min(1.2, Math.max(0.2, Math.min(vpW / w, vpH / h)));
+          setZoom(targetZoom);
+          viewport.scrollLeft = Math.max(0, (minX - padX) * targetZoom);
+          viewport.scrollTop = Math.max(0, (minY - padYTop) * targetZoom);
+        }
+      }
+
+      // Viewport Drag-to-Pan (ignores pointer events on shapes so shape clicks are never blocked)
+      viewport.addEventListener("pointerdown", (e) => {
+        const isShape = e.target.closest && (e.target.closest(".w-diag-shape-node") || e.target.closest(".w-diag-territory-node"));
+        if (!isShape) {
+          isPanning = true;
+          viewport.classList.add("panning");
+          panStart = { x: e.clientX, y: e.clientY, sLeft: viewport.scrollLeft, sTop: viewport.scrollTop };
+        }
+      });
+
+      window.addEventListener("pointermove", (e) => {
+        if (isPanning) {
+          viewport.scrollLeft = panStart.sLeft - (e.clientX - panStart.x);
+          viewport.scrollTop = panStart.sTop - (e.clientY - panStart.y);
+        }
+      });
+
+      window.addEventListener("pointerup", () => {
+        if (isPanning) {
+          isPanning = false;
+          viewport.classList.remove("panning");
+        }
+      });
+
+      // Direct Mouse Wheel Zoom
+      viewport.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.08 : -0.08;
+        setZoom(zoom + delta);
+      }, { passive: false });
+
+      // Double-Click canvas background to Zoom In
+      viewport.addEventListener("dblclick", (e) => {
+        if (e.target === svg || e.target === container || e.target.tagName.toLowerCase() === "svg") {
+          setZoom(zoom + 0.2);
+        }
+      });
+
+      // Click canvas background to dismiss popup
+      viewport.addEventListener("click", (e) => {
+        const isShape = e.target.closest && (e.target.closest(".w-diag-shape-node") || e.target.closest(".w-diag-territory-node"));
+        if (!isShape) {
+          if (nodePopup) nodePopup.classList.remove("show");
+          selectedId = null;
+          render();
+        }
+      });
+
+      // Popup Close & Goto buttons
+      nodePopup?.querySelector(".w-diag-popup-close")?.addEventListener("click", () => {
+        nodePopup.classList.remove("show");
+        selectedId = null;
+        render();
+      });
+
+      nodePopup?.querySelector(".w-diag-popup-goto-btn")?.addEventListener("click", () => {
+        const descBtn = root.querySelector('.w-diag-tab-btn[data-tab="description"]');
+        if (descBtn) descBtn.click();
+      });
+
+      // Docked Toolbar Zoom Buttons
+      root.querySelector(".w-diag-btn-in")?.addEventListener("click", () => setZoom(zoom + 0.15));
+      root.querySelector(".w-diag-btn-out")?.addEventListener("click", () => setZoom(zoom - 0.15));
+      root.querySelector(".w-diag-btn-reset")?.addEventListener("click", () => setZoom(1.0));
+      root.querySelector(".w-diag-btn-fit")?.addEventListener("click", fitView);
+      root.querySelector(".w-diag-btn-theme")?.addEventListener("click", () => {
+        root.classList.toggle("light");
+        render();
+      });
+      root.querySelector(".w-diag-btn-aspect")?.addEventListener("click", () => {
+        isFlippedRatio = !isFlippedRatio;
+        const aspectBtn = root.querySelector(".w-diag-btn-aspect");
+        if (aspectBtn) {
+          aspectBtn.style.backgroundColor = isFlippedRatio ? "var(--dc-accent)" : "";
+          aspectBtn.style.color = isFlippedRatio ? "#FFFFFF" : "";
+          aspectBtn.textContent = isFlippedRatio ? "📐 Vertical Flow" : "📐 Flip Ratio";
+        }
+        render();
+        setTimeout(fitView, 50);
+      });
+
+      // Copy Buttons
+      root.querySelector(".w-diag-btn-copy-iframe")?.addEventListener("click", (e) => {
+        if (!iframeBox) return;
+        navigator.clipboard?.writeText(iframeBox.value).then(() => {
+          e.target.textContent = "✓ Copied Iframe Code!";
+          setTimeout(() => e.target.textContent = "📋 Copy Iframe Code", 1800);
+        });
+      });
+
+      root.querySelector(".w-diag-btn-copy-schema")?.addEventListener("click", (e) => {
+        if (!schemaBox) return;
+        navigator.clipboard?.writeText(schemaBox.value).then(() => {
+          e.target.textContent = "✓ Copied Schema!";
+          setTimeout(() => e.target.textContent = "📋 Copy Schema JSON", 1800);
+        });
+      });
+
+      function selectShape(id) {
+        selectedId = id;
+        const s = diagram.shapes.find(x => x.id === id);
+        if (!s) return;
+
+        // 1. Update Tab 2 detailed element inspector
+        if (inspectArea) {
+          inspectArea.innerHTML = `
+            <div style="background-color: var(--dc-panel-hdr); border: 1px solid var(--dc-border); border-radius: 4px; padding: 12px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Type:</span><strong>Shape (${s.kind})</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Label:</span><strong style="color:var(--dc-accent);">${escapeXml(s.label)}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Size:</span><span>${s.sizeClass}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Coordinates:</span><span>(${s.cx}, ${s.cy})</span>
+              </div>
+              ${s.parentId ? `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:var(--dc-muted);">Parent Node:</span><span>${escapeXml(s.parentId)}</span></div>` : ""}
+              ${s.text ? `<div style="margin-top:8px; padding-top:6px; border-top:1px solid var(--dc-border); color:var(--dc-fg); line-height:1.45;">${escapeXml(s.text)}</div>` : ""}
+            </div>
+          `;
+        }
+
+        // 2. Open interactive Popup Card in visible bottom-right
+        if (nodePopup) {
+          const titleEl = nodePopup.querySelector(".w-diag-popup-title");
+          const textEl = nodePopup.querySelector(".w-diag-popup-text");
+          const metaEl = nodePopup.querySelector(".w-diag-popup-meta");
+          const tagEl = nodePopup.querySelector(".w-diag-popup-tag");
+
+          if (tagEl) tagEl.textContent = `Node (${s.kind.toUpperCase()})`;
+          if (titleEl) titleEl.textContent = s.label;
+          if (textEl) textEl.textContent = s.text || "No technical description provided.";
+          if (metaEl) {
+            metaEl.innerHTML = `
+              <span><b>Type:</b> ${s.kind}</span>
+              <span><b>Size:</b> ${s.sizeClass}</span>
+              <span><b>Pos:</b> (${s.cx}, ${s.cy})</span>
+              <span><b>Parent:</b> ${s.parentId || "root"}</span>
+            `;
+          }
+          nodePopup.classList.add("show");
+        }
+
+        render();
+      }
+
+      function selectTerritory(id) {
+        selectedId = id;
+        const t = diagram.territories.find(x => x.id === id);
+        if (!t) return;
+
+        // 1. Update Tab 2 detailed element inspector
+        if (inspectArea) {
+          inspectArea.innerHTML = `
+            <div style="background-color: var(--dc-panel-hdr); border: 1px solid var(--dc-border); border-radius: 4px; padding: 12px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Type:</span><strong>Territory (${t.kind})</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Zone:</span><strong style="color:var(--dc-accent);">${escapeXml(t.label)}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Center:</span><span>(${t.cx}, ${t.cy})</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="color:var(--dc-muted);">Size:</span><span>${t.size}px</span>
+              </div>
+            </div>
+          `;
+        }
+
+        // 2. Open interactive Popup Card in visible bottom-right
+        if (nodePopup) {
+          const titleEl = nodePopup.querySelector(".w-diag-popup-title");
+          const textEl = nodePopup.querySelector(".w-diag-popup-text");
+          const metaEl = nodePopup.querySelector(".w-diag-popup-meta");
+          const tagEl = nodePopup.querySelector(".w-diag-popup-tag");
+
+          if (tagEl) tagEl.textContent = `Territory (${t.kind.toUpperCase()})`;
+          if (titleEl) titleEl.textContent = t.label;
+          if (textEl) textEl.textContent = `Territory bounding zone grouping nodes with size ${t.size}px centered at (${t.cx}, ${t.cy}).`;
+          if (metaEl) {
+            metaEl.innerHTML = `
+              <span><b>Type:</b> ${t.kind}</span>
+              <span><b>Size:</b> ${t.size}px</span>
+              <span><b>Center:</b> (${t.cx}, ${t.cy})</span>
+              <span><b>Color:</b> ${t.color}</span>
+            `;
+          }
+          nodePopup.classList.add("show");
+        }
+
+        render();
+      }
+
+      function render() {
+        const isLight = root.classList.contains("light");
+        const { shapes, territories } = getTransformedElements();
+
+        let svgHtml = `
+          <defs>
+            <marker id="w-af-${instanceId}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#888888"/></marker>
+            <marker id="w-afs-${instanceId}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#DE2626"/></marker>
+            <marker id="w-ab-${instanceId}" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto"><path d="M9,0 L9,6 L0,3 z" fill="#888888"/></marker>
+            <marker id="w-abs-${instanceId}" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto"><path d="M9,0 L9,6 L0,3 z" fill="#DE2626"/></marker>
+          </defs>
+        `;
+
+        // 1. Territories
+        territories.forEach(t => {
+          const isSel = selectedId === t.id;
+          const strokeW = isSel ? 3.5 : 2;
+          const strokeCol = isSel ? "#DE2626" : t.color;
+          const opacity = isLight ? 0.08 : 0.16;
+
+          if (t.kind === "circle") {
+            const r = t.size / 2;
+            svgHtml += `<g class="w-diag-territory-node" data-territory-id="${t.id}" style="cursor:pointer;">
+              <circle cx="${t.cx}" cy="${t.cy}" r="${r}" fill="${t.color}" fill-opacity="${opacity}" stroke="${strokeCol}" stroke-width="${strokeW}" stroke-dasharray="5,4"/>
+              <text x="${t.cx}" y="${t.cy - r + 20}" fill="${isLight ? "#000" : "#fff"}" font-size="11" font-weight="700" text-anchor="middle" style="pointer-events:none;">${escapeXml(t.label.toUpperCase())}</text>
+            </g>`;
+          } else {
+            const x = t.cx - t.size / 2;
+            const y = t.cy - t.size / 2;
+            svgHtml += `<g class="w-diag-territory-node" data-territory-id="${t.id}" style="cursor:pointer;">
+              <rect x="${x}" y="${y}" width="${t.size}" height="${t.size}" rx="6" fill="${t.color}" fill-opacity="${opacity}" stroke="${strokeCol}" stroke-width="${strokeW}" stroke-dasharray="5,4"/>
+              <text x="${x + 10}" y="${y + 20}" fill="${isLight ? "#000" : "#fff"}" font-size="11" font-weight="700" style="pointer-events:none;">${escapeXml(t.label.toUpperCase())}</text>
+            </g>`;
+          }
+        });
+
+        // 2. Connectors
+        diagram.connectors.forEach(c => {
+          const s1 = shapes.find(s => s.id === c.from);
+          const s2 = shapes.find(s => s.id === c.to);
+          if (!s1 || !s2) return;
+
+          const isSel = selectedId === c.id;
+          const col = isSel ? "#DE2626" : (isLight ? "#666" : "#888");
+          const w = isSel ? 3 : 1.8;
+
+          let mStart = "", mEnd = "";
+          if (c.flow === "forward") mEnd = `url(#w-af-${instanceId})`;
+          else if (c.flow === "backward") mStart = `url(#w-ab-${instanceId})`;
+          else if (c.flow === "bidirectional") {
+            mStart = `url(#w-ab-${instanceId})`;
+            mEnd = `url(#w-af-${instanceId})`;
+          }
+
+          const dx = s2.cx - s1.cx;
+          const dy = s2.cy - s1.cy;
+          const dist = Math.hypot(dx, dy) || 1;
+          const d1 = SIZE_CLASSES[s1.sizeClass] || SIZE_CLASSES.medium;
+          const d2 = SIZE_CLASSES[s2.sizeClass] || SIZE_CLASSES.medium;
+
+          const r1 = Math.min(d1.w, d1.h) / 2.2;
+          const r2 = Math.min(d2.w, d2.h) / 2.2;
+
+          const x1 = s1.cx + (dx / dist) * r1;
+          const y1 = s1.cy + (dy / dist) * r1;
+          const x2 = s2.cx - (dx / dist) * r2;
+          const y2 = s2.cy - (dy / dist) * r2;
+
+          svgHtml += `<g style="pointer-events:none;">
+            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" marker-start="${mStart}" marker-end="${mEnd}"/>
+          </g>`;
+        });
+
+        // 3. Shapes
+        shapes.forEach(s => {
+          const d = SIZE_CLASSES[s.sizeClass] || SIZE_CLASSES.medium;
+          const x = s.cx - d.w / 2;
+          const y = s.cy - d.h / 2;
+          const isSel = selectedId === s.id;
+          const strokeCol = isSel ? "#DE2626" : (isLight ? "#bbb" : "#333");
+          const strokeW = isSel ? 3.5 : 1.5;
+
+          let fontCol = "#000";
+          if (s.fontColor === "#ffffff") fontCol = "#fff";
+          else if (s.fontColor === "#000000") fontCol = "#000";
+          else if (s.color && s.color.startsWith("#") && s.color.length === 7) {
+            const r = parseInt(s.color.slice(1, 3), 16);
+            const g = parseInt(s.color.slice(3, 5), 16);
+            const b = parseInt(s.color.slice(5, 7), 16);
+            fontCol = ((r * 299 + g * 587 + b * 114) / 1000) > 128 ? "#000" : "#fff";
+          }
+
+          svgHtml += `<g class="w-diag-shape-node" data-shape-id="${s.id}" transform="translate(${x}, ${y})" style="cursor:pointer;">`;
+          if (s.kind === "circle") {
+            const r = d.w / 2;
+            svgHtml += `<circle cx="${r}" cy="${r}" r="${r}" fill="${s.color || "#d9d9d9"}" stroke="${strokeCol}" stroke-width="${strokeW}"/>
+              <text x="${r}" y="${s.text ? r - 6 : r + 4}" fill="${fontCol}" font-size="11" font-weight="700" text-anchor="middle" style="pointer-events:none;">${escapeXml(s.label)}</text>`;
+            if (s.text) {
+              svgHtml += `<text x="${r}" y="${r + 12}" fill="${fontCol}" opacity="0.8" font-size="9" text-anchor="middle" style="pointer-events:none;">${escapeXml(s.text.slice(0, 22))}${s.text.length > 22 ? "…" : ""}</text>`;
+            }
+          } else {
+            svgHtml += `<rect width="${d.w}" height="${d.h}" rx="5" fill="${s.color || "#d9d9d9"}" stroke="${strokeCol}" stroke-width="${strokeW}"/>
+              <text x="${d.w / 2}" y="${s.text ? 32 : d.h / 2 + 4}" fill="${fontCol}" font-size="12" font-weight="700" text-anchor="middle" style="pointer-events:none;">${escapeXml(s.label)}</text>`;
+            if (s.text) {
+              svgHtml += `
+                <foreignObject x="8" y="38" width="${d.w - 16}" height="${d.h - 44}" style="pointer-events:none;">
+                  <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:10px; color:${fontCol}; opacity:0.85; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; text-align:center; pointer-events:none;">
+                    ${escapeXml(s.text)}
+                  </div>
+                </foreignObject>
+              `;
+            }
+          }
+          svgHtml += `</g>`;
+        });
+
+        svg.innerHTML = svgHtml;
+
+        // Attach reliable JavaScript event listeners to every SVG node
+        svg.querySelectorAll(".w-diag-shape-node").forEach(nodeEl => {
+          nodeEl.addEventListener("click", (evt) => {
+            evt.stopPropagation();
+            const shapeId = nodeEl.getAttribute("data-shape-id");
+            selectShape(shapeId);
+          });
+        });
+
+        svg.querySelectorAll(".w-diag-territory-node").forEach(terrEl => {
+          terrEl.addEventListener("click", (evt) => {
+            evt.stopPropagation();
+            const terrId = terrEl.getAttribute("data-territory-id");
+            selectTerritory(terrId);
+          });
+        });
+      }
+
+      function escapeXml(str) {
+        if (!str) return "";
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      window[`__wDiag_${instanceId}`] = {
+        selectShape,
+        selectTerritory
+      };
+
+      render();
+      setTimeout(fitView, 50);
+      setTimeout(fitView, 200);
+
+      // Auto-fit on layout reflow, window resize, and image/font loading
+      let resizeTimer = null;
+      function handleAutoFit() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(fitView, 60);
+      }
+      window.addEventListener("resize", handleAutoFit);
+      window.addEventListener("load", handleAutoFit);
+      if (typeof ResizeObserver !== "undefined" && viewport) {
+        const ro = new ResizeObserver(handleAutoFit);
+        ro.observe(viewport);
+      }
+    })();
+    </script>
+  </div>
+</body>
+</html>

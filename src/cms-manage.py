@@ -190,7 +190,8 @@ def cmd_page_add(args):
         "page_external_url": "", "page_author_name": args.author or "",
         "page_featured_img": featured_img,
         "page_template_key": "post.html",
-        "page_featured_video_url": getattr(args, "featured_video", "") or ""
+        "page_featured_video_url": getattr(args, "featured_video", "") or "",
+        "page_featured_diagram": getattr(args, "featured_diagram", "") or ""
     }):
         _write_page_content_file(new_uuid, args.title, html_body)
         print(f"[✓] Page created: {args.title} (UUID: {new_uuid}, Slug: {slug})")
@@ -284,7 +285,8 @@ def cmd_quick_post(args):
         "page_external_url": "", "page_author_name": author_name,
         "page_featured_img": featured_img,
         "page_template_key": "post.html",
-        "page_featured_video_url": getattr(args, "featured_video", "") or ""
+        "page_featured_video_url": getattr(args, "featured_video", "") or "",
+        "page_featured_diagram": getattr(args, "featured_diagram", "") or ""
     }):
         _write_page_content_file(new_uuid, args.title, html_body)
         print(f"[✓] Quick post created: '{args.title}'")
@@ -308,6 +310,7 @@ def cmd_page_update(args):
     if args.category: updates["page_cat_name"] = args.category
     if args.author: updates["page_author_name"] = args.author
     if args.featured_video is not None: updates["page_featured_video_url"] = args.featured_video
+    if getattr(args, "featured_diagram", None) is not None: updates["page_featured_diagram"] = args.featured_diagram
     db.update_record("PageRecord", "page_uuid", args.uuid, updates)
     if args.body is not None:
         pfile = os.path.join(get_pages_db_dir(), f"{args.uuid}.json")
@@ -624,12 +627,49 @@ def cmd_asset_add(args):
 
     assets_dir = Path(get_live_assets_dir())
     assets_dir.mkdir(parents=True, exist_ok=True)
+    db = get_db()
+
+    ext = src.suffix.lower()
+    if ext in (".json", ".bejson", ".html"):
+        from lib_bejson_CMS_diagrams import cms_diagrams_validate_file
+        validation = cms_diagrams_validate_file(str(src))
+        if not validation.get("valid") or not validation.get("diagram"):
+            errs = "; ".join(validation.get("errors", []))
+            print(f"Error: Diagram validation failed for '{src.name}': {errs}")
+            return
+        remediated_json = json.dumps(validation["diagram"], indent=2)
+        remediated_bytes = remediated_json.encode("utf-8")
+        file_hash = hashlib.sha256(remediated_bytes).hexdigest()
+        existing = next((a for a in db.get_records("MediaAsset") if a.get("asset_file_hash") == file_hash), None)
+        if existing:
+            print(f"Diagram already registered (dedup by hash): {existing.get('asset_filename')} ('{existing.get('asset_original_name')}')")
+            return
+        dest_name = f"{uuid.uuid4()}.diag.json"
+        dest = assets_dir / dest_name
+        dest.write_bytes(remediated_bytes)
+        file_size = len(remediated_bytes)
+        mime_type = "application/vnd.bejson.diagram+json"
+        if db.add_record("MediaAsset", {
+            "asset_filename": dest_name, "asset_original_name": src.name, "asset_file_hash": file_hash,
+            "asset_file_size": file_size, "asset_mime_type": mime_type,
+            "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
+        }, sync_count=False):
+            db.sync_manifest_count("MediaAsset")
+            diag_obj = validation.get("diagram") or {}
+            print(f"[✓] Diagram validated & imported: {dest_name} (Original: {src.name})")
+            print(f"    Format:      {validation.get('detected_format')}")
+            print(f"    Title:       {diag_obj.get('name')}")
+            print(f"    Stats:       {validation.get('shape_count', 0)} shapes, {validation.get('connector_count', 0)} connectors, {validation.get('territory_count', 0)} territories")
+        else:
+            print(f"Failed to register diagram asset: {src.name}")
+            dest.unlink(missing_ok=True)
+        return
+
     dest = assets_dir / src.name
     if dest.exists():
         print(f"Error: an asset named '{src.name}' already exists -- rename the source file or delete the existing asset first.")
         return
 
-    db = get_db()
     file_hash = hashlib.sha256(src.read_bytes()).hexdigest()
     if any(a.get("asset_file_hash") == file_hash for a in db.get_records("MediaAsset")):
         print(f"Error: a file with identical content is already registered (dedup by hash) -- not adding '{src.name}'.")
@@ -649,6 +689,34 @@ def cmd_asset_add(args):
     else:
         print(f"Failed to register asset: {src.name}")
         dest.unlink(missing_ok=True)
+
+def cmd_diagram_validate(args):
+    from lib_bejson_CMS_diagrams import cms_diagrams_validate_file
+    result = cms_diagrams_validate_file(args.file)
+    diag_obj = result.get("diagram") or {}
+    report = {
+        "valid": result.get("valid"),
+        "detected_format": result.get("detected_format"),
+        "title": diag_obj.get("name"),
+        "shape_count": result.get("shape_count", 0),
+        "connector_count": result.get("connector_count", 0),
+        "territory_count": result.get("territory_count", 0),
+        "errors": result.get("errors"),
+        "warnings": result.get("warnings"),
+    }
+    print(json.dumps(report, indent=2))
+
+def cmd_diagram_import(args):
+    cmd_asset_add(args)
+
+def cmd_diagram_list(args):
+    db = get_db()
+    diagrams = [
+        a for a in db.get_records("MediaAsset")
+        if a.get("asset_mime_type") == "application/vnd.bejson.diagram+json"
+        or str(a.get("asset_filename", "")).endswith(".diag.json")
+    ]
+    print(json.dumps(diagrams, indent=2))
 
 def cmd_asset_delete(args):
     db = get_db()
@@ -1225,6 +1293,7 @@ def main():
     p_padd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
     p_padd.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets)")
     p_padd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Rendered above the article body on publish.")
+    p_padd.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets, e.g. <uuid>.diag.json). Rendered below the Featured Image and above the page body on publish.")
     p_padd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after creation")
 
     p_papp = page_sub.add_parser("append", help="Append content to an existing page's html_body")
@@ -1242,6 +1311,7 @@ def main():
     p_pupd.add_argument("--body", help="HTML body content")
     p_pupd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
     p_pupd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Pass an empty string to clear it.")
+    p_pupd.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets). Pass an empty string to clear it.")
 
     p_pdel = page_sub.add_parser("delete", help="Delete a page")
     p_pdel.add_argument("uuid", help="Page UUID")
@@ -1461,8 +1531,21 @@ def main():
     p_qp.add_argument("--md-file", help="Path to markdown file to convert and insert")
     p_qp.add_argument("--featured-img", default=DEFAULT_FEATURED_IMAGE, help="Featured image filename")
     p_qp.add_argument("--featured-video", help="Featured video watch URL or ID")
+    p_qp.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets)")
     p_qp.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type (default: blog)")
     p_qp.add_argument("--publish", action="store_true", help="Trigger immediate static build after creation")
+
+    # Diagram Management
+    p_diag = subparsers.add_parser("diagram", help="BEJSON 104 Diagram validation and media import operations")
+    diag_sub = p_diag.add_subparsers(dest="op")
+
+    p_dval = diag_sub.add_parser("validate", help="Validate a diagram file (.json, .mfdb132.bejson, or .html)")
+    p_dval.add_argument("file", help="Path to diagram file")
+
+    p_dimp = diag_sub.add_parser("import", help="Validate, remediate, and import a diagram file into Media Assets")
+    p_dimp.add_argument("file", help="Path to diagram file")
+
+    diag_sub.add_parser("list", help="List all imported diagram assets")
 
     # Static Publish
     subparsers.add_parser("publish", help="Compile and publish static site to storage/builds")
@@ -1490,6 +1573,7 @@ def main():
         "navlink": lambda a: {"add": cmd_nav_add, "delete": cmd_nav_delete, "list": cmd_nav_list}.get(a.op)(a) if a.op else None,
         "ad": lambda a: {"add": cmd_ad_add, "update": cmd_ad_update, "delete": cmd_ad_delete, "list": cmd_ad_list}.get(a.op)(a) if a.op else None,
         "asset": lambda a: {"add": cmd_asset_add, "delete": cmd_asset_delete, "optimize": cmd_asset_optimize, "list": lambda _: cmd_db_list(argparse.Namespace(entity="assets", filter=None)), "add-external": cmd_asset_add_external, "delete-external": cmd_asset_delete_external, "list-external": cmd_asset_list_external}.get(a.op)(a) if a.op else None,
+        "diagram": lambda a: {"validate": cmd_diagram_validate, "import": cmd_diagram_import, "list": cmd_diagram_list}.get(a.op)(a) if a.op else None,
         "app": lambda a: {"add": cmd_app_add, "delete": cmd_app_delete, "list": cmd_app_list}.get(a.op)(a) if a.op else None,
         "config": lambda a: {"set": cmd_config_set, "list": cmd_config_list, "delete": cmd_config_delete}.get(a.op)(a) if a.op else None,
         "serve": cmd_serve,

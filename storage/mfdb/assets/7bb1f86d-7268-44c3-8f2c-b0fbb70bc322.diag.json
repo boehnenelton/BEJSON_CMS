@@ -1,0 +1,230 @@
+{
+  "diagramId": "f7a3011b-c924-4f12-8871-09df13a4891b",
+  "name": "MFDB Diagram - Validator Process",
+  "description": "Comprehensive architectural pipeline of the BEJSON 104, 104a, and 104db structural validator engine (lib_bejson_Core_bejson_validator.py). Details syntax checking, mandatory keys, custom header restrictions, Records_Type cardinality, 104db discriminator handling, fields type enforcement, field-map cache validation, and values matrix type verification.",
+  "shapes": [
+    {
+      "id": "node_input_source",
+      "label": "Input Source Ingestion",
+      "text": "Accepts JSON string, Python dict, or file path (.bejson).\nResolves file existence and utf-8 encoding (raises E_FILE_NOT_FOUND on missing file).",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 300,
+      "cy": 150,
+      "parentId": null
+    },
+    {
+      "id": "node_json_syntax",
+      "label": "Step 1: JSON Syntax Verification",
+      "text": "bejson_validator_check_json_syntax\nParses string text into JSON object.\nCatches deserialization errors and raises E_INVALID_JSON.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 300,
+      "cy": 300,
+      "parentId": "node_input_source"
+    },
+    {
+      "id": "node_mandatory_keys",
+      "label": "Step 2: Mandatory Keys & Creator",
+      "text": "bejson_validator_check_mandatory_keys\nValidates 6 mandatory top-level keys:\nFormat=='BEJSON', Format_Creator=='Elton Boehnen'.\nVerifies Format_Version in {'104', '104a', '104db'}.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 300,
+      "cy": 500,
+      "parentId": "node_json_syntax"
+    },
+    {
+      "id": "node_custom_headers",
+      "label": "Step 3: Custom Headers & Reserved Keys",
+      "text": "bejson_validator_check_custom_headers\n104 & 104db: Forbid custom top-level keys (E_RESERVED_KEY_COLLISION; Parent_Hierarchy allowed).\n104a: Custom metadata headers permitted.\nPersisted '_' keys strictly prohibited.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 300,
+      "cy": 700,
+      "parentId": "node_mandatory_keys"
+    },
+    {
+      "id": "node_records_type",
+      "label": "Step 4: Records_Type Cardinality",
+      "text": "bejson_validator_check_records_type\nRecords_Type must be a list.\n104 & 104a: Exactly 1 record type required.\n104db: 2 or more record types required (E_INVALID_RECORDS_TYPE).",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 950,
+      "cy": 200,
+      "parentId": null
+    },
+    {
+      "id": "node_discriminator",
+      "label": "Step 5: 104db Discriminator Gate",
+      "text": "bejson_validator_check_record_type_parent\n(Active only for 104db; no-op for 104/104a):\nFields[0] must be named 'Record_Type_Parent'.\nEvery Values row col-0 must match a declared Records_Type entry.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 950,
+      "cy": 350,
+      "parentId": "node_records_type"
+    },
+    {
+      "id": "node_fields_structure",
+      "label": "Step 6: Fields Types & Era Restraints",
+      "text": "bejson_validator_check_fields_structure\nValidates lowercase types: string, integer, number, boolean, array, object.\n104a: Complex types (array, object) strictly forbidden (POL-002).\n104db: Fields carry Record_Type_Parent owner.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 950,
+      "cy": 550,
+      "parentId": "node_discriminator"
+    },
+    {
+      "id": "node_field_uniqueness",
+      "label": "Step 7: Unique Field Names Check",
+      "text": "bejson_validator_check_field_names_unique\nAsserts all field names are distinct.\nDuplicate names raise E_INVALID_FIELDS to prevent ambiguous field-map cache resolution.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 950,
+      "cy": 700,
+      "parentId": "node_fields_structure"
+    },
+    {
+      "id": "node_cache_check",
+      "label": "Step 8: Field Map Cache Integrity",
+      "text": "bejson_validator_check_field_map_cache\n_bejson_field_map is an in-memory artifact.\nPersisted copy in file/string: rejected with E_RESERVED_KEY_COLLISION.\nIn-memory copy: whole-map checked against Fields.",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 1600,
+      "cy": 200,
+      "parentId": null
+    },
+    {
+      "id": "node_values_check",
+      "label": "Step 9: Values Matrix & Type Checking",
+      "text": "bejson_validator_check_values\nRow cell count must match len(Fields) (E_RECORD_LENGTH_MISMATCH).\nStrict cell type matching (E_TYPE_MISMATCH).\nPython bool excluded from integer and number types.\nnull allowed for all types (104db padding).",
+      "kind": "rect",
+      "sizeClass": "large",
+      "color": "#000000",
+      "fontColor": "#FFFFFF",
+      "cx": 1600,
+      "cy": 450,
+      "parentId": "node_cache_check"
+    },
+    {
+      "id": "node_validation_result",
+      "label": "Step 10: ValidationResult Diagnostics",
+      "text": "validate_bejson -> ValidationResult\nReturns structured valid: bool, errors: list, warnings: list.\nWrapped by bejson_validator_validate_file() and bejson_validator_validate_string() for boolean pass / error dispatch.",
+      "kind": "rect",
+      "sizeClass": "large",
+      "color": "#DE2626",
+      "fontColor": "#FFFFFF",
+      "cx": 1600,
+      "cy": 700,
+      "parentId": "node_values_check"
+    }
+  ],
+  "connectors": [
+    {
+      "id": "conn_src_syntax",
+      "from": "node_input_source",
+      "to": "node_json_syntax",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_syntax_keys",
+      "from": "node_json_syntax",
+      "to": "node_mandatory_keys",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_keys_custom",
+      "from": "node_mandatory_keys",
+      "to": "node_custom_headers",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_custom_records",
+      "from": "node_custom_headers",
+      "to": "node_records_type",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_records_disc",
+      "from": "node_records_type",
+      "to": "node_discriminator",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_disc_fields",
+      "from": "node_discriminator",
+      "to": "node_fields_structure",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_fields_unique",
+      "from": "node_fields_structure",
+      "to": "node_field_uniqueness",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_unique_cache",
+      "from": "node_field_uniqueness",
+      "to": "node_cache_check",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_cache_values",
+      "from": "node_cache_check",
+      "to": "node_values_check",
+      "flow": "forward"
+    },
+    {
+      "id": "conn_values_result",
+      "from": "node_values_check",
+      "to": "node_validation_result",
+      "flow": "forward"
+    }
+  ],
+  "territories": [
+    {
+      "id": "zone_ingestion",
+      "kind": "rect",
+      "cx": 300,
+      "cy": 450,
+      "size": 550,
+      "label": "Zone 1: Ingestion & Header Verification",
+      "color": "#000000"
+    },
+    {
+      "id": "zone_schema_structure",
+      "kind": "rect",
+      "cx": 950,
+      "cy": 450,
+      "size": 550,
+      "label": "Zone 2: Schema & Fields Structure Gate",
+      "color": "#DE2626"
+    },
+    {
+      "id": "zone_matrix_diagnostics",
+      "kind": "rect",
+      "cx": 1600,
+      "cy": 450,
+      "size": 550,
+      "label": "Zone 3: Cache, Matrix & Diagnostics",
+      "color": "#000000"
+    }
+  ]
+}

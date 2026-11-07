@@ -55,6 +55,11 @@ if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
+from lib_bejson_CMS_diagrams import (
+    cms_diagrams_validate_and_remediate,
+    cms_diagrams_validate_file,
+    cms_diagrams_render_inline_from_file,
+)
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PAGEEDITOR_PORT = CMSPorts.get_port(CONFIG_PATH, "pageeditor_port", "CMS_PAGEEDITOR_PORT")
 PAGEEDITORV2_PORT = CMSPorts.get_port(CONFIG_PATH, "pageeditorv2_port", "CMS_PAGEEDITORV2_PORT")
@@ -123,6 +128,19 @@ def _get_authors():
     db.mount()
     return db.get_records("AuthorProfile")
 
+def _get_diagram_assets():
+    if not os.path.exists(MANIFEST_PATH):
+        return []
+    db.mount()
+    all_assets = db.get_records("MediaAsset")
+    diag_list = [
+        a for a in all_assets
+        if (a.get("asset_mime_type") or "").lower() == "application/vnd.bejson.diagram+json"
+        or (a.get("asset_filename") or "").lower().endswith((".diag.json", ".json", ".bejson"))
+    ]
+    diag_list.sort(key=lambda a: a.get("asset_uploaded_at") or "", reverse=True)
+    return diag_list
+
 def _get_pages():
     if not os.path.exists(MANIFEST_PATH):
         return []
@@ -153,7 +171,7 @@ def _get_page_body(page_uuid):
     except Exception:
         return ""
 
-def _write_page_record(page_uuid, title, category, author, body_html, is_new=True, featured_img=None, template_key='blank', topical_links=''):
+def _write_page_record(page_uuid, title, category, author, body_html, is_new=True, featured_img=None, template_key='blank', topical_links='', featured_diagram=None):
     """
     Write a PageRecord to master DB and write/update the pages_db content file.
     Exactly mirrors how Flask_CMS.py creates pages.
@@ -177,6 +195,7 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_external_url": None,
             "page_author_name":   author,
             "page_featured_img": featured_img,
+            "page_featured_diagram": featured_diagram or "",
             "page_template_key": template_key,
             "page_featured_video_url": "",
             "page_topical_links": topical_links,
@@ -192,6 +211,8 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
         }
         if featured_img is not None:
             updates["page_featured_img"] = featured_img
+        if featured_diagram is not None:
+            updates["page_featured_diagram"] = featured_diagram
             
         db.update_record("PageRecord", "page_uuid", page_uuid, updates)
     
@@ -1514,6 +1535,7 @@ def r_new():
     cats = _get_categories()
     authors = _get_authors()
     assets = _get_assets()
+    diagram_assets = _get_diagram_assets()
 
     tpl_cards = ""
     for key, tpl in TEMPLATES.items():
@@ -1542,6 +1564,11 @@ def r_new():
     asset_opts = "".join(
         f"<option value='{a}'>{a}</option>"
         for a in assets
+    )
+
+    diagram_opts = "".join(
+        f"<option value='{_html_mod.escape(d.get('asset_filename',''))}'>📊 {_html_mod.escape(d.get('asset_original_name') or d.get('asset_filename',''))}</option>"
+        for d in diagram_assets
     )
 
     gallery_editor_html  = _gallery_editor_html()
@@ -1575,7 +1602,7 @@ def r_new():
             <select name="category">{cat_opts}</select>
           </div>
         </div>
-        <div class="grid2">
+        <div class="grid3">
           <div class="fg">
             <label>Author (optional)</label>
             <select name="author">{author_opts}</select>
@@ -1585,6 +1612,13 @@ def r_new():
             <select name="featured_img">
               <option value="">-- No image --</option>
               {asset_opts}
+            </select>
+          </div>
+          <div class="fg">
+            <label>Header Diagram (Above Content)</label>
+            <select name="featured_diagram" id="featured_diagram">
+              <option value="">-- No Header Diagram --</option>
+              {diagram_opts}
             </select>
           </div>
         </div>
@@ -1697,6 +1731,7 @@ def r_edit(page_uuid):
     cats    = _get_categories()
     authors = _get_authors()
     assets  = _get_assets()
+    diagram_assets = _get_diagram_assets()
     content = _get_page_body(page_uuid)
     safe_c  = _html_mod.escape(content)
     tpl_key = page.get('page_template_key', 'blank')
@@ -1714,6 +1749,11 @@ def r_edit(page_uuid):
     asset_opts = "".join(
         f"<option value='{a}' {'selected' if a == page.get('page_featured_img') else ''}>{a}</option>"
         for a in assets
+    )
+
+    diagram_opts = "".join(
+        f"<option value='{_html_mod.escape(d.get('asset_filename',''))}' {'selected' if d.get('asset_filename') == page.get('page_featured_diagram') else ''}>📊 {_html_mod.escape(d.get('asset_original_name') or d.get('asset_filename',''))}</option>"
+        for d in diagram_assets
     )
 
     # Build JSON map of template HTML for JS injection (non-dynamic templates only)
@@ -1745,7 +1785,7 @@ def r_edit(page_uuid):
             <select name="category">{cat_opts}</select>
           </div>
         </div>
-        <div class="grid2">
+        <div class="grid3">
           <div class="fg">
             <label>Author</label>
             <select name="author">{author_opts}</select>
@@ -1755,6 +1795,13 @@ def r_edit(page_uuid):
             <select name="featured_img">
               <option value="">-- No image --</option>
               {asset_opts}
+            </select>
+          </div>
+          <div class="fg">
+            <label>Header Diagram (Above Content)</label>
+            <select name="featured_diagram" id="featured_diagram">
+              <option value="">-- No Header Diagram --</option>
+              {diagram_opts}
             </select>
           </div>
         </div>
@@ -1879,6 +1926,7 @@ def r_save():
     category     = request.form.get('category', 'Uncategorized')
     author       = request.form.get('author', '').strip()
     featured_img = request.form.get('featured_img', '').strip()
+    featured_diagram = request.form.get('featured_diagram', '').strip()
     tpl_type      = request.form.get('template_key', 'blank')
     topical_links = request.form.get('page_topical_links', '').strip()
 
@@ -1913,7 +1961,8 @@ def r_save():
             is_new        = (action == 'create'),
             featured_img  = featured_img,
             template_key  = tpl_type,
-            topical_links = topical_links
+            topical_links = topical_links,
+            featured_diagram = featured_diagram,
         )
         verb = "created" if action == 'create' else "updated"
         flash(f'✅ Page "{title}" {verb} successfully.', 'success')
@@ -2066,6 +2115,36 @@ def r_list_pdf_media():
 
     items.sort(key=lambda i: i["label"].lower())
     return jsonify({"ok": True, "items": items})
+
+
+@app.route('/list_diagram_media')
+def r_list_diagram_media():
+    diag_records = _get_diagram_assets()
+    items = [
+        {
+            "filename": d.get("asset_filename") or "",
+            "label": d.get("asset_original_name") or d.get("asset_filename") or "",
+        }
+        for d in diag_records
+        if d.get("asset_filename")
+    ]
+    return jsonify({"ok": True, "items": items})
+
+
+@app.route('/render_diagram_inline/<path:filename>')
+def r_render_diagram_inline(filename):
+    safe_fname = secure_filename(filename)
+    diag_path = os.path.join(ASSETS_DIR, safe_fname)
+    if not os.path.isfile(diag_path):
+        return jsonify({"ok": False, "error": "Diagram file not found."}), 404
+    val_report = cms_diagrams_validate_file(diag_path)
+    if not val_report.get("diagram"):
+        return jsonify({
+            "ok": False,
+            "error": "; ".join(val_report.get("errors") or ["Invalid diagram schema."]),
+        }), 400
+    inline_html = cms_diagrams_render_inline_from_file(diag_path)
+    return jsonify({"ok": True, "inline_html": inline_html, "validation": val_report})
 
 
 # =============================================================================
@@ -2377,6 +2456,7 @@ def _editor_html(field_name, current_value, include_modals=True):
       <button type="button" class="tb-btn btn-yt"  onclick="openYtModal()">&#9654; YouTube</button>
       <button type="button" class="tb-btn btn-code" onclick="openModal('codeModal')">&#128190; Code File</button>
       <button type="button" class="tb-btn btn-pdf" onclick="openPdfModal()">&#128196; PDF</button>
+      <button type="button" class="tb-btn" onclick="openDiagramModal()">📊 Diagram</button>
     </div>"""
 
     textarea = f"""
@@ -2476,6 +2556,24 @@ def _editor_html(field_name, current_value, include_modals=True):
     <div class="btn-row">
       <button type="button" class="btn btn-red" onclick="insertPdf()">Insert</button>
       <button type="button" class="btn btn-grey" onclick="closeModal('pdfModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DIAGRAM MODAL ── -->
+<div class="modal-bg" id="diagramModal">
+  <div class="modal">
+    <h3>📊 Insert Interactive 3-Tab Diagram</h3>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">
+      Select a validated BEJSON 104 Diagram from the Media Library to inject its self-contained 3-tab HTML component at the cursor (or use the <b>Header Diagram</b> dropdown in Page Details to place it above page content right below the Featured Image).
+    </p>
+    <div id="diagramPickerList" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:10px;">
+      <div style="padding:20px;text-align:center;color:var(--muted);font-size:.85rem;">Loading…</div>
+    </div>
+    <div id="diagramSelectedStatus" style="font-size:.8rem;color:var(--muted);margin-bottom:8px;"></div>
+    <div class="btn-row">
+      <button type="button" class="btn btn-red" onclick="insertDiagramInline()">Insert 3-Tab Component</button>
+      <button type="button" class="btn btn-grey" onclick="closeModal('diagramModal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -2751,6 +2849,62 @@ function insertPdf(){
   document.getElementById('pdfExternalUrl').value = '';
   document.getElementById('pdfCaption').value = '';
   _pdfSelected = null;
+}
+
+// ── Diagram insertion ──
+var _diagramSelected = null;
+
+function openDiagramModal(){
+  _diagramSelected = null;
+  document.getElementById('diagramSelectedStatus').textContent = '';
+  openModal('diagramModal');
+  loadDiagramPickerList();
+}
+
+function loadDiagramPickerList(){
+  const list = document.getElementById('diagramPickerList');
+  fetch('/list_diagram_media').then(r=>r.json()).then(d=>{
+    list.innerHTML = '';
+    if(!d.ok || !d.items || !d.items.length){
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:.85rem;">No diagrams uploaded yet — upload a .json, .bejson, or .html diagram in the CMS Media Library first.</div>';
+      return;
+    }
+    d.items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'pdf-picker-row';
+      row.style = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;';
+      row.innerHTML = '<span style="font-size:1.1rem;">📊</span>'
+        + '<span style="flex:1;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + item.label + '</span>';
+      row.onclick = () => {
+        document.querySelectorAll('#diagramPickerList .pdf-picker-row').forEach(r => r.style.background = '');
+        row.style.background = 'rgba(222,38,38,0.12)';
+        _diagramSelected = {filename: item.filename, label: item.label};
+        document.getElementById('diagramSelectedStatus').textContent = 'Selected: ' + item.label;
+      };
+      list.appendChild(row);
+    });
+  }).catch(() => {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#f87171;font-size:.85rem;">Failed to load diagram list.</div>';
+  });
+}
+
+function insertDiagramInline(){
+  if(!_diagramSelected){ alert('Select a diagram from the list first.'); return; }
+  document.getElementById('diagramSelectedStatus').textContent = 'Validating & compiling 3-tab component…';
+  fetch('/render_diagram_inline/' + encodeURIComponent(_diagramSelected.filename))
+    .then(r => r.json())
+    .then(d => {
+      if(!d.ok || !d.inline_html){
+        alert('Diagram validation failed: ' + (d.error || 'Unknown error'));
+        return;
+      }
+      const ta = getTA(), pos = ta.selectionStart;
+      ta.setRangeText('\\n' + d.inline_html + '\\n', pos, pos, 'end');
+      ta.focus();
+      closeModal('diagramModal');
+      _diagramSelected = null;
+    })
+    .catch(err => alert('Failed to render diagram: ' + err));
 }
 </script>"""
 

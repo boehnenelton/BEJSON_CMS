@@ -1,0 +1,200 @@
+{
+  "diagramId": "diag_bejson_diagram_system_architecture",
+  "name": "BEJSON Diagram Architecture & Validation Engine",
+  "description": "Architectural pipeline of the BEJSON Diagrammer: Ingestion clients, 3-stage arrival validation & remediation, positional MFDB-132 packaging, 3-tab interactive component, and CMS publication.",
+  "shapes": [
+    {
+      "id": "s_cli",
+      "label": "Diagrammer CLI & Daemons",
+      "text": "scripts/diagram_cli.py \u2022 CLI generation & batch pipelines",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#262626",
+      "fontColor": "#ffffff",
+      "cx": 300,
+      "cy": 150,
+      "parentId": null
+    },
+    {
+      "id": "s_react",
+      "label": "React Canvas Ecosystem",
+      "text": "MFDB_Diagrammer \u2022 Spatial layout & interactive board",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#262626",
+      "fontColor": "#ffffff",
+      "cx": 300,
+      "cy": 300,
+      "parentId": null
+    },
+    {
+      "id": "s_media",
+      "label": "CMS Media Library Upload",
+      "text": "BEJSON_CMS_Media \u2022 .json, .bejson, and .html arrival gate",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#262626",
+      "fontColor": "#ffffff",
+      "cx": 300,
+      "cy": 450,
+      "parentId": null
+    },
+    {
+      "id": "s_sem",
+      "label": "Stage 1: Plan Semantics Gate",
+      "text": "validate_plan_semantics \u2022 tempId uniqueness, enum types, hex colors",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#d9d9d9",
+      "fontColor": "#000000",
+      "cx": 750,
+      "cy": 150,
+      "parentId": null
+    },
+    {
+      "id": "s_remed",
+      "label": "Stage 2: Arrival Remediation",
+      "text": "remediate_diagram \u2022 50px grid snap, cycle break, purge dangling FKs",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#ffffff",
+      "cx": 750,
+      "cy": 300,
+      "parentId": null
+    },
+    {
+      "id": "s_struct",
+      "label": "Stage 3: 104 Structural Validator",
+      "text": "diagrams_validator \u2022 40px collision box clearance, FK resolution",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#d9d9d9",
+      "fontColor": "#000000",
+      "cx": 750,
+      "cy": 450,
+      "parentId": null
+    },
+    {
+      "id": "s_mfdb",
+      "label": "MFDB-132 Package Store",
+      "text": "Chunked-104a container \u2022 BEJSON-Diagram-1 \u2022 SHA-256 integrity",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#262626",
+      "fontColor": "#ffffff",
+      "cx": 1200,
+      "cy": 150,
+      "parentId": null
+    },
+    {
+      "id": "s_widget",
+      "label": "3-Tab Inline Component",
+      "text": "Zero iframe, 100px mobile clearance, Flip Ratio aspect toggle",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#DE2626",
+      "fontColor": "#ffffff",
+      "cx": 1200,
+      "cy": 300,
+      "parentId": null
+    },
+    {
+      "id": "s_cms",
+      "label": "CMS Publisher & Header Slot",
+      "text": "page_featured_diagram \u2022 Article_Skeleton.html injection",
+      "kind": "rect",
+      "sizeClass": "medium",
+      "color": "#262626",
+      "fontColor": "#ffffff",
+      "cx": 1200,
+      "cy": 450,
+      "parentId": null
+    }
+  ],
+  "connectors": [
+    {
+      "id": "c1",
+      "from": "s_cli",
+      "to": "s_sem",
+      "flow": "forward"
+    },
+    {
+      "id": "c2",
+      "from": "s_react",
+      "to": "s_sem",
+      "flow": "forward"
+    },
+    {
+      "id": "c3",
+      "from": "s_media",
+      "to": "s_sem",
+      "flow": "forward"
+    },
+    {
+      "id": "c4",
+      "from": "s_sem",
+      "to": "s_remed",
+      "flow": "forward"
+    },
+    {
+      "id": "c5",
+      "from": "s_remed",
+      "to": "s_struct",
+      "flow": "forward"
+    },
+    {
+      "id": "c6",
+      "from": "s_struct",
+      "to": "s_mfdb",
+      "flow": "forward"
+    },
+    {
+      "id": "c7",
+      "from": "s_struct",
+      "to": "s_widget",
+      "flow": "forward"
+    },
+    {
+      "id": "c8",
+      "from": "s_mfdb",
+      "to": "s_widget",
+      "flow": "forward"
+    },
+    {
+      "id": "c9",
+      "from": "s_widget",
+      "to": "s_cms",
+      "flow": "forward"
+    }
+  ],
+  "territories": [
+    {
+      "id": "terr_1",
+      "kind": "rect",
+      "cx": 300,
+      "cy": 300,
+      "size": 450,
+      "label": "Ingestion & Runtime Clients",
+      "color": "#000000"
+    },
+    {
+      "id": "terr_2",
+      "kind": "rect",
+      "cx": 750,
+      "cy": 300,
+      "size": 450,
+      "label": "Arrival Validation & Remediation Gate",
+      "color": "#DE2626"
+    },
+    {
+      "id": "terr_3",
+      "kind": "rect",
+      "cx": 1200,
+      "cy": 300,
+      "size": 450,
+      "label": "Storage Manifests & UI Renderers",
+      "color": "#000000"
+    }
+  ]
+}

@@ -165,6 +165,21 @@
       "",
       null,
       "b308859b-a444-4c12-9769-9fddd9dd0520.diag.json"
+    ],
+    [
+      "a72368ee-3689-4b72-bd57-bcb4b6415e89",
+      "Zero-SQL, Zero-ORM, Zero-SaaS: Inside the BEJSON CMS Flat-File Engine",
+      "zero-sql-zero-orm-zero-saas-inside-the-bejson-cms-flat-file-engine",
+      "Projects",
+      "blog",
+      "2026-11-07 05:06:44",
+      "",
+      "Leethaxor69",
+      "bejson_cms_engine_architecture_hero.webp",
+      "post.html",
+      "",
+      null,
+      ""
     ]
   ]
 }

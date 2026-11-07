@@ -600,6 +600,54 @@
       102690,
       "image/webp",
       "2026-11-07T12:54:17.785069+00:00"
+    ],
+    [
+      "bejson_cms_engine_architecture_hero.svg",
+      "bejson_cms_engine_architecture_hero.svg",
+      "42afcd4f1e6b9b81c5fb5da906c6063e1d83d1727f7d4ae939675d05feeb9aa1",
+      6607,
+      "image/svg+xml",
+      "2026-11-07T13:04:37.495033+00:00"
+    ],
+    [
+      "bejson_cms_engine_architecture_hero.png",
+      "bejson_cms_engine_architecture_hero.png",
+      "14811b057e6e9fd3cb15ab751dd2f20fed9146a8e2b196f3608b16563ff86839",
+      137516,
+      "image/png",
+      "2026-11-07T13:04:37.506226+00:00"
+    ],
+    [
+      "bejson_cms_engine_architecture_hero.webp",
+      "bejson_cms_engine_architecture_hero.webp",
+      "54098c9a2adb35105bd6135bd6cf1d0316cb97a3d087f0f3ef4daa6c83d4ab29",
+      68352,
+      "image/webp",
+      "2026-11-07T13:04:37.511449+00:00"
+    ],
+    [
+      "bejson_cms_engine_slide_topology.svg",
+      "bejson_cms_engine_slide_topology.svg",
+      "021c6b7939b2ac2a4ac47ca7122b25f3eef68808dadbed249c90f89c3b33a417",
+      2450,
+      "image/svg+xml",
+      "2026-11-07T13:04:49.215557+00:00"
+    ],
+    [
+      "bejson_cms_engine_slide_topology.png",
+      "bejson_cms_engine_slide_topology.png",
+      "db30442cd7dc8fa6130f6a65729c5a45684f92d5c6cd959a37cb8816afe36cf4",
+      52734,
+      "image/png",
+      "2026-11-07T13:04:49.221466+00:00"
+    ],
+    [
+      "bejson_cms_engine_slide_topology.webp",
+      "bejson_cms_engine_slide_topology.webp",
+      "d3971840c54854a35fdf794afea644c8e5d8f2cea8d8768bf7c40a5376416661",
+      27150,
+      "image/webp",
+      "2026-11-07T13:04:49.229182+00:00"
     ]
   ]
 }

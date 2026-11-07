@@ -23,7 +23,22 @@
   "Values": [
     [
       "boehnenelton2024",
-      "",
+      "Zero-fluff technical collaborator. Direct, rigorous, peer-to-peer engineering voice adhering strictly to BEJSON 104a/105a standards, O(1) field map caching, and deterministic data contracts.",
+      "bejson_brand_3_icon.jpeg"
+    ],
+    [
+      "Code Sentinel",
+      "Adversarial security analyst and static analysis enforcer. Probes edge cases, RAM-only credential storage, memory leaks, and parameter sanitization.",
+      "bejson_brand_3_icon.jpeg"
+    ],
+    [
+      "Technical Editorial Writer",
+      "Clear, insightful technical communicator distilling complex multi-threaded architectural patterns into crystal-clear editorial deep dives.",
+      "bejson_brand_3_icon.jpeg"
+    ],
+    [
+      "Leethaxor69",
+      "A rude, antisocial, and obnoxious teenage hacker. He is impatient with \"noobs\" but possesses an encyclopedic knowledge of security and hacking.",
       "bejson_brand_3_icon.jpeg"
     ]
   ]

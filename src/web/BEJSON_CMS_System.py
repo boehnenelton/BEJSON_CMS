@@ -31,6 +31,37 @@ from lib_bejson_Core_bejson_core import bejson_core_get_field_map, bejson_core_a
 
 system_cube = Blueprint('system', __name__)
 
+_AI_PROFILE_SCHEMA = {
+    "name": "AI_Profile",
+    "primary_key": "Name",
+    "fields": [
+        {"name": "Record_Type_Parent",              "type": "string"},
+        {"name": "Name",                            "type": "string"},
+        {"name": "Archetype",                       "type": "string"},
+        {"name": "Persona",                         "type": "string"},
+        {"name": "SystemInstruction",               "type": "string"},
+        {"name": "Active",                          "type": "boolean"},
+        {"name": "MaxResponseTokens",               "type": "integer"},
+        {"name": "Creativity",                      "type": "number"},
+        {"name": "Tone",                            "type": "array"},
+        {"name": "Formality",                       "type": "string"},
+        {"name": "Verbosity",                       "type": "string"},
+        {"name": "EmotionalExpression_Enabled",     "type": "boolean"},
+        {"name": "EmotionalExpression_Intensity",   "type": "number"},
+        {"name": "CodeInterpreter_Enabled",         "type": "boolean"},
+        {"name": "EphemeralMemory",                 "type": "boolean"},
+        {"name": "CodeParsing_Mode",                "type": "string"},
+        {"name": "CodeParsing_Languages",           "type": "array"},
+        {"name": "CodeParsing_StructureValidation", "type": "boolean"},
+        {"name": "CodeParsing_VersionControl",      "type": "boolean"},
+        {"name": "Thinking_Supported",              "type": "boolean"},
+        {"name": "ForbiddenTopics",                 "type": "array"},
+        {"name": "Avatar_Type",                     "type": "string"},
+        {"name": "Avatar_sourceUrl",                "type": "string"},
+        {"name": "Avatar_Data",                     "type": "string"},
+    ],
+}
+
 # ─── Self-heal / seed lifecycle ─────────────────────────────────────────────
 def init_master_db():
     if MANIFEST_PATH.exists():
@@ -61,6 +92,7 @@ def init_master_db():
                 {"name": "page_featured_img", "type": "string"},
                 {"name": "page_template_key", "type": "string"},
                 {"name": "page_featured_video_url", "type": "string"},
+                {"name": "page_topical_links", "type": "string"},
             ],
         },
         {
@@ -120,56 +152,7 @@ def init_master_db():
                 {"name": "nav_target_url",   "type": "string"},
             ],
         },
-        {
-            # BUG FIX: BEJSON_CMS_ProfileManager.py (Persona Hub, port 5004)
-            # uses this entity for every one of its operations, but it was
-            # never registered anywhere -- the entire app was silently
-            # non-functional (every list/save call failed inside CMSCore's
-            # own error handling and returned an empty result, with no
-            # visible error to the person using it). Field names kept
-            # exactly as ProfileManager.py already expects them (PascalCase,
-            # inconsistent with this project's snake_case convention
-            # elsewhere) rather than also renaming them, since fixing the
-            # "entity doesn't exist" bug doesn't require also touching the
-            # working display/save code's naming style.
-            #
-            # Expanded to the full 23-field canonical schema (matching
-            # BEProfiler.py's BEJSON_FIELDS exactly) rather than just the 8
-            # fields ProfileManager.py's minimal UI writes -- lib_cms_
-            # persona_writer.py's assemble_system_instruction() already
-            # reads Tone and CodeParsing_Languages, which didn't exist
-            # before this. ProfileManager.py's save() now fills safe
-            # defaults for every field it doesn't have its own UI control
-            # for yet, so nothing reading the full schema breaks.
-            "name": "AI_Profile",
-            "primary_key": "Name",
-            "fields": [
-                {"name": "Record_Type_Parent",              "type": "string"},
-                {"name": "Name",                            "type": "string"},
-                {"name": "Archetype",                       "type": "string"},
-                {"name": "Persona",                         "type": "string"},
-                {"name": "SystemInstruction",               "type": "string"},
-                {"name": "Active",                          "type": "boolean"},
-                {"name": "MaxResponseTokens",               "type": "integer"},
-                {"name": "Creativity",                      "type": "number"},
-                {"name": "Tone",                            "type": "array"},
-                {"name": "Formality",                       "type": "string"},
-                {"name": "Verbosity",                       "type": "string"},
-                {"name": "EmotionalExpression_Enabled",     "type": "boolean"},
-                {"name": "EmotionalExpression_Intensity",   "type": "number"},
-                {"name": "CodeInterpreter_Enabled",         "type": "boolean"},
-                {"name": "EphemeralMemory",                 "type": "boolean"},
-                {"name": "CodeParsing_Mode",                "type": "string"},
-                {"name": "CodeParsing_Languages",           "type": "array"},
-                {"name": "CodeParsing_StructureValidation", "type": "boolean"},
-                {"name": "CodeParsing_VersionControl",      "type": "boolean"},
-                {"name": "Thinking_Supported",              "type": "boolean"},
-                {"name": "ForbiddenTopics",                 "type": "array"},
-                {"name": "Avatar_Type",                     "type": "string"},
-                {"name": "Avatar_sourceUrl",                "type": "string"},
-                {"name": "Avatar_Data",                     "type": "string"},
-            ],
-        },
+        _AI_PROFILE_SCHEMA,
         {
             "name": "PageVideoMetadata",
             "primary_key": "video_meta_uuid",
@@ -346,6 +329,7 @@ def _migrate_db():
                 {"name": "page_featured_img", "type": "string"},
                 {"name": "page_template_key", "type": "string"},
                 {"name": "page_featured_video_url", "type": "string"},
+                {"name": "page_topical_links", "type": "string"},
             ],
         },
         {
@@ -379,36 +363,7 @@ def _migrate_db():
                 {"name": "extmedia_created_at", "type": "string"},
             ],
         },
-        {
-            "name": "AI_Profile",
-            "primary_key": "Name",
-            "fields": [
-                {"name": "Record_Type_Parent",              "type": "string"},
-                {"name": "Name",                            "type": "string"},
-                {"name": "Archetype",                       "type": "string"},
-                {"name": "Persona",                         "type": "string"},
-                {"name": "SystemInstruction",               "type": "string"},
-                {"name": "Active",                          "type": "boolean"},
-                {"name": "MaxResponseTokens",               "type": "integer"},
-                {"name": "Creativity",                      "type": "number"},
-                {"name": "Tone",                            "type": "array"},
-                {"name": "Formality",                       "type": "string"},
-                {"name": "Verbosity",                       "type": "string"},
-                {"name": "EmotionalExpression_Enabled",     "type": "boolean"},
-                {"name": "EmotionalExpression_Intensity",   "type": "number"},
-                {"name": "CodeInterpreter_Enabled",         "type": "boolean"},
-                {"name": "EphemeralMemory",                 "type": "boolean"},
-                {"name": "CodeParsing_Mode",                "type": "string"},
-                {"name": "CodeParsing_Languages",           "type": "array"},
-                {"name": "CodeParsing_StructureValidation", "type": "boolean"},
-                {"name": "CodeParsing_VersionControl",      "type": "boolean"},
-                {"name": "Thinking_Supported",              "type": "boolean"},
-                {"name": "ForbiddenTopics",                 "type": "array"},
-                {"name": "Avatar_Type",                     "type": "string"},
-                {"name": "Avatar_sourceUrl",                "type": "string"},
-                {"name": "Avatar_Data",                     "type": "string"},
-            ],
-        },
+        _AI_PROFILE_SCHEMA,
         {
             "name": "PageVideoMetadata",
             "primary_key": "video_meta_uuid",

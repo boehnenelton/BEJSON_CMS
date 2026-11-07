@@ -1,27 +1,32 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_ProfileManager
-SCRIPT_VERSION: 1.4
-DATE:           2026-11-06
+SCRIPT_VERSION: 1.5
+DATE:           2026-11-07
 RELATIONAL_ID:  3d9b1e74-6c52-4a89-b1f0-7e4c9a2d5b81
 AUTHOR:         Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
-DESCRIPTION:    Persona Editor for BEJSON CMS. Manages AI_Profile records (25-field
+DESCRIPTION:    Persona Editor for BEJSON CMS. Manages AI_Profile records (24-field
                 BEJSON schema) with multi-tab controls, tone matrix, model parameters,
                 tool gates, live prompt assembly, and responsive mobile layout.
                 Standalone admin app, port 5004.
 """
 
-VERSION = 14
+VERSION = 15
 
-import os
-import sys
+import base64
 import json
+import math
+import os
+import re
+import sys
 from pathlib import Path
+from urllib.parse import quote, unquote, urlparse
 from flask import Flask, request, redirect, render_template_string, jsonify
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(PROJECT_ROOT, 'src', 'lib'))
 import lib_bejson_CMS_cms_core as CMSCore
 import lib_bejson_CMS_cms_ports as CMSPorts
+from lib_bejson_Core_svg_sanitizer import sanitize_svg
 
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PROFILES_PORT = CMSPorts.get_port(CONFIG_PATH, "profiles_port", "CMS_PROFILES_PORT")
@@ -35,6 +40,117 @@ from BEJSON_CMS_Shared import register_auth_guard
 
 register_auth_guard(app)
 
+DEFAULT_AUTHOR_NAME = "boehnenelton2024"
+DEFAULT_AVATAR_ASSET = "bejson_brand_3_icon.jpeg"
+
+VALID_FORMALITY_OPTIONS = {"rigorous", "formal", "academic", "casual", "informal", "neutral", "technical"}
+VALID_VERBOSITY_OPTIONS = {"concise", "balanced", "exhaustive", "normal", "minimal"}
+VALID_CODE_MODES = {"strict", "lenient", "ast_verified", "full"}
+VALID_AVATAR_TYPES = {"cube", "url", "data", "none", "emoji"}
+
+_UNSAFE_NAME_CHARS_RE = re.compile(r'[/\\?#%<>\"\'\r\n\t]')
+_SAFE_RELATIVE_ASSET_RE = re.compile(r'^[A-Za-z0-9_.\-/]+$')
+_DATA_IMAGE_BASE64_RE = re.compile(
+    r'^data:image/(?:png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=\s]+)$',
+    re.IGNORECASE,
+)
+
+
+@app.before_request
+def _verify_same_origin_on_state_change():
+    """Block cross-origin state-changing requests (CSRF defense under Basic Auth)."""
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        origin_header = request.headers.get("Origin")
+        referer_header = request.headers.get("Referer")
+        expected_host = (request.host or "").strip().lower()
+        if origin_header:
+            parsed_origin = urlparse(origin_header)
+            origin_host = (parsed_origin.netloc or "").strip().lower()
+            if not origin_host or origin_host != expected_host:
+                return ("Forbidden: Cross-origin request rejected", 403)
+        elif referer_header:
+            parsed_referer = urlparse(referer_header)
+            referer_host = (parsed_referer.netloc or "").strip().lower()
+            if not referer_host or referer_host != expected_host:
+                return ("Forbidden: Cross-origin referer rejected", 403)
+
+
+def _is_safe_avatar_url(raw_url: str) -> bool:
+    """Validate avatar_sourceUrl to allow only http(s) URLs or safe relative asset paths."""
+    cleaned = (raw_url or "").strip()
+    if not cleaned:
+        return True
+    if any(ch in cleaned for ch in ('<', '>', '"', "'", '\r', '\n', '\t')):
+        return False
+    lower_url = cleaned.lower()
+    if lower_url.startswith(("javascript:", "vbscript:", "data:", "file:")):
+        return False
+    if lower_url.startswith(("https://", "http://")):
+        parsed = urlparse(cleaned)
+        return bool(parsed.netloc)
+    if ".." in cleaned or ":" in cleaned:
+        return False
+    return bool(_SAFE_RELATIVE_ASSET_RE.match(cleaned))
+
+
+def _sanitize_avatar_data(raw_data: str):
+    """Sanitize Avatar_Data: allow sanitized SVG, safe base64 raster data URIs, or short plain emoji/text."""
+    cleaned = (raw_data or "").strip()
+    if not cleaned:
+        return ""
+    lower_val = cleaned.lower()
+    if lower_val.startswith(("<svg", "<?xml")):
+        sanitized_svg = sanitize_svg(cleaned.encode("utf-8"))
+        if not sanitized_svg:
+            return None
+        return sanitized_svg.decode("utf-8") if isinstance(sanitized_svg, bytes) else str(sanitized_svg)
+    if lower_val.startswith("data:image/svg+xml"):
+        if "," not in cleaned:
+            return None
+        header_part, payload_part = cleaned.split(",", 1)
+        try:
+            if ";base64" in header_part.lower():
+                svg_bytes = base64.b64decode(payload_part, validate=True)
+            else:
+                svg_bytes = unquote(payload_part).encode("utf-8")
+        except Exception:
+            return None
+        sanitized_svg = sanitize_svg(svg_bytes)
+        if not sanitized_svg:
+            return None
+        svg_raw_bytes = sanitized_svg if isinstance(sanitized_svg, bytes) else sanitized_svg.encode("utf-8")
+        encoded_svg = base64.b64encode(svg_raw_bytes).decode("ascii")
+        return f"data:image/svg+xml;base64,{encoded_svg}"
+    b64_match = _DATA_IMAGE_BASE64_RE.match(cleaned)
+    if b64_match:
+        try:
+            base64.b64decode(b64_match.group(1), validate=True)
+            return re.sub(r'\s+', '', cleaned)
+        except Exception:
+            return None
+    if len(cleaned) <= 16 and not any(ch in cleaned for ch in ('<', '>', '"', "'", ':', ';', '=')):
+        return cleaned
+    return None
+
+
+def _sync_author_profile(persona_name: str, persona_bio: str = "", avatar_url: str = "", old_name: str = None) -> bool:
+    """Ensure AuthorProfile is kept in sync with AI_Profile on create, update, rename, duplicate, and seed."""
+    resolved_avatar = avatar_url if (avatar_url and not avatar_url.startswith(("http://", "https://"))) else DEFAULT_AVATAR_ASSET
+    authors = db.get_records("AuthorProfile")
+    lookup_name = old_name or persona_name
+    existing_author = next(
+        (a for a in authors if str(a.get("author_display_name", "")).lower() == lookup_name.lower()),
+        None,
+    )
+    author_payload = {
+        "author_display_name": persona_name,
+        "author_bio": persona_bio or (existing_author.get("author_bio", "") if existing_author else ""),
+        "author_avatar_url": avatar_url or (existing_author.get("author_avatar_url", resolved_avatar) if existing_author else resolved_avatar),
+    }
+    if existing_author:
+        return bool(db.update_record("AuthorProfile", "author_display_name", existing_author["author_display_name"], author_payload))
+    return bool(db.add_record("AuthorProfile", author_payload))
+
 
 # Canonical Default Seed Personas
 DEFAULT_SEED_PERSONAS = [
@@ -43,7 +159,7 @@ DEFAULT_SEED_PERSONAS = [
         "Name": "boehnenelton2024",
         "Archetype": "Systems Architect",
         "Persona": "Zero-fluff technical collaborator. Direct, rigorous, peer-to-peer engineering voice adhering strictly to BEJSON 104a/105a standards, O(1) field map caching, and deterministic data contracts.",
-        "SystemInstruction": "You are the Lead Systems Architect. Enforce zero-filler discipline, O(1) field cache patterns, solid version numbering, and deterministic error handling across all boundary interfaces.",
+        "SystemInstruction": "You are the Lead Systems Architect for the BEJSON ecosystem. Enforce zero-filler structural discipline, O(1) field map cache lookups, solid integer versioning, and deterministic boundary error handling across all interfaces. Define technical terms inline on first use, reject speculative handwaving, and never expose unmasked credentials, filesystem secrets, or unverified claims.",
         "Active": True,
         "MaxResponseTokens": 8192,
         "Creativity": 0.6,
@@ -69,7 +185,7 @@ DEFAULT_SEED_PERSONAS = [
         "Name": "Code Sentinel",
         "Archetype": "Security & AST Policy Auditor",
         "Persona": "Adversarial security analyst and static analysis enforcer. Probes edge cases, RAM-only credential storage, memory leaks, and parameter sanitization.",
-        "SystemInstruction": "Perform rigorous security and AST validation. Audit every parameter for boundary leaks, enforce ENV:* credential isolation, and verify that all operations are non-destructive.",
+        "SystemInstruction": "You are the Security and AST Policy Auditor. Perform adversarial static analysis and boundary validation on all code and data payloads. Audit every input parameter for injection, path traversal, and XSS vectors, enforce strict ENV:* credential isolation, verify O(1) field map caching, and block any destructive or unauthenticated state mutation.",
         "Active": True,
         "MaxResponseTokens": 4096,
         "Creativity": 0.3,
@@ -95,7 +211,7 @@ DEFAULT_SEED_PERSONAS = [
         "Name": "Technical Editorial Writer",
         "Archetype": "Long-form Technical Author",
         "Persona": "Clear, insightful technical communicator distilling complex multi-threaded architectural patterns into crystal-clear editorial deep dives.",
-        "SystemInstruction": "Draft authoritative 4-part technical articles. Frame problems through systems engineering principles, ground concepts in verified code examples, and maintain strict typographic fidelity.",
+        "SystemInstruction": "You are the Principal Technical Editorial Writer. Draft comprehensive, structured 4-part technical articles grounded in verifiable systems engineering principles, runnable code examples, and concrete trade-off analyses. Maintain strict typographic hierarchy, define domain terminology inline, forbid superficial filler or marketing buzzwords, and never fabricate benchmarks or expose sensitive credentials.",
         "Active": True,
         "MaxResponseTokens": 8192,
         "Creativity": 0.75,
@@ -699,12 +815,12 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
             <div class="brand-cube">B</div>
             <div>
                 <span class="brand-title">BEJSON Persona Editor</span>
-                <span class="brand-subtitle">AI_Profile (25-Field)</span>
+                <span class="brand-subtitle">AI_Profile (24-Field)</span>
             </div>
         </div>
         <div class="top-actions">
             <a href="http://127.0.0.1:5001/" target="_blank" class="btn btn-outline" style="font-size: 0.74rem;">&larr; Admin</a>
-            <a href="/" class="btn" style="background:#1E1E26; border:1px solid var(--border); font-size: 0.74rem;">+ New</a>
+            <a href="/new" onclick="return confirmDiscardIfDirty()" class="btn" style="background:#1E1E26; border:1px solid var(--border); font-size: 0.74rem;">+ New</a>
             {% if profiles|length == 0 %}
             <form action="/seed-defaults" method="POST" style="display:inline;">
                 <button type="submit" class="btn" style="background:var(--success); font-size: 0.74rem;">Seed Defaults</button>
@@ -714,8 +830,8 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
     </header>
 
     {% if message %}
-    <div class="alert-banner">
-        <span>✓ {{ message }}</span>
+    <div class="alert-banner" style="{% if is_error or message.startswith('Error') %}background:rgba(222,38,38,0.18); border-bottom-color:var(--primary); color:#FCA5A5;{% endif %}">
+        <span>{{ '⚠' if (is_error or message.startswith('Error')) else '✓' }} {{ message }}</span>
         <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer;">&times;</button>
     </div>
     {% endif %}
@@ -743,13 +859,13 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
 
             <div class="sidebar-list" id="personaCatalogList">
                 {% for p in profiles %}
-                <a href="/edit/{{ p.Name }}" class="persona-card {% if selected_persona and selected_persona.Name == p.Name %}active{% endif %}" data-name="{{ p.Name|lower }}" data-archetype="{{ p.Archetype|lower }}">
+                <a href="/edit/{{ p.Name|urlencode }}" onclick="return confirmDiscardIfDirty()" class="persona-card {% if selected_persona and selected_persona.Name == p.Name %}active{% endif %}" data-name="{{ (p.Name or '')|lower }}" data-archetype="{{ (p.Archetype or 'Unspecified')|lower }}">
                     <div class="persona-card-top">
                         <div class="persona-name">
                             <span class="persona-status-dot {% if p.Active %}online{% endif %}"></span>
                             {{ p.Name }}
                         </div>
-                        <span class="persona-archetype">{{ p.Archetype }}</span>
+                        <span class="persona-archetype">{{ p.Archetype or 'Unspecified' }}</span>
                     </div>
                     <p class="persona-desc">{{ p.Persona or 'No voice description configured.' }}</p>
                     <div class="persona-chips">
@@ -775,6 +891,8 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
         <!-- Right Pane: Multi-Tab Editor -->
         <section class="editor-stage" id="editorContainer">
             <form action="/save" method="POST" id="personaEditForm">
+                <input type="hidden" name="original_name" value="{{ selected_persona.Name if selected_persona else '' }}">
+                <input type="hidden" name="_form_full" value="1">
                 
                 <div class="editor-header">
                     <div class="editor-title-row">
@@ -787,8 +905,10 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
 
                         <div style="display: flex; gap: 8px; align-items: center;">
                             {% if selected_persona %}
-                            <button type="button" class="btn btn-outline" onclick="duplicatePersona('{{ selected_persona.Name }}')">Duplicate</button>
-                            <button type="button" class="btn btn-danger" onclick="deletePersona('{{ selected_persona.Name }}')">Delete</button>
+                            <button type="button" class="btn btn-outline" data-persona-name="{{ selected_persona.Name }}" onclick="duplicatePersona(this.dataset.personaName)">Duplicate</button>
+                            {% if selected_persona.Name != 'boehnenelton2024' %}
+                            <button type="button" class="btn btn-danger" data-persona-name="{{ selected_persona.Name }}" onclick="deletePersona(this.dataset.personaName)">Delete</button>
+                            {% endif %}
                             {% endif %}
                             <button type="submit" class="btn">Save Persona</button>
                         </div>
@@ -811,32 +931,42 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label class="form-label">Persona Identifier <span class="desc">Unique ID / Author Link</span></label>
-                                <input type="text" name="name" id="inputName" class="form-input" required value="{{ selected_persona.Name if selected_persona else '' }}" placeholder="e.g. boehnenelton2024, Code Sentinel" {{ "readonly" if selected_persona else "" }} oninput="updateLivePreview()">
+                                <input type="text" name="name" id="inputName" class="form-input" required maxlength="80" pattern="[^/\\?#%&lt;&gt;&quot;']+" value="{{ selected_persona.Name if selected_persona else '' }}" placeholder="e.g. boehnenelton2024, Code Sentinel" oninput="markDirty(); updateLivePreview(); renderAvatarPreview()">
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Archetype Role <span class="desc">Functional domain title</span></label>
-                                <input type="text" name="archetype" id="inputArchetype" class="form-input" value="{{ selected_persona.Archetype if selected_persona else 'Systems Architect' }}" placeholder="e.g. Systems Architect, Security Auditor" oninput="updateLivePreview()">
+                                <input type="text" name="archetype" id="inputArchetype" class="form-input" value="{{ (selected_persona.Archetype or 'Unspecified') if selected_persona else 'Systems Architect' }}" placeholder="e.g. Systems Architect, Security Auditor" oninput="markDirty(); updateLivePreview()">
                             </div>
 
                             <div class="form-group form-full">
                                 <label class="form-label">Voice & Persona Directives <span class="desc">Shapes AI voice internally (never published)</span></label>
-                                <textarea name="persona_bio" id="inputPersonaBio" rows="4" class="form-textarea" placeholder="Describe tone cadence, thinking habits, zero-fluff style, technical boundaries..." oninput="updateLivePreview()">{{ selected_persona.Persona if selected_persona else '' }}</textarea>
+                                <textarea name="persona_bio" id="inputPersonaBio" rows="4" class="form-textarea" placeholder="Describe tone cadence, thinking habits, zero-fluff style, technical boundaries..." oninput="markDirty(); updateLivePreview()">{{ selected_persona.Persona if selected_persona else '' }}</textarea>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Avatar Type</label>
-                                <select name="avatar_type" id="avatarTypeSelect" class="form-select" onchange="renderAvatarPreview()">
-                                    <option value="cube" {% if selected_persona and selected_persona.Avatar_Type == 'cube' %}selected{% endif %}>BEJSON Isometric Cube (Canonical)</option>
-                                    <option value="url" {% if selected_persona and selected_persona.Avatar_Type == 'url' %}selected{% endif %}>External Image URL</option>
-                                    <option value="data" {% if selected_persona and selected_persona.Avatar_Type == 'data' %}selected{% endif %}>Inline SVG/Data URI</option>
-                                    <option value="none" {% if selected_persona and selected_persona.Avatar_Type == 'none' %}selected{% endif %}>None (Text Initials)</option>
+                                {% set cur_avatar_type = (selected_persona.Avatar_Type if selected_persona and selected_persona.Avatar_Type else 'cube') %}
+                                <select name="avatar_type" id="avatarTypeSelect" class="form-select" onchange="markDirty(); renderAvatarPreview()">
+                                    <option value="cube" {% if cur_avatar_type == 'cube' %}selected{% endif %}>BEJSON Isometric Cube (Canonical)</option>
+                                    <option value="url" {% if cur_avatar_type == 'url' %}selected{% endif %}>External Image URL</option>
+                                    <option value="data" {% if cur_avatar_type == 'data' %}selected{% endif %}>Inline SVG/Data URI</option>
+                                    <option value="emoji" {% if cur_avatar_type|lower == 'emoji' %}selected{% endif %}>Emoji Symbol</option>
+                                    <option value="none" {% if cur_avatar_type == 'none' %}selected{% endif %}>None (Text Initials)</option>
+                                    {% if cur_avatar_type not in ['cube', 'url', 'data', 'emoji', 'Emoji', 'none'] %}
+                                    <option value="{{ cur_avatar_type }}" selected>{{ cur_avatar_type }}</option>
+                                    {% endif %}
                                 </select>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Avatar Image Source URL</label>
-                                <input type="text" name="avatar_sourceUrl" id="avatarSourceUrlInput" class="form-input" value="{{ selected_persona.Avatar_sourceUrl if selected_persona else '' }}" placeholder="https://... or brand asset path" oninput="renderAvatarPreview()">
+                                <input type="text" name="avatar_sourceUrl" id="avatarSourceUrlInput" class="form-input" value="{{ selected_persona.Avatar_sourceUrl if selected_persona else '' }}" placeholder="https://... or brand asset path" oninput="markDirty(); renderAvatarPreview()">
+                            </div>
+
+                            <div class="form-group form-full">
+                                <label class="form-label">Avatar Data / Inline SVG / Emoji <span class="desc">Sanitized SVG, base64 data:image URI, or emoji</span></label>
+                                <input type="text" name="avatar_data" id="avatarDataInput" class="form-input" value="{{ selected_persona.Avatar_Data if selected_persona else '' }}" placeholder="data:image/svg+xml;base64,... or <svg>...</svg> or 💻" oninput="markDirty(); renderAvatarPreview()">
                             </div>
                         </div>
 
@@ -855,7 +985,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                                 <p>Enable to make this persona selectable in AI drafting and author byline assignments.</p>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" name="active" value="1" {% if not selected_persona or selected_persona.Active %}checked{% endif %}>
+                                <input type="checkbox" name="active" id="inputActive" value="1" {% if not selected_persona or selected_persona.Active %}checked{% endif %} onchange="markDirty(); updateLivePreview()">
                                 <span class="switch-slider"></span>
                             </label>
                         </div>
@@ -868,8 +998,14 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                             <input type="hidden" name="tones" id="hiddenTonesInput" value="{{ selected_persona.Tone|join(',') if selected_persona and selected_persona.Tone else 'technical,authoritative,direct' }}">
                             <div class="chips-container" id="toneChipsContainer">
                                 {% set active_tones = selected_persona.Tone if selected_persona and selected_persona.Tone else ['technical', 'authoritative', 'direct'] %}
-                                {% for tone_opt in ['technical', 'authoritative', 'direct', 'rigorous', 'analytical', 'critical', 'precise', 'insightful', 'balanced', 'provocative', 'empathetic', 'humorous', 'academic'] %}
+                                {% set preset_tones = ['technical', 'authoritative', 'direct', 'rigorous', 'analytical', 'critical', 'precise', 'insightful', 'balanced', 'provocative', 'empathetic', 'humorous', 'academic'] %}
+                                {% for tone_opt in preset_tones %}
                                 <div class="chip-toggle {% if tone_opt in active_tones %}selected{% endif %}" onclick="toggleChip(this, 'hiddenTonesInput')">{{ tone_opt }}</div>
+                                {% endfor %}
+                                {% for extra_tone in active_tones %}
+                                {% if extra_tone not in preset_tones %}
+                                <div class="chip-toggle selected" onclick="toggleChip(this, 'hiddenTonesInput')">{{ extra_tone }}</div>
+                                {% endif %}
                                 {% endfor %}
                             </div>
                         </div>
@@ -877,19 +1013,30 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                         <div class="form-grid" style="margin-top: 20px;">
                             <div class="form-group">
                                 <label class="form-label">Formality Level</label>
-                                <select name="formality" class="form-select">
-                                    <option value="rigorous" {% if selected_persona and selected_persona.Formality == 'rigorous' %}selected{% endif %}>Rigorous & Grounded (Default)</option>
-                                    <option value="formal" {% if selected_persona and selected_persona.Formality == 'formal' %}selected{% endif %}>Formal Corporate</option>
-                                    <option value="casual" {% if selected_persona and selected_persona.Formality == 'casual' %}selected{% endif %}>Casual Peer</option>
+                                {% set cur_formality = (selected_persona.Formality if selected_persona and selected_persona.Formality else 'rigorous') %}
+                                <select name="formality" id="inputFormality" class="form-select" onchange="markDirty(); updateLivePreview()">
+                                    <option value="rigorous" {% if cur_formality == 'rigorous' %}selected{% endif %}>Rigorous & Grounded (Default)</option>
+                                    <option value="formal" {% if cur_formality == 'formal' %}selected{% endif %}>Formal Corporate</option>
+                                    <option value="academic" {% if cur_formality == 'academic' %}selected{% endif %}>Academic / Scholarly</option>
+                                    <option value="casual" {% if cur_formality == 'casual' %}selected{% endif %}>Casual Peer</option>
+                                    <option value="informal" {% if cur_formality|lower == 'informal' %}selected{% endif %}>Informal / Direct</option>
+                                    {% if cur_formality|lower not in ['rigorous', 'formal', 'academic', 'casual', 'informal'] %}
+                                    <option value="{{ cur_formality }}" selected>{{ cur_formality }}</option>
+                                    {% endif %}
                                 </select>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Verbosity</label>
-                                <select name="verbosity" class="form-select">
-                                    <option value="concise" {% if selected_persona and selected_persona.Verbosity == 'concise' %}selected{% endif %}>Concise / Dense (Zero Fluff)</option>
-                                    <option value="balanced" {% if selected_persona and selected_persona.Verbosity == 'balanced' %}selected{% endif %}>Balanced Technical</option>
-                                    <option value="exhaustive" {% if selected_persona and selected_persona.Verbosity == 'exhaustive' %}selected{% endif %}>Exhaustive Reference</option>
+                                {% set cur_verbosity = (selected_persona.Verbosity if selected_persona and selected_persona.Verbosity else 'concise') %}
+                                <select name="verbosity" id="inputVerbosity" class="form-select" onchange="markDirty(); updateLivePreview()">
+                                    <option value="concise" {% if cur_verbosity == 'concise' %}selected{% endif %}>Concise / Dense (Zero Fluff)</option>
+                                    <option value="balanced" {% if cur_verbosity == 'balanced' %}selected{% endif %}>Balanced Technical</option>
+                                    <option value="exhaustive" {% if cur_verbosity == 'exhaustive' %}selected{% endif %}>Exhaustive Reference</option>
+                                    <option value="normal" {% if cur_verbosity|lower == 'normal' %}selected{% endif %}>Normal</option>
+                                    {% if cur_verbosity|lower not in ['concise', 'balanced', 'exhaustive', 'normal'] %}
+                                    <option value="{{ cur_verbosity }}" selected>{{ cur_verbosity }}</option>
+                                    {% endif %}
                                 </select>
                             </div>
                         </div>
@@ -900,7 +1047,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                                 <p>Permit emotional variance in AI response tone.</p>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" name="emotional_enabled" value="1" {% if selected_persona and selected_persona.EmotionalExpression_Enabled %}checked{% endif %}>
+                                <input type="checkbox" name="emotional_enabled" id="inputEmotionalEnabled" value="1" {% if selected_persona and selected_persona.EmotionalExpression_Enabled %}checked{% endif %} onchange="markDirty(); updateLivePreview()">
                                 <span class="switch-slider"></span>
                             </label>
                         </div>
@@ -908,7 +1055,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                         <div class="form-group">
                             <label class="form-label">Emotional Expression Intensity (0.0 to 1.0)</label>
                             <div class="range-container">
-                                <input type="range" name="emotional_intensity" class="range-slider" min="0.0" max="1.0" step="0.05" value="{{ selected_persona.EmotionalExpression_Intensity if selected_persona else 0.0 }}" oninput="document.getElementById('emotionalBadge').innerText = this.value">
+                                <input type="range" name="emotional_intensity" id="inputEmotionalIntensity" class="range-slider" min="0.0" max="1.0" step="0.05" value="{{ selected_persona.EmotionalExpression_Intensity if selected_persona else 0.0 }}" oninput="document.getElementById('emotionalBadge').innerText = this.value; markDirty(); updateLivePreview()">
                                 <span class="range-badge" id="emotionalBadge">{{ selected_persona.EmotionalExpression_Intensity if selected_persona else 0.0 }}</span>
                             </div>
                         </div>
@@ -917,9 +1064,9 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                     <!-- TAB 3: Model & Cognition -->
                     <div id="tab-model" class="tab-pane">
                         <div class="form-group" style="margin-bottom: 20px;">
-                            <label class="form-label">Creativity / Temperature (0.0 - 1.0) <span class="desc">Deterministic &le; 0.3, Exploratory &ge; 0.7</span></label>
+                            <label class="form-label">Creativity / Temperature (0.0 - 2.0) <span class="desc">Deterministic &le; 0.3, Exploratory &ge; 0.7</span></label>
                             <div class="range-container">
-                                <input type="range" name="creativity" class="range-slider" min="0.0" max="1.0" step="0.05" value="{{ selected_persona.Creativity if selected_persona else 0.6 }}" oninput="document.getElementById('creativityBadge').innerText = this.value">
+                                <input type="range" name="creativity" id="inputCreativity" class="range-slider" min="0.0" max="2.0" step="0.05" value="{{ selected_persona.Creativity if selected_persona else 0.6 }}" oninput="document.getElementById('creativityBadge').innerText = this.value; markDirty(); updateLivePreview()">
                                 <span class="range-badge" id="creativityBadge">{{ selected_persona.Creativity if selected_persona else 0.6 }}</span>
                             </div>
                         </div>
@@ -927,11 +1074,15 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label class="form-label">Max Response Tokens</label>
-                                <select name="max_tokens" class="form-select">
-                                    <option value="2048" {% if selected_persona and selected_persona.MaxResponseTokens == 2048 %}selected{% endif %}>2,048 Tokens (Brief)</option>
-                                    <option value="4096" {% if selected_persona and selected_persona.MaxResponseTokens == 4096 %}selected{% endif %}>4,096 Tokens (Standard)</option>
-                                    <option value="8192" {% if not selected_persona or selected_persona.MaxResponseTokens == 8192 %}selected{% endif %}>8,192 Tokens (Extended)</option>
-                                    <option value="16384" {% if selected_persona and selected_persona.MaxResponseTokens == 16384 %}selected{% endif %}>16,384 Tokens (Deep Article)</option>
+                                {% set cur_tokens = (selected_persona.MaxResponseTokens if selected_persona and selected_persona.MaxResponseTokens else 8192) %}
+                                <select name="max_tokens" id="inputMaxTokens" class="form-select" onchange="markDirty(); updateLivePreview()">
+                                    <option value="2048" {% if cur_tokens == 2048 %}selected{% endif %}>2,048 Tokens (Brief)</option>
+                                    <option value="4096" {% if cur_tokens == 4096 %}selected{% endif %}>4,096 Tokens (Standard)</option>
+                                    <option value="8192" {% if cur_tokens == 8192 %}selected{% endif %}>8,192 Tokens (Extended)</option>
+                                    <option value="16384" {% if cur_tokens == 16384 %}selected{% endif %}>16,384 Tokens (Deep Article)</option>
+                                    {% if cur_tokens not in [2048, 4096, 8192, 16384] %}
+                                    <option value="{{ cur_tokens }}" selected>{{ cur_tokens }} Tokens (Custom)</option>
+                                    {% endif %}
                                 </select>
                             </div>
                         </div>
@@ -942,7 +1093,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                                 <p>Enable cognitive reasoning step traces for Gemini 2.0 / Flash Thinking models.</p>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" name="thinking_supported" value="1" {% if not selected_persona or selected_persona.Thinking_Supported %}checked{% endif %}>
+                                <input type="checkbox" name="thinking_supported" id="inputThinkingSupported" value="1" {% if not selected_persona or selected_persona.Thinking_Supported %}checked{% endif %} onchange="markDirty(); updateLivePreview()">
                                 <span class="switch-slider"></span>
                             </label>
                         </div>
@@ -953,7 +1104,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                                 <p>Flush conversational state immediately following generation without persistence.</p>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" name="ephemeral_memory" value="1" {% if selected_persona and selected_persona.EphemeralMemory %}checked{% endif %}>
+                                <input type="checkbox" name="ephemeral_memory" id="inputEphemeralMemory" value="1" {% if selected_persona and selected_persona.EphemeralMemory %}checked{% endif %} onchange="markDirty(); updateLivePreview()">
                                 <span class="switch-slider"></span>
                             </label>
                         </div>
@@ -967,7 +1118,18 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                                 <p>Allow persona to execute Python sandbox routines.</p>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" name="code_interpreter" value="1" {% if not selected_persona or selected_persona.CodeInterpreter_Enabled %}checked{% endif %}>
+                                <input type="checkbox" name="code_interpreter" id="inputCodeInterpreter" value="1" {% if not selected_persona or selected_persona.CodeInterpreter_Enabled %}checked{% endif %} onchange="markDirty(); updateLivePreview()">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="toggle-card">
+                            <div class="toggle-info">
+                                <h4>Code Parsing Version Control</h4>
+                                <p>Track versioned code transformations and enforce solid revision increments.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" name="version_control" id="inputVersionControl" value="1" {% if not selected_persona or selected_persona.CodeParsing_VersionControl %}checked{% endif %} onchange="markDirty(); updateLivePreview()">
                                 <span class="switch-slider"></span>
                             </label>
                         </div>
@@ -975,15 +1137,21 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                         <div class="form-grid" style="margin-top: 16px;">
                             <div class="form-group">
                                 <label class="form-label">Code Parsing Mode</label>
-                                <select name="code_mode" class="form-select">
-                                    <option value="strict" {% if not selected_persona or selected_persona.CodeParsing_Mode == 'strict' %}selected{% endif %}>Strict AST Syntax</option>
-                                    <option value="lenient" {% if selected_persona and selected_persona.CodeParsing_Mode == 'lenient' %}selected{% endif %}>Lenient Extraction</option>
+                                {% set cur_code_mode = (selected_persona.CodeParsing_Mode if selected_persona and selected_persona.CodeParsing_Mode else 'strict') %}
+                                <select name="code_mode" id="inputCodeMode" class="form-select" onchange="markDirty(); updateLivePreview()">
+                                    <option value="strict" {% if cur_code_mode == 'strict' %}selected{% endif %}>Strict AST Syntax</option>
+                                    <option value="lenient" {% if cur_code_mode == 'lenient' %}selected{% endif %}>Lenient Extraction</option>
+                                    <option value="ast_verified" {% if cur_code_mode == 'ast_verified' %}selected{% endif %}>AST Verified</option>
+                                    <option value="full" {% if cur_code_mode|lower == 'full' %}selected{% endif %}>Full Parsing</option>
+                                    {% if cur_code_mode|lower not in ['strict', 'lenient', 'ast_verified', 'full'] %}
+                                    <option value="{{ cur_code_mode }}" selected>{{ cur_code_mode }}</option>
+                                    {% endif %}
                                 </select>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Structure Validation</label>
-                                <select name="structure_validation" class="form-select">
+                                <select name="structure_validation" id="inputStructureValidation" class="form-select" onchange="markDirty(); updateLivePreview()">
                                     <option value="1" {% if not selected_persona or selected_persona.CodeParsing_StructureValidation %}selected{% endif %}>Enabled (Enforce Schema)</option>
                                     <option value="0" {% if selected_persona and not selected_persona.CodeParsing_StructureValidation %}selected{% endif %}>Disabled</option>
                                 </select>
@@ -995,15 +1163,21 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                             <input type="hidden" name="code_languages" id="hiddenLangsInput" value="{{ selected_persona.CodeParsing_Languages|join(',') if selected_persona and selected_persona.CodeParsing_Languages else 'python,bash,javascript,json,bejson' }}">
                             <div class="chips-container" id="langChipsContainer">
                                 {% set active_langs = selected_persona.CodeParsing_Languages if selected_persona and selected_persona.CodeParsing_Languages else ['python', 'bash', 'javascript', 'json', 'bejson'] %}
-                                {% for lang in ['python', 'bash', 'javascript', 'html', 'behtml', 'json', 'bejson', 'sql', 'typescript'] %}
+                                {% set preset_langs = ['python', 'bash', 'javascript', 'html', 'behtml', 'json', 'bejson', 'sql', 'typescript'] %}
+                                {% for lang in preset_langs %}
                                 <div class="chip-toggle {% if lang in active_langs %}selected{% endif %}" onclick="toggleChip(this, 'hiddenLangsInput')">{{ lang }}</div>
+                                {% endfor %}
+                                {% for extra_lang in active_langs %}
+                                {% if extra_lang not in preset_langs %}
+                                <div class="chip-toggle selected" onclick="toggleChip(this, 'hiddenLangsInput')">{{ extra_lang }}</div>
+                                {% endif %}
                                 {% endfor %}
                             </div>
                         </div>
 
                         <div class="form-group form-full" style="margin-top: 16px;">
                             <label class="form-label">Forbidden Topics & Negative Constraints <span class="desc">Comma-separated</span></label>
-                            <input type="text" name="forbidden_topics" class="form-input" value="{{ selected_persona.ForbiddenTopics|join(', ') if selected_persona and selected_persona.ForbiddenTopics else 'marketing fluff, lorem ipsum' }}" placeholder="marketing fluff, lorem ipsum, handwaving">
+                            <input type="text" name="forbidden_topics" id="inputForbiddenTopics" class="form-input" value="{{ selected_persona.ForbiddenTopics|join(', ') if selected_persona and selected_persona.ForbiddenTopics else 'marketing fluff, lorem ipsum' }}" placeholder="marketing fluff, lorem ipsum, handwaving" oninput="markDirty(); updateLivePreview()">
                         </div>
                     </div>
 
@@ -1011,7 +1185,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
                     <div id="tab-preview" class="tab-pane">
                         <div class="form-group form-full">
                             <label class="form-label">System Instruction <span class="desc">Core foundational directives</span></label>
-                            <textarea name="system_instruction" id="inputSystemInstruction" rows="7" class="form-textarea" placeholder="You are the Lead Systems Architect. Enforce zero-filler discipline, O(1) field cache patterns..." oninput="updateLivePreview()">{{ selected_persona.SystemInstruction if selected_persona else '' }}</textarea>
+                            <textarea name="system_instruction" id="inputSystemInstruction" rows="7" class="form-textarea" placeholder="You are the Lead Systems Architect. Enforce zero-filler discipline, O(1) field cache patterns..." oninput="markDirty(); updateLivePreview()">{{ selected_persona.SystemInstruction if selected_persona else '' }}</textarea>
                         </div>
 
                         <div class="form-group form-full" style="margin-top: 20px;">
@@ -1033,6 +1207,24 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
     <form id="dupForm" method="POST" style="display:none;"></form>
 
     <script>
+        let isFormDirty = false;
+        function markDirty() {
+            isFormDirty = true;
+        }
+        function confirmDiscardIfDirty() {
+            if (!isFormDirty) return true;
+            return confirm('You have unsaved changes to this persona. Discard changes and leave?');
+        }
+        window.addEventListener('beforeunload', (e) => {
+            if (isFormDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+        document.getElementById('personaEditForm')?.addEventListener('submit', () => {
+            isFormDirty = false;
+        });
+
         // Tab Navigation Logic
         function switchTab(tabId, btnElement) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1083,6 +1275,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
             const parent = chipEl.parentElement;
             const selectedChips = Array.from(parent.querySelectorAll('.chip-toggle.selected')).map(c => c.innerText.trim());
             document.getElementById(hiddenInputId).value = selectedChips.join(',');
+            markDirty();
             updateLivePreview();
         }
 
@@ -1090,40 +1283,73 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
         function filterPersonas() {
             const query = document.getElementById('personaSearchInput').value.toLowerCase();
             const cards = document.querySelectorAll('#personaCatalogList .persona-card');
-            let visibleCount = 0;
             cards.forEach(c => {
                 const name = c.getAttribute('data-name') || '';
                 const arch = c.getAttribute('data-archetype') || '';
                 if (name.includes(query) || arch.includes(query)) {
                     c.style.display = 'block';
-                    visibleCount++;
                 } else {
                     c.style.display = 'none';
                 }
             });
         }
 
-        // Live Assembled System Prompt Previewer
+        // Live Assembled System Prompt Previewer (1-to-1 parity with PersonaWriter.assemble_system_instruction)
         function updateLivePreview() {
-            const name = document.getElementById('inputName')?.value || 'AI';
-            const arch = document.getElementById('inputArchetype')?.value || 'Persona';
-            const tones = document.getElementById('hiddenTonesInput')?.value || '';
-            const quirks = document.getElementById('inputPersonaBio')?.value || '';
-            const langs = document.getElementById('hiddenLangsInput')?.value || '';
-            const baseInst = document.getElementById('inputSystemInstruction')?.value || '';
+            const fmtFloat = (v, fallback) => {
+                const n = parseFloat(v ?? fallback);
+                if (Number.isNaN(n)) return String(fallback);
+                return Number.isInteger(n) ? n.toFixed(1) : String(n);
+            };
+            const name = (document.getElementById('inputName')?.value || '').trim() || 'AI';
+            const arch = (document.getElementById('inputArchetype')?.value || '').trim() || 'Unspecified';
+            const rawTones = document.getElementById('hiddenTonesInput')?.value || '';
+            const tonesList = rawTones.split(',').map(s => s.trim()).filter(Boolean);
+            const formality = document.getElementById('inputFormality')?.value || 'rigorous';
+            const verbosity = document.getElementById('inputVerbosity')?.value || 'concise';
+            const creativity = fmtFloat(document.getElementById('inputCreativity')?.value, 0.6);
+            const emoEnabled = Boolean(document.getElementById('inputEmotionalEnabled')?.checked);
+            const emoIntensity = fmtFloat(document.getElementById('inputEmotionalIntensity')?.value, 0.0);
+            const thinkingEnabled = Boolean(document.getElementById('inputThinkingSupported')?.checked);
+            const codeInterpEnabled = Boolean(document.getElementById('inputCodeInterpreter')?.checked);
+            const ephemeralMem = Boolean(document.getElementById('inputEphemeralMemory')?.checked);
+            const maxTokens = document.getElementById('inputMaxTokens')?.value || '8192';
+            const codeMode = document.getElementById('inputCodeMode')?.value || 'strict';
+            const structVal = (document.getElementById('inputStructureValidation')?.value || '1') === '1';
+            const versionCtrl = Boolean(document.getElementById('inputVersionControl')?.checked);
+            const personaDesc = (document.getElementById('inputPersonaBio')?.value || '').trim();
+            const sysInst = (document.getElementById('inputSystemInstruction')?.value || '').trim();
+            const rawLangs = document.getElementById('hiddenLangsInput')?.value || '';
+            const langsList = rawLangs.split(',').map(s => s.trim()).filter(Boolean);
+            const rawForbidden = document.getElementById('inputForbiddenTopics')?.value || '';
+            const forbiddenList = rawForbidden.split(',').map(s => s.trim()).filter(Boolean);
 
             const lines = [];
             lines.push(`[IDENTITY]: ${name} (${arch})`);
-            if (tones) lines.push(`[TONE]: ${tones.split(',').join(', ')}`);
-            if (quirks) lines.push(`[VOICE_DIRECTIVES]: ${quirks}`);
-            if (langs) lines.push(`[LANGUAGES]: ${langs.split(',').join(', ')}`);
-
-            const extra = lines.join('\\n');
-            const assembled = baseInst ? `${baseInst}\\n\\n${extra}` : extra;
+            if (tonesList.length) {
+                lines.push(`[TONE]: ${tonesList.join(', ')}`);
+            }
+            lines.push(`[DELIVERY]: Formality=${formality}, Verbosity=${verbosity}, Creativity=${creativity}`);
+            lines.push(`[EMOTIONAL_EXPRESSION]: Enabled=${emoEnabled}, Intensity=${emoIntensity}`);
+            lines.push(`[COGNITIVE_GATES]: Thinking=${thinkingEnabled}, CodeInterpreter=${codeInterpEnabled}, EphemeralMemory=${ephemeralMem}, MaxResponseTokens=${maxTokens}`);
+            lines.push(`[CODE_PARSING]: Mode=${codeMode}, StructureValidation=${structVal}, VersionControl=${versionCtrl}`);
+            if (personaDesc) {
+                lines.push(`\\n[VOICE_DIRECTIVES]:\\n${personaDesc}`);
+            }
+            if (sysInst) {
+                lines.push(`\\n[SYSTEM_INSTRUCTION]:\\n${sysInst}`);
+            }
+            if (langsList.length) {
+                lines.push(`\\n[LANGUAGES]: ${langsList.join(', ')}`);
+            }
+            if (forbiddenList.length) {
+                lines.push(`[FORBIDDEN_TOPICS]: ${forbiddenList.join(', ')}`);
+            }
+            lines.push('[SAFETY_BOUNDARIES]: Never expose unmasked credentials or secrets; strictly obey ForbiddenTopics and verification constraints.');
 
             const previewEl = document.getElementById('livePreviewContainer');
             if (previewEl) {
-                previewEl.innerText = assembled;
+                previewEl.innerText = lines.join('\\n');
             }
         }
 
@@ -1148,7 +1374,6 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
             const cy = h / 2 - 4;
             const size = 38;
 
-            // Math for 30-degree isometric projection
             const cos30 = Math.cos(Math.PI / 6);
             const sin30 = Math.sin(Math.PI / 6);
 
@@ -1191,29 +1416,79 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
             ctx.stroke();
         }
 
+        function drawTextBadgeOnCanvas(canvas, labelText) {
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#111115';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
+        }
+
         function renderAvatarPreview() {
             const canvas = document.getElementById('cubeCanvas');
-            const avatarType = document.getElementById('avatarTypeSelect')?.value;
-            if (avatarType === 'cube' || !avatarType) {
+            if (!canvas) return;
+            const avatarType = (document.getElementById('avatarTypeSelect')?.value || 'cube').toLowerCase();
+            const sourceUrl = (document.getElementById('avatarSourceUrlInput')?.value || '').trim();
+            const avatarData = (document.getElementById('avatarDataInput')?.value || '').trim();
+            const initial = ((document.getElementById('inputName')?.value || 'A')[0] || 'A').toUpperCase();
+
+            if (avatarType === 'cube') {
                 drawIsometricCube(canvas);
-            } else {
-                // Clear and render placeholder text or icon
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#111115';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#FFFFFF';
-                ctx.font = 'bold 24px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const initial = document.getElementById('inputName')?.value?.[0] || 'A';
-                ctx.fillText(initial.toUpperCase(), canvas.width / 2, canvas.height / 2);
+                return;
             }
+            if (avatarType === 'url' && sourceUrl && (sourceUrl.startsWith('https://') || sourceUrl.startsWith('http://') || sourceUrl.startsWith('/'))) {
+                const img = new Image();
+                img.onload = () => {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                };
+                img.onerror = () => drawTextBadgeOnCanvas(canvas, initial);
+                img.src = sourceUrl;
+                return;
+            }
+            if ((avatarType === 'data' || avatarType === 'emoji') && avatarData) {
+                if (avatarData.toLowerCase().startsWith('data:image/')) {
+                    const img = new Image();
+                    img.onload = () => {
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.onerror = () => drawTextBadgeOnCanvas(canvas, initial);
+                    img.src = avatarData;
+                    return;
+                }
+                if (avatarData.toLowerCase().startsWith('<svg')) {
+                    const img = new Image();
+                    img.onload = () => {
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.onerror = () => drawTextBadgeOnCanvas(canvas, initial);
+                    img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(avatarData);
+                    return;
+                }
+                drawTextBadgeOnCanvas(canvas, avatarData.slice(0, 4));
+                return;
+            }
+            drawTextBadgeOnCanvas(canvas, initial);
         }
 
         // Action Handlers
         function deletePersona(name) {
+            if (name === 'boehnenelton2024') {
+                alert('Cannot delete the canonical default persona boehnenelton2024.');
+                return;
+            }
             if (confirm(`Delete persona '${name}'?\\nPages using this persona will cascade to the default author.`)) {
+                isFormDirty = false;
                 const f = document.getElementById('deleteForm');
                 f.action = `/delete/${encodeURIComponent(name)}`;
                 f.submit();
@@ -1221,16 +1496,24 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
         }
 
         function duplicatePersona(name) {
+            isFormDirty = false;
             const f = document.getElementById('dupForm');
             f.action = `/duplicate/${encodeURIComponent(name)}`;
             f.submit();
         }
 
-        // Keyboard Shortcut: Ctrl+S / Cmd+S to Save
+        // Keyboard Shortcut: Ctrl+S / Cmd+S to Save (via requestSubmit for HTML5 validation)
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
-                document.getElementById('personaEditForm')?.submit();
+                const form = document.getElementById('personaEditForm');
+                if (form) {
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else if (form.reportValidity()) {
+                        form.submit();
+                    }
+                }
             }
         });
 
@@ -1238,6 +1521,7 @@ _STUDIO_TEMPLATE = """<!DOCTYPE html>
         window.addEventListener('DOMContentLoaded', () => {
             updateLivePreview();
             renderAvatarPreview();
+            isFormDirty = false;
         });
     </script>
 </body>
@@ -1256,26 +1540,57 @@ def index():
         profiles=profiles,
         selected_persona=selected,
         active_count=active_count,
-        message=msg
+        message=msg,
+        is_error=bool(msg and msg.startswith('Error')),
     )
 
 
-@app.route('/edit/<name>')
-def edit(name):
+@app.route('/new')
+def new_persona():
     profiles = db.get_records('AI_Profile')
-    selected = next((p for p in profiles if p.get('Name') == name), None)
     active_count = sum(1 for p in profiles if p.get('Active'))
     msg = request.args.get('msg')
     return render_template_string(
         _STUDIO_TEMPLATE,
         profiles=profiles,
-        selected_persona=selected,
+        selected_persona=None,
         active_count=active_count,
-        message=msg
+        message=msg,
+        is_error=bool(msg and msg.startswith('Error')),
     )
 
 
-@app.route('/api/persona/<name>')
+@app.route('/edit/<path:name>')
+def edit(name):
+    profiles = db.get_records('AI_Profile')
+    selected = next((p for p in profiles if p.get('Name') == name), None)
+    if selected is None:
+        selected = next((p for p in profiles if str(p.get('Name', '')).lower() == name.lower()), None)
+    active_count = sum(1 for p in profiles if p.get('Active'))
+    msg = request.args.get('msg')
+    if selected is None:
+        return (
+            render_template_string(
+                _STUDIO_TEMPLATE,
+                profiles=profiles,
+                selected_persona=None,
+                active_count=active_count,
+                message=msg or f"Error: Persona '{name}' not found",
+                is_error=True,
+            ),
+            404,
+        )
+    return render_template_string(
+        _STUDIO_TEMPLATE,
+        profiles=profiles,
+        selected_persona=selected,
+        active_count=active_count,
+        message=msg,
+        is_error=bool(msg and msg.startswith('Error')),
+    )
+
+
+@app.route('/api/persona/<path:name>')
 def api_get_persona(name):
     profiles = db.get_records('AI_Profile')
     persona = next((p for p in profiles if p.get('Name') == name), None)
@@ -1287,57 +1602,126 @@ def api_get_persona(name):
 @app.route('/save', methods=['POST'])
 def save():
     name = (request.form.get('name') or '').strip()
+    original_name = (request.form.get('original_name') or '').strip()
     if not name:
-        return redirect('/?msg=Error:+Persona+name+is+required')
+        return redirect(f"/?msg={quote('Error: Persona name is required')}")
+    if len(name) > 80 or _UNSAFE_NAME_CHARS_RE.search(name):
+        return redirect(f"/?msg={quote('Error: Persona name contains invalid characters')}")
 
-    archetype = (request.form.get('archetype') or 'Systems Architect').strip()
+    profiles = db.get_records('AI_Profile')
+    existing = None
+    if original_name:
+        existing = next(
+            (p for p in profiles if str(p.get('Name', '')).lower() == original_name.lower()),
+            None,
+        )
+        if original_name.lower() == DEFAULT_AUTHOR_NAME.lower() and name != DEFAULT_AUTHOR_NAME:
+            return redirect(
+                f"/edit/{quote(DEFAULT_AUTHOR_NAME, safe='')}?msg={quote('Error: Cannot rename canonical default persona')}"
+            )
+        if name.lower() != original_name.lower():
+            collision = next(
+                (p for p in profiles if str(p.get('Name', '')).lower() == name.lower()),
+                None,
+            )
+            if collision:
+                return redirect(
+                    f"/edit/{quote(original_name, safe='')}?msg={quote('Error: Persona name already exists')}"
+                )
+    else:
+        existing = next(
+            (p for p in profiles if str(p.get('Name', '')).lower() == name.lower()),
+            None,
+        )
+
+    canonical_name = existing['Name'] if (existing and not original_name) else name
+    archetype = (request.form.get('archetype') or '').strip() or 'Unspecified'
     persona_bio = (request.form.get('persona_bio') or '').strip()
     system_instruction = (request.form.get('system_instruction') or '').strip()
     active = request.form.get('active') == '1'
 
+    raw_max_tokens = request.form.get('max_tokens', '8192')
     try:
-        max_tokens = int(request.form.get('max_tokens', 8192))
-    except ValueError:
-        max_tokens = 8192
+        max_tokens = int(raw_max_tokens)
+    except (ValueError, TypeError):
+        return redirect(f"/?msg={quote('Error: MaxResponseTokens must be an integer')}")
+    if max_tokens < 256 or max_tokens > 65536:
+        return redirect(f"/?msg={quote('Error: MaxResponseTokens must be between 256 and 65536')}")
 
+    raw_creativity = request.form.get('creativity', '0.6')
     try:
-        creativity = float(request.form.get('creativity', 0.6))
-    except ValueError:
-        creativity = 0.6
+        creativity = float(raw_creativity)
+    except (ValueError, TypeError):
+        return redirect(f"/?msg={quote('Error: Creativity must be a number')}")
+    if math.isnan(creativity) or math.isinf(creativity) or creativity < 0.0 or creativity > 2.0:
+        return redirect(f"/?msg={quote('Error: Creativity must be between 0.0 and 2.0')}")
 
     raw_tones = request.form.get('tones', '')
     tones_list = [t.strip() for t in raw_tones.split(',') if t.strip()]
 
-    formality = request.form.get('formality', 'rigorous')
-    verbosity = request.form.get('verbosity', 'concise')
+    formality = (request.form.get('formality') or 'rigorous').strip()
+    if formality.lower() not in VALID_FORMALITY_OPTIONS:
+        return redirect(f"/?msg={quote('Error: Invalid Formality value')}")
+
+    verbosity = (request.form.get('verbosity') or 'concise').strip()
+    if verbosity.lower() not in VALID_VERBOSITY_OPTIONS:
+        return redirect(f"/?msg={quote('Error: Invalid Verbosity value')}")
 
     emotional_enabled = request.form.get('emotional_enabled') == '1'
+    raw_emotional_intensity = request.form.get('emotional_intensity', '0.0')
     try:
-        emotional_intensity = float(request.form.get('emotional_intensity', 0.0))
-    except ValueError:
-        emotional_intensity = 0.0
+        emotional_intensity = float(raw_emotional_intensity)
+    except (ValueError, TypeError):
+        return redirect(f"/?msg={quote('Error: Emotional intensity must be a number')}")
+    if (
+        math.isnan(emotional_intensity)
+        or math.isinf(emotional_intensity)
+        or emotional_intensity < 0.0
+        or emotional_intensity > 1.0
+    ):
+        return redirect(f"/?msg={quote('Error: Emotional intensity must be between 0.0 and 1.0')}")
 
     code_interpreter = request.form.get('code_interpreter') == '1'
     ephemeral_memory = request.form.get('ephemeral_memory') == '1'
 
-    code_mode = request.form.get('code_mode', 'strict')
+    code_mode = (request.form.get('code_mode') or 'strict').strip()
+    if code_mode.lower() not in VALID_CODE_MODES:
+        return redirect(f"/?msg={quote('Error: Invalid CodeParsing_Mode value')}")
+
     raw_langs = request.form.get('code_languages', '')
     langs_list = [l.strip() for l in raw_langs.split(',') if l.strip()]
 
-    structure_validation = request.form.get('structure_validation') == '1'
-    version_control = request.form.get('version_control') == '1'
+    structure_validation = request.form.get('structure_validation', '1') == '1'
+    if 'version_control' in request.form or '_form_full' in request.form:
+        version_control = request.form.get('version_control') == '1'
+    else:
+        version_control = bool(existing.get('CodeParsing_VersionControl', False)) if existing else False
+
     thinking_supported = request.form.get('thinking_supported') == '1'
 
     raw_forbidden = request.form.get('forbidden_topics', '')
     forbidden_list = [f.strip() for f in raw_forbidden.split(',') if f.strip()]
 
-    avatar_type = request.form.get('avatar_type', 'cube')
+    avatar_type = (request.form.get('avatar_type') or 'cube').strip()
+    if avatar_type.lower() not in VALID_AVATAR_TYPES:
+        return redirect(f"/?msg={quote('Error: Invalid Avatar_Type value')}")
+
     avatar_url = (request.form.get('avatar_sourceUrl') or '').strip()
-    avatar_data = (request.form.get('avatar_data') or '').strip()
+    if not _is_safe_avatar_url(avatar_url):
+        return redirect(f"/?msg={quote('Error: Unsafe or invalid Avatar_sourceUrl')}")
+
+    if 'avatar_data' in request.form:
+        raw_avatar_data = request.form.get('avatar_data') or ''
+        sanitized_avatar_data = _sanitize_avatar_data(raw_avatar_data)
+        if sanitized_avatar_data is None:
+            return redirect(f"/?msg={quote('Error: Unsafe or invalid Avatar_Data payload')}")
+        avatar_data = sanitized_avatar_data
+    else:
+        avatar_data = str(existing.get('Avatar_Data', '')) if existing else ''
 
     payload = {
         'Record_Type_Parent': 'AI_Profile',
-        'Name': name,
+        'Name': canonical_name,
         'Archetype': archetype,
         'Persona': persona_bio,
         'SystemInstruction': system_instruction,
@@ -1359,62 +1743,122 @@ def save():
         'ForbiddenTopics': forbidden_list,
         'Avatar_Type': avatar_type,
         'Avatar_sourceUrl': avatar_url,
-        'Avatar_Data': avatar_data
+        'Avatar_Data': avatar_data,
     }
 
-    existing = next((p for p in db.get_records('AI_Profile') if p.get('Name', '').lower() == name.lower()), None)
+    old_stored_name = existing['Name'] if existing else None
     if existing:
-        db.update_record('AI_Profile', 'Name', name, payload)
+        write_ok = db.update_record('AI_Profile', 'Name', existing['Name'], payload)
     else:
-        db.add_record('AI_Profile', payload)
+        write_ok = db.add_record('AI_Profile', payload)
 
-    # Ensure linked AuthorProfile exists
-    existing_author = next((a for a in db.get_records('AuthorProfile') if a.get('author_display_name', '').lower() == name.lower()), None)
-    if not existing_author:
-        db.add_record('AuthorProfile', {'author_display_name': name, 'author_bio': '', 'author_avatar_url': avatar_url})
+    if not write_ok:
+        return redirect(f"/?msg={quote('Error: Failed to save persona to AI_Profile database')}")
 
-    return redirect(f'/edit/{name}?msg=Persona+{name}+saved+successfully')
+    _sync_author_profile(canonical_name, persona_bio, avatar_url, old_name=old_stored_name)
+
+    if old_stored_name and old_stored_name != canonical_name:
+        for page_row in db.get_records('PageRecord'):
+            if page_row.get('page_author_name') == old_stored_name:
+                db.update_record(
+                    'PageRecord',
+                    'page_uuid',
+                    page_row['page_uuid'],
+                    {'page_author_name': canonical_name},
+                )
+
+    encoded_name = quote(canonical_name, safe='')
+    encoded_msg = quote(f"Persona {canonical_name} saved successfully")
+    return redirect(f"/edit/{encoded_name}?msg={encoded_msg}")
 
 
-@app.route('/delete/<name>', methods=['POST'])
+@app.route('/delete/<path:name>', methods=['POST'])
 def delete(name):
-    db.delete_record('AI_Profile', 'Name', name)
-    DEFAULT_AUTHOR_NAME = "boehnenelton2024"
-    pages = db.get_records("PageRecord")
-    for p in pages:
-        if p.get("page_author_name") == name:
-            db.update_record("PageRecord", "page_uuid", p["page_uuid"], {"page_author_name": DEFAULT_AUTHOR_NAME})
-    return redirect(f'/?msg=Persona+{name}+deleted')
+    target_name = (name or '').strip()
+    if target_name.lower() == DEFAULT_AUTHOR_NAME.lower():
+        return redirect(
+            f"/?msg={quote('Error: Cannot delete canonical default persona boehnenelton2024')}"
+        )
+
+    profiles = db.get_records('AI_Profile')
+    existing = next((p for p in profiles if p.get('Name') == target_name), None)
+    if existing is None:
+        existing = next(
+            (p for p in profiles if str(p.get('Name', '')).lower() == target_name.lower()),
+            None,
+        )
+    if existing is None:
+        return redirect(f"/?msg={quote(f'Error: Persona {target_name} not found')}")
+
+    stored_name = existing['Name']
+    delete_ok = db.delete_record('AI_Profile', 'Name', stored_name)
+    if not delete_ok:
+        return redirect(f"/?msg={quote(f'Error: Failed to delete persona {stored_name}')}")
+
+    for page_row in db.get_records('PageRecord'):
+        if page_row.get('page_author_name') == stored_name:
+            db.update_record(
+                'PageRecord',
+                'page_uuid',
+                page_row['page_uuid'],
+                {'page_author_name': DEFAULT_AUTHOR_NAME},
+            )
+
+    for author_row in db.get_records('AuthorProfile'):
+        if str(author_row.get('author_display_name', '')).lower() == stored_name.lower():
+            if author_row.get('author_display_name', '').lower() != DEFAULT_AUTHOR_NAME.lower():
+                db.delete_record(
+                    'AuthorProfile',
+                    'author_display_name',
+                    author_row['author_display_name'],
+                )
+
+    return redirect(f"/?msg={quote(f'Persona {stored_name} deleted')}")
 
 
-@app.route('/duplicate/<name>', methods=['POST'])
+@app.route('/duplicate/<path:name>', methods=['POST'])
 def duplicate(name):
     profiles = db.get_records('AI_Profile')
     source = next((p for p in profiles if p.get('Name') == name), None)
     if not source:
-        return redirect('/?msg=Error:+Source+persona+not+found')
+        return redirect(f"/?msg={quote('Error: Source persona not found')}")
 
-    new_name = f"{name}_Copy"
+    new_name = f"{source['Name']}_Copy"
     counter = 1
-    while any(p.get('Name', '').lower() == new_name.lower() for p in profiles):
+    while any(str(p.get('Name', '')).lower() == new_name.lower() for p in profiles):
         counter += 1
-        new_name = f"{name}_Copy{counter}"
+        new_name = f"{source['Name']}_Copy{counter}"
 
     clone_payload = dict(source)
     clone_payload['Name'] = new_name
-    db.add_record('AI_Profile', clone_payload)
-    return redirect(f'/edit/{new_name}?msg=Duplicated+as+{new_name}')
+    add_ok = db.add_record('AI_Profile', clone_payload)
+    if not add_ok:
+        return redirect(f"/?msg={quote('Error: Failed to duplicate persona')}")
+
+    _sync_author_profile(
+        new_name,
+        clone_payload.get('Persona', ''),
+        clone_payload.get('Avatar_sourceUrl', ''),
+    )
+    encoded_name = quote(new_name, safe='')
+    encoded_msg = quote(f"Duplicated as {new_name}")
+    return redirect(f"/edit/{encoded_name}?msg={encoded_msg}")
 
 
 @app.route('/seed-defaults', methods=['POST'])
 def seed_defaults():
-    existing_names = {p.get('Name', '').lower() for p in db.get_records('AI_Profile')}
+    existing_names = {str(p.get('Name', '')).lower() for p in db.get_records('AI_Profile')}
     count = 0
     for seed in DEFAULT_SEED_PERSONAS:
         if seed['Name'].lower() not in existing_names:
-            db.add_record('AI_Profile', seed)
-            count += 1
-    return redirect(f'/?msg=Seeded+{count}+canonical+personas')
+            if db.add_record('AI_Profile', seed):
+                count += 1
+        _sync_author_profile(
+            seed['Name'],
+            seed.get('Persona', ''),
+            seed.get('Avatar_sourceUrl', ''),
+        )
+    return redirect(f"/?msg={quote(f'Seeded {count} canonical personas')}")
 
 
 if __name__ == '__main__':

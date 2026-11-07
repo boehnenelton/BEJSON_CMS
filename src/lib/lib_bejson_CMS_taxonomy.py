@@ -74,7 +74,11 @@ TAXONOMY_PREFIX_REGISTRY: Dict[str, Dict] = {
         "uuid_field": "app_uuid",            # already exists in live schema
         "description": "Standalone HTML/JS mini-app records"
     },
-    # AI_Profile intentionally excluded — out of scope for this taxonomy pass
+    "AI_Profile": {
+        "prefix": "aiprof_",
+        "uuid_field": "Name",                # primary key in ai_profile.bejson
+        "description": "AI persona profile and behavioral directive records"
+    },
 }
 
 # ---------------------------------------------------------------------------

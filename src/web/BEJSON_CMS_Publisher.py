@@ -271,6 +271,9 @@ class SkeletonBuilder:
                     <a href="{{rel_prefix}}apps/index.html">Apps</a>
                 </div>
             </div>
+            <div class="footer-bottom-notice" style="text-align:center; font-size:0.75rem; margin-top:25px; color:var(--text-muted);">
+                Polyglot Non Commercial - <a href="https://github.com/boehnenelton/BEJSON_CMS" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">BEJSON_CMS</a>
+            </div>
         </div>
     </footer>
     <div id="lightbox" class="lightbox">
@@ -563,6 +566,9 @@ img { max-width: 100%; height: auto; display: block; }
 
 .site-footer { background: var(--bg-footer); color: var(--text-muted); padding: 80px 0; border-top: 1px solid var(--border-color); margin-top: auto; }
 .footer-content { display: flex; justify-content: space-between; align-items: center; }
+.footer-bottom-notice { text-align: center; font-size: 0.75rem; margin-top: 25px; color: var(--text-muted); }
+.footer-bottom-notice a { color: inherit; text-decoration: underline; }
+.footer-bottom-notice a:hover { color: var(--accent-color); }
 .copyright strong { color: var(--text-main); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 40px; }

@@ -189,6 +189,9 @@ pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
 
 .site-footer { background: var(--bg-footer); color: var(--text-muted); padding: 80px 0; border-top: 1px solid var(--border-color); margin-top: auto; }
 .footer-content { display: flex; justify-content: space-between; align-items: center; }
+.footer-bottom-notice { text-align: center; font-size: 0.75rem; margin-top: 25px; color: var(--text-muted); }
+.footer-bottom-notice a { color: inherit; text-decoration: underline; }
+.footer-bottom-notice a:hover { color: var(--accent-color); }
 
 @media (max-width: 1024px) {
     .main-layout { flex-direction: column; gap: 40px; }

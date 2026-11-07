@@ -1795,8 +1795,8 @@ def r_publish_cloudflare():
                     return
 
                 _log("[Cloudflare] Cloudflare credentials retrieved securely from secureenv.")
-                _log(f"[Cloudflare] Running wrangler pages deploy for '{project_name}'...")
-                Wrangler_Deploy_Command = ["wrangler", "pages", "deploy", out_dir, "--project-name", project_name, "--force", "--commit-dirty=true"]
+                _log(f"[Cloudflare] Running wrangler pages deploy for '{project_name}' (production)...")
+                Wrangler_Deploy_Command = ["wrangler", "pages", "deploy", out_dir, "--project-name", project_name, "--branch", "main", "--force", "--commit-dirty=true"]
 
                 process = subprocess.Popen(Wrangler_Deploy_Command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=Cloudflare_Deploy_Subprocess_Env)
                 for line in process.stdout:
@@ -1824,7 +1824,7 @@ def deploy_cloudflare(project_name=None, output_dir=None):
     Retrieves configuration and tokens securely from MFDB and secureenv without logging secrets.
     """
     cf_cfg = get_cloudflare_config(db)
-    target_project = project_name or cf_cfg.get("project_name", "bejson-cms")
+    target_project = project_name or cf_cfg.get("project_name", "boehnenelton2024")
     target_dir = output_dir or _state.get("output_dir", os.path.join(PROJECT_ROOT, "storage", "builds"))
 
     if not os.path.exists(target_dir) or not os.listdir(target_dir):
@@ -1841,8 +1841,8 @@ def deploy_cloudflare(project_name=None, output_dir=None):
         print("[!] Error: Cloudflare API token could not be resolved from secureenv.")
         return False
 
-    print(f"[*] Deploying to Cloudflare Pages project '{target_project}'...")
-    cmd = ["wrangler", "pages", "deploy", target_dir, "--project-name", target_project, "--force", "--commit-dirty=true"]
+    print(f"[*] Deploying to Cloudflare Pages project '{target_project}' (production branch main)...")
+    cmd = ["wrangler", "pages", "deploy", target_dir, "--project-name", target_project, "--branch", "main", "--force", "--commit-dirty=true"]
     proc = subprocess.run(cmd, env=deploy_env, capture_output=False, text=True)
     if proc.returncode == 0:
         print("[✓] Cloudflare Pages deployment completed successfully!")

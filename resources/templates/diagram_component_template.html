@@ -38,8 +38,8 @@
 
       position: relative;
       width: 100%;
-      height: 640px;
-      min-height: 480px;
+      height: auto;
+      min-height: 0;
       background-color: var(--dc-bg);
       color: var(--dc-fg);
       border: 1px solid var(--dc-border);
@@ -52,6 +52,8 @@
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
       user-select: none;
       -webkit-tap-highlight-color: transparent;
+      line-height: 1.4;
+      font-size: 13px;
     }
 
     #w-diag-inst-__INSTANCE_ID__.light {
@@ -67,6 +69,19 @@
 
     #w-diag-inst-__INSTANCE_ID__ * {
       box-sizing: border-box;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ div {
+      overflow-x: visible;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ p {
+      margin: 0 0 8px 0;
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ strong,
+    #w-diag-inst-__INSTANCE_ID__ b {
+      color: inherit;
     }
 
     /* ROW 1: Top Bar with Brand & 3-Tab Switcher (Horizontally Scrollable, Never Cut Off) */
@@ -437,7 +452,7 @@
       flex: 1;
       width: 100%;
       min-height: 0;
-      height: calc(100% - 46px);
+      max-height: 440px;
       overflow-y: auto;
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
@@ -877,13 +892,27 @@
       const nodePopup = root.querySelector("#w-diag-node-popup-" + instanceId);
 
       let zoom = 0.85;
+      let rawCanvasW = 1500;
+      let rawCanvasH = 600;
       let isPanning = false;
       let panStart = { x: 0, y: 0, sLeft: 0, sTop: 0 };
       let selectedId = null;
 
       function setZoom(z) {
         zoom = Math.max(0.15, Math.min(3.0, z));
-        container.style.transform = `scale(${zoom})`;
+        if (svg) {
+          svg.style.width = `${rawCanvasW}px`;
+          svg.style.height = `${rawCanvasH}px`;
+          svg.style.transform = `scale(${zoom})`;
+          svg.style.transformOrigin = "0 0";
+        }
+        if (container) {
+          container.style.transform = "none";
+          container.style.width = `${Math.ceil(rawCanvasW * zoom)}px`;
+          container.style.height = `${Math.ceil(rawCanvasH * zoom)}px`;
+          const gridPx = Math.max(12, Math.round(50 * zoom));
+          container.style.backgroundSize = `${gridPx}px ${gridPx}px`;
+        }
         if (zoomText) zoomText.textContent = `${Math.round(zoom * 100)}%`;
       }
 
@@ -1055,43 +1084,45 @@
 
         const isMobile = window.innerWidth <= 768;
         const vpW = viewport.clientWidth || 600;
-        const vpH = viewport.clientHeight || 500;
 
         if (isFlippedRatio) {
           // VERTICAL MODE: Restrict canvas width and preserve high-res text readability (fit to column width)
           const diagWidth = (maxX - minX) + (isMobile ? 40 : 80);
-          const canvasW = Math.max(vpW, diagWidth);
-          const canvasH = (maxY - minY) + (isMobile ? 200 : 160);
-
-          if (container) {
-            container.style.width = `${canvasW}px`;
-            container.style.height = `${canvasH}px`;
-          }
+          rawCanvasW = Math.max(vpW, maxX + (isMobile ? 40 : 60));
+          rawCanvasH = maxY + 60;
 
           // Fit to width with high zoom floor (0.80 - 1.05) so text is crisp and fully legible
-          const targetZoom = Math.min(1.05, Math.max(0.80, (vpW - 24) / diagWidth));
+          const targetZoom = Math.min(1.05, Math.max(0.75, (vpW - 16) / diagWidth));
           setZoom(targetZoom);
 
-          // Center column horizontally and start cleanly at top
-          viewport.scrollLeft = Math.max(0, ((canvasW - diagWidth) / 2) * targetZoom);
-          viewport.scrollTop = 0;
-        } else {
-          // HORIZONTAL MODE: Standard 2D diagram fitting
-          const padX = isMobile ? 60 : 100;
-          const padYTop = isMobile ? 60 : 100;
-          const padYBottom = isMobile ? 160 : 100;
-          const w = (maxX - minX) + padX * 2;
-          const h = (maxY - minY) + padYTop + padYBottom;
-
-          if (container) {
-            container.style.width = Math.max(3200, maxX + 400) + "px";
-            container.style.height = Math.max(2600, maxY + 400) + "px";
+          if (viewport) {
+            const scaledH = Math.ceil(rawCanvasH * targetZoom);
+            viewport.style.height = `${Math.min(isMobile ? 380 : 440, scaledH)}px`;
           }
 
-          const targetZoom = Math.min(1.2, Math.max(0.2, Math.min(vpW / w, vpH / h)));
+          // Center column horizontally and start cleanly at top
+          viewport.scrollLeft = Math.max(0, ((rawCanvasW - diagWidth) / 2) * targetZoom);
+          viewport.scrollTop = 0;
+        } else {
+          // HORIZONTAL MODE: Tight auto-height 2D diagram fitting (zero dead vertical space)
+          const padX = isMobile ? 24 : 40;
+          const padY = isMobile ? 24 : 36;
+          const w = (maxX - minX) + padX * 2;
+          const h = (maxY - minY) + padY * 2;
+
+          rawCanvasW = maxX + padX;
+          rawCanvasH = maxY + padY;
+
+          const targetZoom = Math.min(1.1, Math.max(0.2, vpW / w));
           setZoom(targetZoom);
+
+          if (viewport) {
+            const visibleH = Math.ceil(h * targetZoom) + 4;
+            viewport.style.height = `${Math.max(140, Math.min(440, visibleH))}px`;
+          }
+
           viewport.scrollLeft = Math.max(0, (minX - padX) * targetZoom);
-          viewport.scrollTop = Math.max(0, (minY - padYTop) * targetZoom);
+          viewport.scrollTop = Math.max(0, (minY - padY) * targetZoom);
         }
       }
 
@@ -1443,14 +1474,19 @@
       setTimeout(fitView, 50);
       setTimeout(fitView, 200);
 
-      // Auto-fit on layout reflow, window resize, and image/font loading
+      // Auto-fit on layout reflow, window resize, and image/font loading (only when width changes)
       let resizeTimer = null;
+      let lastVpW = 0;
       function handleAutoFit() {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(fitView, 60);
+        const curW = viewport ? viewport.clientWidth : 0;
+        if (curW > 0 && Math.abs(curW - lastVpW) > 2) {
+          lastVpW = curW;
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(fitView, 60);
+        }
       }
       window.addEventListener("resize", handleAutoFit);
-      window.addEventListener("load", handleAutoFit);
+      window.addEventListener("load", () => { lastVpW = 0; handleAutoFit(); });
       if (typeof ResizeObserver !== "undefined" && viewport) {
         const ro = new ResizeObserver(handleAutoFit);
         ro.observe(viewport);

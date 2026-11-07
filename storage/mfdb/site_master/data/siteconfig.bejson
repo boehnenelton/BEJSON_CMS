@@ -19,19 +19,19 @@
   "Values": [
     [
       "title",
-      "My BEJSON Site"
+      "boehnenelton2024"
     ],
     [
       "description",
-      "A BEJSON CMS powered site"
+      "Elton Boehnen · Zero-SQL BEJSON & System Architecture"
     ],
     [
       "creator",
-      "Admin"
+      "Elton Boehnen"
     ],
     [
       "base_url",
-      "https://example.com"
+      "https://boehnenelton2024.pages.dev"
     ],
     [
       "cf_project",

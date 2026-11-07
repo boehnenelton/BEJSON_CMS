@@ -16,5 +16,10 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "GitHub",
+      "https://github.com/boehnenelton"
+    ]
+  ]
 }

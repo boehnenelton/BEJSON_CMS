@@ -1,0 +1,59 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#111113"/>
+  <path d="M 72 28 L 72 44 M 64 36 L 80 36" stroke="#262630" stroke-width="1.5"/>
+  <path d="M 1208 28 L 1208 44 M 1200 36 L 1216 36" stroke="#262630" stroke-width="1.5"/>
+
+  <text x="72" y="68" fill="#DE2626" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="1.5">PILLAR 01 · ARCHITECTURAL SPECIFICATION</text>
+  <text x="72" y="112" fill="#FFFFFF" font-size="34" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.5">BEJSON 104 &amp; MFDB PERSISTENCE PIPELINE</text>
+  <text x="72" y="148" fill="#A1A1AA" font-size="16" font-family="system-ui, -apple-system, sans-serif" font-weight="500" letter-spacing="0.5">SEQUENTIAL ARCHITECTURE &amp; EVOLUTION</text>
+  <line x1="72" y1="178" x2="1208" y2="178" stroke="#262630" stroke-width="1.5"/>
+
+  
+    <!-- Sharp Card 1 (rx=0) -->
+    <rect x="72" y="224" width="340" height="360" rx="0" fill="#16161A" stroke="#26262E" stroke-width="1.5"/>
+    <rect x="72" y="224" width="340" height="4" rx="0" fill="#DE2626"/>
+    <rect x="96" y="248" width="72" height="24" rx="0" fill="#22222E"/>
+    <text x="132" y="264" fill="#DE2626" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle">PHASE 01</text>
+    <text x="96" y="314" fill="#FFFFFF" font-size="20" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.3"><tspan x="96" dy="0">Step 1</tspan></text>
+    <text x="96" y="384" fill="#A1A1AA" font-size="15" font-family="system-ui, -apple-system, sans-serif" font-weight="400" letter-spacing="0.2"></text>
+    
+
+    <!-- Sharp Card 2 (rx=0) -->
+    <rect x="470" y="224" width="340" height="360" rx="0" fill="#16161A" stroke="#26262E" stroke-width="1.5"/>
+    <rect x="470" y="224" width="340" height="4" rx="0" fill="#DE2626"/>
+    <rect x="494" y="248" width="72" height="24" rx="0" fill="#22222E"/>
+    <text x="530" y="264" fill="#DE2626" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle">PHASE 02</text>
+    <text x="494" y="314" fill="#FFFFFF" font-size="20" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.3"><tspan x="494" dy="0">Step 2</tspan></text>
+    <text x="494" y="384" fill="#A1A1AA" font-size="15" font-family="system-ui, -apple-system, sans-serif" font-weight="400" letter-spacing="0.2"></text>
+    
+
+    <!-- Sharp Card 3 (rx=0) -->
+    <rect x="868" y="224" width="340" height="360" rx="0" fill="#16161A" stroke="#26262E" stroke-width="1.5"/>
+    <rect x="868" y="224" width="340" height="4" rx="0" fill="#DE2626"/>
+    <rect x="892" y="248" width="72" height="24" rx="0" fill="#22222E"/>
+    <text x="928" y="264" fill="#DE2626" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle">PHASE 03</text>
+    <text x="892" y="314" fill="#FFFFFF" font-size="20" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.3"><tspan x="892" dy="0">Step 3</tspan></text>
+    <text x="892" y="384" fill="#A1A1AA" font-size="15" font-family="system-ui, -apple-system, sans-serif" font-weight="400" letter-spacing="0.2"></text>
+    
+  <g transform="translate(422, 404)">
+    <line x1="0" y1="0" x2="36" y2="0" stroke="#DE2626" stroke-width="2.5"/>
+    <polygon points="34,-5 44,0 34,5" fill="#DE2626"/>
+  </g>
+  <g transform="translate(820, 404)">
+    <line x1="0" y1="0" x2="36" y2="0" stroke="#DE2626" stroke-width="2.5"/>
+    <polygon points="34,-5 44,0 34,5" fill="#DE2626"/>
+  </g>
+
+  <!-- Footer Line & Metadata -->
+  <line x1="72" y1="664" x2="1208" y2="664" stroke="#262630" stroke-width="1"/>
+  <text x="72" y="692" fill="#71717A" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="600" letter-spacing="1">SLIDE 01 / 10 · TABULAR DATA SUBSTRATE</text>
+  <g transform="translate(1050, 662)">
+  <text x="0" y="22" fill="#FFFFFF" font-size="24" font-family="system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="1.5">BEJSON</text>
+  <g transform="translate(112, 0)">
+    <polygon points="14,2 26,8 14,14 2,8" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round"/>
+    <polygon points="14,5 22,9 14,13 6,9" fill="#111113" opacity="0.9"/>
+    <polygon points="2,8 14,14 14,28 2,22" fill="#1C1C22" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round"/>
+    <polygon points="14,14 26,8 26,22 14,28" fill="#DE2626" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round"/>
+  </g>
+</g>
+</svg>

@@ -1,0 +1,84 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <!-- Obsidian Substrate -->
+  <rect width="1280" height="640" fill="#111113" />
+
+  <!-- Top Crosshair Ticks -->
+  <path d="M 72 24 L 72 40 M 64 32 L 80 32" stroke="#262630" stroke-width="1.5" />
+  <path d="M 1208 24 L 1208 40 M 1200 32 L 1216 32" stroke="#262630" stroke-width="1.5" />
+
+  <!-- Header Block -->
+  <text x="72" y="58" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" letter-spacing="1.5">BEJSON 104 • MFDB v1.31</text>
+  <text x="72" y="98" fill="#FFFFFF" font-size="30" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.5">BEJSON &amp; MFDB ARCHITECTURE</text>
+  <text x="72" y="128" fill="#A1A1AA" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="500" letter-spacing="0.5">ZERO-SQL POSITIONAL CONTRACTS · DENSE MATRICES &amp; MFDB TOPOLOGY</text>
+  <line x1="72" y1="146" x2="1208" y2="146" stroke="#262630" stroke-width="1.5" />
+
+  <!-- Left Sharp Visual Box (rx=0) -->
+  <rect x="72" y="166" width="480" height="400" rx="0" fill="#0E0E12" stroke="#26262E" stroke-width="1.5" />
+  <path d="M 72 186 L 72 166 L 92 166" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+  <path d="M 532 166 L 552 166 L 552 186" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+  <path d="M 72 546 L 72 566 L 92 566" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+  <path d="M 532 566 L 552 566 L 552 546" fill="none" stroke="#3A3A44" stroke-width="1.5" />
+
+  <!-- 3D Open Isometric Cube Model (No lasers or orbital clutter) -->
+  <g transform="translate(312, 336)">
+    <circle cx="0" cy="0" r="105" fill="none" stroke="#262630" stroke-width="1" stroke-dasharray="4,4" />
+    <circle cx="0" cy="0" r="75" fill="none" stroke="#DE2626" stroke-width="1" opacity="0.25" />
+    <!-- Top Face -->
+    <polygon points="0,-64 56,-32 0,0 -56,-32" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round" />
+    <polygon points="0,-50 40,-27 0,-4 -40,-27" fill="#111113" opacity="0.9" />
+    <!-- Left Face -->
+    <polygon points="-56,-32 0,0 0,64 -56,32" fill="#1C1C22" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round" />
+    <!-- Right Face -->
+    <polygon points="0,0 56,-32 56,32 0,64" fill="#DE2626" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round" />
+  </g>
+  <text x="312" y="525" fill="#71717A" font-size="12" font-family="monospace" font-weight="600" text-anchor="middle" letter-spacing="1.5">CANONICAL BEJSON SUBSTRATE</text>
+
+  <!-- Right Sharp Card (rx=0) -->
+  <rect x="584" y="166" width="624" height="400" rx="0" fill="#16161A" stroke="#26262E" stroke-width="1.5" />
+  <rect x="584" y="166" width="4" height="400" rx="0" fill="#DE2626" />
+  <text x="614" y="198" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" letter-spacing="1.5">ARCHITECTURAL SPECIFICATION</text>
+
+  <!-- Numbered Specification Chips -->
+    <g transform="translate(614, 238)">
+      <rect x="0" y="-18" width="564" height="46" rx="0" fill="#111115" stroke="#26262E" stroke-width="1" />
+      <rect x="0" y="-18" width="36" height="46" rx="0" fill="#1C1C22" />
+      <text x="18" y="10" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" text-anchor="middle">[01]</text>
+      <text x="48" y="0" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">6 IMMUTABLE TOP KEYS</text>
+      <text x="48" y="18" fill="#A1A1AA" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="400">Format, Version, Creator, Hierarchy, Types, Fields</text>
+    </g>
+    <g transform="translate(614, 298)">
+      <rect x="0" y="-18" width="564" height="46" rx="0" fill="#111115" stroke="#26262E" stroke-width="1" />
+      <rect x="0" y="-18" width="36" height="46" rx="0" fill="#1C1C22" />
+      <text x="18" y="10" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" text-anchor="middle">[02]</text>
+      <text x="48" y="0" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">DENSE 104/104A MATRIX</text>
+      <text x="48" y="18" fill="#A1A1AA" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="400">Zero Key Duplication · Pure Array Vector Offsets</text>
+    </g>
+    <g transform="translate(614, 358)">
+      <rect x="0" y="-18" width="564" height="46" rx="0" fill="#111115" stroke="#26262E" stroke-width="1" />
+      <rect x="0" y="-18" width="36" height="46" rx="0" fill="#1C1C22" />
+      <text x="18" y="10" fill="#DE2626" font-size="12" font-family="monospace" font-weight="800" text-anchor="middle">[03]</text>
+      <text x="48" y="0" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">104DB MULTI-RECORD</text>
+      <text x="48" y="18" fill="#A1A1AA" font-size="11" font-family="system-ui, -apple-system, sans-serif" font-weight="400">Polymorphic Record Types in Flat Storage</text>
+    </g>
+
+  <!-- System Highlight Container (rx=0) -->
+  <rect x="614" y="440" width="564" height="106" rx="0" fill="#1E1E26" stroke="#2B2B36" stroke-width="1" />
+  <text x="634" y="468" fill="#DE2626" font-size="11" font-family="monospace" font-weight="800" letter-spacing="1">SYSTEM HIGHLIGHT</text>
+  <text x="634" y="494" fill="#FFFFFF" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="500">Deterministic verification across all boundary interfaces.</text>
+  <text x="634" y="520" fill="#A1A1AA" font-size="12" font-family="monospace">Zero syntax hallucinations · O(1) field cache · Atomic disk commits</text>
+
+  <!-- Footer Line & Metadata -->
+  <line x1="72" y1="584" x2="1208" y2="584" stroke="#262630" stroke-width="1" />
+  <text x="72" y="612" fill="#71717A" font-size="12" font-family="monospace" font-weight="600" letter-spacing="1">ELTON BOEHNEN • ZERO-SQL ARCHITECTURE</text>
+
+  <!-- Bottom-Right Brand Lock -->
+  <g transform="translate(1048, 592)">
+    <text x="0" y="20" fill="#FFFFFF" font-size="20" font-family="system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="1.5">BEJSON</text>
+    <g transform="translate(98, 2)">
+      <polygon points="12,2 22,7 12,12 2,7" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+      <polygon points="12,4 18,7 12,10 6,7" fill="#111113" opacity="0.9" />
+      <polygon points="2,7 12,12 12,24 2,19" fill="#1C1C22" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+      <polygon points="12,12 22,7 22,19 12,24" fill="#DE2626" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+    </g>
+  </g>
+</svg>

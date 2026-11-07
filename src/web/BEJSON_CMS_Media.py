@@ -272,13 +272,25 @@ def assets_gallery():
         </div>'''
 
     ext_rows = ''
+    badge_map = {
+        'github': '💻 GitHub',
+        'video': '🎬 Video',
+        'demo': '🚀 Demo',
+        'doc': '📄 Doc',
+        'website': '🌐 Web',
+        'pdf': '📑 PDF',
+        'image': '🖼️ Image',
+        'other': '🔗 Link'
+    }
     for e in other_externals:
         e_name = _html_escape.escape(e.get('extmedia_name') or '')
+        raw_type = (e.get('extmedia_type') or 'other').lower()
+        badge_txt = badge_map.get(raw_type, raw_type.title())
         ext_rows += f'''
         <tr>
-          <td>{e_name}</td>
+          <td><strong>{e_name}</strong></td>
           <td><a href="{_html_escape.escape(e.get('extmedia_url','') or '')}" target="_blank" style="color:var(--accent);">{_html_escape.escape((e.get('extmedia_url') or '')[:60])}</a></td>
-          <td>{_html_escape.escape(e.get('extmedia_type') or '')}</td>
+          <td><span style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; background:rgba(222,38,38,0.1); color:#DE2626; font-weight:600;">{badge_txt}</span></td>
           <td>
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyAssetPath('{_html_escape.escape(e.get('extmedia_url','') or '')}')">Copy URL</button>
             <button type="button" class="btn btn-secondary btn-sm rename-ext-btn" data-uuid="{e.get('extmedia_uuid','')}" data-name="{e_name}">Rename</button>
@@ -392,10 +404,14 @@ def assets_gallery():
           <div class="form-group"><label class="form-label">URL</label><input type="url" name="extmedia_url" class="form-control" required></div>
           <div class="form-group"><label class="form-label">Type</label>
             <select name="extmedia_type" class="form-control">
-              <option value="image">Image</option>
-              <option value="video">Video</option>
-              <option value="pdf">PDF</option>
-              <option value="other">Other</option>
+              <option value="github">GitHub Repo (💻)</option>
+              <option value="video">YouTube / Video (🎬)</option>
+              <option value="demo">Live Project Demo (🚀)</option>
+              <option value="doc">Documentation (📄)</option>
+              <option value="website">Website / Article (🌐)</option>
+              <option value="pdf">PDF Document (📑)</option>
+              <option value="image">Image Embed (🖼️)</option>
+              <option value="other">Other Link (🔗)</option>
             </select>
           </div>
           <button type="submit" class="btn btn-primary">Add Link</button>
@@ -740,6 +756,43 @@ def assets_external_rename(media_uuid):
     ok = db.update_record("ExternalMedia", "extmedia_uuid", media_uuid, {"extmedia_name": new_name})
     flash('Link renamed.' if ok else 'Rename failed — link not found.', 'success' if ok else 'error')
     return redirect('/assets')
+
+
+@media_cube.route('/api/media/external_links', methods=['GET'])
+def api_media_external_links():
+    db.mount()
+    records = db.get_records("ExternalMedia")
+    records.sort(key=lambda r: r.get('extmedia_created_at') or '', reverse=True)
+    return jsonify({"links": records})
+
+
+@media_cube.route('/api/media/external/add', methods=['POST'])
+def api_media_external_add():
+    db.mount()
+    data = request.get_json(silent=True) or request.form
+    media_name = (data.get('extmedia_name') or '').strip()
+    media_url = (data.get('extmedia_url') or '').strip()
+    media_type = (data.get('extmedia_type') or 'other').strip().lower()
+    if not media_name or not media_url:
+        return jsonify({"success": False, "error": "Name and URL are required."}), 400
+
+    new_uuid = str(uuid.uuid4())
+    db.add_record("ExternalMedia", {
+        "extmedia_uuid": new_uuid,
+        "extmedia_name": media_name,
+        "extmedia_type": media_type,
+        "extmedia_url": media_url,
+        "extmedia_created_at": datetime.utcnow().isoformat(),
+    })
+    return jsonify({
+        "success": True,
+        "link": {
+            "extmedia_uuid": new_uuid,
+            "extmedia_name": media_name,
+            "extmedia_type": media_type,
+            "extmedia_url": media_url
+        }
+    })
 
 
 # =============================================================================

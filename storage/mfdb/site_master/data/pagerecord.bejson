@@ -50,6 +50,10 @@
     {
       "name": "page_featured_video_url",
       "type": "string"
+    },
+    {
+      "name": "page_topical_links",
+      "type": "string"
     }
   ],
   "Values": [
@@ -64,6 +68,7 @@
       "boehnenelton2024",
       "default_page_image.webp",
       "standard",
+      "",
       ""
     ],
     [
@@ -77,6 +82,7 @@
       "boehnenelton2024",
       "default_page_image.webp",
       "standard",
+      "",
       ""
     ],
     [
@@ -90,6 +96,7 @@
       "boehnenelton2024",
       "default_page_image.webp",
       "standard",
+      "",
       ""
     ],
     [
@@ -103,6 +110,7 @@
       "Leethaxor69",
       "/assets/bejson_brand_1.png",
       "post.html",
+      "",
       ""
     ],
     [
@@ -116,6 +124,7 @@
       "Leethaxor69",
       "/assets/bejson_brand_1.png",
       "post.html",
+      "",
       ""
     ],
     [
@@ -129,7 +138,8 @@
       "Leethaxor69",
       "/assets/bejson_brand_1.png",
       "post.html",
-      ""
+      "",
+      "link-github-sword-slasher,link-youtube-sword-slasher"
     ]
   ]
 }

@@ -1,5 +1,8 @@
 # AGENTS.md
 
+> [!WARNING]
+> **DEPRECATION NOTICE**: `BEJSON_CMS_PageEditorV2.py` (Second Page Editor) is strictly DEPRECATED. Halt all development, modifications, and feature work on `BEJSON_CMS_PageEditorV2.py`. Use primary `BEJSON_CMS_PageEditor.py` exclusively.
+
 ## Build / Lint / Test / Run
 
 No build step (flat Python/Flask project, no compiler/bundler).

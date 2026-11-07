@@ -28,5 +28,20 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "link-github-sword-slasher",
+      "Sword Slasher React Repository",
+      "github",
+      "https://github.com/boehnenelton/sword_slasher",
+      "2026-11-06T15:00:00Z"
+    ],
+    [
+      "link-youtube-sword-slasher",
+      "Shadow Link's Awakening Gameplay Showcase",
+      "video",
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "2026-11-06T15:00:00Z"
+    ]
+  ]
 }

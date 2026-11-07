@@ -153,7 +153,7 @@ def _get_page_body(page_uuid):
     except Exception:
         return ""
 
-def _write_page_record(page_uuid, title, category, author, body_html, is_new=True, featured_img=None, template_key='blank'):
+def _write_page_record(page_uuid, title, category, author, body_html, is_new=True, featured_img=None, template_key='blank', topical_links=''):
     """
     Write a PageRecord to master DB and write/update the pages_db content file.
     Exactly mirrors how Flask_CMS.py creates pages.
@@ -178,6 +178,8 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_author_name":   author,
             "page_featured_img": featured_img,
             "page_template_key": template_key,
+            "page_featured_video_url": "",
+            "page_topical_links": topical_links,
         })
     else:
         updates = {
@@ -186,6 +188,7 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_cat_name": category,
             "page_author_name":   author,
             "page_template_key": template_key,
+            "page_topical_links": topical_links,
         }
         if featured_img is not None:
             updates["page_featured_img"] = featured_img
@@ -206,11 +209,12 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
                 {"name": "meta_title", "type": "string"},
                 {"name": "html_body", "type": "string"},
                 {"name": "markdown_body", "type": "string"},
-                {"name": "source_code", "type": "string"}
+                {"name": "source_code", "type": "string"},
+                {"name": "topical_links", "type": "string"}
             ],
             "Values": [
-                ["PageMeta", title, None, None, None],
-                ["Content", None, body_html, "", ""]
+                ["PageMeta", title, None, None, None, topical_links],
+                ["Content", None, body_html, "", "", None]
             ]
         }
         with open(pfile, 'w') as f:
@@ -220,14 +224,24 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             with open(pfile, 'r') as f:
                 data = json.load(f)
             field_map = Core.bejson_core_get_field_map(data)
+            if "topical_links" not in field_map:
+                data.setdefault("Fields", []).append({"name": "topical_links", "type": "string"})
+                for r in data.get("Values", []):
+                    r.append(None)
+                data.pop("_bejson_field_map", None)
+                field_map = Core.bejson_core_get_field_map(data)
+
             p_idx   = field_map.get("Record_Type_Parent", -1)
             hb_idx  = field_map.get("html_body", -1)
             mt_idx  = field_map.get("meta_title", -1)
+            tl_idx  = field_map.get("topical_links", -1)
             for row in data.get("Values", []):
                 if p_idx != -1 and hb_idx != -1 and row[p_idx] == "Content":
                     row[hb_idx] = body_html
                 if p_idx != -1 and mt_idx != -1 and row[p_idx] == "PageMeta":
                     row[mt_idx] = title
+                    if tl_idx != -1:
+                        row[tl_idx] = topical_links
             with open(pfile, 'w') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
@@ -1238,6 +1252,263 @@ def _get_assets():
     assets.sort(key=lambda a: a.get('asset_uploaded_at') or '', reverse=True)
     return [a['asset_filename'] for a in assets if (a.get('asset_mime_type') or '').startswith('image/')]
 
+
+def _topical_links_modal_html():
+    return """
+<!-- Topical Links Selection Modal -->
+<div class="modal-bg" id="topicalLinksModal">
+  <div class="modal" style="max-width:680px; width:92%; max-height:85vh; display:flex; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+      <h3 style="margin:0; font-size:1rem; color:var(--acc);">Select Topical Links (Media Library)</h3>
+      <button type="button" class="btn btn-grey btn-sm" onclick="closeModal('topicalLinksModal')">&times;</button>
+    </div>
+    
+    <p style="font-size:0.8rem; color:var(--muted); margin:0 0 10px 0;">
+      Links selected here will be displayed in a responsive 2-column resource grid below your post content.
+    </p>
+
+    <div style="display:flex; gap:10px; margin-bottom:12px;">
+      <input type="text" id="topical-links-filter" placeholder="Filter links by name or URL..." style="flex:1;" oninput="_filterTopicalLinks()">
+      <button type="button" class="btn btn-primary btn-sm" onclick="_toggleTopicalQuickAdd()">+ New Link</button>
+    </div>
+
+    <!-- Quick Add Sub-panel -->
+    <div id="topical-quick-add-panel" style="display:none; background:rgba(0,0,0,0.03); border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:12px;">
+      <h4 style="margin:0 0 8px 0; font-size:0.85rem; color:var(--acc);">Add New Link to Media Library</h4>
+      <div style="display:grid; grid-template-columns:1fr 1fr 130px; gap:8px; margin-bottom:8px;">
+        <input type="text" id="new-topical-name" placeholder="Title / Label (e.g. GitHub Repo)">
+        <input type="url" id="new-topical-url" placeholder="https://...">
+        <select id="new-topical-type">
+          <option value="github">GitHub (💻)</option>
+          <option value="video">Video (🎬)</option>
+          <option value="demo">Demo (🚀)</option>
+          <option value="doc">Doc (📄)</option>
+          <option value="website">Website (🌐)</option>
+          <option value="other">Other (🔗)</option>
+        </select>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn btn-grey btn-sm" onclick="_toggleTopicalQuickAdd()">Cancel</button>
+        <button type="button" class="btn btn-red btn-sm" onclick="_submitTopicalQuickAdd()">Save &amp; Select</button>
+      </div>
+    </div>
+
+    <!-- Links List -->
+    <div id="topical-links-list" style="flex:1; overflow-y:auto; max-height:42vh; border:1px solid var(--border); border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:6px;">
+      <div style="text-align:center; padding:30px; color:var(--muted);">Loading links from Media Library...</div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; border-top:1px solid var(--border); padding-top:10px;">
+      <span style="font-size:0.8rem; color:var(--muted);"><span id="topical-modal-selected-count">0</span> link(s) selected</span>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-grey btn-sm" onclick="closeModal('topicalLinksModal')">Cancel</button>
+        <button type="button" class="btn btn-red btn-sm" onclick="_applyTopicalLinks()">Apply Selection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var _allTopicalLinks = [];
+var _selectedTopicalLinkUuids = [];
+
+function openTopicalLinksModal() {
+  var rawVal = (document.getElementById('page_topical_links').value || '').trim();
+  if (rawVal) {
+    if (rawVal.startsWith('[') && rawVal.endsWith(']')) {
+      try { _selectedTopicalLinkUuids = JSON.parse(rawVal); } catch(e) { _selectedTopicalLinkUuids = []; }
+    } else {
+      _selectedTopicalLinkUuids = rawVal.split(',').map(s=>s.trim()).filter(Boolean);
+    }
+  } else {
+    _selectedTopicalLinkUuids = [];
+  }
+  openModal('topicalLinksModal');
+  _loadTopicalLinksList();
+}
+
+function _loadTopicalLinksList() {
+  var listEl = document.getElementById('topical-links-list');
+  listEl.innerHTML = '<div style="text-align:center; padding:30px; color:var(--muted);">Loading links...</div>';
+  fetch('/api/topical_links')
+    .then(r => r.json())
+    .then(data => {
+      _allTopicalLinks = (data && data.links) || [];
+      _renderTopicalLinksList();
+    })
+    .catch(err => {
+      listEl.innerHTML = '<div style="text-align:center; padding:30px; color:red;">Failed to load links: ' + err + '</div>';
+    });
+}
+
+function _renderTopicalLinksList() {
+  var listEl = document.getElementById('topical-links-list');
+  var filterTxt = (document.getElementById('topical-links-filter').value || '').toLowerCase().trim();
+  var filtered = _allTopicalLinks.filter(l => {
+    if (!filterTxt) return true;
+    return (l.extmedia_name || '').toLowerCase().includes(filterTxt) ||
+           (l.extmedia_url || '').toLowerCase().includes(filterTxt);
+  });
+
+  if (!filtered.length) {
+    listEl.innerHTML = '<div style="text-align:center; padding:25px; color:var(--muted);">No links found. Click "+ New Link" to add one!</div>';
+    _updateTopicalModalCount();
+    return;
+  }
+
+  var iconMap = {
+    'github': '💻',
+    'video': '🎬',
+    'youtube': '🎬',
+    'demo': '🚀',
+    'doc': '📄',
+    'pdf': '📑',
+    'website': '🌐',
+    'image': '🖼️',
+    'other': '🔗'
+  };
+
+  listEl.innerHTML = filtered.map(l => {
+    var uuid = l.extmedia_uuid;
+    var isChecked = _selectedTopicalLinkUuids.indexOf(uuid) !== -1;
+    var type = (l.extmedia_type || 'other').toLowerCase();
+    var icon = iconMap[type] || '🔗';
+    return `
+      <label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:4px; cursor:pointer; background: ${isChecked ? 'rgba(222,38,38,0.06)' : 'var(--bg)'};">
+        <input type="checkbox" value="${uuid}" ${isChecked ? 'checked' : ''} onchange="_toggleTopicalItem('${uuid}', this.checked)" style="accent-color:#DE2626;">
+        <span style="font-size:1.1rem;">${icon}</span>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${_escapeHtml(l.extmedia_name || 'Untitled')}</div>
+          <div style="font-size:0.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${_escapeHtml(l.extmedia_url || '')}</div>
+        </div>
+        <span style="font-size:0.68rem; font-weight:700; text-transform:uppercase; color:#DE2626; padding:2px 6px; border-radius:3px; background:rgba(222,38,38,0.08);">${type}</span>
+      </label>
+    `;
+  }).join('');
+  _updateTopicalModalCount();
+}
+
+function _toggleTopicalItem(uuid, checked) {
+  var idx = _selectedTopicalLinkUuids.indexOf(uuid);
+  if (checked && idx === -1) {
+    _selectedTopicalLinkUuids.push(uuid);
+  } else if (!checked && idx !== -1) {
+    _selectedTopicalLinkUuids.splice(idx, 1);
+  }
+  _updateTopicalModalCount();
+  _renderTopicalLinksList();
+}
+
+function _updateTopicalModalCount() {
+  var countEl = document.getElementById('topical-modal-selected-count');
+  if (countEl) countEl.textContent = _selectedTopicalLinkUuids.length;
+}
+
+function _filterTopicalLinks() {
+  _renderTopicalLinksList();
+}
+
+function _toggleTopicalQuickAdd() {
+  var p = document.getElementById('topical-quick-add-panel');
+  p.style.display = (p.style.display === 'none') ? 'block' : 'none';
+}
+
+function _submitTopicalQuickAdd() {
+  var name = document.getElementById('new-topical-name').value.trim();
+  var url = document.getElementById('new-topical-url').value.trim();
+  var type = document.getElementById('new-topical-type').value.trim();
+  if (!name || !url) {
+    alert('Please provide both link name and URL.');
+    return;
+  }
+  fetch('/api/topical_links/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({extmedia_name: name, extmedia_url: url, extmedia_type: type})
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.ok && res.link) {
+      _allTopicalLinks.unshift(res.link);
+      _selectedTopicalLinkUuids.push(res.link.extmedia_uuid);
+      document.getElementById('new-topical-name').value = '';
+      document.getElementById('new-topical-url').value = '';
+      _toggleTopicalQuickAdd();
+      _renderTopicalLinksList();
+    } else {
+      alert('Error saving link: ' + (res.error || 'Unknown error'));
+    }
+  })
+  .catch(err => alert('Failed to save link: ' + err));
+}
+
+function _applyTopicalLinks() {
+  var hiddenInput = document.getElementById('page_topical_links');
+  hiddenInput.value = _selectedTopicalLinkUuids.join(',');
+  _refreshTopicalChips();
+  closeModal('topicalLinksModal');
+}
+
+function _removeTopicalChip(uuid) {
+  var hiddenInput = document.getElementById('page_topical_links');
+  var current = (hiddenInput.value || '').split(',').map(s=>s.trim()).filter(Boolean);
+  var filtered = current.filter(id => id !== uuid);
+  hiddenInput.value = filtered.join(',');
+  _refreshTopicalChips();
+}
+
+function _refreshTopicalChips() {
+  var hiddenInput = document.getElementById('page_topical_links');
+  if (!hiddenInput) return;
+  var rawVal = (hiddenInput.value || '').trim();
+  var ids = rawVal ? rawVal.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  var countEl = document.getElementById('topical-links-count');
+  if (countEl) countEl.textContent = ids.length;
+  var container = document.getElementById('topical-links-chips');
+  if (!container) return;
+  if (!ids.length) {
+    container.innerHTML = '<span style="font-size:0.75rem; color:var(--muted); font-style:italic;">No topical links attached yet.</span>';
+    return;
+  }
+  if (!_allTopicalLinks.length) {
+    fetch('/api/topical_links').then(r=>r.json()).then(d=>{
+      _allTopicalLinks = (d && d.links) || [];
+      _renderChipsFromData(ids, container);
+    });
+  } else {
+    _renderChipsFromData(ids, container);
+  }
+}
+
+function _renderChipsFromData(ids, container) {
+  var map = {};
+  _allTopicalLinks.forEach(l => { map[l.extmedia_uuid] = l; });
+  container.innerHTML = ids.map(id => {
+    var l = map[id];
+    var title = l ? l.extmedia_name : id;
+    var type = l ? (l.extmedia_type || 'link') : 'link';
+    return `
+      <span style="display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--border); padding:3px 10px; border-radius:14px; font-size:0.8rem; font-weight:600;">
+        <span style="color:#DE2626; font-size:0.7rem; text-transform:uppercase;">${type}</span>
+        <span>${_escapeHtml(title)}</span>
+        <button type="button" onclick="_removeTopicalChip('${id}')" style="background:none; border:none; cursor:pointer; font-weight:bold; color:var(--muted); padding:0 2px;">&times;</button>
+      </span>
+    `;
+  }).join('');
+}
+
+function _escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  _refreshTopicalChips();
+});
+</script>
+"""
+
+
 @app.route('/new')
 def r_new():
     cats = _get_categories()
@@ -1317,6 +1588,16 @@ def r_new():
             </select>
           </div>
         </div>
+        <div class="fg" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0; font-weight:600;">Topical Links (Below Post)</label>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openTopicalLinksModal()">
+              🔗 Manage Topical Links (<span id="topical-links-count">0</span>)
+            </button>
+          </div>
+          <input type="hidden" name="page_topical_links" id="page_topical_links" value="">
+          <div id="topical-links-chips" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
+        </div>
       </div>
 
       <!-- Content editor — dynamic based on template type -->
@@ -1394,7 +1675,9 @@ def r_new():
 
     // Auto-select blank on load
     selectTemplate('blank');
-    </script>"""
+    </script>
+    {_topical_links_modal_html()}
+    """
 
     return _page("New Page", "new", body)
 
@@ -1474,6 +1757,16 @@ def r_edit(page_uuid):
               {asset_opts}
             </select>
           </div>
+        </div>
+        <div class="fg" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0; font-weight:600;">Topical Links (Below Post)</label>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openTopicalLinksModal()">
+              🔗 Manage Topical Links (<span id="topical-links-count">0</span>)
+            </button>
+          </div>
+          <input type="hidden" name="page_topical_links" id="page_topical_links" value="{_html_mod.escape(page.get('page_topical_links') or '')}">
+          <div id="topical-links-chips" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
         </div>
         <p style="font-size:.75rem;color:var(--muted);margin-top:6px;">
           Created: {page.get('page_created_at','—')} &nbsp;|&nbsp; UUID: <code style="color:#666;">{page_uuid}</code>
@@ -1558,7 +1851,9 @@ def r_edit(page_uuid):
     window.addEventListener('load', function() {{
         selectTemplate('{tpl_key}');
     }});
-    </script>"""
+    </script>
+    {_topical_links_modal_html()}
+    """
 
     return _page(
         f"Edit — {page.get('page_title','...')}",
@@ -1584,7 +1879,8 @@ def r_save():
     category     = request.form.get('category', 'Uncategorized')
     author       = request.form.get('author', '').strip()
     featured_img = request.form.get('featured_img', '').strip()
-    tpl_type     = request.form.get('template_key', 'blank')
+    tpl_type      = request.form.get('template_key', 'blank')
+    topical_links = request.form.get('page_topical_links', '').strip()
 
     # --- Determine final html_body based on editor mode ---
     if tpl_type == 'image_gallery':
@@ -1609,14 +1905,15 @@ def r_save():
 
     try:
         _write_page_record(
-            page_uuid    = page_uuid,
-            title        = title,
-            category     = category,
-            author       = author,
-            body_html    = body_html,
-            is_new       = (action == 'create'),
-            featured_img = featured_img,
-            template_key = tpl_type
+            page_uuid     = page_uuid,
+            title         = title,
+            category      = category,
+            author        = author,
+            body_html     = body_html,
+            is_new        = (action == 'create'),
+            featured_img  = featured_img,
+            template_key  = tpl_type,
+            topical_links = topical_links
         )
         verb = "created" if action == 'create' else "updated"
         flash(f'✅ Page "{title}" {verb} successfully.', 'success')
@@ -1796,6 +2093,47 @@ def r_list_video_media():
 
     items.sort(key=lambda i: i["label"].lower())
     return jsonify({"ok": True, "items": items})
+
+
+# =============================================================================
+# ROUTE — TOPICAL LINKS API (AJAX)
+# =============================================================================
+
+@app.route('/api/topical_links', methods=['GET'])
+def api_topical_links():
+    db.mount()
+    records = db.get_records("ExternalMedia")
+    records.sort(key=lambda r: r.get('extmedia_created_at') or '', reverse=True)
+    return jsonify({"ok": True, "links": records})
+
+
+@app.route('/api/topical_links/add', methods=['POST'])
+def api_topical_links_add():
+    db.mount()
+    data = request.get_json(silent=True) or request.form
+    media_name = (data.get('extmedia_name') or '').strip()
+    media_url = (data.get('extmedia_url') or '').strip()
+    media_type = (data.get('extmedia_type') or 'other').strip().lower()
+    if not media_name or not media_url:
+        return jsonify({"ok": False, "error": "Name and URL are required."}), 400
+
+    new_uuid = str(uuid.uuid4())
+    db.add_record("ExternalMedia", {
+        "extmedia_uuid": new_uuid,
+        "extmedia_name": media_name,
+        "extmedia_type": media_type,
+        "extmedia_url": media_url,
+        "extmedia_created_at": datetime.utcnow().isoformat(),
+    })
+    return jsonify({
+        "ok": True,
+        "link": {
+            "extmedia_uuid": new_uuid,
+            "extmedia_name": media_name,
+            "extmedia_type": media_type,
+            "extmedia_url": media_url
+        }
+    })
 
 
 # =============================================================================

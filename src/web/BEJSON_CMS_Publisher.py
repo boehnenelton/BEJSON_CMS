@@ -70,6 +70,7 @@ import http.server
 import socketserver
 import subprocess
 import sys
+import html as _html_mod
 from datetime import datetime
 from flask import Flask, request, redirect, url_for, jsonify, render_template_string
 
@@ -316,6 +317,7 @@ class SkeletonBuilder:
     {{featured_image_html}}
     <div class="article-body">{{article_body}}</div>
     
+    {{topical_links_section}}
     {{related_content_section}}
 </article>"""
         self._write_file("Article_Skeleton.html", html)
@@ -573,9 +575,19 @@ img { max-width: 100%; height: auto; display: block; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 40px; }
 
-@media (max-width: 1024px) {
-    .main-layout { flex-direction: column; }
-    .sidebar { width: 100%; order: 2; }
+/* --- Topical Links 2-Column Grid --- */
+.topical-links-section { margin: 35px 0 24px 0; padding-top: 20px; border-top: 1px solid var(--border); box-sizing: border-box; }
+.topical-links-heading { font-size: 1.15rem; font-weight: 700; margin-bottom: 16px; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+.topical-links-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; }
+.topical-link-card { display: flex; align-items: flex-start; gap: 14px; background: var(--card-bg, #ffffff); border: 1px solid var(--border, #e5e7eb); border-radius: 6px; padding: 14px 16px; text-decoration: none !important; color: inherit !important; transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; box-sizing: border-box; }
+.topical-link-card:hover { border-color: #DE2626 !important; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.topical-link-icon { font-size: 1.5rem; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+.topical-link-details { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.topical-link-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #DE2626; }
+.topical-link-title { font-size: 0.95rem; font-weight: 600; color: var(--text-main, #111827); line-height: 1.3; word-break: break-word; }
+.topical-link-host { font-size: 0.78rem; color: var(--text-muted, #6b7280); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) {
+    .topical-links-grid { grid-template-columns: 1fr; }
 }
 """
 
@@ -764,6 +776,87 @@ def _generate_related_block(items, current_item, default_author, categories):
     <div class="grid">{grid_html}</div>
     """
 
+
+def _generate_topical_links_block(item: dict, external_media_records: list) -> str:
+    raw_links = item.get("page_topical_links")
+    if not raw_links:
+        return ""
+
+    link_ids = []
+    if isinstance(raw_links, list):
+        link_ids = [str(x).strip() for x in raw_links if str(x).strip()]
+    elif isinstance(raw_links, str):
+        raw_trimmed = raw_links.strip()
+        if raw_trimmed.startswith("[") and raw_trimmed.endswith("]"):
+            try:
+                parsed = json.loads(raw_trimmed)
+                if isinstance(parsed, list):
+                    link_ids = [str(x).strip() for x in parsed if str(x).strip()]
+            except Exception:
+                pass
+        if not link_ids:
+            link_ids = [x.strip() for x in raw_trimmed.replace(",", " ").split() if x.strip()]
+
+    if not link_ids:
+        return ""
+
+    external_map = {str(rec.get("extmedia_uuid")): rec for rec in external_media_records if rec.get("extmedia_uuid")}
+
+    matched_records = []
+    for lid in link_ids:
+        if lid in external_map:
+            matched_records.append(external_map[lid])
+
+    if not matched_records:
+        return ""
+
+    type_meta = {
+        "github": {"icon": "💻", "badge": "GitHub Repository"},
+        "video": {"icon": "🎬", "badge": "Video Showcase"},
+        "youtube": {"icon": "🎬", "badge": "Video Showcase"},
+        "demo": {"icon": "🚀", "badge": "Live Project Demo"},
+        "doc": {"icon": "📄", "badge": "Documentation"},
+        "pdf": {"icon": "📑", "badge": "PDF Document"},
+        "website": {"icon": "🌐", "badge": "External Resource"},
+        "image": {"icon": "🖼️", "badge": "Image Embed"},
+        "other": {"icon": "🔗", "badge": "Related Link"},
+    }
+
+    cards_html = []
+    for rec in matched_records:
+        raw_type = (rec.get("extmedia_type") or "other").lower().strip()
+        meta = type_meta.get(raw_type, {"icon": "🔗", "badge": raw_type.title() or "Related Link"})
+        name = _html_mod.escape(rec.get("extmedia_name") or "Link")
+        url = rec.get("extmedia_url") or "#"
+        try:
+            from urllib.parse import urlparse
+            parsed_url = urlparse(url)
+            display_host = parsed_url.netloc or url
+        except Exception:
+            display_host = url
+        display_host = _html_mod.escape(display_host)
+
+        card = f'''        <a href="{_html_mod.escape(url)}" target="_blank" rel="noopener noreferrer" class="topical-link-card type-{_html_mod.escape(raw_type)}">
+            <div class="topical-link-icon">{meta["icon"]}</div>
+            <div class="topical-link-details">
+                <span class="topical-link-badge">{meta["badge"]}</span>
+                <strong class="topical-link-title">{name}</strong>
+                <span class="topical-link-host">{display_host} &nearr;</span>
+            </div>
+        </a>'''
+        cards_html.append(card)
+
+    grid_html = "\n".join(cards_html)
+    return f"""
+    <section class="topical-links-section">
+        <h3 class="topical-links-heading">Topical Links &amp; Project Resources</h3>
+        <div class="topical-links-grid">
+{grid_html}
+        </div>
+    </section>
+    """
+
+
 def _execute():
     """
     Robust build execution using unified tag resolution.
@@ -810,6 +903,7 @@ def _execute():
     social_records  = db.get_records("SocialLink")
     standalone_apps = db.get_records("StandaloneApp")
     ad_units        = db.get_records("AdUnit")
+    external_media  = db.get_records("ExternalMedia")
 
     site_title     = site_conf.get("title", "boehnenelton2024")
     site_desc      = site_conf.get("description", "Personal project showcase")
@@ -885,8 +979,9 @@ def _execute():
             else:
                 feat_img_html = f"<img src='../../../assets/{f_img}' class='article-featured-image'>"
             
-            related_html = _generate_related_block(items, item, default_author, categories)
-            ad_html      = _generate_ad_block(ad_units, "../../../")
+            related_html       = _generate_related_block(items, item, default_author, categories)
+            ad_html            = _generate_ad_block(ad_units, "../../../")
+            topical_links_html = _generate_topical_links_block(item, external_media)
 
             # Render page content via strategy renderer dispatch
             from BEJSON_CMS_Renderers import render_page
@@ -908,6 +1003,7 @@ def _execute():
                 "category": item.get("page_cat_name", "Uncategorized"),
                 "article_body": rendered_article_content,
                 "featured_image_html": feat_img_html,
+                "topical_links_section": topical_links_html,
                 "related_content_section": related_html + ad_html,
                 "timestamp": f"{p_date} \u2022 {p_author}"
             })

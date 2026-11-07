@@ -387,23 +387,30 @@
     }
 
     #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-close {
-      background: none;
-      border: 1px solid transparent;
-      color: var(--dc-muted);
-      font-size: 15px;
+      background-color: var(--dc-accent);
+      color: #FFFFFF;
+      border: 1px solid var(--dc-accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
       cursor: pointer;
-      padding: 3px 7px;
-      line-height: 1;
+      padding: 4px 10px;
+      line-height: 1.2;
       border-radius: 4px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 4px;
       flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      transition: background 0.15s ease, transform 0.1s ease;
     }
     #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-close:hover {
-      color: #FFFFFF;
-      background-color: var(--dc-accent);
-      border-color: var(--dc-accent);
+      background-color: var(--dc-accent-hover);
+      border-color: var(--dc-accent-hover);
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-close:active {
+      transform: scale(0.96);
     }
 
     #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-body {
@@ -517,6 +524,30 @@
     }
     #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-goto-btn:hover {
       background-color: var(--dc-accent-hover);
+    }
+
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-btn-dismiss {
+      width: 100%;
+      padding: 7px 10px;
+      background-color: transparent;
+      color: var(--dc-fg);
+      border: 1px solid var(--dc-border);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 4px;
+    }
+    #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-btn-dismiss:hover {
+      background-color: var(--dc-panel);
+      border-color: var(--dc-muted);
+      color: var(--dc-accent);
     }
 
     /*
@@ -700,8 +731,8 @@
       }
 
       #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-close {
-        padding: 2px 7px !important;
-        font-size: 14px !important;
+        padding: 4px 10px !important;
+        font-size: 11px !important;
       }
 
       #w-diag-inst-__INSTANCE_ID__ .w-diag-popup-body {
@@ -785,7 +816,7 @@
             <div class="w-diag-popup-tag">Node Inspector</div>
             <h3 class="w-diag-popup-title">Element Title</h3>
           </div>
-          <button type="button" class="w-diag-popup-close" title="Close Dialogue" aria-label="Close">✕</button>
+          <button type="button" class="w-diag-popup-close" title="Close Dialog" aria-label="Close Dialog">✕ Close</button>
         </div>
         <div class="w-diag-popup-body">
           <!-- Node Switcher Combo Box -->
@@ -804,6 +835,7 @@
           </div>
 
           <button type="button" class="w-diag-popup-goto-btn">📖 View Full Spec in Tab 2 ➔</button>
+          <button type="button" class="w-diag-popup-btn-dismiss">✕ Close Dialog</button>
         </div>
       </div>
     </div>
@@ -1301,8 +1333,9 @@
         }
       }
 
-      // Viewport Drag-to-Pan (ignores pointer events on shapes so shape clicks are never blocked)
+      // Viewport Drag-to-Pan for Desktop Mouse (touch devices use native momentum overflow scrolling)
       viewport.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "touch") return; // Let touch devices scroll natively without jumping
         const isShape = e.target.closest && (e.target.closest(".w-diag-shape-node") || e.target.closest(".w-diag-territory-node"));
         if (!isShape) {
           isPanning = true;
@@ -1313,17 +1346,20 @@
 
       window.addEventListener("pointermove", (e) => {
         if (isPanning) {
+          if (e.pointerType === "touch") return;
           viewport.scrollLeft = panStart.sLeft - (e.clientX - panStart.x);
           viewport.scrollTop = panStart.sTop - (e.clientY - panStart.y);
         }
       });
 
-      window.addEventListener("pointerup", () => {
+      const endPan = () => {
         if (isPanning) {
           isPanning = false;
           viewport.classList.remove("panning");
         }
-      });
+      };
+      window.addEventListener("pointerup", endPan);
+      window.addEventListener("pointercancel", endPan);
 
       // Direct Mouse Wheel Zoom
       viewport.addEventListener("wheel", (e) => {
@@ -1339,24 +1375,27 @@
         }
       });
 
+      // Dismiss popup helper
+      function closeNodePopup() {
+        if (nodePopup) nodePopup.classList.remove("show");
+        selectedId = null;
+        render();
+      }
+
       // Click canvas background to dismiss popup
       viewport.addEventListener("click", (e) => {
         const isShape = e.target.closest && (e.target.closest(".w-diag-shape-node") || e.target.closest(".w-diag-territory-node"));
         if (!isShape) {
-          if (nodePopup) nodePopup.classList.remove("show");
-          selectedId = null;
-          render();
+          closeNodePopup();
         }
       });
 
-      // Popup Close & Goto buttons
-      nodePopup?.querySelector(".w-diag-popup-close")?.addEventListener("click", () => {
-        nodePopup.classList.remove("show");
-        selectedId = null;
-        render();
-      });
+      // Popup Close & Dismiss & Goto buttons
+      nodePopup?.querySelector(".w-diag-popup-close")?.addEventListener("click", closeNodePopup);
+      nodePopup?.querySelector(".w-diag-popup-btn-dismiss")?.addEventListener("click", closeNodePopup);
 
       nodePopup?.querySelector(".w-diag-popup-goto-btn")?.addEventListener("click", () => {
+        if (nodePopup) nodePopup.classList.remove("show");
         const descBtn = root.querySelector('.w-diag-tab-btn[data-tab="description"]');
         if (descBtn) descBtn.click();
       });
@@ -1411,9 +1450,7 @@
       // Close Dialogue on Escape key
       window.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && nodePopup?.classList.contains("show")) {
-          nodePopup.classList.remove("show");
-          selectedId = null;
-          render();
+          closeNodePopup();
         }
       });
 

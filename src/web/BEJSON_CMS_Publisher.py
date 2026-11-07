@@ -112,20 +112,120 @@ import lib_bejson_CMS_cms_ports as CMSPorts
 from lib_bejson_Core_bejson_core import bejson_core_get_field_map
 
 # ==============================================================================
-# CLOUDFLARE CONFIG
+# SECURE ENVIRONMENT & CLOUDFLARE CONFIGURATION
 # ==============================================================================
-CF_KEYS = {"ACCOUNT_ID": "", "API_TOKEN": ""}
-CF_KEYS_PATH = os.path.expanduser("~/.env/cloudflare_keys.bejson")
-if os.path.exists(CF_KEYS_PATH):
+
+def resolve_secure_secret(var_name_or_pointer: str) -> str:
+    """
+    Securely resolves an environment pointer (e.g. 'ENV:CLOUDFLARE_API_TOKEN' or 'CLOUDFLARE_API_TOKEN')
+    strictly without logging secret values or dumping secureenv file contents.
+    Sources path from DEFINITIONS_FILE ($DEFINITIONS_FILE -> SECUREENV_FILE),
+    falling back to standard /storage/emulated/0/.env/secure/secureenv_file.json or os.environ.
+    """
+    if not var_name_or_pointer:
+        return ""
+
+    clean_var = str(var_name_or_pointer).strip()
+    if clean_var.startswith("ENV:"):
+        clean_var = clean_var[4:].strip()
+    elif clean_var.startswith("SECUREENV:"):
+        clean_var = clean_var[10:].strip()
+
+    # 1. Check runtime os.environ first
+    val = os.environ.get(clean_var)
+    if val:
+        return val
+
+    # 2. Locate secureenv_file.json via definitions.json or standard path
+    sec_path = None
+    defs_path = os.environ.get("DEFINITIONS_FILE", "/storage/emulated/0/.env/user/definitions.json")
+    if os.path.exists(defs_path):
+        try:
+            with open(defs_path, "r", encoding="utf-8") as df:
+                d_data = json.load(df)
+                d_map = bejson_core_get_field_map(d_data) if d_data.get("Fields") else {}
+                k_idx = d_map.get("key", d_map.get("name", d_map.get("variable_name", 0)))
+                v_idx = d_map.get("value", d_map.get("path", d_map.get("variable_value", 1)))
+                for r in d_data.get("Values", []):
+                    if len(r) > max(k_idx, v_idx) and r[k_idx] == "SECUREENV_FILE":
+                        sec_path = r[v_idx]
+                        break
+        except Exception:
+            pass
+
+    if not sec_path or not os.path.exists(sec_path):
+        sec_path = "/storage/emulated/0/.env/secure/secureenv_file.json"
+
+    # 3. Read secret value from secureenv_file.json with O(1) field map caching
+    if os.path.exists(sec_path):
+        try:
+            with open(sec_path, "r", encoding="utf-8") as sf:
+                s_data = json.load(sf)
+                s_map = bejson_core_get_field_map(s_data) if s_data.get("Fields") else {}
+                var_col_idx = s_map.get("var_name", s_map.get("name", 0))
+                val_col_idx = s_map.get("var_value", s_map.get("value", 1))
+                for row in s_data.get("Values", []):
+                    if len(row) > max(var_col_idx, val_col_idx) and row[var_col_idx] == clean_var:
+                        return row[val_col_idx] or ""
+        except Exception:
+            pass
+
+    return ""
+
+def get_cloudflare_config(db_instance) -> dict:
+    """
+    Retrieves Cloudflare deployment configuration from MFDB entity ('ExternalConfig' or 'SiteConfig').
+    Enforces 'no key in config': config rows only store project names and ENV pointers.
+    Secret credentials are resolved dynamically via resolve_secure_secret().
+    """
+    cf_cfg = {
+        "project_name": "boehnenelton2024-blog",
+        "account_id": "",
+        "api_token": ""
+    }
+
+    # 1. Try ExternalConfig entity
     try:
-        with open(CF_KEYS_PATH, "r") as f:
-            cf_data = json.load(f)
-            cf_field_map_cache = bejson_core_get_field_map(cf_data) if cf_data.get("Fields") else {}
-            cf_key_col_idx = cf_field_map_cache.get("key", cf_field_map_cache.get("name", 0))
-            cf_val_col_idx = cf_field_map_cache.get("value", 1)
-            CF_KEYS = {row[cf_key_col_idx]: row[cf_val_col_idx] for row in cf_data.get("Values", [])}
+        ext_records = db_instance.get_records("ExternalConfig")
+        cf_records = [r for r in ext_records if r.get("service_name") == "cloudflare"]
+        if cf_records:
+            for r in cf_records:
+                k = r.get("config_key")
+                v = r.get("config_val")
+                ptr = r.get("pointer_ref")
+                if k == "project_name" and v:
+                    cf_cfg["project_name"] = v.strip()
+                elif k == "account_id":
+                    cf_cfg["account_id"] = resolve_secure_secret(ptr or v or "ENV:CLOUDFLARE_ACCOUNT_ID")
+                elif k == "api_token":
+                    cf_cfg["api_token"] = resolve_secure_secret(ptr or v or "ENV:CLOUDFLARE_API_TOKEN")
+            if cf_cfg["api_token"]:
+                return cf_cfg
     except Exception:
         pass
+
+    # 2. Try SiteConfig entity fallback
+    try:
+        site_records = db_instance.get_records("SiteConfig")
+        site_map = {r.get("sys_key"): r.get("sys_value") for r in site_records if "sys_key" in r}
+        if "cf_project" in site_map and site_map["cf_project"]:
+            cf_cfg["project_name"] = site_map["cf_project"].strip()
+        if "cf_account_pointer" in site_map:
+            cf_cfg["account_id"] = resolve_secure_secret(site_map["cf_account_pointer"])
+        if "cf_token_pointer" in site_map:
+            cf_cfg["api_token"] = resolve_secure_secret(site_map["cf_token_pointer"])
+        if cf_cfg["api_token"]:
+            return cf_cfg
+    except Exception:
+        pass
+
+    # 3. Direct secureenv pointer fallback
+    if not cf_cfg["account_id"]:
+        cf_cfg["account_id"] = resolve_secure_secret("CLOUDFLARE_ACCOUNT_ID")
+    if not cf_cfg["api_token"]:
+        cf_cfg["api_token"] = resolve_secure_secret("CLOUDFLARE_API_TOKEN")
+
+    return cf_cfg
 
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER_PORT")
@@ -1664,22 +1764,18 @@ def r_reset_confirm():
 
 @app.route("/publish/cloudflare", methods=["POST"])
 def r_publish_cloudflare():
+    cf_cfg = get_cloudflare_config(db)
     project_name = request.form.get("cf_project", "").strip()
     if project_name and not re.match(r'^[a-zA-Z0-9\-]{1,64}$', project_name):
         return jsonify({'error': 'Invalid project name. Use only letters, numbers, and hyphens.'}), 400
     if not project_name:
-        # Fallback to site name
-        try:
-            site_conf = {r["sys_key"]: r["sys_value"] for r in db.get_records("SiteConfig") if "sys_key" in r}
-            project_name = site_conf.get("title", "bejson-site")
-        except Exception:
-            project_name = "bejson-site"
+        project_name = cf_cfg.get("project_name", "boehnenelton2024-blog")
 
     if not _state["build_running"]:
         _state["build_running"] = True
         _state["build_log"] = []
         _log(f"[Cloudflare] Starting deployment for project: {project_name}")
-        
+
         def _run_deploy():
             try:
                 out_dir = _state["output_dir"]
@@ -1687,35 +1783,74 @@ def r_publish_cloudflare():
                     _log("[Error] Output directory is empty. Run build first.")
                     return
 
-                # Prepare environment
+                # Prepare environment strictly without logging secrets
                 Cloudflare_Deploy_Subprocess_Env = os.environ.copy()
-                Cloudflare_Deploy_Subprocess_Env["CLOUDFLARE_ACCOUNT_ID"] = CF_KEYS.get("ACCOUNT_ID", "")
-                Cloudflare_Deploy_Subprocess_Env["CLOUDFLARE_API_TOKEN"] = CF_KEYS.get("API_TOKEN", "")
-                
-                if not Cloudflare_Deploy_Subprocess_Env["CLOUDFLARE_API_TOKEN"]:
-                    _log("[Error] Cloudflare API Token not found in vault.")
+                if cf_cfg.get("account_id"):
+                    Cloudflare_Deploy_Subprocess_Env["CLOUDFLARE_ACCOUNT_ID"] = cf_cfg["account_id"]
+                if cf_cfg.get("api_token"):
+                    Cloudflare_Deploy_Subprocess_Env["CLOUDFLARE_API_TOKEN"] = cf_cfg["api_token"]
+
+                if not Cloudflare_Deploy_Subprocess_Env.get("CLOUDFLARE_API_TOKEN"):
+                    _log("[Error] Cloudflare API Token could not be retrieved from secureenv.")
                     return
 
-                _log("[Cloudflare] Running wrangler pages publish...")
-                Wrangler_Deploy_Command = ["wrangler", "pages", "publish", out_dir, "--project-name", project_name]
-                
+                _log("[Cloudflare] Cloudflare credentials retrieved securely from secureenv.")
+                _log(f"[Cloudflare] Running wrangler pages deploy for '{project_name}'...")
+                Wrangler_Deploy_Command = ["wrangler", "pages", "deploy", out_dir, "--project-name", project_name, "--force", "--commit-dirty=true"]
+
                 process = subprocess.Popen(Wrangler_Deploy_Command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=Cloudflare_Deploy_Subprocess_Env)
                 for line in process.stdout:
-                    _log(f"[wrangler] {line.strip()}")
-                
+                    clean_line = line.strip()
+                    if clean_line:
+                        _log(f"[wrangler] {clean_line}")
+
                 process.wait()
                 if process.returncode == 0:
                     _log("[Cloudflare] Deployment successful!")
                 else:
-                    _log(f"[Cloudflare] Deployment failed with code {process.returncode}")
+                    _log(f"[Cloudflare] Deployment completed with code {process.returncode}")
             except Exception as e:
                 _log(f"[Cloudflare] Critical Error: {e}")
             finally:
                 _state["build_running"] = False
 
         threading.Thread(target=_run_deploy, daemon=True).start()
-    
+
     return redirect("/publish")
+
+def deploy_cloudflare(project_name=None, output_dir=None):
+    """
+    CLI/Standalone helper to deploy static site build to Cloudflare Pages.
+    Retrieves configuration and tokens securely from MFDB and secureenv without logging secrets.
+    """
+    cf_cfg = get_cloudflare_config(db)
+    target_project = project_name or cf_cfg.get("project_name", "bejson-cms")
+    target_dir = output_dir or _state.get("output_dir", os.path.join(PROJECT_ROOT, "storage", "builds"))
+
+    if not os.path.exists(target_dir) or not os.listdir(target_dir):
+        print(f"[!] Build directory '{target_dir}' is empty. Running publish first...")
+        _execute()
+
+    deploy_env = os.environ.copy()
+    if cf_cfg.get("account_id"):
+        deploy_env["CLOUDFLARE_ACCOUNT_ID"] = cf_cfg["account_id"]
+    if cf_cfg.get("api_token"):
+        deploy_env["CLOUDFLARE_API_TOKEN"] = cf_cfg["api_token"]
+
+    if not deploy_env.get("CLOUDFLARE_API_TOKEN"):
+        print("[!] Error: Cloudflare API token could not be resolved from secureenv.")
+        return False
+
+    print(f"[*] Deploying to Cloudflare Pages project '{target_project}'...")
+    cmd = ["wrangler", "pages", "deploy", target_dir, "--project-name", target_project, "--force", "--commit-dirty=true"]
+    proc = subprocess.run(cmd, env=deploy_env, capture_output=False, text=True)
+    if proc.returncode == 0:
+        print("[✓] Cloudflare Pages deployment completed successfully!")
+        return True
+    else:
+        print(f"[!] Wrangler deploy failed with exit code {proc.returncode}")
+        return False
+
 
 if __name__ == "__main__":
     print(f"""

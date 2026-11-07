@@ -83,7 +83,7 @@
       "SiteConfig",
       "data/siteconfig.bejson",
       null,
-      4,
+      7,
       "1.0",
       "sys_key"
     ],
@@ -142,6 +142,14 @@
       2,
       "1.0",
       "extmedia_uuid"
+    ],
+    [
+      "ExternalConfig",
+      "data/externalconfig.bejson",
+      "External service integration configurations with pointer references",
+      3,
+      "1.0",
+      "config_key"
     ]
   ]
 }

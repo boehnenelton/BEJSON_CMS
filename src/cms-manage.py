@@ -153,11 +153,24 @@ def cmd_publish(args=None):
         web_dir = str(SCRIPT_PATH / "web")
         if web_dir not in sys.path:
             sys.path.insert(0, web_dir)
-        from BEJSON_CMS_Publisher import _execute
+        from BEJSON_CMS_Publisher import _execute, deploy_cloudflare
         _execute()
         print("[✓] Static site successfully republished.")
+        if getattr(args, "deploy", False):
+            deploy_cloudflare(getattr(args, "project", None))
     except Exception as err:
         print(f"[!] Static site build error: {err}")
+
+def cmd_deploy_cf(args=None):
+    """Deploy the compiled static site to Cloudflare Pages securely."""
+    try:
+        web_dir = str(SCRIPT_PATH / "web")
+        if web_dir not in sys.path:
+            sys.path.insert(0, web_dir)
+        from BEJSON_CMS_Publisher import deploy_cloudflare
+        deploy_cloudflare(project_name=getattr(args, "project", None))
+    except Exception as err:
+        print(f"[!] Cloudflare deployment error: {err}")
 
 def cmd_page_add(args):
     db = get_db()
@@ -1548,7 +1561,13 @@ def main():
     diag_sub.add_parser("list", help="List all imported diagram assets")
 
     # Static Publish
-    subparsers.add_parser("publish", help="Compile and publish static site to storage/builds")
+    p_pub = subparsers.add_parser("publish", help="Compile and publish static site to storage/builds")
+    p_pub.add_argument("--deploy", action="store_true", help="Deploy immediately to Cloudflare Pages after compilation")
+    p_pub.add_argument("--project", help="Cloudflare Pages target project name")
+
+    # Cloudflare Pages Deployment
+    p_dcf = subparsers.add_parser("deploy-cf", help="Deploy compiled static site directly to Cloudflare Pages")
+    p_dcf.add_argument("--project", help="Cloudflare Pages target project name")
 
     args = parser.parse_args()
 
@@ -1565,6 +1584,7 @@ def main():
         "commit": cmd_commit,
         "repack": cmd_commit,
         "publish": cmd_publish,
+        "deploy-cf": cmd_deploy_cf,
         "quick-post": cmd_quick_post,
         "page": lambda a: {"add": cmd_page_add, "append": cmd_page_append, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
         "job": lambda a: {"templates": cmd_job_templates, "list": cmd_job_list, "create": cmd_job_create, "run": cmd_job_run, "merge": cmd_job_merge, "approve": cmd_job_approve}.get(a.op)(a) if a.op else None,

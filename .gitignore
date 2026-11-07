@@ -8,3 +8,10 @@ storage/builds/*
 storage/logs/*
 launcher_registry.json
 *.zip
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

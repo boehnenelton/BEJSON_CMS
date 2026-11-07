@@ -1,0 +1,54 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": [
+    "ExternalConfig"
+  ],
+  "Fields": [
+    {
+      "name": "service_name",
+      "type": "string"
+    },
+    {
+      "name": "config_key",
+      "type": "string"
+    },
+    {
+      "name": "config_val",
+      "type": "string"
+    },
+    {
+      "name": "pointer_ref",
+      "type": "string"
+    },
+    {
+      "name": "description",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "cloudflare",
+      "project_name",
+      "bejson-cms",
+      null,
+      "Cloudflare Pages project name"
+    ],
+    [
+      "cloudflare",
+      "account_id",
+      null,
+      "ENV:CLOUDFLARE_ACCOUNT_ID",
+      "Cloudflare Account ID pointer"
+    ],
+    [
+      "cloudflare",
+      "api_token",
+      null,
+      "ENV:CLOUDFLARE_API_TOKEN",
+      "Cloudflare API Token pointer from secureenv"
+    ]
+  ]
+}

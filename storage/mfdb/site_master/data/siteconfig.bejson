@@ -32,6 +32,18 @@
     [
       "base_url",
       "https://example.com"
+    ],
+    [
+      "cf_project",
+      "bejson-cms"
+    ],
+    [
+      "cf_account_pointer",
+      "ENV:CLOUDFLARE_ACCOUNT_ID"
+    ],
+    [
+      "cf_token_pointer",
+      "ENV:CLOUDFLARE_API_TOKEN"
     ]
   ]
 }

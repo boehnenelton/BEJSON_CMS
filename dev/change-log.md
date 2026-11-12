@@ -1,5 +1,20 @@
 # BEJSON_CMS Change Log
 
+## [18.38-PKG148] - 2026-11-12
+
+### Added
+- **Leethaxor69 Flagship Masterclass Articles**:
+  - *The JSON Attention Tax: Why Your $50k LLM Bill is Paying for Structural Garbage* (1,402 lines, 8 chapters, UUID: `a8a81b42-753a-493c-a539-47e8a659e04a`).
+  - *Fort Knox in RAM: Why Your Database Password is an Ephemeral Ghost* (1,157 lines, 8 chapters, UUID: `5cbdda76-937c-48ed-a697-6b38eec5efbd`).
+  - Statically compiled and published to edge builds.
+- **Automated Google Blogger Syndication**:
+  - Dispatched live syndication of both articles to `boehnenelton2024.blogspot.com` via `tools/blogger_publisher.py` with zero-dependency OAuth 2.0 token management and rate limit backoff.
+- **Interactive Metrics Benchmark Platform & Standalone App**:
+  - Mounted `/storage/emulated/0/Admin/Dev/HTML_Apps/Development/BEJSON_Interactive_Benchmark_Suite.html` into CMS Standalone Apps store (`UUID: c9e8553a-0d71-47a7-b522-411d4090ddb1`).
+  - Compiled and published interactive benchmark runner to `/apps/bejson-benchmark-suite/index.html` for visitor tokenomics, parser latency, and payload compression evaluations.
+- **Production Edge Deployment to Cloudflare Pages**:
+  - Deployed static distribution build directly to Cloudflare Pages (`boehnenelton2024.pages.dev`) via `cms-manage.py deploy-cf`.
+
 ## [18.38-PKG147] - 2026-11-12
 
 ### Added

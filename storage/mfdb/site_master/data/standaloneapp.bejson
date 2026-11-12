@@ -40,6 +40,14 @@
       "Single-file browser editor for BEJSON 104/104a and MFDB documents with grid editing, schema management, and raw JSON inspection.",
       "BEJSON_Editor_JS.html",
       "bejson_104_telemetry_hero.webp"
+    ],
+    [
+      "c9e8553a-0d71-47a7-b522-411d4090ddb1",
+      "BEJSON Benchmark Suite",
+      "bejson-benchmark-suite",
+      "Public-facing client-side interactive benchmarking platform for measuring BEJSON vs standard JSON token economics, payload compression, parser latency, and MFDB referential integrity.",
+      "BEJSON_Interactive_Benchmark_Suite.html",
+      "bejson_104_telemetry_hero.webp"
     ]
   ]
 }

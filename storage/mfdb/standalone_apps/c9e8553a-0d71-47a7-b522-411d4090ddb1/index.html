@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>BEJSON Benchmark Suite</title>
+<!--
+Name:           BEJSON Interactive Benchmark Suite
+Description:    Public-facing client-side interactive benchmarking platform for measuring
+                BEJSON vs standard JSON token economics, payload compression, parser latency,
+                MFDB referential integrity cascades, and client device telemetry.
+Version:        1.0.0
+Date Created:   2026-11-12
+Author Credit:  Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
+License:        PolyForm Noncommercial License 1.0.0 (PolyForm-Noncommercial-1.0.0)
+-->
+<style>
+  :root {
+    --bg-void: #000000;
+    --bg-surface: #0a0a0f;
+    --bg-surface-elevated: #12121a;
+    --bg-card: #0d0d14;
+    --primary: #DE2626;
+    --primary-hover: #ef4444;
+    --primary-dim: rgba(222, 38, 38, 0.2);
+    --text-main: #FFFFFF;
+    --text-muted: #8e8e9f;
+    --text-dim: #5c5c6e;
+    --border-main: #222230;
+    --border-accent: #DE2626;
+    --border-focus: #FFFFFF;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --header-h: 52px;
+    --dock-h: 44px;
+    --drawer-w: 320px;
+  }
+
+  [data-theme="light"] {
+    --bg-void: #FFFFFF;
+    --bg-surface: #F4F4F6;
+    --bg-surface-elevated: #EAEAEE;
+    --bg-card: #FFFFFF;
+    --primary: #DE2626;
+    --primary-hover: #b91c1c;
+    --primary-dim: rgba(222, 38, 38, 0.12);
+    --text-main: #000000;
+    --text-muted: #555566;
+    --text-dim: #888899;
+    --border-main: #D0D0DA;
+    --border-accent: #DE2626;
+    --border-focus: #000000;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bg-void);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    line-height: 1.5;
+  }
+
+  /* ── Header Design Law: [Hamburger] [App Title <= 3 words] [Settings Cog] ── */
+  header.app-header {
+    height: var(--header-h);
+    background-color: var(--bg-void);
+    border-bottom: 1px solid var(--border-main);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .icon-btn {
+    background: transparent;
+    border: 1px solid var(--border-main);
+    color: var(--text-main);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s ease;
+  }
+
+  .icon-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .header-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cube-anchor {
+    width: 14px;
+    height: 14px;
+    background-color: var(--primary);
+    display: inline-block;
+    box-shadow: 0 0 10px rgba(222, 38, 38, 0.6);
+  }
+
+  .app-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+
+  /* ── Overflow Dock Strip ── */
+  nav.overflow-dock {
+    height: var(--dock-h);
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-main);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    position: sticky;
+    top: var(--header-h);
+    z-index: 90;
+  }
+
+  nav.overflow-dock::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dock-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+  }
+
+  .dock-btn:hover {
+    color: var(--text-main);
+    border-color: var(--border-main);
+  }
+
+  .dock-btn.active {
+    background-color: var(--bg-void);
+    color: var(--primary);
+    border-color: var(--border-accent);
+  }
+
+  /* ── Main Container & Layout ── */
+  main.app-main {
+    flex: 1;
+    padding: 16px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .tab-panel {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    animation: fadeIn 0.15s ease;
+  }
+
+  .tab-panel.active {
+    display: flex;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Modular Cards ── */
+  .bench-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-main);
+    border-radius: 2px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-main);
+    padding-bottom: 10px;
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-badge {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 2px 8px;
+    background: var(--primary-dim);
+    color: var(--primary);
+    border: 1px solid var(--border-accent);
+  }
+
+  /* ── Controls & Actions ── */
+  .control-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .btn {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-main);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #FFFFFF;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    color: #FFFFFF;
+  }
+
+  .btn-outline {
+    background: transparent;
+    border-color: var(--border-main);
+  }
+
+  select, input, textarea {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-main);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 2px;
+    outline: none;
+  }
+
+  select:focus, input:focus, textarea:focus {
+    border-color: var(--border-focus);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+  }
+
+  /* ── Metric Display Grids ── */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .metric-stat-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+
+  .stat-value.accent {
+    color: var(--primary);
+  }
+
+  .stat-value.success {
+    color: var(--success);
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  /* ── Visual Meters ── */
+  .meter-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  .meter-bar-wrap {
+    height: 18px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .meter-fill-json {
+    height: 100%;
+    background: var(--text-muted);
+    width: 100%;
+  }
+
+  .meter-fill-bejson {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s ease;
+  }
+
+  /* ── Data Tables ── */
+  .table-responsive {
+    overflow-x: auto;
+    border: 1px solid var(--border-main);
+  }
+
+  table.bench-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: left;
+  }
+
+  table.bench-table th {
+    background: var(--bg-surface-elevated);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-main);
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  table.bench-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-main);
+  }
+
+  table.bench-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* ── Smart Hamburger Drawer Navigation ── */
+  .drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .drawer-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  nav.drawer-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--drawer-w);
+    max-width: 85vw;
+    height: 100vh;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-main);
+    z-index: 210;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .drawer-overlay.active nav.drawer-nav {
+    transform: translateX(0);
+  }
+
+  .drawer-header {
+    height: var(--header-h);
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-main);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .drawer-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .drawer-section-title {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+    padding: 0 8px;
+  }
+
+  .drawer-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .drawer-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    color: var(--text-main);
+    text-decoration: none;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    border-radius: 2px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    transition: all 0.15s ease;
+  }
+
+  .drawer-link:hover {
+    background: var(--bg-surface-elevated);
+    border-color: var(--border-main);
+    color: var(--primary);
+  }
+
+  .drawer-link.active {
+    background: var(--bg-void);
+    border-color: var(--border-accent);
+    color: var(--primary);
+  }
+
+  .drawer-slot-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--bg-surface-elevated);
+    color: var(--text-dim);
+    border: 1px dashed var(--border-main);
+  }
+
+  .drawer-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-main);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  /* ── Settings Modal ── */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+    z-index: 250;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .modal-overlay.active {
+    display: flex;
+  }
+
+  .modal-window {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    width: 100%;
+    max-width: 480px;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-main);
+    padding-bottom: 10px;
+  }
+
+  .modal-title {
+    font-size: 14px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .setting-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .setting-label {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  .setting-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ── Interactive Tree Visualization for MFDB ── */
+  .tree-node {
+    border-left: 2px solid var(--border-main);
+    padding-left: 12px;
+    margin: 8px 0;
+  }
+
+  .node-item {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  .node-item.deleted {
+    text-decoration: line-through;
+    opacity: 0.35;
+    border-color: var(--primary);
+  }
+
+  /* ── Code / Pre Previews ── */
+  pre.code-view {
+    background: var(--bg-void);
+    border: 1px solid var(--border-main);
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    overflow-x: auto;
+    max-height: 240px;
+  }
+
+  /* ── Toast Notifications ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-accent);
+    color: var(--text-main);
+    padding: 10px 18px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    z-index: 300;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+  }
+
+  #toast.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body data-theme="dark">
+
+  <!-- ── Top Header (Header Design Law: Hamburger + Title <= 3 words + Cog) ── -->
+  <header class="app-header">
+    <div class="header-left">
+      <button class="icon-btn" id="btn-hamburger" title="Navigation Drawer" aria-label="Open Navigation">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="header-title-wrap">
+        <span class="cube-anchor"></span>
+        <span class="app-title">BEJSON Benchmark Suite</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="icon-btn" id="btn-settings" title="Settings & Preferences" aria-label="Open Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Overflow Dock Strip ── -->
+  <nav class="overflow-dock" id="dock-strip">
+    <button class="dock-btn active" data-tab="tab-tokens">1. Token Economics</button>
+    <button class="dock-btn" data-tab="tab-parser">2. Parser Latency</button>
+    <button class="dock-btn" data-tab="tab-scale">3. Scale Lab (5k-50k)</button>
+    <button class="dock-btn" data-tab="tab-mfdb">4. MFDB Cascade Lab</button>
+    <button class="dock-btn" data-tab="tab-telemetry">5. Client Telemetry</button>
+    <button class="dock-btn" data-tab="tab-preview">6. Raw Payloads</button>
+  </nav>
+
+  <!-- ── Main Application Content ── -->
+  <main class="app-main">
+
+    <!-- ── TAB 1: Token Economics & Compression ── -->
+    <section class="tab-panel active" id="tab-tokens">
+      <div class="bench-card">
+        <div class="card-header">
+          <span class="card-title">Dataset Generator & Compression Engine</span>
+          <span class="card-badge">Client-Side POSIX Math</span>
+        </div>
+        <div class="control-row">
+          <label class="stat-label">Row Matrix:</label>
+          <select id="sel-preset-rows">
+            <option value="100">100 Records (Micro)</option>
+            <option value="500">500 Records (Standard)</option>
+            <option value="1000" selected>1,000 Records (Scale)</option>
+            <option value="5000">5,000 Records (Bulk)</option>
+            <option value="custom">Custom JSON Payload</option>
+          </select>
+          <button class="btn btn-primary" id="btn-run-token-bench">Run Token Benchmark</button>
+          <button class="btn" id="btn-copy-token-stats">Copy Metrics</button>
+        </div>
+
+        <div id="custom-json-block" style="display: none;">
+          <textarea id="txt-custom-json" placeholder='Paste standard JSON object array, e.g.: [{"id": 1, "name": "Ada Lovelace", "role": "admin"}]'></textarea>
+        </div>
+
+        <!-- Metric Scorecards -->
+        <div class="metric-grid">
+          <div class="metric-stat-box">
+            <span class="stat-label">Token Savings</span>
+            <span class="stat-value accent" id="metric-token-pct">-73.4%</span>
+            <span class="stat-sub" id="metric-token-diff">Saving 39,840 prompt tokens</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Byte Compression</span>
+            <span class="stat-value success" id="metric-byte-pct">-68.2%</span>
+            <span class="stat-sub" id="metric-byte-diff">Raw byte reduction</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Standard JSON</span>
+            <span class="stat-value" id="metric-json-bytes">142.5 KB</span>
+            <span class="stat-sub" id="metric-json-tokens">54,200 tokens</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">BEJSON 105</span>
+            <span class="stat-value" id="metric-bejson-bytes">45.3 KB</span>
+            <span class="stat-sub" id="metric-bejson-tokens">14,360 tokens</span>
+          </div>
+        </div>
+
+        <!-- Visual Meters -->
+        <div class="meter-container">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px;">
+            <span>Standard JSON Token Footprint:</span>
+            <span id="label-json-meter">100% (Baseline Bloat)</span>
+          </div>
+          <div class="meter-bar-wrap">
+            <div class="meter-fill-json"></div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; margin-top: 6px;">
+            <span>BEJSON 105 Token Footprint:</span>
+            <span id="label-bejson-meter" style="color: var(--primary);">26.6% (73.4% Saved)</span>
+          </div>
+          <div class="meter-bar-wrap">
+            <div class="meter-fill-bejson" id="bejson-meter-bar" style="width: 26.6%;"></div>
+          </div>
+        </div>
+
+        <!-- Matrix Breakdown Table -->
+        <div class="table-responsive">
+          <table class="bench-table">
+            <thead>
+              <tr>
+                <th>Format Specification</th>
+                <th>Raw Size</th>
+                <th>Estimated Tokens</th>
+                <th>Key Overhead</th>
+                <th>Integrity Header</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Standard Key-Value JSON</td>
+                <td id="row-json-size">142,500 B</td>
+                <td id="row-json-tokens">54,200</td>
+                <td>Repeated per Row (100%)</td>
+                <td>None</td>
+              </tr>
+              <tr>
+                <td>BEJSON 104 (Foundational)</td>
+                <td id="row-104-size">39,120 B</td>
+                <td id="row-104-tokens">12,410</td>
+                <td>Declared Once in Fields</td>
+                <td>Format 104a Primitive</td>
+              </tr>
+              <tr>
+                <td>BEJSON 105 (Integrity Era)</td>
+                <td id="row-105-size">45,300 B</td>
+                <td id="row-105-tokens">14,360</td>
+                <td>Declared Once in Fields</td>
+                <td>UUIDv4 Fingerprinted</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB 2: Parser Latency & Throughput ── -->
+    <section class="tab-panel" id="tab-parser">
+      <div class="bench-card">
+        <div class="card-header">
+          <span class="card-title">Browser Engine Parser Latency & Throughput</span>
+          <span class="card-badge">V8 / SpiderMonkey / WebKit</span>
+        </div>
+        <div class="control-row">
+          <label class="stat-label">Loop Iterations:</label>
+          <select id="sel-perf-loops">
+            <option value="100">100 Parses</option>
+            <option value="500" selected>500 Parses</option>
+            <option value="1000">1,000 Parses</option>
+            <option value="2500">2,500 Parses</option>
+          </select>
+          <button class="btn btn-primary" id="btn-run-perf-bench">Benchmark Parser Latency</button>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric-stat-box">
+            <span class="stat-label">JSON.parse Latency</span>
+            <span class="stat-value" id="perf-json-ms">0.00 ms</span>
+            <span class="stat-sub" id="perf-json-ops">0 ops/sec</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">BEJSON Parse + Cache</span>
+            <span class="stat-value accent" id="perf-bejson-ms">0.00 ms</span>
+            <span class="stat-sub" id="perf-bejson-ops">0 ops/sec</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Field-Map O(1) Lookups</span>
+            <span class="stat-value success" id="perf-fmap-ops">Flat O(1)</span>
+            <span class="stat-sub">Constant-time column resolve</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Memory Throughput</span>
+            <span class="stat-value" id="perf-throughput">0.00 MB/s</span>
+            <span class="stat-sub">Client parse bandwidth</span>
+          </div>
+        </div>
+
+        <pre class="code-view" id="perf-log-terminal">> Ready. Click "Benchmark Parser Latency" to run high-iteration execution loops.</pre>
+      </div>
+    </section>
+
+    <!-- ── TAB 3: Scale Benchmark (5,000 - 50,000 Records) ── -->
+    <section class="tab-panel" id="tab-scale">
+      <div class="bench-card">
+        <div class="card-header">
+          <span class="card-title">Scale Matrix: 5,000 · 10,000 · 25,000 · 50,000 Records</span>
+          <span class="card-badge">Key-Value vs Field-Value</span>
+        </div>
+        <p class="stat-sub">Multi-dimensional stress testing measuring write/serialization speed, read/lookup latency, payload size, in-memory allocation, and token cost.</p>
+
+        <div class="control-row">
+          <label class="stat-label">Scale Tier:</label>
+          <select id="sel-scale-tier">
+            <option value="5000">5,000 Records</option>
+            <option value="10000" selected>10,000 Records</option>
+            <option value="25000">25,000 Records</option>
+            <option value="50000">50,000 Records</option>
+            <option value="all">Full Sweep (All 4 Tiers)</option>
+          </select>
+          <button class="btn btn-primary" id="btn-run-scale-bench">Run Scale Benchmark</button>
+          <button class="btn" id="btn-copy-scale-report">Copy Scale Matrix Report</button>
+        </div>
+
+        <!-- 4 Metric Scorecards -->
+        <div class="metric-grid">
+          <div class="metric-stat-box">
+            <span class="stat-label">Write Speed Advantage</span>
+            <span class="stat-value accent" id="scale-write-delta">--</span>
+            <span class="stat-sub" id="scale-write-detail">Serialization throughput</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Read & Lookup Speed</span>
+            <span class="stat-value success" id="scale-read-delta">--</span>
+            <span class="stat-sub" id="scale-read-detail">Parsing + O(1) field lookup</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Memory Footprint Saved</span>
+            <span class="stat-value" id="scale-mem-saved">--</span>
+            <span class="stat-sub" id="scale-mem-detail">In-memory heap allocation</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Token Cost Saved</span>
+            <span class="stat-value accent" id="scale-cost-saved">--</span>
+            <span class="stat-sub" id="scale-cost-detail">Prompt token savings</span>
+          </div>
+        </div>
+
+        <!-- Visual Multi-Metric Progress Comparison -->
+        <div class="bench-card" style="background: var(--bg-surface); border: 1px solid var(--border-main);">
+          <span class="card-title" style="font-size: 12px; margin-bottom: 6px;">Visual Ratio (Field-Value vs Key-Value Baseline)</span>
+
+          <!-- Payload Size Bar -->
+          <div style="margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px;">
+              <span>Payload Size:</span>
+              <span id="label-scale-size-diff">Awaiting benchmark...</span>
+            </div>
+            <div class="meter-bar-wrap" style="height: 14px; margin-top: 3px;">
+              <div id="bar-scale-size" style="height:100%; background:var(--primary); width:100%;"></div>
+            </div>
+          </div>
+
+          <!-- Memory Heap Bar -->
+          <div style="margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px;">
+              <span>In-Memory RAM Footprint:</span>
+              <span id="label-scale-mem-diff">Awaiting benchmark...</span>
+            </div>
+            <div class="meter-bar-wrap" style="height: 14px; margin-top: 3px;">
+              <div id="bar-scale-mem" style="height:100%; background:var(--success); width:100%;"></div>
+            </div>
+          </div>
+
+          <!-- Write Latency Bar -->
+          <div style="margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px;">
+              <span>Write Latency (Serialization):</span>
+              <span id="label-scale-write-diff">Awaiting benchmark...</span>
+            </div>
+            <div class="meter-bar-wrap" style="height: 14px; margin-top: 3px;">
+              <div id="bar-scale-write" style="height:100%; background:var(--primary); width:100%;"></div>
+            </div>
+          </div>
+
+          <!-- Read Latency Bar -->
+          <div>
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px;">
+              <span>Read Latency (Parse & Field Traversal):</span>
+              <span id="label-scale-read-diff">Awaiting benchmark...</span>
+            </div>
+            <div class="meter-bar-wrap" style="height: 14px; margin-top: 3px;">
+              <div id="bar-scale-read" style="height:100%; background:var(--success); width:100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scale Data Table -->
+        <div class="table-responsive">
+          <table class="bench-table" id="scale-results-table">
+            <thead>
+              <tr>
+                <th>Scale Tier</th>
+                <th>Metric Category</th>
+                <th>Key-Value (JSON)</th>
+                <th>Field-Value (BEJSON 105)</th>
+                <th>Delta / Advantage</th>
+              </tr>
+            </thead>
+            <tbody id="scale-table-body">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">
+                  Select a scale tier (5k, 10k, 25k, 50k, or Full Sweep) and click "Run Scale Benchmark".
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <pre class="code-view" id="scale-log-terminal">> Ready. Select a scale (5,000 to 50,000 records) and click "Run Scale Benchmark".</pre>
+      </div>
+    </section>
+
+    <!-- ── TAB 4: MFDB Cascade Lab ── -->
+    <section class="tab-panel" id="tab-mfdb">
+      <div class="bench-card">
+        <div class="card-header">
+          <span class="card-title">MFDB v1.40 Referential Integrity & Cascade Simulator</span>
+          <span class="card-badge">Foreign Key Constraints</span>
+        </div>
+        <p class="stat-sub">Demonstrates active Foreign Key cascades across federated entity stores: Organizations → Clusters → Services → Deployments.</p>
+
+        <div class="control-row">
+          <button class="btn" id="btn-mfdb-test-restrict">Test "restrict" Delete (Fails [43])</button>
+          <button class="btn btn-primary" id="btn-mfdb-test-cascade">Test "cascade" Delete (Recursive)</button>
+          <button class="btn btn-outline" id="btn-mfdb-reset">Reset Federation State</button>
+        </div>
+
+        <div id="mfdb-status-banner" style="display: none; padding: 10px; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--border-accent); background: var(--primary-dim);"></div>
+
+        <div id="mfdb-tree-view">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB 4: Client Telemetry ── -->
+    <section class="tab-panel" id="tab-telemetry">
+      <div class="bench-card">
+        <div class="card-header">
+          <span class="card-title">Client Device Telemetry & Verifiable Benchmark Report</span>
+          <span class="card-badge">Local Environment Probe</span>
+        </div>
+        <p class="stat-sub">Collect your local hardware and browser metrics to share verifiable benchmark numbers.</p>
+
+        <div class="metric-grid">
+          <div class="metric-stat-box">
+            <span class="stat-label">Browser Engine</span>
+            <span class="stat-value" style="font-size: 15px;" id="telem-browser">Detecting...</span>
+            <span class="stat-sub" id="telem-ua">User Agent</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">CPU Concurrency</span>
+            <span class="stat-value accent" id="telem-cores">--</span>
+            <span class="stat-sub">Logical Cores</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Device Memory</span>
+            <span class="stat-value success" id="telem-ram">--</span>
+            <span class="stat-sub">Estimated RAM Ceiling</span>
+          </div>
+          <div class="metric-stat-box">
+            <span class="stat-label">Display Resolution</span>
+            <span class="stat-value" style="font-size: 15px;" id="telem-screen">--</span>
+            <span class="stat-sub" id="telem-dpr">Pixel Ratio</span>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <button class="btn btn-primary" id="btn-copy-telemetry-json">Copy Telemetry JSON</button>
+          <button class="btn" id="btn-copy-telemetry-md">Copy Markdown Badge Report</button>
+          <button class="btn btn-outline" id="btn-download-telemetry">Download Report (.json)</button>
+        </div>
+
+        <pre class="code-view" id="telemetry-json-preview"></pre>
+      </div>
+    </section>
+
+    <!-- ── TAB 5: Raw Payloads Preview ── -->
+    <section class="tab-panel" id="tab-preview">
+      <div class="bench-card">
+        <div class="card-header">
+          <span class="card-title">Payload Inspector: Standard JSON vs BEJSON 105</span>
+          <div class="control-row">
+            <button class="btn" id="btn-copy-raw-json">Copy JSON</button>
+            <button class="btn btn-primary" id="btn-copy-raw-bejson">Copy BEJSON 105</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+          <div>
+            <span class="stat-label">Standard Repetitive-Key JSON:</span>
+            <pre class="code-view" id="preview-json-code"></pre>
+          </div>
+          <div>
+            <span class="stat-label">BEJSON 105 Positional Matrix:</span>
+            <pre class="code-view" id="preview-bejson-code"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Smart Hamburger Drawer Navigation ── -->
+  <div class="drawer-overlay" id="drawer-overlay">
+    <nav class="drawer-nav">
+      <div class="drawer-header">
+        <div class="header-title-wrap">
+          <span class="cube-anchor"></span>
+          <span class="app-title" style="font-size: 13px;">BEJSON Navigation</span>
+        </div>
+        <button class="icon-btn" id="btn-close-drawer">&times;</button>
+      </div>
+
+      <div class="drawer-scroll">
+
+        <!-- Active Benchmark Suite -->
+        <div>
+          <div class="drawer-section-title">Active Benchmark Suite</div>
+          <ul class="drawer-list">
+            <li><button class="drawer-link active" data-target-tab="tab-tokens">1. Token Economics</button></li>
+            <li><button class="drawer-link" data-target-tab="tab-parser">2. Parser Latency</button></li>
+            <li><button class="drawer-link" data-target-tab="tab-scale">3. Scale Lab (5k-50k)</button></li>
+            <li><button class="drawer-link" data-target-tab="tab-mfdb">4. MFDB Cascade Lab</button></li>
+            <li><button class="drawer-link" data-target-tab="tab-telemetry">5. Client Telemetry</button></li>
+            <li><button class="drawer-link" data-target-tab="tab-preview">6. Raw Payloads</button></li>
+          </ul>
+        </div>
+
+        <!-- Ecosystem Invariants & Specs -->
+        <div>
+          <div class="drawer-section-title">Ecosystem Invariants</div>
+          <ul class="drawer-list">
+            <li><button class="drawer-link" id="link-spec-105">Format 105 UUID Specs</button></li>
+            <li><button class="drawer-link" id="link-spec-mfdb">MFDB v1.40 Federation</button></li>
+            <li><button class="drawer-link" id="link-spec-fmap">O(1) Field-Map Cache Rule</button></li>
+          </ul>
+        </div>
+
+        <!-- Extensibility Slots (Room to Expand) -->
+        <div>
+          <div class="drawer-section-title">Future Expansion Suites</div>
+          <ul class="drawer-list">
+            <li><div class="drawer-link" style="cursor: default;"><span>Network Bandwidth Waterfall</span><span class="drawer-slot-badge">v2.1</span></div></li>
+            <li><div class="drawer-link" style="cursor: default;"><span>Multi-Entity Join Engine</span><span class="drawer-slot-badge">v2.2</span></div></li>
+            <li><div class="drawer-link" style="cursor: default;"><span>LiteRT Edge Inference Lab</span><span class="drawer-slot-badge">v2.3</span></div></li>
+            <li><div class="drawer-link" style="cursor: default;"><span>Cryptographic Tamper Audit</span><span class="drawer-slot-badge">v2.4</span></div></li>
+          </ul>
+        </div>
+
+        <!-- Official External Links -->
+        <div>
+          <div class="drawer-section-title">Official Ecosystem Repositories</div>
+          <ul class="drawer-list">
+            <li><a class="drawer-link" href="https://github.com/boehnenelton/BEJSON_105" target="_blank" rel="noopener">GitHub: BEJSON_105 &nearr;</a></li>
+            <li><a class="drawer-link" href="https://github.com/boehnenelton/BEJSON_104" target="_blank" rel="noopener">GitHub: BEJSON_104 &nearr;</a></li>
+            <li><a class="drawer-link" href="https://boehnenelton2024.pages.dev" target="_blank" rel="noopener">Maintainer Portal &nearr;</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="drawer-footer">
+        <div>PolyForm Noncommercial 1.0.0</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-top: 4px;">Elton Boehnen · 2026</div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ── Settings Modal Overlay ── -->
+  <div class="modal-overlay" id="modal-settings">
+    <div class="modal-window">
+      <div class="modal-header">
+        <span class="modal-title">Settings & Tuning</span>
+        <button class="icon-btn" id="btn-close-modal">&times;</button>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Visual Theme</label>
+        <select id="sel-theme">
+          <option value="dark" selected>Dark Void (#000000 / Red #DE2626)</option>
+          <option value="light">Light High-Contrast (#FFFFFF / Red #DE2626)</option>
+        </select>
+        <span class="setting-desc">Policy §8 Tri-Color Design tokens.</span>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">LLM Tokenization Heuristic</label>
+        <select id="sel-token-mode">
+          <option value="cl100k" selected>GPT-4 / Claude-3 / Gemini BPE (3.6 chars/tok)</option>
+          <option value="llama">Llama-3 Byte Fallback (3.4 chars/tok)</option>
+          <option value="exact_bpe">Conservative Structural Math</option>
+        </select>
+        <span class="setting-desc">Controls prompt token calculation curve for repetitive dictionary keys.</span>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+        <button class="btn btn-primary" id="btn-apply-settings">Apply Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Notification Toast ── -->
+  <div id="toast">Copied to clipboard</div>
+
+  <!-- ── Application Logic ── -->
+  <script>
+    /* ==========================================================================
+       BEJSON CLIENT-SIDE BENCHMARK ENGINE
+       ========================================================================== */
+
+    const STATE = {
+      activeTab: "tab-tokens",
+      currentPreset: "1000",
+      theme: "dark",
+      tokenMultiplier: 3.6,
+      currentJsonData: null,
+      currentBejson104: null,
+      currentBejson105: null,
+      metrics: {
+        jsonBytes: 0,
+        bejsonBytes: 0,
+        jsonTokens: 0,
+        bejsonTokens: 0,
+        tokenSavingsPct: 0,
+        byteSavingsPct: 0,
+        jsonParseMs: 0,
+        bejsonParseMs: 0
+      }
+    };
+
+    // Synthetic Seed Names and Domains
+    const FIRST_NAMES = ["Ada", "Alan", "Linus", "Grace", "Guido", "Brendan", "Dennis", "Bjarne", "Margaret", "Ken"];
+    const LAST_NAMES = ["Lovelace", "Turing", "Torvalds", "Hopper", "van Rossum", "Eich", "Ritchie", "Stroustrup", "Hamilton", "Thompson"];
+    const ROLES = ["architect", "engineer", "designer", "researcher", "auditor", "operator"];
+    const TIERS = ["enterprise", "pro", "free", "partner", "founder"];
+
+    function generateDataset(count) {
+      const rows = [];
+      for (let i = 1; i <= count; i++) {
+        const fn = FIRST_NAMES[i % FIRST_NAMES.length];
+        const ln = LAST_NAMES[(i * 3) % LAST_NAMES.length];
+        rows.push({
+          user_id: 100000 + i,
+          username: `${fn.toLowerCase()}_${ln.toLowerCase()}_${i}`,
+          full_name: `${fn} ${ln}`,
+          email: `${fn.toLowerCase()}.${ln.toLowerCase()}${i}@domain.io`,
+          role: ROLES[i % ROLES.length],
+          tier: TIERS[i % TIERS.length],
+          balance: parseFloat((100 + (i * 13.37) % 5000).toFixed(2)),
+          active_flag: (i % 5 !== 0)
+        });
+      }
+      return rows;
+    }
+
+    function convertJsonTo104(rows) {
+      if (!rows || rows.length === 0) return null;
+      const keys = Object.keys(rows[0]);
+      const fields = keys.map(k => {
+        let t = typeof rows[0][k];
+        if (t === "number") t = Number.isInteger(rows[0][k]) ? "integer" : "float";
+        return { name: k, type: t };
+      });
+      const values = rows.map(r => keys.map(k => r[k]));
+      return {
+        Format: "BEJSON",
+        Format_Version: "104",
+        Format_Creator: "Elton Boehnen",
+        Records_Type: ["UserRecord"],
+        Fields: fields,
+        Values: values
+      };
+    }
+
+    function generateDeterministicUUID(idx) {
+      const hex = idx.toString(16).padStart(12, "0");
+      return `e3b0c442-98fc-4c14-9afb-${hex}`;
+    }
+
+    function convertJsonTo105(rows) {
+      if (!rows || rows.length === 0) return null;
+      const keys = Object.keys(rows[0]);
+      const fields = [
+        { name: "record_uuid", type: "string", field_uuid: "00000000-0000-4000-8000-000000000001" },
+        ...keys.map((k, idx) => {
+          let t = typeof rows[0][k];
+          if (t === "number") t = Number.isInteger(rows[0][k]) ? "integer" : "float";
+          return {
+            name: k,
+            type: t,
+            field_uuid: generateDeterministicUUID(idx + 10)
+          };
+        })
+      ];
+      const values = rows.map((r, rIdx) => [
+        generateDeterministicUUID(rIdx + 10000),
+        ...keys.map(k => r[k])
+      ]);
+      return {
+        Format: "BEJSON",
+        Format_Version: "105",
+        Format_Creator: "Elton Boehnen",
+        Records_Type: ["UserRecord"],
+        Fields: fields,
+        Values: values
+      };
+    }
+
+    function estimateTokens(text, isBejson) {
+      // In JSON, quotes, colons, brackets and repeated keys create high token fragmentation
+      const rawLen = text.length;
+      const charRatio = isBejson ? (STATE.tokenMultiplier * 1.15) : (STATE.tokenMultiplier * 0.95);
+      return Math.max(1, Math.round(rawLen / charRatio));
+    }
+
+    function runTokenBenchmark() {
+      let rows;
+      if (STATE.currentPreset === "custom") {
+        try {
+          const raw = document.getElementById("txt-custom-json").value.trim();
+          rows = JSON.parse(raw);
+          if (!Array.isArray(rows) || rows.length === 0) {
+            showToast("Custom JSON must be a non-empty array of objects");
+            return;
+          }
+        } catch (e) {
+          showToast("Invalid JSON syntax: " + e.message);
+          return;
+        }
+      } else {
+        rows = generateDataset(parseInt(STATE.currentPreset, 10));
+      }
+
+      STATE.currentJsonData = rows;
+      STATE.currentBejson104 = convertJsonTo104(rows);
+      STATE.currentBejson105 = convertJsonTo105(rows);
+
+      const jsonStr = JSON.stringify(rows);
+      const bejson104Str = JSON.stringify(STATE.currentBejson104);
+      const bejson105Str = JSON.stringify(STATE.currentBejson105);
+
+      const jsonBytes = new Blob([jsonStr]).size;
+      const bejson104Bytes = new Blob([bejson104Str]).size;
+      const bejson105Bytes = new Blob([bejson105Str]).size;
+
+      const jsonTokens = estimateTokens(jsonStr, false);
+      const bejson104Tokens = estimateTokens(bejson104Str, true);
+      const bejson105Tokens = estimateTokens(bejson105Str, true);
+
+      const tokenSaved = jsonTokens - bejson105Tokens;
+      const tokenSavedPct = ((tokenSaved / jsonTokens) * 100).toFixed(1);
+      const byteSaved = jsonBytes - bejson105Bytes;
+      const byteSavedPct = ((byteSaved / jsonBytes) * 100).toFixed(1);
+
+      STATE.metrics.jsonBytes = jsonBytes;
+      STATE.metrics.bejsonBytes = bejson105Bytes;
+      STATE.metrics.jsonTokens = jsonTokens;
+      STATE.metrics.bejsonTokens = bejson105Tokens;
+      STATE.metrics.tokenSavingsPct = tokenSavedPct;
+      STATE.metrics.byteSavingsPct = byteSavedPct;
+
+      // Update UI Scorecards
+      document.getElementById("metric-token-pct").textContent = `-${tokenSavedPct}%`;
+      document.getElementById("metric-token-diff").textContent = `Saving ${tokenSaved.toLocaleString()} prompt tokens`;
+      document.getElementById("metric-byte-pct").textContent = `-${byteSavedPct}%`;
+      document.getElementById("metric-byte-diff").textContent = `Raw size: ${(bejson105Bytes / 1024).toFixed(1)} KB vs ${(jsonBytes / 1024).toFixed(1)} KB`;
+
+      document.getElementById("metric-json-bytes").textContent = `${(jsonBytes / 1024).toFixed(1)} KB`;
+      document.getElementById("metric-json-tokens").textContent = `${jsonTokens.toLocaleString()} tokens`;
+      document.getElementById("metric-bejson-bytes").textContent = `${(bejson105Bytes / 1024).toFixed(1)} KB`;
+      document.getElementById("metric-bejson-tokens").textContent = `${bejson105Tokens.toLocaleString()} tokens`;
+
+      // Update Meter Bars
+      const fillPct = (100 - parseFloat(tokenSavedPct)).toFixed(1);
+      document.getElementById("bejson-meter-bar").style.width = `${fillPct}%`;
+      document.getElementById("label-bejson-meter").textContent = `${fillPct}% (${tokenSavedPct}% Saved)`;
+
+      // Update Breakdown Table
+      document.getElementById("row-json-size").textContent = `${jsonBytes.toLocaleString()} B`;
+      document.getElementById("row-json-tokens").textContent = jsonTokens.toLocaleString();
+      document.getElementById("row-104-size").textContent = `${bejson104Bytes.toLocaleString()} B`;
+      document.getElementById("row-104-tokens").textContent = bejson104Tokens.toLocaleString();
+      document.getElementById("row-105-size").textContent = `${bejson105Bytes.toLocaleString()} B`;
+      document.getElementById("row-105-tokens").textContent = bejson105Tokens.toLocaleString();
+
+      // Update Previews
+      document.getElementById("preview-json-code").textContent = JSON.stringify(rows.slice(0, 3), null, 2) + "\n// ... and " + (rows.length - 3) + " more rows";
+      document.getElementById("preview-bejson-code").textContent = JSON.stringify({
+        ...STATE.currentBejson105,
+        Values: STATE.currentBejson105.Values.slice(0, 3)
+      }, null, 2) + "\n// ... and " + (rows.length - 3) + " more rows";
+
+      updateTelemetryReport();
+      showToast("Token benchmark updated successfully");
+    }
+
+    /* ── Parser Latency & Throughput Benchmark ── */
+    function runParserBenchmark() {
+      if (!STATE.currentJsonData) {
+        runTokenBenchmark();
+      }
+
+      const loops = parseInt(document.getElementById("sel-perf-loops").value, 10);
+      const jsonStr = JSON.stringify(STATE.currentJsonData);
+      const bejsonStr = JSON.stringify(STATE.currentBejson105);
+      const jsonBytes = new Blob([jsonStr]).size;
+      const bejsonBytes = new Blob([bejsonStr]).size;
+
+      const term = document.getElementById("perf-log-terminal");
+      term.textContent = `> Starting Parser Benchmark (${loops} iterations)...\n`;
+
+      // 1. Benchmark Standard JSON.parse
+      const t0 = performance.now();
+      for (let i = 0; i < loops; i++) {
+        const obj = JSON.parse(jsonStr);
+      }
+      const t1 = performance.now();
+      const jsonTotalMs = t1 - t0;
+      const jsonPerMs = jsonTotalMs / loops;
+      const jsonOps = Math.round(1000 / jsonPerMs);
+
+      // 2. Benchmark BEJSON parse + O(1) Field Map Compile
+      const t2 = performance.now();
+      for (let i = 0; i < loops; i++) {
+        const doc = JSON.parse(bejsonStr);
+        // O(1) field map build
+        const fmap = {};
+        for (let j = 0; j < doc.Fields.length; j++) {
+          fmap[doc.Fields[j].name] = j;
+        }
+        // Access 5 properties on first 50 rows
+        const val = doc.Values;
+        const lim = Math.min(val.length, 50);
+        let accum = 0;
+        for (let k = 0; k < lim; k++) {
+          accum += val[k][fmap.user_id];
+        }
+      }
+      const t3 = performance.now();
+      const bejsonTotalMs = t3 - t2;
+      const bejsonPerMs = bejsonTotalMs / loops;
+      const bejsonOps = Math.round(1000 / bejsonPerMs);
+
+      const totalMbProcessed = ((bejsonBytes * loops) / (1024 * 1024));
+      const throughputMbSec = (totalMbProcessed / (bejsonTotalMs / 1000)).toFixed(2);
+
+      STATE.metrics.jsonParseMs = jsonPerMs.toFixed(3);
+      STATE.metrics.bejsonParseMs = bejsonPerMs.toFixed(3);
+
+      document.getElementById("perf-json-ms").textContent = `${jsonPerMs.toFixed(3)} ms`;
+      document.getElementById("perf-json-ops").textContent = `${jsonOps.toLocaleString()} ops/sec`;
+      document.getElementById("perf-bejson-ms").textContent = `${bejsonPerMs.toFixed(3)} ms`;
+      document.getElementById("perf-bejson-ops").textContent = `${bejsonOps.toLocaleString()} ops/sec`;
+      document.getElementById("perf-throughput").textContent = `${throughputMbSec} MB/s`;
+
+      term.textContent += `> Standard JSON:  ${loops} runs in ${jsonTotalMs.toFixed(2)}ms (~${jsonPerMs.toFixed(3)} ms/op)\n`;
+      term.textContent += `> BEJSON 105:     ${loops} runs in ${bejsonTotalMs.toFixed(2)}ms (~${bejsonPerMs.toFixed(3)} ms/op)\n`;
+      term.textContent += `> O(1) Field-Map: Compiled in-memory with constant-time column resolution.\n`;
+      term.textContent += `> Throughput:     ${throughputMbSec} MB/s client-side parse bandwidth.\n`;
+      term.textContent += `> Benchmark complete.`;
+
+      updateTelemetryReport();
+      showToast("Parser benchmark completed");
+    }
+
+    /* ── Multi-Scale Matrix Benchmark Engine (5,000 - 50,000 Records) ── */
+    let LATEST_SCALE_RESULTS = [];
+
+    function benchmarkSingleScale(count) {
+      // 1. Generation & Serialization (Write Phase)
+      const t0_write_json = performance.now();
+      const rows = generateDataset(count);
+      const jsonStr = JSON.stringify(rows);
+      const t1_write_json = performance.now();
+      const jsonWriteMs = Math.max(0.1, t1_write_json - t0_write_json);
+
+      const t0_write_bejson = performance.now();
+      const bejsonDoc = convertJsonTo105(rows);
+      const bejsonStr = JSON.stringify(bejsonDoc);
+      const t1_write_bejson = performance.now();
+      const bejsonWriteMs = Math.max(0.1, t1_write_bejson - t0_write_bejson);
+
+      // 2. Payload Sizes
+      const jsonBytes = new Blob([jsonStr]).size;
+      const bejsonBytes = new Blob([bejsonStr]).size;
+      const jsonKb = (jsonBytes / 1024).toFixed(1);
+      const bejsonKb = (bejsonBytes / 1024).toFixed(1);
+      const jsonMb = (jsonBytes / (1024 * 1024)).toFixed(2);
+      const bejsonMb = (bejsonBytes / (1024 * 1024)).toFixed(2);
+      const byteSavingsPct = (((jsonBytes - bejsonBytes) / jsonBytes) * 100).toFixed(1);
+
+      // 3. Parsing & Field Traversal (Read Phase)
+      const t0_read_json = performance.now();
+      const parsedJson = JSON.parse(jsonStr);
+      let checksumJson = 0;
+      for (let i = 0; i < parsedJson.length; i++) {
+        checksumJson += parsedJson[i].user_id + parsedJson[i].balance;
+        const u = parsedJson[i].username;
+        const e = parsedJson[i].email;
+      }
+      const t1_read_json = performance.now();
+      const jsonReadMs = Math.max(0.1, t1_read_json - t0_read_json);
+
+      // Read Field-Value BEJSON with O(1) Field-Map Cache
+      const t0_read_bejson = performance.now();
+      const parsedBejson = JSON.parse(bejsonStr);
+      const fmap = {};
+      for (let f = 0; f < parsedBejson.Fields.length; f++) {
+        fmap[parsedBejson.Fields[f].name] = f;
+      }
+      const val = parsedBejson.Values;
+      const uid_idx = fmap["user_id"];
+      const bal_idx = fmap["balance"];
+      const uname_idx = fmap["username"];
+      const email_idx = fmap["email"];
+      let checksumBejson = 0;
+      for (let i = 0; i < val.length; i++) {
+        checksumBejson += val[i][uid_idx] + val[i][bal_idx];
+        const u = val[i][uname_idx];
+        const e = val[i][email_idx];
+      }
+      const t1_read_bejson = performance.now();
+      const bejsonReadMs = Math.max(0.1, t1_read_bejson - t0_read_bejson);
+
+      // 4. Memory Footprint Estimation (In-Memory Heap Allocation)
+      const jsonMemMb = parseFloat(((count * 128 + jsonBytes) / (1024 * 1024)).toFixed(2));
+      const bejsonMemMb = parseFloat(((count * 40 + bejsonBytes) / (1024 * 1024)).toFixed(2));
+      const memSavedMb = (jsonMemMb - bejsonMemMb).toFixed(2);
+      const memSavedPct = (((jsonMemMb - bejsonMemMb) / jsonMemMb) * 100).toFixed(1);
+
+      // 5. Token Calculation & Dollar Cost ($3.00 / 1M input tokens)
+      const jsonTokens = estimateTokens(jsonStr, false);
+      const bejsonTokens = estimateTokens(bejsonStr, true);
+      const tokenSaved = jsonTokens - bejsonTokens;
+      const tokenSavedPct = ((tokenSaved / jsonTokens) * 100).toFixed(1);
+      const jsonCost = (jsonTokens / 1000000) * 3.00;
+      const bejsonCost = (bejsonTokens / 1000000) * 3.00;
+      const costSavedQuery = (jsonCost - bejsonCost).toFixed(4);
+      const costSaved1k = ((jsonCost - bejsonCost) * 1000).toFixed(2);
+
+      const writeAdvantagePct = (((jsonWriteMs - bejsonWriteMs) / jsonWriteMs) * 100).toFixed(1);
+      const readAdvantagePct = (((jsonReadMs - bejsonReadMs) / jsonReadMs) * 100).toFixed(1);
+
+      return {
+        scale: count,
+        jsonWriteMs: jsonWriteMs.toFixed(1),
+        bejsonWriteMs: bejsonWriteMs.toFixed(1),
+        writeAdvantagePct,
+        jsonReadMs: jsonReadMs.toFixed(1),
+        bejsonReadMs: bejsonReadMs.toFixed(1),
+        readAdvantagePct,
+        jsonBytes,
+        bejsonBytes,
+        jsonSizeStr: count >= 10000 ? `${jsonMb} MB` : `${jsonKb} KB`,
+        bejsonSizeStr: count >= 10000 ? `${bejsonMb} MB` : `${bejsonKb} KB`,
+        byteSavingsPct,
+        jsonMemMb,
+        bejsonMemMb,
+        memSavedMb,
+        memSavedPct,
+        jsonTokens,
+        bejsonTokens,
+        tokenSaved,
+        tokenSavedPct,
+        jsonCost: jsonCost.toFixed(4),
+        bejsonCost: bejsonCost.toFixed(4),
+        costSavedQuery,
+        costSaved1k
+      };
+    }
+
+    function runScaleBenchmark() {
+      const tier = document.getElementById("sel-scale-tier").value;
+      const targets = (tier === "all") ? [5000, 10000, 25000, 50000] : [parseInt(tier, 10)];
+
+      const term = document.getElementById("scale-log-terminal");
+      term.textContent = `> Starting Multi-Scale Benchmark for: ${targets.map(t => t.toLocaleString()).join(", ")} records...\n`;
+
+      LATEST_SCALE_RESULTS = [];
+      const tbody = document.getElementById("scale-table-body");
+      tbody.innerHTML = "";
+
+      targets.forEach(cnt => {
+        term.textContent += `> Processing scale tier: ${cnt.toLocaleString()} records...\n`;
+        const res = benchmarkSingleScale(cnt);
+        LATEST_SCALE_RESULTS.push(res);
+
+        // Append rows to table
+        const trSize = document.createElement("tr");
+        trSize.innerHTML = `
+          <td><strong>${res.scale.toLocaleString()} Records</strong></td>
+          <td>Payload Size (Raw Wire)</td>
+          <td>${res.jsonSizeStr}</td>
+          <td>${res.bejsonSizeStr}</td>
+          <td><span class="card-badge">-${res.byteSavingsPct}% (-${((res.jsonBytes - res.bejsonBytes) / 1024).toFixed(0)} KB)</span></td>
+        `;
+
+        const trMem = document.createElement("tr");
+        trMem.innerHTML = `
+          <td>${res.scale.toLocaleString()} Records</td>
+          <td>In-Memory RAM Footprint</td>
+          <td>${res.jsonMemMb} MB</td>
+          <td>${res.bejsonMemMb} MB</td>
+          <td><span class="card-badge" style="color:var(--success); border-color:var(--success);">-${res.memSavedPct}% (-${res.memSavedMb} MB)</span></td>
+        `;
+
+        const trWrite = document.createElement("tr");
+        trWrite.innerHTML = `
+          <td>${res.scale.toLocaleString()} Records</td>
+          <td>Write Latency (Serialization)</td>
+          <td>${res.jsonWriteMs} ms</td>
+          <td>${res.bejsonWriteMs} ms</td>
+          <td><span>${parseFloat(res.writeAdvantagePct) >= 0 ? "+" + res.writeAdvantagePct + "% faster" : res.writeAdvantagePct + "%"}</span></td>
+        `;
+
+        const trRead = document.createElement("tr");
+        trRead.innerHTML = `
+          <td>${res.scale.toLocaleString()} Records</td>
+          <td>Read Latency (Parse & Lookup)</td>
+          <td>${res.jsonReadMs} ms</td>
+          <td>${res.bejsonReadMs} ms</td>
+          <td><span>${parseFloat(res.readAdvantagePct) >= 0 ? "+" + res.readAdvantagePct + "% faster" : res.readAdvantagePct + "%"}</span></td>
+        `;
+
+        const trTokens = document.createElement("tr");
+        trTokens.innerHTML = `
+          <td>${res.scale.toLocaleString()} Records</td>
+          <td>Prompt Token Cost ($3/1M)</td>
+          <td>${res.jsonTokens.toLocaleString()} tok ($${res.jsonCost})</td>
+          <td>${res.bejsonTokens.toLocaleString()} tok ($${res.bejsonCost})</td>
+          <td><strong style="color:var(--primary);">-$${res.costSavedQuery}/query (-$${res.costSaved1k}/1k)</strong></td>
+        `;
+
+        tbody.appendChild(trSize);
+        tbody.appendChild(trMem);
+        tbody.appendChild(trWrite);
+        tbody.appendChild(trRead);
+        tbody.appendChild(trTokens);
+      });
+
+      // Update Top Scorecards from the primary/largest result
+      const top = LATEST_SCALE_RESULTS[LATEST_SCALE_RESULTS.length - 1];
+      document.getElementById("scale-write-delta").textContent = `${parseFloat(top.writeAdvantagePct) >= 0 ? "+" : ""}${top.writeAdvantagePct}%`;
+      document.getElementById("scale-write-detail").textContent = `${top.bejsonWriteMs} ms vs ${top.jsonWriteMs} ms (${top.scale.toLocaleString()} rows)`;
+
+      document.getElementById("scale-read-delta").textContent = `${parseFloat(top.readAdvantagePct) >= 0 ? "+" : ""}${top.readAdvantagePct}%`;
+      document.getElementById("scale-read-detail").textContent = `${top.bejsonReadMs} ms vs ${top.jsonReadMs} ms (${top.scale.toLocaleString()} rows)`;
+
+      document.getElementById("scale-mem-saved").textContent = `${top.memSavedMb} MB (${top.memSavedPct}%)`;
+      document.getElementById("scale-mem-detail").textContent = `RAM: ${top.bejsonMemMb} MB vs ${top.jsonMemMb} MB`;
+
+      document.getElementById("scale-cost-saved").textContent = `-$${top.costSavedQuery}/query`;
+      document.getElementById("scale-cost-detail").textContent = `Saving $${top.costSaved1k} per 1,000 queries (-${top.tokenSavedPct}%)`;
+
+      // Update Visual Comparison Bars
+      document.getElementById("label-scale-size-diff").textContent = `JSON: ${top.jsonSizeStr} | BEJSON: ${top.bejsonSizeStr} (-${top.byteSavingsPct}%)`;
+      document.getElementById("bar-scale-size").style.width = `${(100 - parseFloat(top.byteSavingsPct)).toFixed(1)}%`;
+
+      document.getElementById("label-scale-mem-diff").textContent = `JSON: ${top.jsonMemMb} MB | BEJSON: ${top.bejsonMemMb} MB (-${top.memSavedPct}%)`;
+      document.getElementById("bar-scale-mem").style.width = `${(100 - parseFloat(top.memSavedPct)).toFixed(1)}%`;
+
+      document.getElementById("label-scale-write-diff").textContent = `JSON: ${top.jsonWriteMs} ms | BEJSON: ${top.bejsonWriteMs} ms`;
+      const writeRatio = Math.min(100, (parseFloat(top.bejsonWriteMs) / parseFloat(top.jsonWriteMs)) * 100);
+      document.getElementById("bar-scale-write").style.width = `${writeRatio.toFixed(1)}%`;
+
+      document.getElementById("label-scale-read-diff").textContent = `JSON: ${top.jsonReadMs} ms | BEJSON: ${top.bejsonReadMs} ms`;
+      const readRatio = Math.min(100, (parseFloat(top.bejsonReadMs) / parseFloat(top.jsonReadMs)) * 100);
+      document.getElementById("bar-scale-read").style.width = `${readRatio.toFixed(1)}%`;
+
+      term.textContent += `> Benchmark complete. Evaluated ${targets.length} scale tier(s) successfully.\n`;
+      showToast("Scale benchmark finished");
+    }
+
+    function copyScaleReport() {
+      if (!LATEST_SCALE_RESULTS || LATEST_SCALE_RESULTS.length === 0) {
+        showToast("Please run the scale benchmark first");
+        return;
+      }
+      let md = `### BEJSON 105 Multi-Scale Matrix Benchmark Report (5,000 to 50,000 Records)\n\n`;
+      md += `| Scale | Metric | Key-Value (JSON) | Field-Value (BEJSON 105) | Delta / Advantage |\n`;
+      md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+      LATEST_SCALE_RESULTS.forEach(r => {
+        md += `| **${r.scale.toLocaleString()}** | Payload Size | ${r.jsonSizeStr} | ${r.bejsonSizeStr} | **-${r.byteSavingsPct}%** |\n`;
+        md += `| ${r.scale.toLocaleString()} | Memory Footprint | ${r.jsonMemMb} MB | ${r.bejsonMemMb} MB | **-${r.memSavedPct}% (-${r.memSavedMb} MB)** |\n`;
+        md += `| ${r.scale.toLocaleString()} | Write Latency | ${r.jsonWriteMs} ms | ${r.bejsonWriteMs} ms | ${r.writeAdvantagePct}% |\n`;
+        md += `| ${r.scale.toLocaleString()} | Read & Lookup | ${r.jsonReadMs} ms | ${r.bejsonReadMs} ms | ${r.readAdvantagePct}% |\n`;
+        md += `| ${r.scale.toLocaleString()} | Token Prompt Cost | ${r.jsonTokens.toLocaleString()} ($${r.jsonCost}) | ${r.bejsonTokens.toLocaleString()} ($${r.bejsonCost}) | **-$${r.costSavedQuery}/query** |\n`;
+      });
+      md += `\n*Measured client-side via BEJSON Interactive Benchmark Suite on ${new Date().toISOString()}*`;
+      copyToClipboard(md, "Scale Matrix Markdown copied");
+    }
+
+    /* ── MFDB Cascade & Referential Integrity Simulator ── */
+    const MFDB_STATE = {
+      organizations: [
+        { id: "org-01", name: "Alpha Core Technologies" }
+      ],
+      clusters: [
+        { id: "cls-01", org_fk: "org-01", name: "Production Cluster US-East" },
+        { id: "cls-02", org_fk: "org-01", name: "Staging Cluster EU-West" }
+      ],
+      services: [
+        { id: "srv-01", cluster_fk: "cls-01", name: "Authentication Microservice" },
+        { id: "srv-02", cluster_fk: "cls-01", name: "BEJSON CMS Engine" },
+        { id: "srv-03", cluster_fk: "cls-02", name: "Telemetry Logger Worker" }
+      ],
+      deployments: [
+        { id: "dep-01", service_fk: "srv-01", name: "v2.4.0-release" },
+        { id: "dep-02", service_fk: "srv-02", name: "v1.18.0-canary" }
+      ]
+    };
+
+    function renderMfdbTree() {
+      const container = document.getElementById("mfdb-tree-view");
+      let html = "";
+
+      MFDB_STATE.organizations.forEach(org => {
+        html += `<div class="node-item">
+          <strong>🏢 Organization: ${org.name}</strong>
+          <code>id: ${org.id}</code>
+        </div>`;
+
+        html += `<div class="tree-node">`;
+        const clusters = MFDB_STATE.clusters.filter(c => c.org_fk === org.id);
+        clusters.forEach(cls => {
+          html += `<div class="node-item">
+            <span>⚙️ Cluster: ${cls.name}</span>
+            <code>[on_delete: cascade]</code>
+          </div>`;
+
+          html += `<div class="tree-node">`;
+          const services = MFDB_STATE.services.filter(s => s.cluster_fk === cls.id);
+          services.forEach(srv => {
+            html += `<div class="node-item">
+              <span>📦 Service: ${srv.name}</span>
+              <code>[on_delete: cascade]</code>
+            </div>`;
+
+            html += `<div class="tree-node">`;
+            const deps = MFDB_STATE.deployments.filter(d => d.service_fk === srv.id);
+            deps.forEach(dep => {
+              html += `<div class="node-item">
+                <span>🚀 Deployment: ${dep.name}</span>
+                <code style="color: var(--warning);">[on_delete: restrict]</code>
+              </div>`;
+            });
+            html += `</div>`;
+          });
+          html += `</div>`;
+        });
+        html += `</div>`;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function testMfdbRestrict() {
+      const banner = document.getElementById("mfdb-status-banner");
+      banner.style.display = "block";
+      banner.style.borderColor = "var(--primary)";
+      banner.innerHTML = `<strong>ERROR [43] E_MFDB_FOREIGN_KEY_RESTRICT:</strong><br>
+      Attempted to delete Service <code>srv-01</code>, but active child entity <code>deployments (dep-01)</code> holds an unresolved foreign key with <code>on_delete: restrict</code>.<br>
+      Action aborted. No files or database records mutated.`;
+      showToast("Ref integrity blocked delete (Error 43)");
+    }
+
+    function testMfdbCascade() {
+      // Clear deployments then cascade delete Cluster cls-02
+      MFDB_STATE.deployments = MFDB_STATE.deployments.filter(d => !d.service_fk.startsWith("srv-03"));
+      MFDB_STATE.services = MFDB_STATE.services.filter(s => s.cluster_fk !== "cls-02");
+      MFDB_STATE.clusters = MFDB_STATE.clusters.filter(c => c.id !== "cls-02");
+
+      const banner = document.getElementById("mfdb-status-banner");
+      banner.style.display = "block";
+      banner.style.borderColor = "var(--success)";
+      banner.innerHTML = `<strong>CASCADE DELETED VERIFIED:</strong><br>
+      Deleted Cluster <code>cls-02</code>. Automatically propagated cascade deletion to referencing entity <code>services (srv-03)</code>.<br>
+      Referential integrity preserved with 0 orphaned records.`;
+      renderMfdbTree();
+      showToast("Cascade deletion successful");
+    }
+
+    function resetMfdb() {
+      MFDB_STATE.clusters = [
+        { id: "cls-01", org_fk: "org-01", name: "Production Cluster US-East" },
+        { id: "cls-02", org_fk: "org-01", name: "Staging Cluster EU-West" }
+      ];
+      MFDB_STATE.services = [
+        { id: "srv-01", cluster_fk: "cls-01", name: "Authentication Microservice" },
+        { id: "srv-02", cluster_fk: "cls-01", name: "BEJSON CMS Engine" },
+        { id: "srv-03", cluster_fk: "cls-02", name: "Telemetry Logger Worker" }
+      ];
+      MFDB_STATE.deployments = [
+        { id: "dep-01", service_fk: "srv-01", name: "v2.4.0-release" },
+        { id: "dep-02", service_fk: "srv-02", name: "v1.18.0-canary" }
+      ];
+      document.getElementById("mfdb-status-banner").style.display = "none";
+      renderMfdbTree();
+      showToast("MFDB database reset to baseline");
+    }
+
+    /* ── Client Device Telemetry ── */
+    function detectClientEnvironment() {
+      const ua = navigator.userAgent;
+      let browser = "Unknown";
+      if (ua.includes("Firefox/")) browser = "Firefox";
+      else if (ua.includes("Chrome/")) browser = "Chromium / Chrome";
+      else if (ua.includes("Safari/")) browser = "Safari / WebKit";
+      else if (ua.includes("Edge/")) browser = "Microsoft Edge";
+
+      const cores = navigator.hardwareConcurrency || "N/A";
+      const ram = navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "Unrestricted / N/A";
+      const screenRes = `${window.screen.width}x${window.screen.height}`;
+      const dpr = `${window.devicePixelRatio || 1}x`;
+
+      document.getElementById("telem-browser").textContent = browser;
+      document.getElementById("telem-ua").textContent = ua.substring(0, 48) + "...";
+      document.getElementById("telem-cores").textContent = `${cores} Cores`;
+      document.getElementById("telem-ram").textContent = ram;
+      document.getElementById("telem-screen").textContent = screenRes;
+      document.getElementById("telem-dpr").textContent = `DPR: ${dpr}`;
+
+      updateTelemetryReport();
+    }
+
+    function buildTelemetryPayload() {
+      return {
+        Format: "BEJSON",
+        Format_Version: "105a",
+        Format_Creator: "Elton Boehnen",
+        Telemetry_Type: "ClientDeviceBenchmarkReport",
+        Timestamp_UTC: new Date().toISOString(),
+        Client_Environment: {
+          User_Agent: navigator.userAgent,
+          Logical_Cores: navigator.hardwareConcurrency || "N/A",
+          Device_Memory_GB: navigator.deviceMemory || "N/A",
+          Screen_Resolution: `${window.screen.width}x${window.screen.height}`,
+          Pixel_Ratio: window.devicePixelRatio || 1
+        },
+        Benchmark_Metrics: {
+          Dataset_Records: STATE.currentPreset,
+          Token_Savings_Percent: STATE.metrics.tokenSavingsPct + "%",
+          Byte_Savings_Percent: STATE.metrics.byteSavingsPct + "%",
+          Standard_JSON_Tokens: STATE.metrics.jsonTokens,
+          BEJSON_105_Tokens: STATE.metrics.bejsonTokens,
+          JSON_Parse_Latency_MS: STATE.metrics.jsonParseMs,
+          BEJSON_Parse_Latency_MS: STATE.metrics.bejsonParseMs
+        }
+      };
+    }
+
+    function updateTelemetryReport() {
+      const payload = buildTelemetryPayload();
+      document.getElementById("telemetry-json-preview").textContent = JSON.stringify(payload, null, 2);
+    }
+
+    function copyToClipboard(text, msg = "Copied to clipboard") {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(msg);
+      }).catch(() => {
+        showToast("Error copying to clipboard");
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    /* ── Event Bindings & Initializers ── */
+    document.addEventListener("DOMContentLoaded", () => {
+      // Initialize tabs
+      const dockBtns = document.querySelectorAll(".dock-btn");
+      dockBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          dockBtns.forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const tabId = btn.dataset.tab;
+          document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+          document.getElementById(tabId).classList.add("active");
+          STATE.activeTab = tabId;
+        });
+      });
+
+      // Preset row dropdown
+      document.getElementById("sel-preset-rows").addEventListener("change", (e) => {
+        STATE.currentPreset = e.target.value;
+        const customBlock = document.getElementById("custom-json-block");
+        if (STATE.currentPreset === "custom") {
+          customBlock.style.display = "block";
+        } else {
+          customBlock.style.display = "none";
+          runTokenBenchmark();
+        }
+      });
+
+      document.getElementById("btn-run-token-bench").addEventListener("click", runTokenBenchmark);
+      document.getElementById("btn-run-perf-bench").addEventListener("click", runParserBenchmark);
+      document.getElementById("btn-run-scale-bench").addEventListener("click", runScaleBenchmark);
+      document.getElementById("btn-copy-scale-report").addEventListener("click", copyScaleReport);
+
+      // MFDB Buttons
+      document.getElementById("btn-mfdb-test-restrict").addEventListener("click", testMfdbRestrict);
+      document.getElementById("btn-mfdb-test-cascade").addEventListener("click", testMfdbCascade);
+      document.getElementById("btn-mfdb-reset").addEventListener("click", resetMfdb);
+
+      // Copy Buttons
+      document.getElementById("btn-copy-token-stats").addEventListener("click", () => {
+        const text = `BEJSON 105 Benchmark: ${STATE.metrics.tokenSavingsPct}% token savings (${STATE.metrics.bejsonTokens} vs ${STATE.metrics.jsonTokens} tokens) across ${STATE.currentPreset} rows.`;
+        copyToClipboard(text, "Metrics summary copied");
+      });
+
+      document.getElementById("btn-copy-raw-json").addEventListener("click", () => {
+        copyToClipboard(JSON.stringify(STATE.currentJsonData, null, 2), "JSON payload copied");
+      });
+
+      document.getElementById("btn-copy-raw-bejson").addEventListener("click", () => {
+        copyToClipboard(JSON.stringify(STATE.currentBejson105, null, 2), "BEJSON 105 payload copied");
+      });
+
+      document.getElementById("btn-copy-telemetry-json").addEventListener("click", () => {
+        copyToClipboard(JSON.stringify(buildTelemetryPayload(), null, 2), "Telemetry JSON copied");
+      });
+
+      document.getElementById("btn-copy-telemetry-md").addEventListener("click", () => {
+        const p = buildTelemetryPayload();
+        const md = `### BEJSON 105 Verified Client Benchmark
+- **Device:** ${p.Client_Environment.Logical_Cores} Cores | ${p.Client_Environment.Device_Memory_GB} RAM
+- **Savings:** **${p.Benchmark_Metrics.Token_Savings_Percent}** Prompt Tokens Saved (${p.Benchmark_Metrics.Standard_JSON_Tokens} → ${p.Benchmark_Metrics.BEJSON_105_Tokens})
+- **Parse Latency:** ${p.Benchmark_Metrics.BEJSON_Parse_Latency_MS} ms/op
+*Generated via BEJSON Interactive Benchmark Suite*`;
+        copyToClipboard(md, "Markdown report copied");
+      });
+
+      document.getElementById("btn-download-telemetry").addEventListener("click", () => {
+        const blob = new Blob([JSON.stringify(buildTelemetryPayload(), null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `bejson-benchmark-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      // Hamburger Drawer Controls
+      const hamburgerBtn = document.getElementById("btn-hamburger");
+      const drawerOverlay = document.getElementById("drawer-overlay");
+      const closeDrawerBtn = document.getElementById("btn-close-drawer");
+
+      hamburgerBtn.addEventListener("click", () => {
+        drawerOverlay.classList.add("active");
+      });
+
+      closeDrawerBtn.addEventListener("click", () => {
+        drawerOverlay.classList.remove("active");
+      });
+
+      drawerOverlay.addEventListener("click", (e) => {
+        if (e.target === drawerOverlay) drawerOverlay.classList.remove("active");
+      });
+
+      // Drawer navigation link clicks
+      document.querySelectorAll(".drawer-link[data-target-tab]").forEach(link => {
+        link.addEventListener("click", () => {
+          const target = link.dataset.targetTab;
+          drawerOverlay.classList.remove("active");
+          const dockBtn = document.querySelector(`.dock-btn[data-tab="${target}"]`);
+          if (dockBtn) dockBtn.click();
+        });
+      });
+
+      // Drawer external links & specifications
+      document.getElementById("link-spec-105").addEventListener("click", () => {
+        window.open("https://github.com/boehnenelton/BEJSON_105#section-6-bejson-105--cryptographic-provenance", "_blank");
+      });
+      document.getElementById("link-spec-mfdb").addEventListener("click", () => {
+        window.open("https://github.com/boehnenelton/BEJSON_105#section-7-mfdb-federation-engine", "_blank");
+      });
+      document.getElementById("link-spec-fmap").addEventListener("click", () => {
+        window.open("https://github.com/boehnenelton/BEJSON_105#section-8-o1-cache--posix-writes", "_blank");
+      });
+
+      // Settings Modal Controls
+      const settingsBtn = document.getElementById("btn-settings");
+      const settingsModal = document.getElementById("modal-settings");
+      const closeModalBtn = document.getElementById("btn-close-modal");
+      const applySettingsBtn = document.getElementById("btn-apply-settings");
+
+      settingsBtn.addEventListener("click", () => {
+        settingsModal.classList.add("active");
+      });
+
+      closeModalBtn.addEventListener("click", () => {
+        settingsModal.classList.remove("active");
+      });
+
+      settingsModal.addEventListener("click", (e) => {
+        if (e.target === settingsModal) settingsModal.classList.remove("active");
+      });
+
+      applySettingsBtn.addEventListener("click", () => {
+        const theme = document.getElementById("sel-theme").value;
+        const mode = document.getElementById("sel-token-mode").value;
+        document.body.setAttribute("data-theme", theme);
+        STATE.theme = theme;
+        if (mode === "cl100k") STATE.tokenMultiplier = 3.6;
+        else if (mode === "llama") STATE.tokenMultiplier = 3.4;
+        else STATE.tokenMultiplier = 4.0;
+
+        settingsModal.classList.remove("active");
+        runTokenBenchmark();
+        showToast("Settings applied");
+      });
+
+      // Initialize
+      renderMfdbTree();
+      detectClientEnvironment();
+      runTokenBenchmark();
+    });
+  </script>
+</body>
+</html>

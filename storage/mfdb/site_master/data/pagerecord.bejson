@@ -210,6 +210,36 @@
       "",
       null,
       ""
+    ],
+    [
+      "a8a81b42-753a-493c-a539-47e8a659e04a",
+      "The JSON Attention Tax: Why Your $50k LLM Bill is Paying for Structural Garbage",
+      "the-json-attention-tax--why-your-0k-llm-bill-is-paying-for-structural-garbage",
+      "BEJSON",
+      "article",
+      "2026-11-12",
+      null,
+      "Leethaxor69",
+      "default_page_image.webp",
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "5cbdda76-937c-48ed-a697-6b38eec5efbd",
+      "Fort Knox in RAM: Why Your Database Password is an Ephemeral Ghost",
+      "fort-knox-in-ram--why-your-database-password-is-an-ephemeral-ghost",
+      "BEJSON",
+      "article",
+      "2026-11-12",
+      null,
+      "Leethaxor69",
+      "default_page_image.webp",
+      null,
+      null,
+      null,
+      null
     ]
   ]
 }

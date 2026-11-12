@@ -1,5 +1,17 @@
 # BEJSON_CMS Change Log
 
+## [18.38-PKG149] - 2026-11-12
+
+### Changed
+- **Homepage Featured Bulletin Banner**:
+  - Removed embedded YouTube developer video frame (`home_bulletin_mode = standard`, `home_bulletin_video_url = ""`).
+  - Set featured bulletin badge to `FEATURED CRASH COURSE`.
+  - Promoted `BEJSON + MFDB Crash Course 23` as primary hero announcement with custom description and direct CTA button linking to `page/bejson/bejson-mfdb-crash-course-23/index.html`.
+- **Interactive Benchmark Suite Per-Test Exportability**:
+  - Added individual export engines to every benchmark card in `/storage/emulated/0/Admin/Dev/HTML_Apps/Development/BEJSON_Interactive_Benchmark_Suite.html`.
+  - Added JSON and CSV exports for Token Economics, Parser Latency, Multi-Scale Matrix (5k-50k), MFDB Cascade Audit Trace, and full Canonical BEJSON 105 master suite dumps.
+  - Recompiled static edge build and deployed to Cloudflare Pages (`boehnenelton2024.pages.dev`).
+
 ## [18.38-PKG148] - 2026-11-12
 
 ### Added

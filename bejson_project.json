@@ -4,8 +4,8 @@
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
   "Project_Version": "18.38",
-  "Package_Version": "148",
-  "Project_Modified_Date": "2026-11-12T13:00:00+00:00",
+  "Package_Version": "149",
+  "Project_Modified_Date": "2026-11-12T13:18:00+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [

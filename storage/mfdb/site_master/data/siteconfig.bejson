@@ -55,11 +55,11 @@
     ],
     [
       "home_bulletin_mode",
-      "video"
+      "standard"
     ],
     [
       "home_bulletin_video_url",
-      "M7lc1UVf-VE"
+      ""
     ],
     [
       "home_category_bar_position",
@@ -68,6 +68,26 @@
     [
       "home_feed_enabled",
       "true"
+    ],
+    [
+      "home_bulletin_badge",
+      "FEATURED CRASH COURSE"
+    ],
+    [
+      "home_bulletin_title",
+      "BEJSON + MFDB Crash Course 23"
+    ],
+    [
+      "home_bulletin_text",
+      "Comprehensive technical guide to BEJSON 104/105 data envelopes, field map caching, and MFDB v1.31/1.40 multi-file database relational architecture with zero ORM overhead."
+    ],
+    [
+      "home_bulletin_link",
+      "page/bejson/bejson-mfdb-crash-course-23/index.html"
+    ],
+    [
+      "home_bulletin_link_label",
+      "Open Crash Course"
     ]
   ]
 }

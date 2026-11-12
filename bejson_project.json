@@ -3,9 +3,9 @@
   "Format_Version": "104a",
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
-  "Project_Version": "18.31",
-  "Package_Version": "139",
-  "Project_Modified_Date": "2026-11-06T23:28:00+00:00",
+  "Project_Version": "18.38",
+  "Package_Version": "147",
+  "Project_Modified_Date": "2026-11-12T12:00:00+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -500,9 +500,49 @@
       "pkg139 -- Consolidated repository drift into master, factory-reset pages to the 6 new deep-dive books/articles, added rapid CLI toolkit (quick-post, page append, publish), integrated Leethaxor69 AI profile and skill.",
       "2026-11-06",
       "1. Consolidated active development into /storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS and eliminated drift with Python development directory. 2. Factory-reset database pages to exclusively host the 6 new deep-dive books/articles written in Leethaxor69 persona (UUIDs: 7573cc7d-8b2d-4c23-8007-98beb8db8328, b9161aaf-c14c-4f5a-a444-9ff7399687b0, 7513e7fe-f937-4eaf-9908-96224251b66f, ebe88c9c-47bd-47a4-9f8d-35463bd523f1, d0dc2f5b-ab44-47a1-ba62-fcf566309907, 89b6ebfa-ad88-4521-a700-bf6f43d2ac37). 3. Synced 104a.mfdb.bejson manifest counts (PageRecord: 6, AI_Profile: 4). 4. Injected Leethaxor69 AI_Profile into ai_profile.bejson matching the 24-field schema. 5. Upgraded src/cms-manage.py (v18.9) with quick-post, page append, and publish. 6. Added standalone CLI utility src/lib/cli/cms_quick_poster.py (v100). 7. Copied all 73 pytest tests and verified 73/73 pass. 8. Rebuilt static distribution into storage/builds/."
+    ],
+    [
+      "pkg140 -- cms-manage.py (v18.10) aligned with CMSCore: md-import moved onto CMSCore, schema-guarded writes, two-part page write made content-first with rollback, page update --type fixed, status reads the live manifest.",
+      "2026-11-08",
+      "Audit (AST scan of every add_record/update_record call site in cms-manage.py + src/web/*.py + cms_quick_poster.py against lib_bejson_CMS_taxonomy.py and the System.py seed schema): all cms-manage field-name literals already match the live taxonomy names. Real divergences found and fixed, all in src/cms-manage.py only (src/lib/ untouched per library immutability): (1) 'page md-import' called lib_bejson_CMS_md2html.import_markdown_file_to_cms(), which edits site_master/data/pagerecord.bejson and the manifest record_count directly, bypassing CMSCore (AGENTS.md: CMSCore is the only DB interface; no lock, no sync_count discipline) and writes a content file as 104a/Records_Type [PageContent], while every other writer (Content.py x2, PageEditor.py, bks_blog_jobs.py, cms-manage) writes 104db/[PageMeta, Content] -- reproduced on a throw-away MFDB before changing anything. Now: new _import_markdown_file() reuses only md2html's pure converter and writes through CMSCore; directory mode uses sync_count=False plus one sync_manifest_count(). (2) CMSCore.add_record() silently skips keys the live entity has no field for and still returns True; new _checked_add()/_dropped_fields() refuse the write and name the missing fields (empty-valued unknown keys are allowed); every cms-manage add_record call goes through it. (3) Two-part page write order: new _create_page() validates schema, writes the pages_db content file FIRST, then the PageRecord row, and deletes the content file if the row write fails (previously row first, so a failed content write left a row pointing at nothing); used by page add, quick-post, page import --html, page import --app and md-import. (4) 'page update --type' was parsed but never applied; now applied, and update_record()'s result is honoured instead of always printing success. (5) 'status' no longer instantiates the disconnected MFDB_CMS_Manager; reports live manifest path and per-entity record counts via CMSCore. mount/commit left as deprecated legacy commands. (6) md-import now warns when the target category does not exist. Added tests/test_cms_manage_core_alignment.py (9 tests, temp MFDB only). Verification: py_compile clean; end-to-end run of status/author add/page add/quick-post (auto-category)/md-import file+dir/html import/page update --type on an isolated project copy seeded by BEJSON_CMS_System.init_master_db(); every produced content file has the live 104db PageMeta/Content shape, manifest record_count equals actual rows for PageRecord/Category/AuthorProfile, guard refuses unknown non-empty fields and writes nothing, rollback leaves no orphan content file. Test suite: 89 passed / 2 failed; the same 2 (test_bejson_cms_profile_manager.py t5 and t8) fail identically on the untouched uploaded ZIP (80 passed / 2 failed), so no regression. Known and NOT changed: md2html.import_markdown_file_to_cms()/batch_import_markdown_directory() now have no callers (vendored, left in place); the live 104db content-file shape written by Content.py/PageEditor.py/cms-manage fails lib_bejson_Core_bejson_validator ('meta_title missing Record_Type_Parent in 104db') -- pre-existing across 4 writers, needs a decision; cms-manage honours CMS_DATA_ROOT but src/web/BEJSON_CMS_Shared.py derives storage from the project location, so 'page ... --publish' with CMS_DATA_ROOT set would publish the project's own storage, not the override."
+    ],
+    [
+      "pkg141 -- AGENTS.md accuracy fix (docs only).",
+      "2026-11-08",
+      "Test count corrected from 21 to the real 91 (collected via pytest --collect-only); noted the 2 pre-existing profile-manager failures (t5, t8). Directory-map row for BEJSON_CMS_PageEditorV2.py changed from 'active development' to deprecated/removed, matching the file's absence from src/web/ and the top-of-file deprecation notice. No code changed."
+    ],
+    [
+      "pkg142 -- cms-manage.py (v18.11): page add / quick-post write page_created_at as YYYY-MM-DD.",
+      "2026-11-08",
+      "Both commands wrote 'YYYY-MM-DD HH:MM:SS' while Content.py (x3), md2html and cms-manage's own html/app/md imports write 'YYYY-MM-DD'. Verified the Publisher renders the raw string in card meta and feed timestamp lines (BEJSON_CMS_Publisher.py lines ~788, ~1129), so CLI-created posts showed a time and all others did not. Aligned both to date-only. Trade-off: same-day posts now tie in the one place created_at is sorted (Interface.py dashboard 'recent', stable sort), so same-day ordering falls back to manifest order. Existing rows with timestamps were NOT migrated. Added TestCreatedAtFormat (1 test)."
+    ],
+    [
+      "pkg143 -- Built-in Anonymous author; every CLI-created page defaults to it (cms-manage.py v18.12, BEJSON_CMS_System.py v18.25).",
+      "2026-11-08",
+      "Investigation: authors are free-text (page_author_name); defaults were inconsistent (page add/html/app import: empty -> site 'creator'; quick-post: Leethaxor69; md-import: boehnenelton2024) and no Anonymous author existed. Added ANONYMOUS_AUTHOR_NAME seeding to System.py _seed_default_brand_and_author (idempotent, runs at startup and after factory reset) and to cms-manage _ensure_anonymous_author()/_bootstrap_live_schema. New _author_or_anonymous(): blank author -> Anonymous (profile created on demand); explicit author with no matching AuthorProfile is still accepted but logs a warning that the page will have no card/bio/author page. page add, quick-post, page import --html/--app and md-import now use it; quick-post --author default changed from Leethaxor69 to none. 4 new tests (TestAnonymousAuthorDefault); suite 93 passed + the same 2 pre-existing failures (t5, t8). Isolated-copy run confirmed Anonymous seeded once across repeated seed calls. NOT changed: lib_bejson_CMS_bks_blog_jobs.py (vendored) still defaults job posts to boehnenelton2024; ProfileManager still re-points deleted personas' pages to boehnenelton2024 and does not protect Anonymous from deletion (it is re-seeded on next startup)."
+    ],
+    [
+      "pkg144 -- 'page set-author' bulk re-author command (cms-manage.py v18.13).",
+      "2026-11-09",
+      "New: page set-author AUTHOR with filters --uuid (repeatable), --category, --type, --current-author, --since YYYY-MM-DD, --title-contains, plus --all (required when no filter), --dry-run and --publish. Refuses an author with no AuthorProfile (unlike creation, whose point here is to tie pages to a real profile) and refuses to run with no filter and no --all. Uses CMSCore update_record per page; reports changed/matched counts. 5 tests (TestSetAuthor). Suite: 98 passed + the same 2 pre-existing failures (t5, t8). README usage added. Note: this only sets page_author_name; the Publisher still renders the name as text only (author cards/pages are a separate package)."
+    ],
+    [
+      "pkg145 -- Vendored AI libraries synced from libraries_104 / CLI_AI cross-reference (Google Search-free updates only).",
+      "2026-11-09",
+      "Three-way comparison (CMS src/lib vs libraries_104.zip vs CLI_AI/lib; AST-level, docstrings ignored): CLI_AI libs are code-identical to the master for all 11 files that differ from the CMS. Master and CLI_AI still carry Google Search code (7 shared libs + CLI_AI interactions_bubble); the CMS copies are the Google Search-free lineage and were NOT overwritten. Adopted (user-approved): lib_bejson_AI_bejson_litertlm.py 1.0.0->1.1.0 (master copy; Gemini-native protocol), lib_ai_model_registry.py (master copy; OllamaLocal + LiteRTLM static services), lib_bejson_AI_ai_dispatch.py (master copy + routes ollamalocal/litertlm; version set to 1.8.2 above the CMS 1.8.1 and master 1.8.0; new RELATIONAL_ID/date; the CMS 1.8.1 differed from master only in lacking those two providers, nothing lost). Header-only fix: lib_bejson_AI_chat_gemini_engine.py Module Purpose no longer claims Google Search (code never had it); fresh RELATIONAL_ID. Verified: py_compile, dispatch imports with PROVIDERS incl. ollamalocal/litertlm, no Google Search text in any lib_bejson_AI_* or lib_ai_model_registry, suite 98 passed + same 2 pre-existing failures. NOT changed (unresolved, needs owner decision): lib_bejson_Core_bejson_env.py (same 2.3.0 but CMS has DEFINITIONS_FILE/definitions.json support that master and CLI_AI lack)."
+    ],
+    [
+      "pkg146 -- Vendored AI libraries brought level with CLI_AI PKG57 and libraries_104; Google Search-free; versions bumped.",
+      "2026-11-10",
+      "Cross-reference of CMS src/lib vs libraries_104 vs CLI_AI 2.32.0/PKG57 (AST level). Google Search-free copies with bumped versions: bejson_gemini 2.5.1, bejson_groq 3.1.1, bejson_openrouter 3.2.1, chat_gemini_engine 1.0.1, chat_interactions_engine 1.2.1, gemini_standard_profiles 4.0.1, Core bejson_schema 2.3.5 (code now identical in CMS, libraries_104 and CLI_AI). New from CLI_AI PKG57: ai_constants 1.3.0, ai_context_bubble 2.2.1, bejson_ollamalocal and lib_ai_model_registry (2 new OllamaLocal models); ai_dispatch 1.8.2. Tests: 98 passed + the same 2 pre-existing failures (t5, t8). Unchanged/open: lib_bejson_Core_bejson_env.py (CMS has DEFINITIONS_FILE support the other trees lack -- owner decision). Supersedes the intermediate PKG140-145."
+    ],
+    [
+      "pkg147 -- Modular 2-Tier Skeleton Architecture (Global Shell vs Local Body), Home Bulletin & Video Stage, Adaptive Category Dock Strip, and Async Server Manager.",
+      "2026-11-12",
+      "Implemented 2-tier skeleton slot swapping in BEJSON_CMS_Publisher.py. Added Home_Bulletin_Skeleton.html supporting text announcements and 16:9 YouTube video bulletin. Added adaptive category bar (above/below/none) with mobile overflow containment. Added feed visibility toggle (home_feed_enabled). Remediated dark/light theme contrast tokens (--card-bg: var(--bg-card)). Added server_manager.py with clipboard copy and Chrome dispatch. Added 8 new unit tests (108/108 passing)."
     ]
   ],
   "Type": "python",
   "Status": "Active",
-  "Versioned_UUID": "a5c92e10-3841-4cbf-8d5f-1487b9e02345"
+  "Versioned_UUID": "8a8cb312-7635-4566-9a7c-3abc14db6184"
 }

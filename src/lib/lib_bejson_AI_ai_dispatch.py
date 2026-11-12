@@ -29,12 +29,12 @@ Description:    The common call interface across the AI family's providers
                  model rejected) -- those come back as
                  AIResponse(success=False, error=...). It only raises for
                  programmer error (unknown provider name).
-Version:        1.8.0
-Date:           2026-10-20
+Version:        1.8.2
+Date:           2026-11-09
 Author:         Elton Boehnen
 Contact:        boehnenelton2024@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  9c4a1e7f-3d8b-4a2c-9e6f-1b5d0a8c4f37
+RELATIONAL_ID:  85db3dd6-f36d-4de7-acb4-98022044c615
 
 Changelog:
   1.8.0 (2026-10-20) -- Added provider "litertlm" (on-device LiteRT-LM server via
@@ -89,9 +89,9 @@ from lib_bejson_AI_ai_response import AIResponse, ai_response_ok, ai_response_er
 
 logger = logging.getLogger("lib_bejson_AI_ai_dispatch")
 
-VERSION = "1.8.1"
+VERSION = "1.8.2"
 
-PROVIDERS = ("groq", "openrouter", "gemini", "geminirest", "genai", "grok", "huggingface", "openai", "tokenrouter", "ollama")
+PROVIDERS = ("groq", "openrouter", "gemini", "geminirest", "genai", "grok", "huggingface", "openai", "tokenrouter", "ollama", "ollamalocal", "litertlm")
 
 
 # ── TokenRouter (bejson_tokenrouter.py) ───────────────────────────────────
@@ -321,6 +321,46 @@ def _adapt_ollama(user_input: str, model_id: Optional[str], system_instruction: 
                            unsupported_params=unsupported, raw=result)
 
 
+# ── Ollama Local (bejson_ollamalocal.py) ──────────────────────────────────
+
+def _adapt_ollamalocal(user_input: str, model_id: Optional[str], system_instruction: Optional[str], **config) -> AIResponse:
+    from lib_bejson_AI_bejson_ollamalocal import get_standard_prompter
+
+    passthrough = {k: v for k, v in config.items() if k in ("temperature", "max_tokens", "num_ctx")}
+    extra = sorted(set(config) - set(passthrough))
+    unsupported = ["config:" + ",".join(extra)] if extra else []
+
+    prompter = get_standard_prompter()
+    result = prompter.prompt(user_input, model_id, system_instruction=system_instruction, **passthrough)  # always returns a str
+    used_model = model_id or prompter.model_reg.active_model_id
+
+    if isinstance(result, str) and result.startswith("ERROR:"):
+        return ai_response_error(result, provider="ollamalocal", model_id=used_model,
+                                  unsupported_params=unsupported, raw=result)
+    return ai_response_ok(result, provider="ollamalocal", model_id=used_model,
+                           unsupported_params=unsupported, raw=result)
+
+
+# ── LiteRT-LM local (bejson_litertlm.py) ──────────────────────────────────
+
+def _adapt_litertlm(user_input: str, model_id: Optional[str], system_instruction: Optional[str], **config) -> AIResponse:
+    from lib_bejson_AI_bejson_litertlm import get_standard_prompter
+
+    passthrough = {k: v for k, v in config.items() if k in ("temperature", "max_tokens", "api_protocol")}
+    extra = sorted(set(config) - set(passthrough))
+    unsupported = ["config:" + ",".join(extra)] if extra else []
+
+    prompter = get_standard_prompter()
+    result = prompter.prompt(user_input, model_id, system_instruction=system_instruction, **passthrough)  # always returns a str
+    used_model = model_id or prompter.model_reg.active_model_id
+
+    if isinstance(result, str) and result.startswith("ERROR:"):
+        return ai_response_error(result, provider="litertlm", model_id=used_model,
+                                  unsupported_params=unsupported, raw=result)
+    return ai_response_ok(result, provider="litertlm", model_id=used_model,
+                           unsupported_params=unsupported, raw=result)
+
+
 _ADAPTERS = {
     "groq": _adapt_groq,
     "openrouter": _adapt_openrouter,
@@ -332,6 +372,8 @@ _ADAPTERS = {
     "openai": _adapt_openai,
     "tokenrouter": _adapt_tokenrouter,
     "ollama": _adapt_ollama,
+    "ollamalocal": _adapt_ollamalocal,
+    "litertlm": _adapt_litertlm,
 }
 
 

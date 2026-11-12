@@ -1429,6 +1429,10 @@ python3 src/cms-manage.py page add   --title "System Architecture"   --category 
 # Update an existing page
 python3 src/cms-manage.py page update <PAGE_UUID> --title "Updated Title"
 
+# Bulk re-author existing pages to an existing AuthorProfile (preview first with --dry-run)
+python3 src/cms-manage.py page set-author "Leethaxor69" --category "BEJSON" --since 2026-11-01 --dry-run
+python3 src/cms-manage.py page set-author "Leethaxor69" --category "BEJSON" --since 2026-11-01 --publish
+
 # Delete a page
 python3 src/cms-manage.py page delete <PAGE_UUID>
 

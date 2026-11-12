@@ -226,7 +226,7 @@ class TestPersonaEditorAuditRemediations:
 
         sentinel = next(p for p in isolated_db.get_records("AI_Profile") if p["Name"] == "Code Sentinel")
         assert sentinel["Creativity"] == 0.3
-        assert sentinel["MaxResponseTokens"] == 4096
+        assert sentinel["MaxResponseTokens"] == 16384
         assert sentinel["Formality"] == "formal"
         assert sentinel["CodeParsing_Mode"] == "strict"
 
@@ -279,7 +279,7 @@ class TestPersonaEditorAuditRemediations:
         assert "[IDENTITY]: Code Sentinel (Security & AST Policy Auditor)" in assembled
         assert "[TONE]: analytical, critical, rigorous, precise" in assembled
         assert "[DELIVERY]: Formality=formal, Verbosity=concise, Creativity=0.3" in assembled
-        assert "[COGNITIVE_GATES]: Thinking=true, CodeInterpreter=true, EphemeralMemory=false, MaxResponseTokens=4096" in assembled
+        assert "[COGNITIVE_GATES]: Thinking=true, CodeInterpreter=true, EphemeralMemory=false, MaxResponseTokens=16384" in assembled
         assert "[CODE_PARSING]: Mode=strict, StructureValidation=true, VersionControl=true" in assembled
         assert "[VOICE_DIRECTIVES]:" in assembled
         assert "[SYSTEM_INSTRUCTION]:" in assembled

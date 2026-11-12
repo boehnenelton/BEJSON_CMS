@@ -23,7 +23,7 @@
     ],
     [
       "description",
-      "Elton Boehnen · Zero-SQL BEJSON & System Architecture"
+      "Elton Boehnen \u00b7 Zero-SQL BEJSON & System Architecture"
     ],
     [
       "creator",
@@ -44,6 +44,30 @@
     [
       "cf_token_pointer",
       "ENV:CLOUDFLARE_API_TOKEN"
+    ],
+    [
+      "active_home_skeleton",
+      "Home_Bulletin_Skeleton.html"
+    ],
+    [
+      "home_bulletin_enabled",
+      "true"
+    ],
+    [
+      "home_bulletin_mode",
+      "video"
+    ],
+    [
+      "home_bulletin_video_url",
+      "M7lc1UVf-VE"
+    ],
+    [
+      "home_category_bar_position",
+      "above_bulletin"
+    ],
+    [
+      "home_feed_enabled",
+      "true"
     ]
   ]
 }

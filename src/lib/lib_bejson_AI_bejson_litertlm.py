@@ -2,27 +2,29 @@
 Library:        lib_bejson_AI_bejson_litertlm.py
 Family:         AI
 Description:    On-device LiteRT-LM integration (provider key "litertlm", client
-                 service "LiteRTLM"). Talks to the OpenAI-compatible server that
-                 `litert-lm serve` exposes (default http://127.0.0.1:9379:
-                 /v1/models, /v1/chat/completions); needs no API key.
+                 service "LiteRTLM"). Talks to the OpenAI-compatible server or the
+                 native Gemini-compatible server that `litert-lm serve` exposes
+                 (default http://127.0.0.1:9379: OpenAI /v1/models, /v1/chat/completions;
+                 Gemini /v1beta/models/{model}:generateContent, :streamGenerateContent);
+                 needs no API key.
 
                  Provides:
                    - LiteRTLMServer: locate the `litert-lm` binary, run
-                     `litert-lm serve --port N` as a subprocess (or reuse a server
-                     that already answers), list served models via /v1/models,
+                     `litert-lm serve --port N [--api openai|gemini]` as a subprocess
+                     (or reuse a server that already answers), list served models,
                      background setup with pollable state. Models are imported with
                      the litert-lm CLI itself (`litert-lm import ...`); this class
                      does not download them.
                    - LiteRTLMStandardPrompter: prompt() (single shot, the shape
-                     ai_dispatch expects) and stream() (token generator over the SSE
-                     chat-completions stream) for chat clients.
+                     ai_dispatch expects) and stream() (token generator over SSE)
+                     supporting both OpenAI and Gemini wire formats.
                    - Zero-config singletons: get_standard_prompter(),
                      get_standard_server().
 
                  Default model: gemma-4-e2b (Gemma 4 E2B, ~32k context, text +
                  vision + audio input on the engine; this client sends text).
-Version:        1.0.0
-Date:           2026-10-20
+Version:        1.1.0
+Date:           2026-11-02
 Author:         Elton Boehnen
 Contact:        boehnenelton2024@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
@@ -30,6 +32,9 @@ RELATIONAL_ID:  3d8a5c1e-92b4-4f6a-a7d3-0e5b61c9f284
 Release_Version: 300
 
 Changelog:
+  1.1.0 (2026-11-02) -- Added dual-protocol support for Gemini-compatible endpoint
+        (/v1beta/models/{model}:generateContent and streamGenerateContent) alongside
+        OpenAI-compatible endpoint. Configurable via api_protocol or LITERTLM_API_PROTOCOL.
   1.0.0 (2026-10-20) -- Initial creation (structure mirrors lib_bejson_AI_bejson_ollamalocal.py).
 """
 
@@ -60,12 +65,14 @@ from lib_bejson_AI_bejson_errors import AIRecoverableError
 
 logger = logging.getLogger("lib_bejson_AI_bejson_litertlm")
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 LITERTLM_CONFIG_VERSION = 1
 CONFIG_DIR = get_self_contained_dir(__file__)
 
 DEFAULT_BASE_URL = "http://127.0.0.1:9379"
 BASE_URL_ENV_VAR = "LITERTLM_URL"
+DEFAULT_API_PROTOCOL = "openai"
+API_PROTOCOL_ENV_VAR = "LITERTLM_API_PROTOCOL"
 BINARY_NAME = "litert-lm"
 DEFAULT_MODEL_ID = "gemma-4-e2b"
 
@@ -132,9 +139,10 @@ class LiteRTLMProfile(BejsonProfileBase):
 
 
 def _http_error_text(resp) -> str:
-    """Best-effort extraction of an OpenAI-style {"error": {"message": ...}} body."""
+    """Best-effort extraction of an error message from JSON or text."""
     try:
-        err = resp.json().get("error")
+        data = resp.json()
+        err = data.get("error")
         if isinstance(err, dict):
             err = err.get("message")
         return str(err or resp.text)[:300]
@@ -151,11 +159,13 @@ class LiteRTLMServer:
     BUSY_PHASES = ("starting",)
 
     def __init__(self, base_url: Optional[str] = None, log_dir: Optional[str] = None,
-                 binary_name: str = BINARY_NAME, ready_timeout_s: int = 90):
+                 binary_name: str = BINARY_NAME, ready_timeout_s: int = 90,
+                 api_protocol: Optional[str] = None):
         self.base_url = (base_url or os.environ.get(BASE_URL_ENV_VAR) or DEFAULT_BASE_URL).rstrip("/")
         self.log_dir = Path(log_dir) if log_dir else CONFIG_DIR / "logs"
         self.binary_name = binary_name
         self.ready_timeout_s = ready_timeout_s
+        self.api_protocol = (api_protocol or os.environ.get(API_PROTOCOL_ENV_VAR) or DEFAULT_API_PROTOCOL).lower()
         self._proc: Optional[subprocess.Popen] = None
         self._logfh = None
         self._lock = threading.RLock()
@@ -170,19 +180,30 @@ class LiteRTLMServer:
     def is_ready(self) -> bool:
         import requests
         try:
-            return requests.get(f"{self.base_url}/v1/models", timeout=2).status_code == 200
+            if requests.get(f"{self.base_url}/v1/models", timeout=2).status_code == 200:
+                return True
         except Exception:
-            return False
+            pass
+        try:
+            r = requests.options(f"{self.base_url}/v1beta/models/{DEFAULT_MODEL_ID}:generateContent", timeout=2)
+            if r.status_code in (200, 204):
+                return True
+        except Exception:
+            pass
+        return False
 
     def installed_models(self) -> List[str]:
-        """Model ids the running server reports on /v1/models."""
+        """Model ids the running server reports on /v1/models (or fallback for Gemini mode)."""
         import requests
         try:
             r = requests.get(f"{self.base_url}/v1/models", timeout=5)
-            r.raise_for_status()
-            return [m.get("id", "") for m in r.json().get("data", []) if m.get("id")]
+            if r.status_code == 200:
+                return [m.get("id", "") for m in r.json().get("data", []) if m.get("id")]
         except Exception:
-            return []
+            pass
+        if self.is_ready():
+            return [DEFAULT_MODEL_ID]
+        return []
 
     def has_model(self, model_id: str) -> bool:
         return model_id in set(self.installed_models())
@@ -194,6 +215,7 @@ class LiteRTLMServer:
         return {
             "ready": ready,
             "base_url": self.base_url,
+            "api_protocol": self.api_protocol,
             "binary": shutil.which(self.binary_name),
             "managed_pid": self._proc.pid if self._proc and self._proc.poll() is None else None,
             "installed_models": self.installed_models() if ready else [],
@@ -223,7 +245,10 @@ class LiteRTLMServer:
             self._logfh = open(log_path, "ab")
             self._set_state(phase="starting", message="Starting litert-lm serve ...", percent=None)
             logger.info("Starting litert-lm serve --port %s (log: %s)", port, log_path)
-            self._proc = subprocess.Popen([binary, "serve", "--port", str(port)], stdout=self._logfh,
+            cmd = [binary, "serve", "--port", str(port)]
+            if self.api_protocol == "gemini":
+                cmd.extend(["--api", "gemini"])
+            self._proc = subprocess.Popen(cmd, stdout=self._logfh,
                                           stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
             if not self._atexit_registered:
                 atexit.register(self.stop)
@@ -263,8 +288,9 @@ class LiteRTLMServer:
                 self.start()
             served = self.installed_models()
             if served and model_id not in served:
+                served_list = ", ".join(served)
                 raise LiteRTLMError(
-                    f"Server is up but does not list '{model_id}' (served: {', '.join(served)}). "
+                    f"Server is up but does not list '{model_id}' (served: {served_list}). "
                     f"Import it first: litert-lm import ...")
             self._set_state(phase="ready", message=f"{model_id} ready", percent=100, error=None)
         except Exception as exc:
@@ -292,10 +318,12 @@ class LiteRTLMServer:
 # --- PROMPTER -------------------------------------------------------------
 
 class LiteRTLMStandardPrompter:
-    def __init__(self, model_registry_path: str, profile_path: str, server: LiteRTLMServer):
+    def __init__(self, model_registry_path: str, profile_path: str, server: LiteRTLMServer,
+                 api_protocol: Optional[str] = None):
         self.model_reg = LiteRTLMModelRegistry(model_registry_path)
         self.profile = LiteRTLMProfile(profile_path)
         self.server = server
+        self.api_protocol = (api_protocol or getattr(server, "api_protocol", None) or os.environ.get(API_PROTOCOL_ENV_VAR) or DEFAULT_API_PROTOCOL).lower()
 
     def _params(self, config: Dict[str, Any]) -> Dict[str, Any]:
         return {
@@ -310,6 +338,55 @@ class LiteRTLMStandardPrompter:
         msgs.append({"role": "user", "content": user_input})
         return msgs
 
+    def build_gemini_payload(self, user_input: str, system_instruction: Optional[str] = None,
+                             history: Optional[List[Dict[str, str]]] = None, **config: Any) -> Dict[str, Any]:
+        sys_inst = system_instruction or self.profile.instruction
+        contents = []
+        for h in (history or []):
+            role = "model" if h.get("role") in ("assistant", "model") else "user"
+            contents.append({"role": role, "parts": [{"text": str(h.get("content", ""))}]})
+        contents.append({"role": "user", "parts": [{"text": user_input}]})
+        gen_config = {
+            "temperature": float(config.get("temperature", self.profile.config.get("Creativity", 0.4))),
+            "maxOutputTokens": int(config.get("max_tokens") or self.profile.config.get("MaxResponseTokens", 1024)),
+        }
+        payload: Dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": gen_config,
+        }
+        if sys_inst:
+            payload["system_instruction"] = {
+                "parts": [{"text": sys_inst}]
+            }
+        return payload
+
+    def build_gemini_stream_payload(self, messages: List[Dict[str, str]], **config: Any) -> Dict[str, Any]:
+        sys_inst = None
+        contents = []
+        for m in messages:
+            role = m.get("role")
+            text = str(m.get("content", ""))
+            if role == "system":
+                sys_inst = text
+            else:
+                mapped_role = "model" if role in ("assistant", "model") else "user"
+                contents.append({"role": mapped_role, "parts": [{"text": text}]})
+        if not sys_inst:
+            sys_inst = self.profile.instruction
+        gen_config = {
+            "temperature": float(config.get("temperature", self.profile.config.get("Creativity", 0.4))),
+            "maxOutputTokens": int(config.get("max_tokens") or self.profile.config.get("MaxResponseTokens", 1024)),
+        }
+        payload: Dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": gen_config,
+        }
+        if sys_inst:
+            payload["system_instruction"] = {
+                "parts": [{"text": sys_inst}]
+            }
+        return payload
+
     def _not_running(self) -> str:
         return (f"ERROR: LiteRT-LM server is not running at {self.server.base_url}. "
                 f"Start it from Settings > Local Model (LiteRT-LM), or run: litert-lm serve --port 9379")
@@ -320,6 +397,25 @@ class LiteRTLMStandardPrompter:
         if not self.server.is_ready():
             return self._not_running()
         model = self.model_reg.get_model_info(model_id)["id"]
+        proto = (config.get("api_protocol") or self.api_protocol).lower()
+
+        if proto == "gemini":
+            payload = self.build_gemini_payload(user_input, system_instruction, **config)
+            try:
+                r = requests.post(f"{self.server.base_url}/v1beta/models/{model}:generateContent",
+                                  json=payload, timeout=600)
+                if r.status_code != 200:
+                    return f"ERROR: {_http_error_text(r)}"
+                candidates = r.json().get("candidates") or []
+                if candidates:
+                    parts = (candidates[0].get("content") or {}).get("parts") or []
+                    content = "".join(p.get("text", "") for p in parts if p.get("text"))
+                    return content.strip() if content else "ERROR: Empty response from LiteRT-LM."
+                return "ERROR: Empty response from LiteRT-LM."
+            except Exception as e:
+                return f"ERROR: {e}"
+
+        # Default: OpenAI format
         payload = {"model": model, "messages": self.build_messages(user_input, system_instruction),
                    "stream": False, **self._params(config)}
         try:
@@ -334,12 +430,47 @@ class LiteRTLMStandardPrompter:
 
     def stream(self, messages: List[Dict[str, str]], model_id: Optional[str] = None,
                **config: Any) -> Iterator[str]:
-        """Yield content deltas from the SSE stream. Closing the generator
-        closes the HTTP connection, which makes the server stop generating."""
+        """Yield content deltas from the SSE stream (supports both OpenAI and Gemini formats).
+        Closing the generator closes the HTTP connection, which makes the server stop generating."""
         import requests
         if not self.server.is_ready():
             raise LiteRTLMError(self._not_running()[7:])
         model = self.model_reg.get_model_info(model_id)["id"]
+        proto = (config.get("api_protocol") or self.api_protocol).lower()
+
+        if proto == "gemini":
+            payload = self.build_gemini_stream_payload(messages, **config)
+            url = f"{self.server.base_url}/v1beta/models/{model}:streamGenerateContent"
+            with requests.post(url, json=payload, stream=True, timeout=(5, 600)) as r:
+                if r.status_code != 200:
+                    raise LiteRTLMError(_http_error_text(r))
+                for raw in r.iter_lines():
+                    if not raw:
+                        continue
+                    line = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        obj = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    if obj.get("error"):
+                        err = obj["error"]
+                        raise LiteRTLMError(str(err.get("message") if isinstance(err, dict) else err))
+                    for cand in obj.get("candidates") or []:
+                        parts = (cand.get("content") or {}).get("parts") or []
+                        for p in parts:
+                            text = p.get("text")
+                            if text:
+                                yield text
+                        if cand.get("finishReason") == "STOP":
+                            break
+            return
+
+        # Default: OpenAI format
         payload = {"model": model, "messages": messages, "stream": True, **self._params(config)}
         with requests.post(f"{self.server.base_url}/v1/chat/completions", json=payload,
                            stream=True, timeout=(5, 600)) as r:
@@ -374,18 +505,20 @@ _std_server_singleton: Optional[LiteRTLMServer] = None
 _std_prompter_singleton: Optional[LiteRTLMStandardPrompter] = None
 
 
-def get_standard_server(log_dir: Optional[str] = None) -> LiteRTLMServer:
-    """Shared server manager. `log_dir` only takes effect on the first call."""
+def get_standard_server(log_dir: Optional[str] = None, api_protocol: Optional[str] = None) -> LiteRTLMServer:
+    """Shared server manager. `log_dir` and `api_protocol` take effect on first call."""
     global _std_server_singleton
     if _std_server_singleton is None:
-        _std_server_singleton = LiteRTLMServer(log_dir=log_dir)
+        _std_server_singleton = LiteRTLMServer(log_dir=log_dir, api_protocol=api_protocol)
     return _std_server_singleton
 
 
-def get_standard_prompter() -> LiteRTLMStandardPrompter:
+def get_standard_prompter(api_protocol: Optional[str] = None) -> LiteRTLMStandardPrompter:
     """Zero-config prompter, cached after first call."""
     global _std_prompter_singleton
     if _std_prompter_singleton is None:
         _std_prompter_singleton = LiteRTLMStandardPrompter(
-            STD_MODEL_PATH, STD_PROFILE_PATH, get_standard_server())
+            STD_MODEL_PATH, STD_PROFILE_PATH, get_standard_server(api_protocol=api_protocol),
+            api_protocol=api_protocol
+        )
     return _std_prompter_singleton

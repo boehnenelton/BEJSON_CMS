@@ -1,5 +1,91 @@
 # BEJSON_CMS Change Log
 
+## [18.38-PKG147] - 2026-11-12
+
+### Added
+- **2-Tier Modular Skeleton Scope Architecture**:
+  - Global Shell (`Global_Skeleton.html`) vs. Local Body slot mapping in `BEJSON_CMS_Publisher.py`.
+  - Created `resources/templates/Home_Bulletin_Skeleton.html` supporting both text announcement links and 16:9 responsive YouTube video embeds.
+  - Adaptive category dock strip (`{{category_bar_above_html}}` / `{{category_bar_below_html}}`) with single-row horizontal scrolling and mobile portrait overflow protection.
+  - Homepage feed suppression toggle (`home_feed_enabled` flag and `home_category_bar_position` selector) for minimalist custom landing page compilation.
+  - Asynchronous background server management tool `server_manager.py` with Termux clipboard synchronization and Android Activity Manager Chrome dispatch (`am start -n com.android.chrome/...`).
+  - Unit test suite `tests/test_bejson_cms_skeleton_and_bulletin.py` (8 new tests, 108 total passing).
+  - Cataloged future roadmap proposal #11 for Featured Card Carousel & GitHub Repo Stage (`Home_Carousel_Skeleton.html`) in `suggestions.md`, `notes_tool` (`not_024`), and architecture reports.
+
+### Fixed
+- **Dark/Light Theme Token Contrast Alignment**:
+  - Bound category pills and buttons to `font-family: var(--font-main)` ('Inter', sans-serif).
+  - Aligned unresolvable `--card-bg` references to semantic theme tokens `var(--bg-card, var(--card-bg))` and `var(--border-color)` across `light.css`, `dark.css`, `Category_Skeleton.html`, and `Home_Skeleton.html`.
+
+## [18.38-PKG146] - 2026-11-10
+
+### Changed (vendored libs)
+- Google Search-free, versions bumped: `bejson_gemini` 2.5.1, `bejson_groq` 3.1.1, `bejson_openrouter` 3.2.1, `chat_gemini_engine` 1.0.1, `chat_interactions_engine` 1.2.1, `gemini_standard_profiles` 4.0.1, `Core_bejson_schema` 2.3.5. Code identical to libraries_104 and CLI_AI copies.
+- From CLI_AI PKG57: `ai_constants` 1.3.0, `ai_context_bubble` 2.2.1, `bejson_ollamalocal`, `lib_ai_model_registry` (2 new OllamaLocal models). `ai_dispatch` 1.8.2.
+
+### Open
+- `lib_bejson_Core_bejson_env.py`: CMS has `DEFINITIONS_FILE` support the other trees lack; owner decision pending.
+
+## [18.37-PKG145] - 2026-11-09
+
+### Changed (vendored libs, user-approved)
+- `lib_bejson_AI_bejson_litertlm.py` 1.0.0 -> 1.1.0, `lib_ai_model_registry.py` (OllamaLocal/LiteRTLM services) from libraries_104.
+- `lib_bejson_AI_ai_dispatch.py` -> 1.8.2: routes `ollamalocal` and `litertlm`.
+- `lib_bejson_AI_chat_gemini_engine.py`: header no longer claims Google Search (header only).
+
+### Not changed
+- Google Search stays out of the CMS libs; master/CLI_AI copies of those files were not adopted.
+- `lib_bejson_Core_bejson_env.py`: CMS has `DEFINITIONS_FILE` support the other trees lack; owner decision pending.
+
+## [18.36-PKG144] - 2026-11-09
+
+### Added
+- `cms-manage.py` (v18.13): `page set-author AUTHOR` bulk re-author with `--uuid/--category/--type/--current-author/--since/--title-contains`, `--all`, `--dry-run`, `--publish`. Requires an existing AuthorProfile. 5 tests. README usage added.
+
+## [18.35-PKG143] - 2026-11-08
+
+### Added
+- Built-in **Anonymous** author, seeded by `BEJSON_CMS_System.py` (v18.25) at startup/after reset and on demand by `cms-manage.py` (v18.12).
+
+### Changed
+- `page add`, `quick-post`, `page import --html/--app` and `page md-import` default to Anonymous (previously empty / Leethaxor69 / boehnenelton2024). An explicit author with no AuthorProfile now logs a warning.
+
+### Open
+- Bulk re-author command and Publisher author cards/pages: packages 144/145. Job system (vendored) still defaults to boehnenelton2024.
+
+## [18.34-PKG142] - 2026-11-08
+
+### Fixed
+- `cms-manage.py` (v18.11): `page add` and `quick-post` now write `page_created_at` as `YYYY-MM-DD`, matching every other writer. The Publisher renders the raw value, so CLI posts previously displayed a time. Existing timestamped rows not migrated; same-day ordering on the dashboard falls back to manifest order.
+
+## [18.33-PKG141] - 2026-11-08
+
+### Fixed
+- `AGENTS.md`: test count 21 -> 91 (+ note on the 2 pre-existing failures); `PageEditorV2.py` map row marked deprecated/removed. Docs only.
+
+## [18.32-PKG140] - 2026-11-08
+
+### Fixed
+- **`src/cms-manage.py` (v18.10) aligned with CMSCore**:
+  - `page md-import` no longer calls `md2html.import_markdown_file_to_cms()` (direct `pagerecord.bejson` + manifest edits, `104a`/`PageContent` content file). It now writes through CMSCore via `_import_markdown_file()`, reusing only md2html's pure converter; directory mode defers the manifest sync (`sync_count=False` + one `sync_manifest_count()`).
+  - New `_checked_add()` guard: CMSCore silently drops keys the live entity lacks and still returns `True`; every cms-manage add now refuses and names the missing fields (empty-valued unknown keys allowed).
+  - New `_create_page()`: content file written before the PageRecord row, removed again if the row write fails. Used by `page add`, `quick-post`, `page import --html/--app`, `page md-import`.
+  - `page update --type` is now applied; `update_record()` failure is reported instead of printing success.
+  - `status` reads the live manifest and per-entity counts via CMSCore instead of the disconnected `MFDB_CMS_Manager`.
+  - `page md-import` warns when the target category does not exist.
+
+### Added
+- `tests/test_cms_manage_core_alignment.py` (9 tests, throw-away MFDB only).
+- `dev/checklist-20261108-052725.md`.
+
+### Verification
+- Suite: 89 passed, 2 failed. The same 2 (`test_bejson_cms_profile_manager.py` t5, t8) fail identically on the untouched uploaded ZIP (80 passed, 2 failed).
+
+### Open (not changed)
+- `md2html.import_markdown_file_to_cms()` / `batch_import_markdown_directory()` now have no callers (vendored, left in place).
+- Live `104db` content-file shape (Content.py, PageEditor.py, bks_blog_jobs.py, cms-manage) fails `lib_bejson_Core_bejson_validator` (`meta_title missing Record_Type_Parent`).
+- `CMS_DATA_ROOT` is honoured by cms-manage but not by `BEJSON_CMS_Shared.py`; `--publish` with an override publishes the project's own storage.
+
 ## [18.31-PKG139] - 2026-11-06
 
 ### Added

@@ -32,5 +32,14 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "0b414636-3325-4c71-bb46-b9da11f35d9e",
+      "BEJSON Web Editor",
+      "bejson-web-editor",
+      "Single-file browser editor for BEJSON 104/104a and MFDB documents with grid editing, schema management, and raw JSON inspection.",
+      "BEJSON_Editor_JS.html",
+      "bejson_104_telemetry_hero.webp"
+    ]
+  ]
 }

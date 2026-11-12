@@ -2,12 +2,12 @@
 Library:        lib_bejson_AI_bejson_groq.py
 Family:         AI
 Description:    Integration wrapper for Groq API services.
-Version:        3.1.0
-Date:           2026-08-22
+Version:        3.1.1
+Date:           2026-11-09
 Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  7d3e9f42-1b6c-4a58-8e0d-9f2c5a7b3e14
+RELATIONAL_ID:  d28736ce-45f2-42d6-b6e5-b3632b93daef
 Release_Version: 300
 
 Changelog:
@@ -86,7 +86,7 @@ from lib_bejson_AI_ai_registry_base import (
     get_self_contained_dir,
 )
 
-VERSION = "3.1.0"
+VERSION = "3.1.1"
 
 # Config_Version for this provider's model registry -- bump this whenever
 # the default model list below changes (e.g. Groq deprecates a model

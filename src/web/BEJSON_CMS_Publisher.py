@@ -287,10 +287,11 @@ class SkeletonBuilder:
             self.build_article_skeleton()
             self.build_app_skeleton()
             self.build_home_skeleton()
+            self.build_home_bulletin_skeleton()
             self.build_category_skeleton()
             self.build_author_skeleton()
             self.build_apps_feed_skeleton()
-            return True, f"Successfully built 7 skeletons in:\n{OUTPUT_DIR}"
+            return True, f"Successfully built 8 skeletons in:\n{OUTPUT_DIR}"
         except Exception as e:
             return False, str(e)
 
@@ -454,25 +455,173 @@ class SkeletonBuilder:
     </div>
 </div>
 
-<div class="section-divider">
-    <h2 class="section-label">Latest Discoveries</h2>
-    <div class="label-line"></div>
-</div>
+{{category_bar_above_html}}
+{{category_bar_below_html}}
 
-<div class="grid">
-    {{content_grid}}
+<div class="home-feed-section" style="{{home_feed_display_style}}">
+    <div class="section-divider">
+        <h2 class="section-label">Latest Discoveries</h2>
+        <div class="label-line"></div>
+    </div>
+
+    <div class="grid">
+        {{content_grid}}
+    </div>
 </div>
 
 <style>
 .home-hero { padding: 120px 0 80px; text-align: left; border-bottom: 1px solid var(--border-color); margin-bottom: 60px; }
-.hero-tag { display: inline-block; padding: 6px 12px; background: var(--accent-color); color: white; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; border-radius: 2px; margin-bottom: 25px; }
-.hero-title { font-size: clamp(3rem, 8vw, 6rem); font-weight: 900; line-height: 0.9; letter-spacing: -4px; color: var(--text-main); margin-bottom: 30px; }
-.hero-desc { font-size: 1.4rem; color: var(--text-muted); max-width: 700px; line-height: 1.4; }
+.hero-tag { display: inline-block; padding: 6px 12px; background: var(--accent-color); color: #ffffff; font-family: var(--font-main); font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; border-radius: 2px; margin-bottom: 25px; }
+.hero-title { font-family: var(--font-main); font-size: clamp(3rem, 8vw, 6rem); font-weight: 900; line-height: 0.9; letter-spacing: -4px; color: var(--text-main); margin-bottom: 30px; word-break: break-word; }
+.hero-desc { font-family: var(--font-main); font-size: 1.4rem; color: var(--text-muted); max-width: 700px; line-height: 1.4; }
 .section-divider { display: flex; align-items: center; gap: 20px; margin-bottom: 40px; }
-.section-label { font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: var(--accent-color); white-space: nowrap; }
+.section-label { font-family: var(--font-main); font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: var(--accent-color); white-space: nowrap; }
 .label-line { height: 1px; background: var(--border-color); flex: 1; }
+
+.home-category-bar-wrap { display: flex; align-items: center; gap: 14px; margin-bottom: 40px; width: 100%; box-sizing: border-box; }
+.home-category-bar-label { font-family: var(--font-main); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); flex-shrink: 0; }
+.home-category-bar { display: flex; gap: 10px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; width: 100%; box-sizing: border-box; }
+.home-category-bar::-webkit-scrollbar { display: none; }
+.home-category-pill {
+    font-family: var(--font-main);
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 16px;
+    background: var(--bg-card, var(--card-bg, #F8F8F8));
+    border: 1px solid var(--border-color, #E0E0E0);
+    border-radius: 9999px;
+    color: var(--text-main) !important;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+.home-category-pill:hover, .home-category-pill.active {
+    border-color: var(--accent-color, #DE2626);
+    color: #ffffff !important;
+    background: var(--accent-color, #DE2626) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(222, 38, 38, 0.3);
+}
+
+@media (max-width: 600px) {
+    .home-hero { padding: 60px 0 40px; }
+    .home-category-bar-wrap { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 25px; }
+}
 </style>"""
         self._write_file("Home_Skeleton.html", html)
+
+    def build_home_bulletin_skeleton(self):
+        html = """<div class="home-hero">
+    <div class="hero-content">
+        <span class="hero-tag">Site Overview</span>
+        <h1 class="hero-title">{{site_title}}</h1>
+        <p class="hero-desc">{{site_description}}</p>
+    </div>
+</div>
+
+{{category_bar_above_html}}
+
+<section class="home-bulletin-card home-bulletin-mode-{{bulletin_mode}}" style="{{bulletin_display_style}}">
+    <div class="home-bulletin-header">
+        <span class="home-bulletin-badge">{{bulletin_badge}}</span>
+        <h2 class="home-bulletin-title">{{bulletin_title}}</h2>
+    </div>
+    <div class="home-bulletin-content">
+        <div class="home-bulletin-copy" style="{{bulletin_copy_style}}">
+            <p class="home-bulletin-text">{{bulletin_text}}</p>
+            {{bulletin_action_html}}
+        </div>
+        {{bulletin_video_html}}
+    </div>
+</section>
+
+{{category_bar_below_html}}
+
+<div class="home-feed-section" style="{{home_feed_display_style}}">
+    <div class="section-divider">
+        <h2 class="section-label">Latest Entries</h2>
+        <div class="label-line"></div>
+    </div>
+
+    <div class="grid">
+        {{content_grid}}
+    </div>
+</div>
+
+<style>
+.home-hero { padding: 100px 0 60px; text-align: left; border-bottom: 1px solid var(--border-color); margin-bottom: 40px; }
+.hero-tag { display: inline-block; padding: 6px 12px; background: var(--accent-color); color: #ffffff; font-family: var(--font-main); font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; border-radius: 2px; margin-bottom: 25px; }
+.hero-title { font-family: var(--font-main); font-size: clamp(2.5rem, 8vw, 6rem); font-weight: 900; line-height: 0.95; letter-spacing: -3px; color: var(--text-main); margin-bottom: 24px; word-break: break-word; }
+.hero-desc { font-family: var(--font-main); font-size: 1.3rem; color: var(--text-muted); max-width: 700px; line-height: 1.4; }
+
+.home-bulletin-card {
+    background: var(--bg-card, var(--card-bg, #161616));
+    border: 1px solid var(--border-color, #2a2a2a);
+    border-left: 5px solid var(--accent-color, #DE2626);
+    border-radius: var(--radius, 6px);
+    padding: 28px;
+    margin-bottom: 50px;
+    box-sizing: border-box;
+    width: 100%;
+    color: var(--text-main);
+}
+.home-bulletin-header { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 16px; }
+.home-bulletin-badge { display: inline-block; background: var(--accent-color, #DE2626); color: #ffffff; font-family: var(--font-main); font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; padding: 5px 10px; border-radius: 3px; flex-shrink: 0; }
+.home-bulletin-title { font-family: var(--font-main); font-size: 1.45rem; font-weight: 800; color: var(--text-main); margin: 0; line-height: 1.25; word-break: break-word; }
+.home-bulletin-content { display: flex; flex-direction: column; gap: 20px; width: 100%; }
+.home-bulletin-copy { display: flex; flex-direction: column; gap: 14px; }
+.home-bulletin-text { font-family: var(--font-main); font-size: 1.02rem; color: var(--text-muted); line-height: 1.6; margin: 0; word-break: break-word; }
+.home-bulletin-btn { display: inline-flex; align-items: center; align-self: flex-start; gap: 8px; background: var(--accent-color, #DE2626); color: #ffffff !important; font-family: var(--font-main); font-size: 0.82rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 10px 18px; border-radius: 4px; text-decoration: none !important; transition: opacity 0.15s ease; }
+.home-bulletin-btn:hover { opacity: 0.88; }
+.home-bulletin-video-stage { width: 100%; max-width: 860px; }
+.home-bulletin-video-frame { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 6px; border: 1px solid var(--border-color, #333); background: #000000; }
+.home-bulletin-video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+
+.section-divider { display: flex; align-items: center; gap: 20px; margin-bottom: 40px; }
+.section-label { font-family: var(--font-main); font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: var(--accent-color); white-space: nowrap; }
+.label-line { height: 1px; background: var(--border-color); flex: 1; }
+
+.home-category-bar-wrap { display: flex; align-items: center; gap: 14px; margin-bottom: 40px; width: 100%; box-sizing: border-box; }
+.home-category-bar-label { font-family: var(--font-main); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); flex-shrink: 0; }
+.home-category-bar { display: flex; gap: 10px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; width: 100%; box-sizing: border-box; }
+.home-category-bar::-webkit-scrollbar { display: none; }
+.home-category-pill {
+    font-family: var(--font-main);
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 16px;
+    background: var(--bg-card, var(--card-bg, #F8F8F8));
+    border: 1px solid var(--border-color, #E0E0E0);
+    border-radius: 9999px;
+    color: var(--text-main) !important;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+.home-category-pill:hover, .home-category-pill.active {
+    border-color: var(--accent-color, #DE2626);
+    color: #ffffff !important;
+    background: var(--accent-color, #DE2626) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(222, 38, 38, 0.3);
+}
+
+@media (max-width: 600px) {
+    .home-hero { padding: 60px 0 40px; }
+    .home-bulletin-card { padding: 18px; }
+    .home-bulletin-title { font-size: 1.2rem; }
+    .home-category-bar-wrap { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 25px; }
+}
+</style>"""
+        self._write_file("Home_Bulletin_Skeleton.html", html)
 
     def build_category_skeleton(self):
         html = """<div>
@@ -516,6 +665,259 @@ class SkeletonBuilder:
 
 
 # ==============================================================================
+# 2-TIER SKELETON SCOPE & BULLETIN CONFIGURATION ENGINE
+# ==============================================================================
+
+SKELETON_DISPLAY_LABELS = {
+    "Global_Skeleton.html": "Standard Global Shell — Header, Sidebar & Footer (Global_Skeleton.html)",
+    "Home_Skeleton.html": "Standard Homepage — Hero & Card Grid (Home_Skeleton.html)",
+    "Home_Bulletin_Skeleton.html": "Featured Bulletin Homepage — Standard / Video Bulletin (Home_Bulletin_Skeleton.html)",
+    "Article_Skeleton.html": "Standard Article Body — Header, Media, Body & Related (Article_Skeleton.html)",
+    "Category_Skeleton.html": "Standard Category Feed (Category_Skeleton.html)",
+    "Apps_Feed_Skeleton.html": "Standard Applications Feed (Apps_Feed_Skeleton.html)",
+    "App_Skeleton.html": "Standard Application Detail (App_Skeleton.html)",
+    "Author_Skeleton.html": "Standard Author Profile (Author_Skeleton.html)",
+}
+
+SKELETON_SLOT_DEFINITIONS = {
+    "active_global_skeleton": {
+        "scope": "global",
+        "tab": "global",
+        "label": "Global Master Shell (Header, Sidebar, Footer)",
+        "default": "Global_Skeleton.html",
+        "prefix": "Global_",
+    },
+    "active_home_skeleton": {
+        "scope": "local",
+        "tab": "home",
+        "label": "Homepage Body Skeleton",
+        "default": "Home_Skeleton.html",
+        "prefix": "Home_",
+    },
+    "active_article_skeleton": {
+        "scope": "local",
+        "tab": "article",
+        "label": "Default Article / Page Body Skeleton",
+        "default": "Article_Skeleton.html",
+        "prefix": "Article_",
+    },
+    "active_category_skeleton": {
+        "scope": "local",
+        "tab": "feeds",
+        "label": "Category Feed Body Skeleton",
+        "default": "Category_Skeleton.html",
+        "prefix": "Category_",
+    },
+    "active_apps_skeleton": {
+        "scope": "local",
+        "tab": "feeds",
+        "label": "Applications Feed Body Skeleton",
+        "default": "Apps_Feed_Skeleton.html",
+        "prefix": "Apps_Feed_",
+    },
+    "active_app_detail_skeleton": {
+        "scope": "local",
+        "tab": "feeds",
+        "label": "Application Detail Body Skeleton",
+        "default": "App_Skeleton.html",
+        "prefix": "App_",
+    },
+    "active_author_skeleton": {
+        "scope": "local",
+        "tab": "feeds",
+        "label": "Author Profile Body Skeleton",
+        "default": "Author_Skeleton.html",
+        "prefix": "Author_",
+    },
+}
+
+DEFAULT_SKELETON_SITE_CONFIG = {
+    "active_global_skeleton": "Global_Skeleton.html",
+    "active_home_skeleton": "Home_Skeleton.html",
+    "active_article_skeleton": "Article_Skeleton.html",
+    "active_category_skeleton": "Category_Skeleton.html",
+    "active_apps_skeleton": "Apps_Feed_Skeleton.html",
+    "active_app_detail_skeleton": "App_Skeleton.html",
+    "active_author_skeleton": "Author_Skeleton.html",
+    "home_bulletin_enabled": "true",
+    "home_bulletin_mode": "standard",
+    "home_bulletin_badge": "FEATURED BULLETIN",
+    "home_bulletin_title": "System Architecture Update",
+    "home_bulletin_text": "Explore the latest technical documentation, system releases, and architectural specifications.",
+    "home_bulletin_link": "",
+    "home_bulletin_link_label": "Read Announcement",
+    "home_bulletin_video_url": "",
+    "home_feed_enabled": "true",
+    "home_category_bar_position": "below_bulletin",
+}
+
+
+def _extract_youtube_id(raw_video_input: str) -> str:
+    """Extract an 11-character YouTube video ID from a URL or raw ID string."""
+    cleaned_input = (raw_video_input or "").strip()
+    if not cleaned_input:
+        return ""
+    if re.match(r"^[A-Za-z0-9_-]{11}$", cleaned_input):
+        return cleaned_input
+    matched_id = re.search(r"(?:v=|youtu\.be/|embed/|shorts/)([A-Za-z0-9_-]{11})", cleaned_input)
+    return matched_id.group(1) if matched_id else ""
+
+
+def _list_slot_skeleton_options(slot_key: str) -> list:
+    """Return available skeleton filenames on disk matching the given slot definition."""
+    slot_definition = SKELETON_SLOT_DEFINITIONS.get(slot_key, {})
+    prefix_filter = slot_definition.get("prefix", "")
+    default_filename = slot_definition.get("default", "")
+    excluded_partials = {"Author_Card.html", "diagram_component_template.html"}
+
+    discovered_files = []
+    if os.path.exists(SKEL_DIR):
+        for candidate_file in sorted(os.listdir(SKEL_DIR)):
+            if not candidate_file.endswith(".html") or candidate_file in excluded_partials:
+                continue
+            if prefix_filter == "App_" and candidate_file.startswith("Apps_Feed_"):
+                continue
+            if prefix_filter and candidate_file.startswith(prefix_filter):
+                discovered_files.append(candidate_file)
+
+    if default_filename and default_filename not in discovered_files:
+        discovered_files.insert(0, default_filename)
+    return discovered_files
+
+
+def _get_skeleton_config(site_conf_dict: dict = None) -> dict:
+    """Resolve current skeleton and bulletin settings from SiteConfig with defaults."""
+    if site_conf_dict is None:
+        site_conf_dict = {}
+        if os.path.exists(MANIFEST_PATH):
+            try:
+                db.mount()
+                site_conf_records = db.get_records("SiteConfig")
+                site_conf_dict = {
+                    rec["sys_key"]: rec["sys_value"]
+                    for rec in site_conf_records
+                    if "sys_key" in rec
+                }
+            except Exception:
+                site_conf_dict = {}
+
+    resolved_config = dict(DEFAULT_SKELETON_SITE_CONFIG)
+    for config_key, default_val in DEFAULT_SKELETON_SITE_CONFIG.items():
+        if config_key in site_conf_dict and site_conf_dict[config_key] is not None:
+            resolved_config[config_key] = str(site_conf_dict[config_key])
+
+    # Validate selected skeleton files exist on disk; fallback to slot default if missing
+    for slot_key, slot_meta in SKELETON_SLOT_DEFINITIONS.items():
+        selected_file = resolved_config.get(slot_key, slot_meta["default"])
+        if not os.path.exists(os.path.join(SKEL_DIR, selected_file)):
+            resolved_config[slot_key] = slot_meta["default"]
+
+    if resolved_config.get("home_bulletin_mode") not in ("standard", "video"):
+        resolved_config["home_bulletin_mode"] = "standard"
+
+    return resolved_config
+
+
+def _save_skeleton_config(submitted_updates: dict) -> tuple:
+    """Persist skeleton slot choices and bulletin customizations to SiteConfig in MFDB."""
+    if not os.path.exists(MANIFEST_PATH):
+        return False, "Master database manifest is missing."
+    try:
+        db.mount()
+        existing_records = db.get_records("SiteConfig")
+        existing_keys = {rec.get("sys_key") for rec in existing_records if rec.get("sys_key")}
+
+        for sys_key, sys_val in submitted_updates.items():
+            if sys_key not in DEFAULT_SKELETON_SITE_CONFIG:
+                continue
+            normalized_val = str(sys_val if sys_val is not None else "").strip()
+            if sys_key in existing_keys:
+                db.update_record("SiteConfig", "sys_key", sys_key, {"sys_value": normalized_val})
+            else:
+                db.add_record("SiteConfig", {"sys_key": sys_key, "sys_value": normalized_val})
+                existing_keys.add(sys_key)
+        return True, "Skeleton and bulletin settings saved to SiteConfig."
+    except Exception as save_err:
+        return False, f"Failed to save skeleton settings: {save_err}"
+
+
+def _build_home_bulletin_tags(skeleton_config: dict, rel_prefix: str = "") -> dict:
+    """Compile template replacement tags for Home_Bulletin_Skeleton.html (standard or video mode)."""
+    bulletin_enabled = str(skeleton_config.get("home_bulletin_enabled", "true")).lower() in ("true", "1", "yes", "on")
+    bulletin_mode = str(skeleton_config.get("home_bulletin_mode", "standard")).lower().strip()
+    if bulletin_mode not in ("standard", "video"):
+        bulletin_mode = "standard"
+
+    bulletin_badge = _html_mod.escape(str(skeleton_config.get("home_bulletin_badge") or "FEATURED BULLETIN"))
+    bulletin_title = _html_mod.escape(str(skeleton_config.get("home_bulletin_title") or ""))
+    bulletin_text = _html_mod.escape(str(skeleton_config.get("home_bulletin_text") or ""))
+    bulletin_link_raw = str(skeleton_config.get("home_bulletin_link") or "").strip()
+    bulletin_link_label = _html_mod.escape(str(skeleton_config.get("home_bulletin_link_label") or "Read Announcement"))
+    bulletin_video_raw = str(skeleton_config.get("home_bulletin_video_url") or "").strip()
+    youtube_video_id = _extract_youtube_id(bulletin_video_raw)
+
+    if bulletin_link_raw:
+        if bulletin_link_raw.startswith(("http://", "https://", "/", "#")):
+            resolved_href = _html_mod.escape(bulletin_link_raw)
+        else:
+            resolved_href = _html_mod.escape(f"{rel_prefix}{bulletin_link_raw.lstrip('/')}")
+        bulletin_action_html = f'<a href="{resolved_href}" class="home-bulletin-btn">{bulletin_link_label} &rarr;</a>'
+    else:
+        bulletin_action_html = ""
+
+    if bulletin_mode == "video" and youtube_video_id:
+        iframe_title = bulletin_title or "Featured Video Bulletin"
+        bulletin_video_html = (
+            '<div class="home-bulletin-video-stage">'
+            '<div class="home-bulletin-video-frame">'
+            f'<iframe src="https://www.youtube.com/embed/{youtube_video_id}" '
+            f'title="{iframe_title}" '
+            'frameborder="0" '
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" '
+            'allowfullscreen></iframe>'
+            '</div>'
+            '</div>'
+        )
+    else:
+        bulletin_video_html = ""
+
+    bulletin_copy_style = "" if (bulletin_text or bulletin_action_html) else "display:none;"
+    has_visible_payload = bool(bulletin_title or bulletin_text or bulletin_video_html or bulletin_action_html)
+    bulletin_display_style = "" if (bulletin_enabled and has_visible_payload) else "display:none;"
+
+    return {
+        "bulletin_mode": bulletin_mode,
+        "bulletin_badge": bulletin_badge,
+        "bulletin_title": bulletin_title,
+        "bulletin_text": bulletin_text,
+        "bulletin_action_html": bulletin_action_html,
+        "bulletin_video_html": bulletin_video_html,
+        "bulletin_copy_style": bulletin_copy_style,
+        "bulletin_display_style": bulletin_display_style,
+    }
+
+
+def _generate_horizontal_category_bar(categories: list, rel_prefix: str = "") -> str:
+    """Generate a single-row horizontal scroll category inline link list (dock strip)."""
+    pills = [f'<a href="{rel_prefix}index.html" class="home-category-pill">All</a>']
+    for c in categories:
+        c_name = c.get("cat_name") or c.get("category_name")
+        c_slug = c.get("cat_slug") or c.get("category_slug")
+        if c_name and c_slug:
+            esc_name = _html_mod.escape(c_name)
+            pills.append(f'<a href="{rel_prefix}category/{c_slug}/index.html" class="home-category-pill">{esc_name}</a>')
+
+    pills_html = "".join(pills)
+    return (
+        '<div class="home-category-bar-wrap">'
+        '<span class="home-category-bar-label">Categories</span>'
+        f'<nav class="home-category-bar" aria-label="Categories">{pills_html}</nav>'
+        '</div>'
+    )
+
+
+
+# ==============================================================================
 # STYLESHEET MANAGER
 # Writes light.css and dark.css to Stylesheets/ on first launch.
 # Users copy and customise these to build their own themes.
@@ -526,6 +928,7 @@ _LIGHT_ROOT = """\
     --bg-body: #FFFFFF;
     --bg-nav: #FFFFFF;
     --bg-card: #FFFFFF;
+    --card-bg: var(--bg-card);
     --bg-footer: #F8F9FA;
     --text-main: #121212;
     --text-muted: #555555;
@@ -549,6 +952,7 @@ _DARK_ROOT = """\
     --bg-body: #050505;
     --bg-nav: rgba(10, 10, 10, 0.8);
     --bg-card: #0F0F0F;
+    --card-bg: var(--bg-card);
     --bg-footer: #080808;
     --text-main: #FFFFFF;
     --text-muted: #888888;
@@ -1014,7 +1418,15 @@ def _execute():
     custom_nav_html = "".join([f"<li><a href='{n.get('nav_target_url', '#')}'>{n.get('nav_display_label', 'Link')}</a></li>" for n in nav_records])
     social_html     = "".join([f"<a href='{s.get('social_target_url', '#')}' target='_blank' class='social-btn'>{s.get('social_platform_name', 'Social')}</a>" for s in social_records])
 
-    wrapper_skel = _read_skel("Global_Skeleton.html")
+    skeleton_config = _get_skeleton_config(site_conf)
+    active_global_skeleton_name   = skeleton_config["active_global_skeleton"]
+    active_home_skeleton_name     = skeleton_config["active_home_skeleton"]
+    active_article_skeleton_name  = skeleton_config["active_article_skeleton"]
+    active_category_skeleton_name = skeleton_config["active_category_skeleton"]
+    active_apps_skeleton_name     = skeleton_config["active_apps_skeleton"]
+
+    _log(f"Global Shell: {active_global_skeleton_name} | Home Body: {active_home_skeleton_name}")
+    wrapper_skel = _read_skel(active_global_skeleton_name)
     feed_items   = []
 
     # Common tags
@@ -1103,7 +1515,18 @@ def _execute():
             from BEJSON_CMS_Renderers import render_page
             rendered_article_content = render_page(itype, {"page_title": item.get("page_title", ""), "html_body": html_body, "page_external_url": item.get("page_external_url"), "page_featured_img": f_img, "page_featured_video_url": item.get("page_featured_video_url")})
 
-            article_skel = _read_skel("Article_Skeleton.html")
+            page_selected_article_skel = active_article_skeleton_name
+            page_template_override = (item.get("page_template_key") or "").strip()
+            if page_template_override and page_template_override not in ("blank", "default"):
+                candidate_skel_file = (
+                    page_template_override
+                    if page_template_override.endswith(".html")
+                    else f"Article_{page_template_override}_Skeleton.html"
+                )
+                if os.path.exists(os.path.join(SKEL_DIR, candidate_skel_file)):
+                    page_selected_article_skel = candidate_skel_file
+
+            article_skel = _read_skel(page_selected_article_skel)
             if feat_diag_html and "{{featured_diagram_html}}" not in article_skel:
                 feat_img_html = feat_img_html + "\n" + feat_diag_html
 
@@ -1152,10 +1575,25 @@ def _execute():
             feed_items.append({"date": sa.get("app_created_at", datetime.now().strftime("%Y-%m-%d")), "item": {"page_title": sa["app_name"], "page_featured_img": sa.get("app_featured_img"), "page_uuid": sa["app_uuid"]}, "link": Generated_App_Permalink, "type": "app", "desc": sa.get("app_description", "")})
 
     # --- BUILD HOME ---
-    _log("Generating Home Feed...")
+    _log(f"Generating Home Feed ({active_home_skeleton_name})...")
     recent = sorted(feed_items, key=lambda k: k["date"] or "", reverse=True)[:15]
     home_grid = "".join([_generate_card_html(x["item"], x["link"], x.get("target_attr", ""), x["type"].upper(), x["date"], default_author, "", x.get("desc", "")) for x in recent])
     
+    home_feed_enabled = str(skeleton_config.get("home_feed_enabled", "true")).lower() in ("true", "1", "yes", "on")
+    home_feed_display_style = "" if home_feed_enabled else "display:none;"
+
+    home_category_bar_position = str(skeleton_config.get("home_category_bar_position", "below_bulletin")).lower().strip()
+    category_bar_html = _generate_horizontal_category_bar(categories, "")
+    if home_category_bar_position == "above_bulletin":
+        category_bar_above_html = category_bar_html
+        category_bar_below_html = ""
+    elif home_category_bar_position == "below_bulletin":
+        category_bar_above_html = ""
+        category_bar_below_html = category_bar_html
+    else:
+        category_bar_above_html = ""
+        category_bar_below_html = ""
+
     home_tags = base_tags.copy()
     home_tags.update({
         "page_title": "Home",
@@ -1166,10 +1604,14 @@ def _execute():
         "seo_author": site_title,
         "seo_image": "",
         "current_url": base_url,
-        "content_grid": home_grid + _generate_ad_block(ad_units, "")
+        "content_grid": home_grid + _generate_ad_block(ad_units, ""),
+        "home_feed_display_style": home_feed_display_style,
+        "category_bar_above_html": category_bar_above_html,
+        "category_bar_below_html": category_bar_below_html,
     })
+    home_tags.update(_build_home_bulletin_tags(skeleton_config, rel_prefix=""))
     
-    home_inner = _apply_tags(_read_skel("Home_Skeleton.html"), home_tags)
+    home_inner = _apply_tags(_read_skel(active_home_skeleton_name), home_tags)
     home_tags["main_content_injection"] = home_inner
     
     final = _apply_tags(wrapper_skel, home_tags)
@@ -1177,7 +1619,7 @@ def _execute():
     with open(os.path.join(output_dir, "index.html"), "w", encoding="utf-8") as f: f.write(final)
 
     # --- BUILD APPS FEED ---
-    _log("Generating Apps Feed...")
+    _log(f"Generating Apps Feed ({active_apps_skeleton_name})...")
     apps_only = [x for x in feed_items if x["type"] == "app"]
     apps_grid = "".join([_generate_card_html(x["item"], x["link"].replace("apps/", ""), "", "APP", x["date"], default_author, "../", x.get("desc", "")) for x in apps_only])
     
@@ -1194,7 +1636,7 @@ def _execute():
         "content_grid": apps_grid + _generate_ad_block(ad_units, "../")
     })
     
-    apps_inner = _apply_tags(_read_skel("Apps_Feed_Skeleton.html"), apps_tags)
+    apps_inner = _apply_tags(_read_skel(active_apps_skeleton_name), apps_tags)
     apps_tags["main_content_injection"] = apps_inner
     
     final = _apply_tags(wrapper_skel, apps_tags)
@@ -1207,7 +1649,7 @@ def _execute():
         c_name = cat.get("cat_name") or cat.get("category_name")
         if not c_name: continue
         c_slug = cat.get("cat_slug") or cat.get("category_slug") or "uncategorized"
-        _log(f"Generating Category: {c_name}")
+        _log(f"Generating Category: {c_name} ({active_category_skeleton_name})")
         c_items = [x for x in feed_items if x["type"] in ("page", "external_link") and x["item"].get("page_cat_name") == c_name]
         c_grid = "".join([_generate_card_html(x["item"], x["link"] if x["type"] == "external_link" else f"../../{x['link']}", x.get("target_attr", ""), x["type"].upper(), x["date"], default_author, "../../", x.get("desc", "")) for x in c_items])
         
@@ -1226,7 +1668,7 @@ def _execute():
             "content_grid": c_grid + _generate_ad_block(ad_units, "../../")
         })
         
-        cat_inner = _apply_tags(_read_skel("Category_Skeleton.html"), cat_tags)
+        cat_inner = _apply_tags(_read_skel(active_category_skeleton_name), cat_tags)
         cat_tags["main_content_injection"] = cat_inner
         
         final = _apply_tags(wrapper_skel, cat_tags)
@@ -1234,6 +1676,7 @@ def _execute():
         cat_dir = os.path.join(output_dir, "category", c_slug)
         os.makedirs(cat_dir, exist_ok=True)
         with open(os.path.join(cat_dir, "index.html"), "w", encoding="utf-8") as f: f.write(final)
+
 
     # --- SITEMAP.XML + ROBOTS.TXT ---
     _log("Generating sitemap.xml and robots.txt...")
@@ -1369,6 +1812,16 @@ td:last-child{white-space:nowrap;}
 .a-err{background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);color:#f87171;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+.skel-tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;}
+.skel-tab-btn{background:#121212;color:var(--muted);border:1px solid var(--border);border-bottom:2px solid transparent;border-radius:6px 6px 0 0;padding:9px 14px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;}
+.skel-tab-btn:hover{color:#fff;background:#1f1f1f;}
+.skel-tab-btn.active{color:#fff;background:#222;border-bottom-color:var(--acc);}
+.skel-tab-pane{display:none;}
+.skel-tab-pane.active{display:block;}
+.scope-pill{display:inline-block;padding:3px 9px;border-radius:4px;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;}
+.scope-global{background:rgba(222,38,38,.18);border:1px solid rgba(222,38,38,.45);color:#fca5a5;}
+.scope-local{background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.35);color:#86efac;}
+.bulletin-box{background:#131313;border:1px solid var(--border);border-left:4px solid var(--acc);border-radius:6px;padding:16px;margin-top:14px;}
 
 /* ── MOBILE ── */
 @media(max-width:700px){
@@ -1511,6 +1964,19 @@ def r_dashboard():
 # ROUTE: PUBLISHER
 # ==============================================================================
 
+def _render_skeleton_select_options(slot_key: str, selected_filename: str) -> str:
+    """Render <option> tags for a given skeleton slot."""
+    option_tags = []
+    for candidate_file in _list_slot_skeleton_options(slot_key):
+        display_label = SKELETON_DISPLAY_LABELS.get(candidate_file, candidate_file)
+        selected_attr = "selected" if candidate_file == selected_filename else ""
+        option_tags.append(
+            f'<option value="{_html_mod.escape(candidate_file)}" {selected_attr}>'
+            f'{_html_mod.escape(display_label)}</option>'
+        )
+    return "".join(option_tags)
+
+
 @app.route("/publish")
 def r_publish():
     built    = os.path.exists(_state["output_dir"]) and bool(os.listdir(_state["output_dir"]))
@@ -1518,6 +1984,26 @@ def r_publish():
     srv_on   = _state["srv_running"]
     srv_port = _state["srv_port"]
     out_dir  = _state["output_dir"]
+
+    skel_conf = _get_skeleton_config()
+    active_global_skel   = skel_conf["active_global_skeleton"]
+    active_home_skel     = skel_conf["active_home_skeleton"]
+    active_article_skel  = skel_conf["active_article_skeleton"]
+    active_cat_skel      = skel_conf["active_category_skeleton"]
+    active_apps_skel     = skel_conf["active_apps_skeleton"]
+    active_app_det_skel  = skel_conf["active_app_detail_skeleton"]
+    active_author_skel   = skel_conf["active_author_skeleton"]
+
+    bulletin_enabled_val = str(skel_conf.get("home_bulletin_enabled", "true")).lower() in ("true", "1", "yes", "on")
+    bulletin_mode_val    = skel_conf.get("home_bulletin_mode", "standard")
+    bulletin_badge_val   = _html_mod.escape(skel_conf.get("home_bulletin_badge", "FEATURED BULLETIN"))
+    bulletin_title_val   = _html_mod.escape(skel_conf.get("home_bulletin_title", ""))
+    bulletin_text_val    = _html_mod.escape(skel_conf.get("home_bulletin_text", ""))
+    bulletin_link_val    = _html_mod.escape(skel_conf.get("home_bulletin_link", ""))
+    bulletin_label_val   = _html_mod.escape(skel_conf.get("home_bulletin_link_label", "Read Announcement"))
+    bulletin_video_val   = _html_mod.escape(skel_conf.get("home_bulletin_video_url", ""))
+    home_feed_enabled_val = str(skel_conf.get("home_feed_enabled", "true")).lower() in ("true", "1", "yes", "on")
+    home_cat_pos_val      = str(skel_conf.get("home_category_bar_position", "below_bulletin")).lower().strip()
 
     build_badge = ("<span class='badge b-on'>IDLE</span>" if not building
                    else "<span class='badge' style='background:#7c2d12;color:#fca5a5;'>BUILDING...</span>")
@@ -1536,13 +2022,21 @@ def r_publish():
       {"<a href='http://localhost:" + str(srv_port) + "' target='_blank' class='btn btn-grey' style='margin-top:8px;display:inline-flex;'>&#127760; Open Browser</a>" if srv_on else ""}
     """
 
+    home_options_html    = _render_skeleton_select_options("active_home_skeleton", active_home_skel)
+    global_options_html  = _render_skeleton_select_options("active_global_skeleton", active_global_skel)
+    article_options_html = _render_skeleton_select_options("active_article_skeleton", active_article_skel)
+    cat_options_html     = _render_skeleton_select_options("active_category_skeleton", active_cat_skel)
+    apps_options_html    = _render_skeleton_select_options("active_apps_skeleton", active_apps_skel)
+    app_det_options_html = _render_skeleton_select_options("active_app_detail_skeleton", active_app_det_skel)
+    author_options_html  = _render_skeleton_select_options("active_author_skeleton", active_author_skel)
+
     body = f"""
     <div class="grid2">
       <div>
         <div class="card">
           <div class="card-hd"><h3>Build Site</h3>{build_badge}</div>
           <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px;">
-            Reads BEJSON data, assembles HTML using your skeleton files on disk, copies assets.
+            Reads BEJSON data, assembles HTML using your active Global and Local skeletons, copies assets.
           </p>
           <form method="POST" action="/publish/build">
             <div class="fg">
@@ -1556,7 +2050,6 @@ def r_publish():
               </select>
               <p style="font-size:.78rem;color:var(--muted);margin-top:6px;">
                 Stylesheets live in <code style="color:#aaa;word-break:break-all;">{STYLESHEETS_DIR}</code>.
-                Copy &amp; edit to build custom themes.
               </p>
             </div>
             <button class="btn btn-red" {"disabled" if building else ""}>&#9654; Build Now</button>
@@ -1592,18 +2085,188 @@ def r_publish():
             <button class="btn btn-green" {"disabled" if building else ""}>&#9729; Publish to Cloudflare</button>
           </form>
         </div>
-        <div class="card">
-          <div class="card-hd"><h3>Skeleton Files</h3></div>
-          <p style="color:var(--muted);font-size:.85rem;margin-bottom:12px;">
-            Live in <code style="font-size:.8rem;color:#aaa;word-break:break-all;">{SKEL_DIR}</code><br>
-            Edit them directly to customise layout. Auto-generated only when missing.
-          </p>
-          <form method="POST" action="/publish/regen">
-            <button class="btn btn-grey">&#8635; Force Regenerate</button>
-          </form>
-        </div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <h3>Skeleton &amp; Layout Control Center (2-Tier Scope)</h3>
+        <form method="POST" action="/publish/regen" style="margin:0;">
+          <button class="btn btn-grey btn-sm" type="submit">&#8635; Force Regenerate Default Skeletons</button>
+        </form>
+      </div>
+      <p style="color:var(--muted);font-size:.86rem;margin-bottom:14px;">
+        Skeletons are classified into <strong>Global Scope</strong> (outer shell: header, sidebar, footer) and
+        <strong>Local Scope</strong> (inner page bodies injected into <code>{{{{main_content_injection}}}}</code>).
+        Files live in <code style="font-size:.8rem;color:#aaa;word-break:break-all;">{SKEL_DIR}</code>.
+      </p>
+
+      <div class="skel-tabs" role="tablist">
+        <button type="button" class="skel-tab-btn active" onclick="switchSkelTab('home', this)">Homepage Body (Local)</button>
+        <button type="button" class="skel-tab-btn" onclick="switchSkelTab('global', this)">Global Shell (Global)</button>
+        <button type="button" class="skel-tab-btn" onclick="switchSkelTab('article', this)">Article Body (Local)</button>
+        <button type="button" class="skel-tab-btn" onclick="switchSkelTab('feeds', this)">Feeds &amp; Profiles (Local)</button>
+      </div>
+
+      <form method="POST" action="/publish/skeletons/save">
+        <!-- TAB 1: HOMEPAGE BODY (LOCAL SCOPE) -->
+        <div id="skel-pane-home" class="skel-tab-pane active">
+          <span class="scope-pill scope-local">Local Scope &bull; Homepage Body</span>
+          <div class="fg">
+            <label>Active Homepage Body Skeleton</label>
+            <select name="active_home_skeleton" id="sel-home-skeleton" onchange="syncBulletinVisibility()">
+              {home_options_html}
+            </select>
+            <p style="font-size:.78rem;color:var(--muted);margin-top:5px;">
+              Choose between the standard discovery grid or the Featured Bulletin Homepage (supports both Standard Announcement and Video Bulletin modes).
+            </p>
+          </div>
+
+          <div class="grid2" style="margin-top:14px;margin-bottom:14px;">
+            <div class="fg">
+              <label>Homepage Feed Display (Latest Entries / Cards)</label>
+              <select name="home_feed_enabled">
+                <option value="true" {"selected" if home_feed_enabled_val else ""}>Show Feed Grid</option>
+                <option value="false" {"" if home_feed_enabled_val else "selected"}>Hide Feed Grid (Custom Bulletin Page Only)</option>
+              </select>
+              <p style="font-size:.78rem;color:var(--muted);margin-top:5px;">
+                Toggle whether the latest discoveries card grid renders below the hero and bulletin.
+              </p>
+            </div>
+            <div class="fg">
+              <label>Category Inline Dock Strip Position</label>
+              <select name="home_category_bar_position">
+                <option value="below_bulletin" {"selected" if home_cat_pos_val == "below_bulletin" else ""}>Render Below Bulletin</option>
+                <option value="above_bulletin" {"selected" if home_cat_pos_val == "above_bulletin" else ""}>Render Above Bulletin</option>
+                <option value="none" {"selected" if home_cat_pos_val == "none" else ""}>Hidden (Do Not Render)</option>
+              </select>
+              <p style="font-size:.78rem;color:var(--muted);margin-top:5px;">
+                Single-row horizontal scroll inline category link list for quick taxonomy filtering.
+              </p>
+            </div>
+          </div>
+
+          <div id="bulletin-custom-panel" class="bulletin-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+              <h4 style="font-size:.88rem;font-weight:800;color:#fff;margin:0;">Featured Bulletin Homepage Customizations</h4>
+              <span class="badge b-on">Home_Bulletin_Skeleton.html</span>
+            </div>
+            <div class="grid2">
+              <div class="fg">
+                <label>Bulletin Visibility</label>
+                <select name="home_bulletin_enabled">
+                  <option value="true" {"selected" if bulletin_enabled_val else ""}>Enabled (Visible on Homepage)</option>
+                  <option value="false" {"" if bulletin_enabled_val else "selected"}>Hidden</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Bulletin Mode</label>
+                <select name="home_bulletin_mode" id="sel-bulletin-mode" onchange="syncBulletinVisibility()">
+                  <option value="standard" {"selected" if bulletin_mode_val == "standard" else ""}>Standard Bulletin (Announcement Text &amp; Link)</option>
+                  <option value="video" {"selected" if bulletin_mode_val == "video" else ""}>Video Bulletin (Featured YouTube Video &amp; Text)</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid2">
+              <div class="fg">
+                <label>Bulletin Badge Label</label>
+                <input type="text" name="home_bulletin_badge" value="{bulletin_badge_val}" placeholder="FEATURED BULLETIN">
+              </div>
+              <div class="fg">
+                <label>Bulletin Headline</label>
+                <input type="text" name="home_bulletin_title" value="{bulletin_title_val}" placeholder="Enter bulletin headline">
+              </div>
+            </div>
+            <div class="fg">
+              <label>Bulletin Summary Text</label>
+              <textarea name="home_bulletin_text" style="min-height:84px;" placeholder="Enter announcement details or video description...">{bulletin_text_val}</textarea>
+            </div>
+            <div class="fg" id="fg-bulletin-video">
+              <label>Featured Video Bulletin — YouTube URL or 11-Character Video ID</label>
+              <input type="text" name="home_bulletin_video_url" value="{bulletin_video_val}" placeholder="https://www.youtube.com/watch?v=... or 11-character ID">
+              <p style="font-size:.76rem;color:var(--muted);margin-top:4px;">
+                Rendered inside a 16:9 responsive player when Bulletin Mode is set to <strong>Video Bulletin</strong>.
+              </p>
+            </div>
+            <div class="grid2">
+              <div class="fg">
+                <label>Call-to-Action Link URL (Optional)</label>
+                <input type="text" name="home_bulletin_link" value="{bulletin_link_val}" placeholder="blog/bejson/my-post/index.html or https://...">
+              </div>
+              <div class="fg">
+                <label>Call-to-Action Button Label</label>
+                <input type="text" name="home_bulletin_link_label" value="{bulletin_label_val}" placeholder="Read Announcement">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: GLOBAL SHELL (GLOBAL SCOPE) -->
+        <div id="skel-pane-global" class="skel-tab-pane">
+          <span class="scope-pill scope-global">Global Scope &bull; Master Shell (Header, Sidebar, Footer)</span>
+          <div class="fg">
+            <label>Active Global Wrapper Skeleton</label>
+            <select name="active_global_skeleton">
+              {global_options_html}
+            </select>
+            <p style="font-size:.78rem;color:var(--muted);margin-top:6px;">
+              Controls the site-wide outer HTML5 document structure, navigation bar, collapsible sidebar, and footer across all generated pages.
+            </p>
+          </div>
+        </div>
+
+        <!-- TAB 3: ARTICLE BODY (LOCAL SCOPE) -->
+        <div id="skel-pane-article" class="skel-tab-pane">
+          <span class="scope-pill scope-local">Local Scope &bull; Article / Page Body</span>
+          <div class="fg">
+            <label>Default Article Body Skeleton</label>
+            <select name="active_article_skeleton">
+              {article_options_html}
+            </select>
+            <p style="font-size:.78rem;color:var(--muted);margin-top:6px;">
+              Default inner layout used for published articles and pages unless overridden by a page's individual <code>page_template_key</code>.
+            </p>
+          </div>
+        </div>
+
+        <!-- TAB 4: FEEDS & PROFILES (LOCAL SCOPE) -->
+        <div id="skel-pane-feeds" class="skel-tab-pane">
+          <span class="scope-pill scope-local">Local Scope &bull; Taxonomy &amp; Directory Feeds</span>
+          <div class="grid2">
+            <div class="fg">
+              <label>Category Feed Skeleton</label>
+              <select name="active_category_skeleton">
+                {cat_options_html}
+              </select>
+            </div>
+            <div class="fg">
+              <label>Applications Feed Skeleton</label>
+              <select name="active_apps_skeleton">
+                {apps_options_html}
+              </select>
+            </div>
+            <div class="fg">
+              <label>Application Detail Skeleton</label>
+              <select name="active_app_detail_skeleton">
+                {app_det_options_html}
+              </select>
+            </div>
+            <div class="fg">
+              <label>Author Profile Skeleton</label>
+              <select name="active_author_skeleton">
+                {author_options_html}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+          <button type="submit" name="submit_action" value="save" class="btn btn-grey">&#10003; Save Skeleton Settings</button>
+          <button type="submit" name="submit_action" value="save_and_build" class="btn btn-red" {"disabled" if building else ""}>&#9654; Save &amp; Build Site Now</button>
+        </div>
+      </form>
+    </div>
+
     <script>
       let _p = false, _t = null;
       function togglePoll() {{
@@ -1619,8 +2282,52 @@ def r_publish():
           if (_p) _t = setTimeout(doPoll, 1500);
         }});
       }}
+      function switchSkelTab(tabName, btnEl) {{
+        document.querySelectorAll('.skel-tab-pane').forEach(function(p) {{ p.classList.remove('active'); }});
+        document.querySelectorAll('.skel-tab-btn').forEach(function(b) {{ b.classList.remove('active'); }});
+        var targetPane = document.getElementById('skel-pane-' + tabName);
+        if (targetPane) targetPane.classList.add('active');
+        if (btnEl) btnEl.classList.add('active');
+      }}
+      function syncBulletinVisibility() {{
+        var homeSel = document.getElementById('sel-home-skeleton');
+        var modeSel = document.getElementById('sel-bulletin-mode');
+        var videoFg = document.getElementById('fg-bulletin-video');
+        var panelEl = document.getElementById('bulletin-custom-panel');
+        if (panelEl && homeSel) {{
+          panelEl.style.opacity = (homeSel.value.indexOf('Bulletin') !== -1) ? '1' : '0.65';
+        }}
+        if (videoFg && modeSel) {{
+          videoFg.style.display = (modeSel.value === 'video') ? 'block' : 'none';
+        }}
+      }}
+      syncBulletinVisibility();
     </script>"""
     return _page("Publisher", "publish", body)
+
+
+@app.route("/publish/skeletons/save", methods=["POST"])
+def r_save_skeletons():
+    submitted_skeleton_updates = {}
+    for config_key in DEFAULT_SKELETON_SITE_CONFIG.keys():
+        if config_key in request.form:
+            submitted_skeleton_updates[config_key] = request.form.get(config_key, "")
+
+    save_ok, save_msg = _save_skeleton_config(submitted_skeleton_updates)
+    submit_action = request.form.get("submit_action", "save")
+
+    if save_ok and submit_action == "save_and_build" and not _state["build_running"]:
+        _state["build_running"] = True
+        _state["build_log"]     = []
+        def _run_after_save():
+            try:
+                _execute()
+            finally:
+                _state["build_running"] = False
+        threading.Thread(target=_run_after_save, daemon=True).start()
+        return redirect("/publish")
+
+    return redirect("/publish")
 
 
 @app.route("/publish/build", methods=["POST"])
@@ -1671,6 +2378,7 @@ def r_regen():
     return _page("Publisher", "publish",
         '<p style="margin-top:12px;"><a href="/publish" class="btn btn-grey">&#8592; Back</a></p>',
         flash=msg, flash_cls="a-ok" if ok else "a-err")
+
 
 
 # ==============================================================================

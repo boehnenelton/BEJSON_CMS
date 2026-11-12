@@ -22,14 +22,15 @@ Description:    Provider-agnostic AI constants and configuration manager.
                 NOTE: This module deliberately does NOT import any provider
                 library.  It only depends on the BEJSON Core family.
 
-Version:        1.2.1
+Version:        1.3.0
 Date:           2026-09-21
 Author:         Elton Boehnen
 Contact:        boehnenelton2024@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
-RELATIONAL_ID:  a1f2e3d4-b5c6-7890-abcd-ef1234567890
+RELATIONAL_ID:  c5cb4c74-356f-478a-ad4b-2179ee312ce3
 Release_Version: 300
 
 Changelog:
+  1.3.0 (2026-11-08) -- Default max_context_tokens raised 8000 -> 250000 (user request).
   1.2.1 (2026-09-21) -- Added pct_staged_chunk (default 0.15) backing the
         chat client's Attach-tab Save button (see context_chunker.py).
         Nominal pct total is now 1.30 -- see the 1.2.0 note below, same
@@ -75,7 +76,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,7 @@ _CONSTANT_FIELDS = [
 # the user edits defined_value directly in ai_constants.bejson.
 _DEFAULT_CONSTANTS: list[tuple[str, Any, str]] = [
     # ── Budget ────────────────────────────────────────────────────────────────
-    ("max_context_tokens",           8000,  "Total token budget for the assembled context bubble"),
+    ("max_context_tokens",           250000,  "Total token budget for the assembled context bubble"),
     ("chars_per_token",              4,     "Chars-per-token estimate for all budget arithmetic"),
     # ── Percentage slots (must sum <= 1.0; set a slot to 0 to disable) ───────
     ("pct_persistent_policy",        0.20,  "Share of budget for the persistent system/policy block"),
@@ -266,7 +267,7 @@ def ai_constants_budget_chars(constants: dict[str, Any], pct_key: str) -> int:
     Returns 0 if the slot is 0% or missing.
     """
     return int(
-        constants.get("max_context_tokens", 8000)
+        constants.get("max_context_tokens", 250000)
         * constants.get(pct_key, 0.0)
         * constants.get("chars_per_token", 4)
     )

@@ -15,3 +15,8 @@ launcher_registry.json
 !.dev.vars.example
 .env*
 !.env.example
+
+# Runtime temporary and process files
+storage/tmp/.*.pid
+storage/tmp/playwright_shots/
+.nomedia

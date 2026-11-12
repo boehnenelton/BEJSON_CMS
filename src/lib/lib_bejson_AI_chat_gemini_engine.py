@@ -1,14 +1,14 @@
 """
 Library:         lib_bejson_AI_chat_gemini_engine.py
 Family:          AI
-Module Purpose:  Multi-turn Gemini REST chat engine: history, inline attachments, thinking, Google Search and code-execution tools, key rotation. The existing GeminiREST prompter is single-shot text-only; this adds what a chat client needs.
+Module Purpose:  Multi-turn Gemini REST chat engine: history, inline attachments, thinking, code-execution tools, key rotation. The existing GeminiREST prompter is single-shot text-only; this adds what a chat client needs.
 Architecture:    urllib only (no SDK). Keys come from a ChatKeyRotator and are sent in the x-goog-api-key header, never in the URL. Failures raise the typed errors from lib_bejson_AI_bejson_errors (E_AI_* codes); no new error codes are defined here.
-Version:         1.0.0
+Version:         1.0.1
 Release_Version: 300
-Date:            2026-10-28
+Date:            2026-11-09
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   68cda8fc-1dfc-4594-8f45-2ea601b187dc
+RELATIONAL_ID:   0b3f3b9d-ece8-4f87-ad54-56cef0a87f2d
 
 Changelog:
   1.0.0 (2026-10-28) -- Initial creation (extension of the AI family; no existing AI library modified).
@@ -30,7 +30,7 @@ from lib_bejson_AI_chat_key_rotator import ChatKeyRotator, chat_key_rotator_tag
 
 logger = logging.getLogger("lib_bejson_AI_chat_gemini_engine")
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_RETRYABLE_CODES = frozenset({429, 500, 503})
 _MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-]{0,100}$")

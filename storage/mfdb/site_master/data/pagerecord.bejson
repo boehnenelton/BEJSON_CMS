@@ -180,6 +180,36 @@
       "",
       null,
       ""
+    ],
+    [
+      "bc247bd4-28d7-4d41-ab58-f55ae05433fb",
+      "BEJSON + MFDB Crash Course 23",
+      "bejson-mfdb-crash-course-23",
+      "BEJSON",
+      "page",
+      "2026-11-09",
+      null,
+      "boehnenelton2024",
+      "bejson_104_telemetry_hero.webp",
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "11a1a1b1-3356-4bed-b21e-b3ca94d503ac",
+      "GitHub Ecosystem & Open Source Architecture",
+      "github",
+      "Projects",
+      "page",
+      "2026-11-10",
+      "",
+      "boehnenelton2024",
+      "project_chunker_ecosystem_hero.webp",
+      "post.html",
+      "",
+      null,
+      ""
     ]
   ]
 }

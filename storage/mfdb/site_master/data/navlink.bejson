@@ -16,5 +16,18 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "Crash Course 23",
+      "/page/bejson/bejson-mfdb-crash-course-23/index.html"
+    ],
+    [
+      "GitHub",
+      "/page/projects/github/index.html"
+    ],
+    [
+      "Web Editor",
+      "/apps/bejson-web-editor/index.html"
+    ]
+  ]
 }

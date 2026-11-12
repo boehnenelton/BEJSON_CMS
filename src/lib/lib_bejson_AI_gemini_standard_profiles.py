@@ -6,12 +6,12 @@ Description:    AI Profile manager for the BEJSON ecosystem.
                 This_Case_Fields (no CrammedFieldNames). All reads and
                 writes go through the Field Map Cache; positional
                 look-ups are strictly prohibited.
-Version:        4.0.0
-Date:           2026-10-18
+Version:        4.0.1
+Date:           2026-11-09
 Author:         Elton Boehnen
 Contact:        boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  e7681929-655b-4bd8-9995-f4a67a4bc582
+RELATIONAL_ID:  4dc45f04-c682-42ab-9d61-503dbac9b250
 
 Changelog:
   4.0.0 (2026-10-18) -- BREAKING (API only; no profile file needs migration).
@@ -102,7 +102,7 @@ from lib_bejson_Core_bejson_core import (
 import lib_bejson_Core_bejson_validator
 import lib_bejson_AI_profile_parser_runtime as _rt
 
-VERSION = "4.0.0"
+VERSION = "4.0.1"
 
 logger = logging.getLogger(__name__)
 

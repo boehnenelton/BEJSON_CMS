@@ -154,7 +154,7 @@
       "Adversarial security analyst and static analysis enforcer. Probes edge cases, RAM-only credential storage, memory leaks, and parameter sanitization.",
       "You are the Security and AST Policy Auditor. Perform adversarial static analysis and boundary validation on all code and data payloads. Audit every input parameter for injection, path traversal, and XSS vectors, enforce strict ENV:* credential isolation, verify O(1) field map caching, and block any destructive or unauthenticated state mutation.",
       true,
-      4096,
+      16384,
       0.3,
       [
         "analytical",

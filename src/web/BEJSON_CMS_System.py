@@ -2,13 +2,13 @@
 Library:         BEJSON_CMS_System
 Family:          BEJSON_CMS
 Description:     System Cube (Foundation): self-heal/seed lifecycle (init_master_db, _ensure_uncategorized_category, _migrate_db, _seed_default_brand_and_author), Site Config, DB/asset export, Factory Reset. Imports _make_thumbnail from BEJSON_CMS_Media to regenerate the default brand thumbnail during seeding/reset.
-Version:         18.24
-Library_Version: 58
-Date:            2026-10-25
-RELATIONAL_ID:   1c5b9e32-8d4a-4f71-9b06-4e2a7c8d3f91
+Version:         18.25
+Library_Version: 59
+Date:            2026-11-08
+RELATIONAL_ID:   12562182-aad2-4b77-8f54-fff764106bf4
 """
 
-VERSION = 1824
+VERSION = 1825
 
 import os
 import mimetypes
@@ -236,6 +236,7 @@ def _seed_default_site_config():
 
 DEFAULT_BRAND_ASSETS_DIR = PROJECT_ROOT / "resources" / "default_brand_assets"
 DEFAULT_AUTHOR_NAME = "boehnenelton2024"
+ANONYMOUS_AUTHOR_NAME = "Anonymous"
 
 def _seed_default_brand_and_author():
     """Guarantees the BEJSON brand assets, the boehnenelton2024 author
@@ -294,6 +295,14 @@ def _seed_default_brand_and_author():
                 "author_display_name": DEFAULT_AUTHOR_NAME,
                 "author_bio": "",
                 "author_avatar_url": default_avatar,
+            })
+        # Built-in Anonymous author: the default for CLI-created posts (cms-manage.py).
+        if not any(a.get('author_display_name') == ANONYMOUS_AUTHOR_NAME for a in authors):
+            anonymous_avatar = "bejson_brand_3_icon.jpeg" if "bejson_brand_3_icon.jpeg" in seeded_filenames else ""
+            db.add_record("AuthorProfile", {
+                "author_display_name": ANONYMOUS_AUTHOR_NAME,
+                "author_bio": "Unattributed posts.",
+                "author_avatar_url": anonymous_avatar,
             })
     except Exception as e:
         print(f"[CMS] Failed to seed default brand/author content: {e}")

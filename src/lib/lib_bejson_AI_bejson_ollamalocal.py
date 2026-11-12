@@ -89,6 +89,8 @@ SCHEMA_MODEL_REGISTRY_OLLAMALOCAL = {
         ["Qwen2.5-Coder 0.5B", "qwen2.5-coder:0.5b", False],
         ["Qwen2.5-Coder 3B", "qwen2.5-coder:3b", False],
         ["Qwen2.5-Coder 7B", "qwen2.5-coder:7b", False],
+        ["Qwen3 Abliterated 0.6B", "huihui_ai/qwen3-abliterated:0.6b", False],
+        ["Qwen3.5 2B Heretic Thinking Q4", "hf.co/mradermacher/Qwen3.5-2B-Claude-4.6-OS-Auto-Variable-HERETIC-UNCENSORED-THINKING-GGUF:Q4_K_M", False],
     ],
 }
 

@@ -50,13 +50,15 @@ Description:    Context Bubble engine v2 -- ranked allotments with percentage
                 pool, ai_bubble_register_section/assemble.  The amnesia /
                 compression helpers are carried over unchanged at the bottom.
 
-Version:        2.2.0
+Version:        2.2.1
 Date:           2026-11-01
 Author:         Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
-RELATIONAL_ID:  2de45989-c5ac-499d-ada9-7378ff3f2508
+RELATIONAL_ID:  bdd236f6-3968-4dd3-9d0a-32f51c7150d1
 Release_Version: 300
 
 Changelog:
+  2.2.1 (2026-11-08) -- DEFAULT_MAX_CONTEXT_TOKENS (fallback when ai_constants is missing)
+        raised 8000 -> 250000 to match ai_constants 1.3.0.
   2.2.0 (2026-11-01) -- Feature switching + visibility:
         * Enabled allotments' baselines are NORMALISED to 100% of the window
           (header Normalize_Baselines, default true): switching a feature off hands
@@ -106,7 +108,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-VERSION = "2.2.0"
+VERSION = "2.2.1"
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +144,7 @@ except ImportError:  # degrade to hardcoded defaults
 BUBBLE_MAX_ALLOTMENTS = 8
 
 DEFAULT_REBUILD_INTERVAL_TURNS = 5
-DEFAULT_MAX_CONTEXT_TOKENS = 8000
+DEFAULT_MAX_CONTEXT_TOKENS = 250000
 DEFAULT_CHARS_PER_TOKEN = 4
 
 CONFIG_FILENAME = "context_bubble.bejson"

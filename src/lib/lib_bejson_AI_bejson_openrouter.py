@@ -2,12 +2,12 @@
 Library:        lib_bejson_AI_bejson_openrouter.py
 Family:         AI
 Description:    Multi-model routing gateway for AI interactions.
-Version:        3.2.0
-Date:           2026-09-07
+Version:        3.2.1
+Date:           2026-11-09
 Author:         Elton Boehnen
 Contact:        eltonboehnen@gmail.com | boehnenelton2024.pages.dev | github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  1f4c8b73-6d2a-4e91-9c5f-3a7d0e8b4c26
+RELATIONAL_ID:  cf5ac514-bb48-4601-a55c-25bdbe30d9b3
 Release_Version: 300
 
 Changelog:
@@ -116,7 +116,7 @@ CORE_DIR = os.path.join(os.path.dirname(LIB_DIR), "Core")
 if CORE_DIR not in sys.path:
     sys.path.append(CORE_DIR)
 
-VERSION = "3.2.0"
+VERSION = "3.2.1"
 
 # Config_Version for this provider's stores -- bump whenever a default
 # schema below changes; any on-disk file with no Config_Version, or one

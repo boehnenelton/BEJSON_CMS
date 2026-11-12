@@ -221,6 +221,35 @@ Streamline authoring by introducing a local development daemon. When editing mar
 
 ---
 
+## 11. Interactive Featured Card Carousel & GitHub Repo Stage (`Home_Carousel_Skeleton.html`)
+### Architectural Overview
+Provide an alternative Local Body skeleton for the homepage that swaps the static/video bulletin banner for an interactive, horizontally-swiping showcase carousel. The stage supports rendering both live/cached GitHub repository cards (stars, forks, primary language, commit activity, license) and arbitrary custom highlight cards (featured tools, demo apps, key project milestones).
+
+### Detailed UI / UX Specification
+- **Visual Presentation**:
+  - Horizontal track with native CSS scroll-snapping (`scroll-snap-type: x mandatory;`).
+  - Mobile touch/swipe physics with smooth damping and 0 horizontal page overflow on 375px viewports.
+  - Desktop left/right arrow controls with pill/dot index indicator dock.
+  - Strict BECSS Tri-Color styling (#000000, #FFFFFF, #DE2626) dynamically adapting to light and dark themes using semantic CSS variables (`var(--bg-card)`, `var(--border-color)`, `var(--text-main)`, `var(--text-muted)`).
+- **Supported Card Types**:
+  - **GitHub Repository Card**: Shows repository icon, repo name, owner, description, language color dot + badge, stargazers count, forks, PolyForm license tag, and link.
+  - **Custom Showcase Card**: Arbitrary title, subtitle, description, custom action badge, and permalink.
+  - **Announcement Card**: Highlighted urgent release notice or ecosystem milestone.
+
+### Data Layer & Implementation
+- **Schema & Persistence**:
+  - Stored either in `site_master/siteconfig.bejson` under `home_carousel_cards` or in a dedicated MFDB table `storage/mfdb/carousel_cards.bejson`.
+  - Record fields: `card_uuid`, `card_type`, `title`, `subtitle`, `description`, `badge_text`, `badge_color`, `url`, `repo_owner`, `repo_name`, `cached_stats`, `display_order`, `is_active`.
+- **Zero-Dependency Build Pipeline**:
+  - GitHub repo metadata resolved during `BEJSON_CMS_Publisher.py` static compile run using Python `urllib.request`.
+  - Cached locally in `storage/cache/github_repos.json` to prevent API rate-limiting and ensure offline deterministic builds.
+  - Fallback gracefully to offline cache if network is unreachable.
+- **Publisher Integration**:
+  - Local Body Skeleton dropdown in Publisher Tab 1 allows selecting `Featured Card Carousel` (`Home_Carousel_Skeleton.html`).
+  - Dedicated card management drawer or list editor to add, edit, reorder, or delete cards.
+
+---
+
 ### Prioritization & Recommended Implementation Order
 1. **Tier 1 (High Immediate Value / Low Effort)**:
    - #3: Native RSS/Atom Feed Generator
@@ -230,8 +259,10 @@ Streamline authoring by introducing a local development daemon. When editing mar
    - #1: Zero-Dependency Client-Side Search (Palette Modal `Ctrl+K`)
    - #2: Reading Progress Bar & Scroll-Spy Table of Contents
    - #8: Automated Social Sharing & OpenGraph Tags
+   - #11: Interactive Featured Card Carousel & GitHub Repo Stage (`Home_Carousel_Skeleton.html`)
 3. **Tier 3 (Developer Velocity & Platform Expansion)**:
    - #10: CLI Live-Reload Watcher (`cms-manage.py dev`)
    - #6: Series Navigation Footers ("Up Next")
    - #7: Zero-JavaScript Theme Persistence
    - #9: Interactive Standalone App Sandbox
+

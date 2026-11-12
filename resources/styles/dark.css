@@ -29,6 +29,7 @@ html { font-size: 87%; }
     /* Project Specific */
     --bg-nav: rgba(10, 10, 10, 0.95);
     --bg-card: #0F0F0F;
+    --card-bg: var(--bg-card);
     --bg-footer: #080808;
     --text-muted: #888888;
     --card-border: #151515;

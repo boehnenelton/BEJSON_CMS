@@ -2,13 +2,13 @@
 """
 Script:        cms-manage.py
 Description:   Unified CLI Toolkit for BEJSON_CMS management.
-Version:       18.9
+Version:       18.13
 Author:        Elton Boehnen
-Date:          2026-11-06
-Relational_ID: 7b46276a-8838-4f3c-8038-25074de32c3a
+Date:          2026-11-08
+Relational_ID: 84fc121a-007a-4ed1-93f2-b6e6e537e147
 """
 
-VERSION = "18.9"
+VERSION = "18.13"
 
 
 import os
@@ -20,6 +20,7 @@ import hashlib
 import mimetypes
 import uuid
 import re
+import logging
 import zipfile
 from pathlib import Path
 from datetime import datetime, timezone
@@ -28,6 +29,7 @@ from datetime import datetime, timezone
 def get_script_path() -> Path:
     return Path(__file__).resolve().parent
 SCRIPT_PATH = get_script_path()
+LOGGER = logging.getLogger("cms-manage")
 
 # --- Library Bootstrapping (Mandate Sec 7.2) ---
 LIB_DIR = SCRIPT_PATH / "lib"
@@ -87,19 +89,25 @@ def get_live_apps_dir():
 
 DEFAULT_FEATURED_IMAGE = "default_page_image.webp"
 
+_STATUS_ENTITIES = ["Category", "AuthorProfile", "NavLink", "SocialLink", "SiteConfig",
+                    "PageRecord", "MediaAsset", "ExternalMedia", "StandaloneApp", "AdUnit"]
+
 def cmd_status(args):
-    mgr = get_manager()
-    print(f"CMS Data Root: {mgr.data_root}")
-    print(f"Mounted: {Path(mgr.global_db_root).exists()}")
+    print(f"CMS Data Root: {get_live_storage_root()}")
     live_manifest = get_live_manifest_path()
-    print(f"Live site manifest: {live_manifest} (exists: {Path(live_manifest).exists()})")
-    print("NOTE: 'Mounted' above refers to the disconnected workspace/archive")
-    print("      copy -- only 'mount'/'commit' still use it (deprecated legacy")
-    print("      escape hatches, --force required). Every data command --")
-    print("      category/navlink/config/author/page/asset/app/ad/backup/restore")
-    print("      -- reads/writes the real 'Live site manifest' path above via")
-    print("      CMSCore. See docs/security-notes.md.")
-    print(f"Dirty Changes: {mgr.is_dirty()}")
+    manifest_exists = Path(live_manifest).exists()
+    print(f"Live site manifest: {live_manifest} (exists: {manifest_exists})")
+    if not manifest_exists:
+        print("No live manifest found -- start an Admin app (self-heal) or run 'factory-reset' to bootstrap one.")
+        return
+    db = get_db()
+    for entity_name in _STATUS_ENTITIES:
+        if not db.get_field_map(entity_name):
+            print(f"  {entity_name:<14} not present in live schema")
+            continue
+        print(f"  {entity_name:<14} {len(db.get_records(entity_name))} record(s)")
+    print("NOTE: 'mount'/'commit' are deprecated legacy commands for a disconnected")
+    print("      workspace copy and never touch live data. See docs/security-notes.md.")
 
 def cmd_mount(args):
     print("'mount' operates on the old disconnected workspace/archive copy --")
@@ -118,7 +126,7 @@ def cmd_commit(args):
     print("copy -- it does NOT touch live site data. Deprecated; no-op.")
     print("Use 'backup' for a real live-data snapshot instead.")
 
-def _write_page_content_file(page_uuid, title, html_body):
+def _write_page_content_file(page_uuid, title, html_body, markdown_body=""):
     """Matches the exact live shape written by BEJSON_CMS_Content.py::page_new()
     -- confirmed against a real live content file before writing this, not
     assumed. Two-part write contract: this file plus a PageRecord row are
@@ -138,7 +146,7 @@ def _write_page_content_file(page_uuid, title, html_body):
         ],
         "Values": [
             ["PageMeta", title, None, None, None],
-            ["Content", None, html_body, "", ""]
+            ["Content", None, html_body, markdown_body or "", ""]
         ]
     }
     os.makedirs(os.path.dirname(pfile), exist_ok=True)
@@ -146,6 +154,9 @@ def _write_page_content_file(page_uuid, title, html_body):
     with open(tmp, "w") as f:
         json.dump(doc, f, indent=2)
     os.replace(tmp, pfile)  # atomic write per Golden Rule/System Dev Policy conventions
+    return pfile
+
+
 def cmd_publish(args=None):
     """Compile and publish the static site directly from MFDB storage."""
     print("[*] Triggering static site publish...")
@@ -172,6 +183,88 @@ def cmd_deploy_cf(args=None):
     except Exception as err:
         print(f"[!] Cloudflare deployment error: {err}")
 
+ANONYMOUS_AUTHOR_NAME = "Anonymous"
+ANONYMOUS_AUTHOR_BIO = "Unattributed posts."
+_ANONYMOUS_AVATAR = "bejson_brand_3_icon.jpeg"
+
+
+def _ensure_anonymous_author(db):
+    """Idempotently create the built-in Anonymous AuthorProfile."""
+    if any(a.get("author_display_name") == ANONYMOUS_AUTHOR_NAME for a in db.get_records("AuthorProfile")):
+        return True
+    avatar = _ANONYMOUS_AVATAR if any(
+        a.get("asset_filename") == _ANONYMOUS_AVATAR for a in db.get_records("MediaAsset")) else ""
+    return _checked_add(db, "AuthorProfile", {
+        "author_display_name": ANONYMOUS_AUTHOR_NAME,
+        "author_bio": ANONYMOUS_AUTHOR_BIO,
+        "author_avatar_url": avatar,
+    })
+
+
+def _author_or_anonymous(db, requested_name):
+    """Author name for a new page. Blank -> the built-in Anonymous profile
+    (created on demand). An explicit name with no matching AuthorProfile is
+    still accepted, but warned about: the page would show the name only, with
+    no card, bio or author page."""
+    name = (requested_name or "").strip()
+    if not name:
+        _ensure_anonymous_author(db)
+        return ANONYMOUS_AUTHOR_NAME
+    if name not in {a.get("author_display_name") for a in db.get_records("AuthorProfile")}:
+        LOGGER.warning("Author '%s' has no AuthorProfile -- the page will show the name only, "
+                       "with no author card or page. Create it with 'author add'.", name)
+    return name
+
+
+def _dropped_fields(db, entity_name, record):
+    """Non-empty record keys CMSCore.add_record() would silently discard
+    because the live entity has no such field (add_record skips unknown keys
+    and still returns True). Returns None when the entity schema can't be read."""
+    field_map = db.get_field_map(entity_name)
+    if not field_map:
+        return None
+    return [key for key, value in record.items() if key not in field_map and value not in (None, "")]
+
+
+def _schema_problem(db, entity_name, record):
+    """Log and return True when the record can't be written safely."""
+    dropped = _dropped_fields(db, entity_name, record)
+    if dropped is None:
+        LOGGER.error("Cannot read the live '%s' schema -- refusing to write.", entity_name)
+        return True
+    if dropped:
+        LOGGER.error(
+            "Live '%s' schema has no field(s) %s -- refusing to write, CMSCore would drop them silently. "
+            "Is the taxonomy migration (tools/migrate_taxonomy.py) applied?",
+            entity_name, ", ".join(dropped))
+        return True
+    return False
+
+
+def _checked_add(db, entity_name, record, sync_count=True):
+    """CMSCore.add_record() behind a live-schema guard."""
+    if _schema_problem(db, entity_name, record):
+        return False
+    return db.add_record(entity_name, record, sync_count=sync_count)
+
+
+def _create_page(db, record, title, html_body, markdown_body="", sync_count=True):
+    """Two-part page write (AGENTS.md): PageRecord row via CMSCore plus the
+    pages_db content file. The content file goes first, so a failed row write
+    leaves only an unreferenced file (removed here) instead of a row that
+    points at nothing."""
+    if _schema_problem(db, "PageRecord", record):
+        return False
+    content_path = _write_page_content_file(record["page_uuid"], title, html_body, markdown_body)
+    if db.add_record("PageRecord", record, sync_count=sync_count):
+        return True
+    try:
+        os.remove(content_path)
+    except OSError as cleanup_error:
+        LOGGER.warning("Could not remove orphaned content file %s: %s", content_path, cleanup_error)
+    return False
+
+
 def cmd_page_add(args):
     db = get_db()
     new_uuid = str(uuid.uuid4())
@@ -196,17 +289,16 @@ def cmd_page_add(args):
 
     featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
 
-    if db.add_record("PageRecord", {
+    if _create_page(db, {
         "page_uuid": new_uuid, "page_title": args.title, "page_slug": slug,
         "page_cat_name": args.category, "page_type": args.type,
-        "page_created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "page_external_url": "", "page_author_name": args.author or "",
+        "page_created_at": datetime.now().strftime("%Y-%m-%d"),
+        "page_external_url": "", "page_author_name": _author_or_anonymous(db, args.author),
         "page_featured_img": featured_img,
         "page_template_key": "post.html",
         "page_featured_video_url": getattr(args, "featured_video", "") or "",
         "page_featured_diagram": getattr(args, "featured_diagram", "") or ""
-    }):
-        _write_page_content_file(new_uuid, args.title, html_body)
+    }, args.title, html_body):
         print(f"[✓] Page created: {args.title} (UUID: {new_uuid}, Slug: {slug})")
         if getattr(args, "publish", False):
             cmd_publish(args)
@@ -267,7 +359,7 @@ def cmd_quick_post(args):
     cats = [c.get("cat_name") for c in db.get_records("Category")]
     if args.category not in cats:
         cat_slug = re.sub(r'[^a-z0-9]', '-', args.category.lower()).strip('-')
-        db.add_record("Category", {"cat_name": args.category, "cat_slug": cat_slug})
+        _checked_add(db, "Category", {"cat_name": args.category, "cat_slug": cat_slug})
         print(f"[+] Auto-created missing category: '{args.category}' ({cat_slug})")
     
     html_body = ""
@@ -288,20 +380,19 @@ def cmd_quick_post(args):
         html_body = f"<h2>{args.title}</h2><p>Content body...</p>"
 
     featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
-    author_name = getattr(args, "author", None) or "Leethaxor69"
+    author_name = _author_or_anonymous(db, getattr(args, "author", None))
     post_type = getattr(args, "type", None) or "blog"
 
-    if db.add_record("PageRecord", {
+    if _create_page(db, {
         "page_uuid": new_uuid, "page_title": args.title, "page_slug": slug,
         "page_cat_name": args.category, "page_type": post_type,
-        "page_created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "page_created_at": datetime.now().strftime("%Y-%m-%d"),
         "page_external_url": "", "page_author_name": author_name,
         "page_featured_img": featured_img,
         "page_template_key": "post.html",
         "page_featured_video_url": getattr(args, "featured_video", "") or "",
         "page_featured_diagram": getattr(args, "featured_diagram", "") or ""
-    }):
-        _write_page_content_file(new_uuid, args.title, html_body)
+    }, args.title, html_body):
         print(f"[✓] Quick post created: '{args.title}'")
         print(f"    UUID:     {new_uuid}")
         print(f"    Slug:     {slug}")
@@ -324,7 +415,10 @@ def cmd_page_update(args):
     if args.author: updates["page_author_name"] = args.author
     if args.featured_video is not None: updates["page_featured_video_url"] = args.featured_video
     if getattr(args, "featured_diagram", None) is not None: updates["page_featured_diagram"] = args.featured_diagram
-    db.update_record("PageRecord", "page_uuid", args.uuid, updates)
+    if getattr(args, "type", None): updates["page_type"] = args.type
+    if not db.update_record("PageRecord", "page_uuid", args.uuid, updates):
+        print(f"Failed to update page record: {args.uuid}")
+        return
     if args.body is not None:
         pfile = os.path.join(get_pages_db_dir(), f"{args.uuid}.json")
         if os.path.exists(pfile):
@@ -348,6 +442,43 @@ def cmd_page_update(args):
                 json.dump(data, f, indent=2)
             os.replace(tmp, pfile)
     print(f"Page updated: {args.uuid}")
+
+def cmd_page_set_author(args):
+    """Bulk re-author: point existing pages at an existing AuthorProfile."""
+    db = get_db()
+    if args.author not in {a.get("author_display_name") for a in db.get_records("AuthorProfile")}:
+        print(f"Error: no AuthorProfile named '{args.author}'. Run 'author list' or 'author add' first.")
+        return
+    wanted_uuids = set(args.uuid or [])
+    if not (wanted_uuids or args.category or args.type or args.current_author or args.since
+            or args.title_contains or args.all):
+        print("Error: give at least one filter (--uuid, --category, --type, --current-author, "
+              "--since, --title-contains) or --all.")
+        return
+    matches = []
+    for page in db.get_records("PageRecord"):
+        if wanted_uuids and page.get("page_uuid") not in wanted_uuids: continue
+        if args.category and page.get("page_cat_name") != args.category: continue
+        if args.type and page.get("page_type") != args.type: continue
+        if args.current_author and page.get("page_author_name") != args.current_author: continue
+        if args.since and (page.get("page_created_at") or "")[:10] < args.since: continue
+        if args.title_contains and args.title_contains.lower() not in (page.get("page_title") or "").lower(): continue
+        if page.get("page_author_name") == args.author: continue
+        matches.append(page)
+    if not matches:
+        print("No pages matched (or all matches already belong to that author).")
+        return
+    for page in matches:
+        print(f"  {page.get('page_title')}  ({page.get('page_uuid')}): "
+              f"{page.get('page_author_name') or '(none)'} -> {args.author}")
+    if args.dry_run:
+        print(f"[dry-run] {len(matches)} page(s) would be re-authored. Nothing written.")
+        return
+    changed = sum(1 for page in matches
+                  if db.update_record("PageRecord", "page_uuid", page["page_uuid"], {"page_author_name": args.author}))
+    print(f"[✓] Re-authored {changed}/{len(matches)} page(s) to '{args.author}'.")
+    if changed and getattr(args, "publish", False):
+        cmd_publish(args)
 
 def cmd_page_delete(args):
     db = get_db()
@@ -383,14 +514,13 @@ def cmd_page_import(args):
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
         page_type = getattr(args, "type", "page") or "page"
         featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
-        if db.add_record("PageRecord", {
+        if _create_page(db, {
             "page_uuid": new_uuid, "page_title": title, "page_slug": slug,
             "page_cat_name": args.category, "page_type": page_type,
             "page_created_at": datetime.now().strftime("%Y-%m-%d"),
-            "page_external_url": None, "page_author_name": args.author or "",
+            "page_external_url": None, "page_author_name": _author_or_anonymous(db, args.author),
             "page_featured_img": featured_img
-        }):
-            _write_page_content_file(new_uuid, title, html_body)
+        }, title, html_body):
             print(f"HTML imported as page: {title} (UUID: {new_uuid})")
         else:
             print(f"Failed to import HTML: {args.html}")
@@ -419,17 +549,16 @@ def cmd_page_import(args):
             f"title='{app_name}' loading='lazy'></iframe>\n"
             f"</div>"
         )
-        if db.add_record("PageRecord", {
+        if _create_page(db, {
             "page_uuid": new_uuid, "page_title": page_title,
             "page_slug": page_slug,
             "page_cat_name": args.category,
             "page_type": "app",
             "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": f"/apps/{app_slug}/",
-            "page_author_name": args.author or "",
+            "page_author_name": _author_or_anonymous(db, args.author),
             "page_featured_img": DEFAULT_FEATURED_IMAGE
-        }):
-            _write_page_content_file(new_uuid, page_title, html_body)
+        }, page_title, html_body):
             print(f"App '{app_name}' imported as page: {page_title} (UUID: {new_uuid})")
             print(f"  Embed route: /apps/{app_slug}/")
         else:
@@ -447,6 +576,31 @@ def cmd_page_import(args):
     else:
         print("Error: Specify --html, --app, or --md for import.")
 
+def _import_markdown_file(db, md_path, category, author, page_type, featured_img, sync_count=True):
+    """Import one Markdown file through CMSCore. Only the pure converter from
+    lib_bejson_CMS_md2html is reused -- its own import_markdown_file_to_cms()
+    edits pagerecord.bejson and the manifest directly, which bypasses CMSCore
+    and writes a non-live content-file shape (104a/PageContent)."""
+    from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
+    md_path = Path(md_path)
+    fallback_title = md_path.stem.replace("_", " ").replace("-", " ").title()
+    parsed = convert_markdown_to_cms_article(md_path.read_text(encoding="utf-8"), fallback_title)
+    wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
+    new_uuid = str(uuid.uuid4())
+    page_record = {
+        "page_uuid": new_uuid, "page_title": parsed["title"], "page_slug": parsed["slug"],
+        "page_cat_name": category, "page_type": page_type,
+        "page_created_at": datetime.now().strftime("%Y-%m-%d"),
+        "page_external_url": None, "page_author_name": author,
+        "page_featured_img": featured_img,
+        "page_template_key": "post.html",
+    }
+    if not _create_page(db, page_record, parsed["title"], wrapped_html, parsed["markdown_body"], sync_count=sync_count):
+        return None
+    return {"page_uuid": new_uuid, "title": parsed["title"], "slug": parsed["slug"],
+            "category": category, "page_type": page_type}
+
+
 def cmd_page_md_import(args):
     target = Path(args.target).resolve()
     if not target.exists():
@@ -458,43 +612,46 @@ def cmd_page_md_import(args):
         sys.path.insert(0, lib_dir)
 
     try:
-        from lib_bejson_CMS_md2html import import_markdown_file_to_cms, batch_import_markdown_directory
-    except ImportError as e:
-        print(f"Error importing lib_bejson_CMS_md2html: {e}")
+        import lib_bejson_CMS_md2html  # noqa: F401 -- fail early with a clear message
+    except ImportError as import_error:
+        print(f"Error importing lib_bejson_CMS_md2html: {import_error}")
         return
 
-    author = getattr(args, "author", None) or "boehnenelton2024"
     category = getattr(args, "category", None) or "Uncategorized"
     page_type = getattr(args, "type", None) or "blog"
     featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
-    cms_root = SCRIPT_PATH.parent
+    db = get_db()
+    author = _author_or_anonymous(db, getattr(args, "author", None))
+
+    if category not in {c.get("cat_name") for c in db.get_records("Category")}:
+        LOGGER.warning("Category '%s' does not exist -- imported pages will not resolve to a category until it is created ('category add').", category)
 
     if target.is_file():
         if target.suffix.lower() != ".md":
             print(f"Error: target is not a Markdown file (.md required): {target.name}")
             return
-        res = import_markdown_file_to_cms(
-            md_path=target,
-            category=category,
-            author=author,
-            page_type=page_type,
-            featured_img=featured_img,
-            cms_root=cms_root,
-        )
+        res = _import_markdown_file(db, target, category, author, page_type, featured_img)
+        if not res:
+            print(f"Failed to import Markdown file: {target.name}")
+            return
         print(f"[✓] Markdown article imported: '{res['title']}' (UUID: {res['page_uuid']}) -> Category: {res['category']}, Type: {res['page_type']}")
     elif target.is_dir():
-        results = batch_import_markdown_directory(
-            dir_path=target,
-            category=category,
-            author=author,
-            page_type=page_type,
-            default_featured_img=featured_img,
-            recursive=getattr(args, "recursive", False),
-            cms_root=cms_root,
-        )
+        pattern = "**/*.md" if getattr(args, "recursive", False) else "*.md"
+        results = []
+        for md_file in sorted(target.glob(pattern)):
+            try:
+                # sync_count=False + one sync_manifest_count() afterwards (AGENTS.md batch rule)
+                res = _import_markdown_file(db, md_file, category, author, page_type, featured_img, sync_count=False)
+            except Exception as import_error:
+                LOGGER.error("Error importing %s: %s", md_file.name, import_error)
+                continue
+            if res:
+                results.append(res)
+        if results:
+            db.sync_manifest_count("PageRecord")
         print(f"\n[✓] Batch imported {len(results)} Markdown article(s) into CMS:")
-        for r in results:
-            print(f"  - '{r['title']}' (UUID: {r['page_uuid']}) [{r['page_type']}]")
+        for res in results:
+            print(f"  - '{res['title']}' (UUID: {res['page_uuid']}) [{res['page_type']}]")
     else:
         print(f"Error: invalid target: {target}")
         return
@@ -519,7 +676,7 @@ def cmd_author_add(args):
     if existing:
         print(f"Error: an author named '{args.name}' already exists.")
         return
-    if db.add_record("AuthorProfile", {"author_display_name": args.name, "author_bio": args.bio or "", "author_avatar_url": args.image or ""}):
+    if _checked_add(db, "AuthorProfile", {"author_display_name": args.name, "author_bio": args.bio or "", "author_avatar_url": args.image or ""}):
         print(f"Author added: {args.name}")
     else:
         print(f"Failed to add author: {args.name}")
@@ -555,7 +712,7 @@ def cmd_category_add(args):
     if existing:
         print(f"Error: a category with slug '{slug}' already exists.")
         return
-    if db.add_record("Category", {"cat_name": args.name, "cat_slug": slug}):
+    if _checked_add(db, "Category", {"cat_name": args.name, "cat_slug": slug}):
         print(f"Category added: {args.name} ({slug})")
         if getattr(args, "publish", False):
             cmd_publish(args)
@@ -584,7 +741,7 @@ def cmd_nav_add(args):
     db = get_db()
     if args.order:
         print("Note: --order is not supported by the live NavLink schema (nav_display_label, nav_target_url only) -- ignored.")
-    if db.add_record("NavLink", {"nav_display_label": args.label, "nav_target_url": args.url}):
+    if _checked_add(db, "NavLink", {"nav_display_label": args.label, "nav_target_url": args.url}):
         print(f"Nav link added: {args.label}")
     else:
         print(f"Failed to add nav link: {args.label}")
@@ -603,7 +760,7 @@ def cmd_nav_list(args):
 def cmd_ad_add(args):
     db = get_db()
     ad_uid = str(uuid.uuid4())
-    if db.add_record("AdUnit", {
+    if _checked_add(db, "AdUnit", {
         "ad_uuid": ad_uid, "ad_name": args.name, "ad_banner_url": args.img,
         "ad_target_url": args.link, "ad_zone": args.zone, "ad_active": not args.inactive
     }):
@@ -662,7 +819,7 @@ def cmd_asset_add(args):
         dest.write_bytes(remediated_bytes)
         file_size = len(remediated_bytes)
         mime_type = "application/vnd.bejson.diagram+json"
-        if db.add_record("MediaAsset", {
+        if _checked_add(db, "MediaAsset", {
             "asset_filename": dest_name, "asset_original_name": src.name, "asset_file_hash": file_hash,
             "asset_file_size": file_size, "asset_mime_type": mime_type,
             "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
@@ -692,7 +849,7 @@ def cmd_asset_add(args):
     file_size = dest.stat().st_size
     mime_type = mimetypes.guess_type(str(dest))[0] or "application/octet-stream"
 
-    if db.add_record("MediaAsset", {
+    if _checked_add(db, "MediaAsset", {
         "asset_filename": dest.name, "asset_original_name": src.name, "asset_file_hash": file_hash,
         "asset_file_size": file_size, "asset_mime_type": mime_type,
         "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
@@ -743,7 +900,7 @@ def cmd_asset_delete(args):
 def cmd_asset_add_external(args):
     db = get_db()
     muuid = str(uuid.uuid4())
-    if db.add_record("ExternalMedia", {
+    if _checked_add(db, "ExternalMedia", {
         "extmedia_uuid": muuid, "extmedia_name": args.name, "extmedia_type": args.type,
         "extmedia_url": args.url, "extmedia_created_at": datetime.now(timezone.utc).isoformat()
     }):
@@ -902,7 +1059,7 @@ def cmd_app_add(args):
         app_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, app_dir / src.name)
         entry_file = src.name
-    if db.add_record("StandaloneApp", {
+    if _checked_add(db, "StandaloneApp", {
         "app_uuid": new_uuid, "app_name": args.name, "app_slug": slug,
         "app_description": args.desc or "", "app_entry_file": entry_file, "app_featured_img": args.image or ""
     }):
@@ -943,9 +1100,10 @@ def _bootstrap_live_schema(db):
     Must match the self-heal logic in BEJSON_CMS_System.py (confirmed).
     """
     for cat in _BOOTSTRAP_CATEGORIES:
-        db.add_record("Category", cat)
+        _checked_add(db, "Category", cat)
     for cfg in _BOOTSTRAP_SITE_CONFIG:
-        db.add_record("SiteConfig", cfg)
+        _checked_add(db, "SiteConfig", cfg)
+    _ensure_anonymous_author(db)
     print("Schema bootstrapped: Uncategorized category + default SiteConfig written.")
 
 def cmd_reset(args):
@@ -1102,7 +1260,7 @@ def cmd_config_set(args):
     if existing:
         db.update_record("SiteConfig", "sys_key", args.key, {"sys_value": args.value})
     else:
-        db.add_record("SiteConfig", {"sys_key": args.key, "sys_value": args.value})
+        _checked_add(db, "SiteConfig", {"sys_key": args.key, "sys_value": args.value})
     print(f"Config set: {args.key} = {args.value}")
 
 def cmd_config_list(args):
@@ -1267,6 +1425,7 @@ def cmd_job_approve(args):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description=f"BEJSON_CMS CLI Toolkit v{VERSION}")
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
     
@@ -1303,7 +1462,7 @@ def main():
     p_padd.add_argument("--body", help="HTML body content")
     p_padd.add_argument("--body-file", help="Path to file containing raw HTML content")
     p_padd.add_argument("--md-file", help="Path to markdown file to convert and insert")
-    p_padd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
+    p_padd.add_argument("--author", help="(default: Anonymous) Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
     p_padd.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets)")
     p_padd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Rendered above the article body on publish.")
     p_padd.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets, e.g. <uuid>.diag.json). Rendered below the Featured Image and above the page body on publish.")
@@ -1326,6 +1485,18 @@ def main():
     p_pupd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Pass an empty string to clear it.")
     p_pupd.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets). Pass an empty string to clear it.")
 
+    p_psa = page_sub.add_parser("set-author", help="Bulk re-author existing pages to an existing AuthorProfile")
+    p_psa.add_argument("author", help="Author NAME (must already exist; see 'author list')")
+    p_psa.add_argument("--uuid", action="append", help="Page UUID (repeatable)")
+    p_psa.add_argument("--category", help="Only pages in this category NAME")
+    p_psa.add_argument("--type", help="Only pages of this type (blog, article, page...)")
+    p_psa.add_argument("--current-author", help="Only pages currently attributed to this name")
+    p_psa.add_argument("--since", help="Only pages created on/after YYYY-MM-DD")
+    p_psa.add_argument("--title-contains", help="Only pages whose title contains this text (case-insensitive)")
+    p_psa.add_argument("--all", action="store_true", help="Required to re-author with no filter")
+    p_psa.add_argument("--dry-run", action="store_true", help="List matches, write nothing")
+    p_psa.add_argument("--publish", action="store_true", help="Republish the static site afterwards")
+
     p_pdel = page_sub.add_parser("delete", help="Delete a page")
     p_pdel.add_argument("uuid", help="Page UUID")
 
@@ -1342,7 +1513,7 @@ def main():
     p_pmd = page_sub.add_parser("md-import", help="Import Markdown file or batch convert directory drops into native CMS articles")
     p_pmd.add_argument("target", help="Markdown (.md) file path or directory containing .md files")
     p_pmd.add_argument("--category", default="Uncategorized", help="Category NAME (default: Uncategorized)")
-    p_pmd.add_argument("--author", help="Author NAME (default: boehnenelton2024)")
+    p_pmd.add_argument("--author", help="Author NAME (default: Anonymous)")
     p_pmd.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type: blog (default), article, or page")
     p_pmd.add_argument("--featured-img", default="default_page_image.webp", help="Featured image filename in storage/mfdb/assets")
     p_pmd.add_argument("--recursive", "-r", action="store_true", help="Recursively search directory for .md files")
@@ -1537,7 +1708,7 @@ def main():
     p_qp = subparsers.add_parser("quick-post", help="High-speed atomic post creation with auto-category resolution and publishing")
     p_qp.add_argument("title", help="Post title")
     p_qp.add_argument("--category", default="Uncategorized", help="Category name (auto-created if missing)")
-    p_qp.add_argument("--author", default="Leethaxor69", help="Author display name")
+    p_qp.add_argument("--author", default=None, help="Author NAME (default: Anonymous)")
     p_qp.add_argument("--slug", help="Custom URL slug (auto-generated if omitted)")
     p_qp.add_argument("--body", help="HTML body content string")
     p_qp.add_argument("--body-file", help="Path to file containing raw HTML content")
@@ -1586,7 +1757,7 @@ def main():
         "publish": cmd_publish,
         "deploy-cf": cmd_deploy_cf,
         "quick-post": cmd_quick_post,
-        "page": lambda a: {"add": cmd_page_add, "append": cmd_page_append, "update": cmd_page_update, "delete": cmd_page_delete, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
+        "page": lambda a: {"add": cmd_page_add, "append": cmd_page_append, "update": cmd_page_update, "delete": cmd_page_delete, "set-author": cmd_page_set_author, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
         "job": lambda a: {"templates": cmd_job_templates, "list": cmd_job_list, "create": cmd_job_create, "run": cmd_job_run, "merge": cmd_job_merge, "approve": cmd_job_approve}.get(a.op)(a) if a.op else None,
         "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
         "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,

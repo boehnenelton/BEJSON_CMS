@@ -8,9 +8,11 @@
 No build step (flat Python/Flask project, no compiler/bundler).
 
 ```bash
-# Run the full pytest suite (21 cases: path-guard traversal protection,
-# MFDB manifest/entity validation) — operates on a temp copy, never touches
-# the live storage/mfdb/ tree directly:
+# Run the full pytest suite (100 cases: path-guard traversal protection,
+# MFDB manifest/entity validation, CMSCore CRUD, cms-manage alignment,
+# admin/profile-manager routes) — operates on temp copies, never touches
+# the live storage/mfdb/ tree directly. 2 profile-manager tests (t5, t8)
+# fail on the untouched PKG139 code too; they are tracked, not regressions:
 cd tests && python3 -m pytest -v
 
 # Syntax check any file before shipping it:
@@ -91,7 +93,7 @@ style in the file you're editing rather than introducing a new one.
 | `src/web/BEJSON_CMS_Media.py` | Media Library (upload/gallery/delete/replace/external links) |
 | `src/web/BEJSON_CMS_Interface.py` | Home, nav/social/ad config, publish trigger |
 | `src/web/BEJSON_CMS_PageEditor.py` | Standalone "V1" page editor with AI generation |
-| `src/web/BEJSON_CMS_PageEditorV2.py` | Standalone "V2" API-driven page editor (active development) |
+| `src/web/BEJSON_CMS_PageEditorV2.py` | DEPRECATED and removed from `src/web/`; archived at `dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip`. Do not revive. |
 | `src/web/BEJSON_CMS_ProfileManager.py` | AI Persona Hub (`AI_Profile` records) |
 | `src/web/BEJSON_CMS_Publisher.py` | Static site generator, reads MFDB, writes `storage/builds/` |
 | `src/lib/lib_bejson_CMS_cms_core.py` | `CMSCore` — the only DB interface application code should call |
@@ -103,3 +105,47 @@ style in the file you're editing rather than introducing a new one.
 | `resources/templates/` | Jinja2/HTML skeleton templates for both the admin UI and the published site |
 | `resources/styles/` | `dark.css` / `light.css`, synced into `storage/builds/style.css` on publish |
 | `tests/` | pytest suite — operates on temp copies only, never the live database |
+| `src/cms-manage.py` | Unified CLI Toolkit — status, pages, jobs, categories, assets, static publish |
+
+## Quick Reference (Operational CLI)
+
+High-speed operational commands via `cms-manage.py` for category management, atomic article publishing, and static site compilation:
+
+### 1. Category Creation
+```bash
+# Create category (auto-generates slug; optional --publish rebuilds the static catalog immediately)
+python3 src/cms-manage.py category add "Category Name" [--publish]
+```
+
+### 2. Quick Post & Content Appending
+```bash
+# Atomic post creation with automatic category resolution and static compilation
+python3 src/cms-manage.py quick-post "Post Title" \
+  --category "Category Name" \
+  --author "Author Name" \
+  --md-file "/path/to/article.md" \
+  --featured-img "hero.webp" \
+  --publish
+
+# Or with raw HTML body / file:
+python3 src/cms-manage.py quick-post "Post Title" \
+  --category "Category Name" \
+  --author "Author Name" \
+  --body-file "/path/to/article.html" \
+  --featured-img "hero.webp" \
+  --publish
+
+# Append subsequent sections/chapters to an existing page UUID:
+python3 src/cms-manage.py page append <PAGE_UUID> \
+  --body-file "/path/to/section.html" \
+  --publish
+```
+
+### 3. Static Site Compilation & Publishing
+```bash
+# Compile full static site to storage/builds/ (pages, posts, categories, RSS/Atom, sitemap)
+python3 src/cms-manage.py publish
+
+# Compile and immediately deploy to Cloudflare Pages via Wrangler
+python3 src/cms-manage.py publish --deploy --project <cf-pages-project>
+```

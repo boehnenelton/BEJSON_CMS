@@ -3,12 +3,12 @@ Library:         lib_bejson_AI_chat_interactions_engine.py
 Family:          AI
 Module Purpose:  Chat adapter over the existing Gemini Interactions provider (lib_bejson_AI_bejson_interactions.GeminiInteractionsAPI): key rotation with cool-off, server-side conversation chaining via previous_interaction_id, text/image/document inputs, optional code_execution tools, typed errors.
 Architecture:    Wraps the provider (>= 1.2.0). Keys come from a ChatKeyRotator and are passed per call (api_key=). generation_config is opt-in (constructor flag) and UNVERIFIED against the live API, so a 400 retries without it. Failures raise the typed errors of lib_bejson_AI_bejson_errors; no new error codes.
-Version:         1.1.0
+Version:         1.2.1
 Release_Version: 300
-Date:            2026-10-29
+Date:            2026-11-09
 Author:          Elton Boehnen · boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator:  Elton Boehnen
-RELATIONAL_ID:   0409189e-34b2-40bb-bb8c-ed7e2588b15f
+RELATIONAL_ID:   e602dccd-552d-4544-befa-f268d9c17c8c
 
 Changelog:
   1.1.0 (2026-10-29) -- Uses interactions provider 1.2.0: opt-in generation_config (temperature / max_output_tokens / thinking), .http_status on errors, endpoint passed per call (no module-constant override), shared text/thought extractors. Falls back to a request without generation_config, then without tools, on HTTP 400.
@@ -37,7 +37,7 @@ except BaseException as _e:             # the provider calls sys.exit() on a mis
 
 logger = logging.getLogger("lib_bejson_AI_chat_interactions_engine")
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 RETRYABLE_STATUS = {429, 500, 503}
 TOOL_CODE_EXECUTION = {"type": "code_execution"}
 

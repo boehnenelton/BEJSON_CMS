@@ -51,7 +51,7 @@
       "PageRecord",
       "data/pagerecord.bejson",
       null,
-      12,
+      16,
       "1.0",
       "page_uuid"
     ],
@@ -59,7 +59,7 @@
       "StandaloneApp",
       "data/standaloneapp.bejson",
       null,
-      2,
+      3,
       "1.0",
       "app_uuid"
     ],

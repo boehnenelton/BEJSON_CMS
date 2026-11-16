@@ -227,6 +227,48 @@ def get_cloudflare_config(db_instance) -> dict:
 
     return cf_cfg
 
+
+def get_blogger_config(db_instance) -> dict:
+    """
+    Retrieves Google Blogger syndication configuration from environment / secureenv.
+    Enforces 'no key in config': secret credentials resolved via resolve_secure_secret().
+    """
+    b_cfg = {
+        "blog_id": "",
+        "client_id": "",
+        "client_secret": "",
+        "refresh_token": "",
+        "api_key": ""
+    }
+    b_cfg["blog_id"] = resolve_secure_secret("BLOGGER_BLOG_ID")
+    b_cfg["client_id"] = resolve_secure_secret("BLOGGER_CLIENT_ID")
+    b_cfg["client_secret"] = resolve_secure_secret("BLOGGER_CLIENT_SECRET")
+    b_cfg["refresh_token"] = resolve_secure_secret("BLOGGER_REFRESH_TOKEN")
+    b_cfg["api_key"] = resolve_secure_secret("BLOGGER_API_KEY")
+    return b_cfg
+
+
+def get_substack_config(db_instance) -> dict:
+    """
+    Retrieves Substack syndication configuration from environment / secureenv.
+    Enforces 'no key in config': secret credentials resolved via resolve_secure_secret().
+    """
+    s_cfg = {
+        "session_sid": "",
+        "subdomain": "",
+        "base_url": "",
+        "user_id": "",
+        "user_handle": ""
+    }
+    s_cfg["session_sid"] = resolve_secure_secret("SUBSTACK_SID")
+    s_cfg["subdomain"] = resolve_secure_secret("SUBSTACK_SUBDOMAIN")
+    s_cfg["base_url"] = resolve_secure_secret("SUBSTACK_URL")
+    if not s_cfg["base_url"] and s_cfg["subdomain"]:
+        s_cfg["base_url"] = f"https://{s_cfg['subdomain']}.substack.com"
+    s_cfg["user_id"] = resolve_secure_secret("SUBSTACK_USER_ID")
+    s_cfg["user_handle"] = resolve_secure_secret("SUBSTACK_USER_HANDLE")
+    return s_cfg
+
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER_PORT")
 
@@ -1486,7 +1528,79 @@ def _execute():
             p_date   = item.get("page_created_at") or datetime.now().strftime("%Y-%m-%d")
             f_img    = item.get("page_featured_img")
             f_diag   = (item.get("page_featured_diagram") or "").strip()
-            
+
+            # Capture already defined featured image if missing or default, and keep on rebuild
+            if not f_img or str(f_img).lower() in ("none", "", DEFAULT_FEATURED_IMAGE.lower(), "bejson_brand_3_icon.jpeg"):
+                captured_featured_img = None
+
+                # 1. Check if page links to a standalone app
+                page_external_link = item.get("page_external_url") or ""
+                if itype == "app" or "/apps/" in page_external_link:
+                    for standalone_app_record in standalone_apps:
+                        is_matching_app = (
+                            standalone_app_record.get("app_uuid") == item.get("page_uuid") or
+                            (standalone_app_record.get("app_slug") and f"/apps/{standalone_app_record.get('app_slug')}/" in page_external_link) or
+                            standalone_app_record.get("app_name") == item.get("page_title")
+                        )
+                        if is_matching_app:
+                            candidate_app_img = standalone_app_record.get("app_featured_img")
+                            if candidate_app_img and candidate_app_img not in (DEFAULT_FEATURED_IMAGE, "bejson_brand_3_icon.jpeg"):
+                                captured_featured_img = candidate_app_img
+                                break
+
+                # 2. Check HTML body for defined asset image references
+                if not captured_featured_img and html_body:
+                    asset_matches = re.findall(r'(?:src|content)=[\'"](?:(?:\.\.\/)*|\/)assets\/([^\'"\?#]+)', html_body)
+                    for candidate_asset in asset_matches:
+                        candidate_basename = os.path.basename(candidate_asset)
+                        if os.path.exists(os.path.join(ASSETS_SRC, candidate_basename)) and candidate_basename not in (DEFAULT_FEATURED_IMAGE, "bejson_brand_3_icon.jpeg"):
+                            captured_featured_img = candidate_basename
+                            break
+
+                # 3. Check markdown body if present in content row
+                if not captured_featured_img:
+                    idx_md = field_map.get("markdown_body", -1)
+                    markdown_body_content = content_row[idx_md] if content_row and idx_md != -1 else ""
+                    if markdown_body_content:
+                        frontmatter_match = re.search(r"^---\s*\n(.*?)\n---", markdown_body_content, re.DOTALL)
+                        if frontmatter_match:
+                            image_key_match = re.search(
+                                r"(?:featured_img|featured_image|image|hero_image|cover_image):\s*[\'\"]?([^\'\"\r\n]+)",
+                                frontmatter_match.group(1),
+                                re.IGNORECASE
+                            )
+                            if image_key_match:
+                                candidate_basename = os.path.basename(image_key_match.group(1).strip())
+                                if os.path.exists(os.path.join(ASSETS_SRC, candidate_basename)):
+                                    captured_featured_img = candidate_basename
+                        if not captured_featured_img:
+                            markdown_image_matches = re.findall(r'!\[[^\]]*\]\((?:(?:\.\.\/)*|\/)assets\/([^\'"\)\?#]+)\)', markdown_body_content)
+                            for candidate_asset in markdown_image_matches:
+                                candidate_basename = os.path.basename(candidate_asset)
+                                if os.path.exists(os.path.join(ASSETS_SRC, candidate_basename)) and candidate_basename not in (DEFAULT_FEATURED_IMAGE, "bejson_brand_3_icon.jpeg"):
+                                    captured_featured_img = candidate_basename
+                                    break
+
+                # 4. Check ASSETS_SRC for exact slug hero pattern (<slug>_hero.webp/png/svg)
+                if not captured_featured_img and item.get("page_slug"):
+                    clean_slug = item["page_slug"].replace("-", "_")
+                    for file_extension in [".webp", ".png", ".svg", ".jpg", ".jpeg"]:
+                        for pattern_candidate in [f"{clean_slug}_hero{file_extension}", f"{clean_slug}{file_extension}"]:
+                            if os.path.exists(os.path.join(ASSETS_SRC, pattern_candidate)):
+                                captured_featured_img = pattern_candidate
+                                break
+                        if captured_featured_img:
+                            break
+
+                if captured_featured_img:
+                    f_img = captured_featured_img
+                    item["page_featured_img"] = captured_featured_img
+                    try:
+                        db.update_record("PageRecord", "page_uuid", item["page_uuid"], {"page_featured_img": captured_featured_img})
+                        _log(f"Captured and kept featured image '{captured_featured_img}' for '{item.get('page_title')}'")
+                    except Exception as save_err:
+                        _log(f"Warning: Could not persist captured image for '{item.get('page_title')}': {save_err}")
+
             # Handle missing or "None" images with the seeded default image
             if not f_img or str(f_img).lower() == "none":
                 feat_img_html = f"<img src='../../../assets/{DEFAULT_FEATURED_IMAGE}' class='article-featured-image'>"
@@ -2005,6 +2119,23 @@ def r_publish():
     home_feed_enabled_val = str(skel_conf.get("home_feed_enabled", "true")).lower() in ("true", "1", "yes", "on")
     home_cat_pos_val      = str(skel_conf.get("home_category_bar_position", "below_bulletin")).lower().strip()
 
+    cf_cfg = get_cloudflare_config(db)
+    blogger_cfg = get_blogger_config(db)
+    substack_cfg = get_substack_config(db)
+
+    cf_badge = ('<span class="badge b-on">&#10003; Connected</span>' if cf_cfg.get("api_token")
+                else '<span class="badge b-off">Pending Setup</span>')
+    blogger_badge = ('<span class="badge b-on">&#10003; Connected</span>' if (blogger_cfg.get("blog_id") and (blogger_cfg.get("refresh_token") or blogger_cfg.get("client_id")))
+                     else '<span class="badge b-off">Pending Setup</span>')
+    substack_badge = ('<span class="badge b-on">&#10003; Connected</span>' if (substack_cfg.get("session_sid") and (substack_cfg.get("subdomain") or substack_cfg.get("base_url")))
+                      else '<span class="badge b-off">Pending Setup</span>')
+
+    cf_account_masked = (cf_cfg["account_id"][:6] + "..." + cf_cfg["account_id"][-4:]) if len(cf_cfg.get("account_id", "")) >= 10 else (cf_cfg.get("account_id") or "ENV:CLOUDFLARE_ACCOUNT_ID")
+    blogger_blog_masked = blogger_cfg.get("blog_id") or "ENV:BLOGGER_BLOG_ID"
+    substack_sub_masked = substack_cfg.get("subdomain") or substack_cfg.get("base_url") or "ENV:SUBSTACK_SUBDOMAIN"
+    cf_project_val = cf_cfg.get("project_name", "boehnenelton2024-blog")
+    substack_sub_val = substack_cfg.get("subdomain", "")
+
     build_badge = ("<span class='badge b-on'>IDLE</span>" if not building
                    else "<span class='badge' style='background:#7c2d12;color:#fca5a5;'>BUILDING...</span>")
     srv_badge   = (f"<span class='badge b-on'>:{srv_port}</span>" if srv_on
@@ -2072,17 +2203,83 @@ def r_publish():
           </p>
           {server_controls}
         </div>
-        <div class="card">
-          <div class="card-hd"><h3>Cloudflare Pages</h3></div>
-          <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px;">
-            Deploy the built static site directly to Cloudflare Pages.
+      </div>
+    </div>
+
+    <!-- API INTEGRATIONS & SYNDICATION SECTION -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-hd">
+        <h3>API Integrations &amp; Syndication</h3>
+        <span class="badge b-off">ENV &bull; SecureEnv Resolved</span>
+      </div>
+      <p style="color:var(--muted);font-size:.86rem;margin-bottom:16px;">
+        Automated multi-platform edge deployment and syndication. Credentials resolve dynamically via <code>$DEFINITIONS_FILE</code>, <code>secureenv_file.json</code>, and shell environment without hardcoded secrets.
+      </p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
+        <!-- CLOUDFLARE PAGES -->
+        <div style="background:#111;border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h4 style="margin:0;font-size:.9rem;font-weight:700;">&#9729; Cloudflare Pages</h4>
+            {cf_badge}
+          </div>
+          <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;flex:1;">
+            Deploy the static production build directory directly to Cloudflare Pages edge network via Wrangler.
           </p>
-          <form method="POST" action="/publish/cloudflare">
+          <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px;">
+            Account ID: <code style="color:#aaa;">{cf_account_masked}</code>
+          </div>
+          <form method="POST" action="/publish/cloudflare" style="margin:0;">
             <div class="fg">
-              <label>Project Name</label>
-              <input type="text" name="cf_project" placeholder="Enter Cloudflare Project Name" value="boehnenelton2024-blog">
+              <label style="font-size:.78rem;">Project Name</label>
+              <input type="text" name="cf_project" placeholder="Cloudflare Project" value="{cf_project_val}">
             </div>
-            <button class="btn btn-green" {"disabled" if building else ""}>&#9729; Publish to Cloudflare</button>
+            <button class="btn btn-green" style="width:100%;margin-top:6px;" {"disabled" if building else ""}>&#9729; Publish to Cloudflare</button>
+          </form>
+        </div>
+
+        <!-- GOOGLE BLOGGER -->
+        <div style="background:#111;border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h4 style="margin:0;font-size:.9rem;font-weight:700;">&#9998; Google Blogger</h4>
+            {blogger_badge}
+          </div>
+          <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;flex:1;">
+            Syndicate CMS articles to Google Blogger v3 with rate limiting and duplicate detection.
+          </p>
+          <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px;">
+            Blog ID: <code style="color:#aaa;">{blogger_blog_masked}</code>
+          </div>
+          <form method="POST" action="/publish/blogger" style="margin:0;">
+            <div class="fg">
+              <label style="font-size:.78rem;">Publication Mode</label>
+              <select name="blogger_mode">
+                <option value="publish">Live (Published)</option>
+                <option value="draft">Draft Mode</option>
+              </select>
+            </div>
+            <button class="btn btn-red" style="width:100%;margin-top:6px;" {"disabled" if building else ""}>&#9998; Syndicate to Blogger</button>
+          </form>
+        </div>
+
+        <!-- SUBSTACK -->
+        <div style="background:#111;border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h4 style="margin:0;font-size:.9rem;font-weight:700;">&#128214; Substack</h4>
+            {substack_badge}
+          </div>
+          <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;flex:1;">
+            Syndicate articles and drafts to your Substack publication using session token auth.
+          </p>
+          <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px;">
+            Subdomain: <code style="color:#aaa;">{substack_sub_masked}</code>
+          </div>
+          <form method="POST" action="/publish/substack" style="margin:0;">
+            <div class="fg">
+              <label style="font-size:.78rem;">Publication Subdomain</label>
+              <input type="text" name="substack_subdomain" placeholder="Subdomain (e.g. newsletter)" value="{substack_sub_val}">
+            </div>
+            <button class="btn btn-green" style="width:100%;margin-top:6px;" {"disabled" if building else ""}>&#128214; Syndicate to Substack</button>
           </form>
         </div>
       </div>
@@ -2525,6 +2722,125 @@ def r_publish_cloudflare():
         threading.Thread(target=_run_deploy, daemon=True).start()
 
     return redirect("/publish")
+
+
+@app.route("/publish/blogger", methods=["POST"])
+def r_publish_blogger():
+    blogger_cfg = get_blogger_config(db)
+    mode = request.form.get("blogger_mode", "publish").strip().lower()
+    is_draft = (mode == "draft")
+
+    if not _state["build_running"]:
+        _state["build_running"] = True
+        _state["build_log"] = []
+        _log(f"[Blogger] Starting syndication to Google Blogger (mode: {'Draft' if is_draft else 'Live'})...")
+
+        def _run_blogger():
+            try:
+                tools_dir = os.path.join(PROJECT_ROOT, "tools")
+                blogger_script = os.path.join(tools_dir, "blogger_publisher.py")
+                if not os.path.exists(blogger_script):
+                    _log(f"[Error] Blogger publisher script not found: {blogger_script}")
+                    return
+
+                cmd = [sys.executable, blogger_script]
+                if is_draft:
+                    cmd.append("--draft")
+
+                blogger_env = os.environ.copy()
+                if blogger_cfg.get("client_id"):
+                    blogger_env["BLOGGER_CLIENT_ID"] = blogger_cfg["client_id"]
+                if blogger_cfg.get("client_secret"):
+                    blogger_env["BLOGGER_CLIENT_SECRET"] = blogger_cfg["client_secret"]
+                if blogger_cfg.get("blog_id"):
+                    blogger_env["BLOGGER_BLOG_ID"] = blogger_cfg["blog_id"]
+                if blogger_cfg.get("refresh_token"):
+                    blogger_env["BLOGGER_REFRESH_TOKEN"] = blogger_cfg["refresh_token"]
+
+                _log("[Blogger] Dispatching Google Blogger batch syndication...")
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    env=blogger_env
+                )
+                for line in process.stdout:
+                    clean_line = line.strip()
+                    if clean_line:
+                        _log(f"[blogger] {clean_line}")
+
+                process.wait()
+                if process.returncode == 0:
+                    _log("[Blogger] Syndication completed successfully!")
+                else:
+                    _log(f"[Blogger] Deployment completed with code {process.returncode}")
+            except Exception as e:
+                _log(f"[Blogger] Critical Error: {e}")
+            finally:
+                _state["build_running"] = False
+
+        threading.Thread(target=_run_blogger, daemon=True).start()
+
+    return redirect("/publish")
+
+
+@app.route("/publish/substack", methods=["POST"])
+def r_publish_substack():
+    substack_cfg = get_substack_config(db)
+    subdomain_input = request.form.get("substack_subdomain", "").strip()
+    target_subdomain = subdomain_input or substack_cfg.get("subdomain", "")
+
+    if not _state["build_running"]:
+        _state["build_running"] = True
+        _state["build_log"] = []
+        _log(f"[Substack] Starting syndication to Substack (target: {target_subdomain or 'default'})...")
+
+        def _run_substack():
+            try:
+                tools_dir = os.path.join(PROJECT_ROOT, "tools")
+                substack_script = os.path.join(tools_dir, "substack_publisher.py")
+                if not os.path.exists(substack_script):
+                    _log(f"[Error] Substack publisher script not found: {substack_script}")
+                    return
+
+                cmd = [sys.executable, substack_script]
+
+                substack_env = os.environ.copy()
+                if substack_cfg.get("session_sid"):
+                    substack_env["SUBSTACK_SID"] = substack_cfg["session_sid"]
+                if target_subdomain:
+                    substack_env["SUBSTACK_SUBDOMAIN"] = target_subdomain
+                if substack_cfg.get("base_url"):
+                    substack_env["SUBSTACK_URL"] = substack_cfg["base_url"]
+
+                _log("[Substack] Dispatching Substack batch syndication...")
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    env=substack_env
+                )
+                for line in process.stdout:
+                    clean_line = line.strip()
+                    if clean_line:
+                        _log(f"[substack] {clean_line}")
+
+                process.wait()
+                if process.returncode == 0:
+                    _log("[Substack] Syndication completed successfully!")
+                else:
+                    _log(f"[Substack] Deployment completed with code {process.returncode}")
+            except Exception as e:
+                _log(f"[Substack] Critical Error: {e}")
+            finally:
+                _state["build_running"] = False
+
+        threading.Thread(target=_run_substack, daemon=True).start()
+
+    return redirect("/publish")
+
 
 def deploy_cloudflare(project_name=None, output_dir=None):
     """

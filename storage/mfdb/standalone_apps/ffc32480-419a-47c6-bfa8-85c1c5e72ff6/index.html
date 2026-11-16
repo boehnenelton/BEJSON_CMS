@@ -1,0 +1,6223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sword Slasher RPG: Shadow Link's Awakening (Standalone Single-File HTML Game)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; user-select: none; }
+    body { background-color: #000; color: #fff; font-family: monospace; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 100vh; overflow-x: hidden; }
+    header { background: #09090b; border-bottom: 2px solid #DE2626; padding: 8px 16px; width: 100%; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    h1 { color: #fff; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; font-weight: bold; }
+    .badge { background: #DE2626; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+    .subtitle { color: #DE2626; font-size: 10px; margin-top: 2px; }
+    main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #050505; position: relative; padding: 6px; width: 100%; }
+    #canvas-container { border: 3px solid #DE2626; box-shadow: 0 0 30px rgba(222,38,38,0.4); background: #000; position: relative; width: 448px; height: 448px; max-width: 90vw; max-height: 90vw; aspect-ratio: 1 / 1; }
+    canvas { display: block; image-rendering: pixelated; width: 100%; height: 100%; }
+    
+    #room-controls { margin-top: 6px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; z-index: 10; }
+    .room-btn { background: #18181b; color: #f4f4f5; border: 1px solid #3f3f46; border-radius: 4px; padding: 2px 8px; font-family: monospace; cursor: pointer; font-size: 10px; transition: all 0.15s; }
+    .room-btn:hover { border-color: #DE2626; }
+    .room-btn.active { background: #DE2626; border-color: #f87171; color: #fff; font-weight: bold; }
+
+    #gamepad-deck { width: 100%; max-width: 640px; background: rgba(9, 9, 11, 0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 6px 12px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); flex-shrink: 0; }
+    .joystick-outer { position: relative; width: 116px; height: 116px; background: #18181b; border: 2px solid rgba(255,255,255,0.25); border-radius: 50%; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: pointer; transition: border-color 0.1s, box-shadow 0.1s; }
+    .joystick-outer.active { border-color: #DE2626; box-shadow: 0 0 16px rgba(222,38,38,0.45); }
+    .joystick-knob { position: absolute; width: 48px; height: 48px; background: #FFFFFF; border: 2px solid #FFFFFF; border-radius: 50%; box-shadow: 0 0 12px rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; pointer-events: none; transition: background 0.1s, border-color 0.1s, box-shadow 0.1s; }
+    .joystick-core { width: 18px; height: 18px; background: #000000; border-radius: 50%; border: 1px solid #71717a; transition: background 0.1s, border-color 0.1s; }
+    .joystick-knob.active, .joystick-outer.active .joystick-knob { background: #DE2626 !important; border-color: #f87171 !important; box-shadow: 0 0 18px rgba(222,38,38,0.9) !important; }
+    .joystick-knob.active .joystick-core, .joystick-outer.active .joystick-core { background: #FFFFFF !important; border-color: #FFFFFF !important; }
+    
+    .center-pills { display: flex; flex-direction: column; align-items: center; gap: 8px; background: rgba(24, 24, 27, 0.85); padding: 8px 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+    .pill-row { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none; }
+    .pill-btn { width: 32px; height: 10px; background: #FFFFFF; border: 1px solid #FFFFFF; border-radius: 8px; transform: rotate(-15deg); cursor: pointer; touch-action: none; transition: background 0.08s, border-color 0.08s, box-shadow 0.08s; }
+    .pill-row:active .pill-btn, .pill-btn:active, .pill-btn.active { background: #DE2626 !important; border-color: #f87171 !important; box-shadow: 0 0 10px rgba(222,38,38,0.85) !important; }
+    .pill-label { font-size: 8px; font-weight: bold; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; transition: color 0.08s; }
+    .pill-row:active .pill-label, .pill-row.active .pill-label { color: #DE2626 !important; }
+    
+    .action-cluster { position: relative; width: 128px; height: 128px; background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; touch-action: none; }
+    .act-btn { position: absolute; width: 44px; height: 44px; border-radius: 50%; font-size: 16px; font-weight: 900; color: #000000; background: #FFFFFF; border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; box-shadow: 0 4px 12px rgba(255,255,255,0.25); transition: transform 0.08s, background 0.08s, color 0.08s, border-color 0.08s, box-shadow 0.08s; touch-action: none; }
+    .btn-x { top: 2px; left: 42px; }
+    .btn-y { top: 42px; left: 2px; }
+    .btn-b { bottom: 2px; left: 42px; }
+    .btn-a { top: 42px; right: 2px; }
+    .act-btn:active, .act-btn.active { background: #DE2626 !important; color: #FFFFFF !important; border-color: #f87171 !important; box-shadow: 0 0 18px rgba(222,38,38,0.9) !important; transform: scale(0.92); }
+
+    #intro-screen { position: absolute; inset: 0; z-index: 100; background: #050204; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; border-radius: 4px; }
+
+    footer { background: #09090b; border-top: 1px solid #27272a; padding: 6px 20px; font-size: 10px; color: #71717a; text-align: center; flex-shrink: 0; width: 100%; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Sword Slasher RPG: Shadow Link's Awakening <span class="badge">SINGLE-FILE HTML ENGINE</span></h1>
+      <div class="subtitle">BEJSON 105 Pure Data Engine (Integrity Era v2.0.0-105)</div>
+    </div>
+    <div style="font-size: 11px; color: #10b981; font-weight: bold;">
+      ● OFFLINE RUNNABLE
+    </div>
+  </header>
+
+  <main>
+    <div id="canvas-container">
+      <div id="intro-screen">
+        <h1 style="font-size: 24px; color: #fff; text-transform: uppercase; font-weight: bold; letter-spacing: 2px; margin-bottom: 6px;">SHADOW LINK</h1>
+        <p style="font-size: 11px; color: #DE2626; font-weight: bold; font-family: monospace; letter-spacing: 1px; margin-bottom: 20px;">SWORD SLASHER RPG: SHADOW LINK'S AWAKENING</p>
+        <button id="btn-start-game" style="padding: 12px 28px; background: #DE2626; color: #fff; font-size: 13px; font-weight: bold; font-family: monospace; border: 1px solid #f87171; border-radius: 8px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 0 20px rgba(222,38,38,0.6);">START GAME</button>
+        <p style="font-size: 10px; color: #71717a; font-family: monospace; margin-top: 20px;">Author: Elton Boehnen · BEJSON 105 Pure Data Engine</p>
+      </div>
+      <canvas id="gameCanvas" width="448" height="448"></canvas>
+    </div>
+
+    <div id="room-controls">
+      <button id="btn-room-debug" class="room-btn active" onclick="setDebugRoom('debug_chamber')">🔧 Debug Chamber [1]</button>
+      <button id="btn-room-sanctuary" class="room-btn" onclick="setDebugRoom('ganon_sanctuary')">🏛️ Ganon Sanctuary [2]</button>
+      <button id="btn-room-cavern" class="room-btn" onclick="setDebugRoom('forgotten_cavern')">🦇 Forgotten Cavern [3]</button>
+      <button id="btn-room-courtyard" class="room-btn" onclick="setDebugRoom('castle_courtyard')">🏰 Castle Courtyard [4]</button>
+    </div>
+
+    <div id="gamepad-deck">
+      <div id="joystick" class="joystick-outer">
+        <div id="joystick-knob" class="joystick-knob">
+          <div class="joystick-core"></div>
+        </div>
+      </div>
+
+      <div class="center-pills">
+        <div id="row-start" class="pill-row">
+          <button id="btn-start" class="pill-btn"></button>
+          <span class="pill-label">START</span>
+        </div>
+        <div id="row-select" class="pill-row">
+          <button id="btn-select" class="pill-btn"></button>
+          <span class="pill-label">SELECT</span>
+        </div>
+      </div>
+
+      <div class="action-cluster">
+        <button id="btn-x" class="act-btn btn-x">X</button>
+        <button id="btn-y" class="act-btn btn-y">Y</button>
+        <button id="btn-b" class="act-btn btn-b">B</button>
+        <button id="btn-a" class="act-btn btn-a">A</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Author: Elton Boehnen · boehnenelton2024@gmail.com · BEJSON 105 Pure Data Standalone Game Engine
+  </footer>
+
+  <script>
+    const EMBEDDED_BEJSON_BUNDLE = {
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Unified Flask Engine Data Bundle",
+  "Schema_Version": "1.0.0",
+  "Release_Version": 300,
+  "Author": "Elton Boehnen \u00b7 boehnenelton2024@gmail.com",
+  "Total_Datasets": 24,
+  "Total_Records": 160,
+  "Datasets": {
+    "manifest/105a.mfdb.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Database_Title": "Sword Slasher RPG MFDB 105 Database",
+      "Database_Version": "2.0.0",
+      "Package_Version": "101",
+      "Project_GUID": "7487b35b-cf83-402f-93e7-f796f61cac6d",
+      "Versioned_UUID": "7c3a1afc-fa29-4a3c-9588-083f8e4b9789",
+      "Write_Owner_Module": "lib_bejson_Gaming_mfdb_manager.js",
+      "Primary_Key_Field": "mfdb_uuid",
+      "Type_Discriminator_Field": "mfdb_record_type",
+      "Domain_Type_Field": "mfdb_entity_category_type",
+      "Records_Type": [
+        "MfdbManifest"
+      ],
+      "Fields": [
+        {
+          "name": "mfdb_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "mfdb_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "MfdbManifest"
+          ]
+        },
+        {
+          "name": "mfdb_entity_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SCHEMA",
+            "WORLD",
+            "ACTOR",
+            "ITEM",
+            "EVENT",
+            "ASSET",
+            "CHUNK",
+            "RUNTIME",
+            "CONFIG"
+          ]
+        },
+        {
+          "name": "mfdb_entity_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "mfdb_folder_directory_path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "mfdb_relative_file_path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "mfdb_execution_load_order_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "mfdb_format_version_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "105",
+            "105a",
+            "105db"
+          ]
+        },
+        {
+          "name": "mfdb_is_required_boot_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "mfdb_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "8711ea5c-c3a4-4e66-b630-8345f8b2d332",
+          "MfdbManifest",
+          "SCHEMA",
+          "schema_registry",
+          "data/schemas/",
+          "../schemas/schema_registry.105a.bejson",
+          1,
+          "105a",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "8a8afe8c-ba10-490d-a042-e000e1159951",
+          "MfdbManifest",
+          "WORLD",
+          "biomes",
+          "data/biomes/",
+          "../biomes/biomes.105.bejson",
+          10,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "c94e120a-3b11-48f2-9c12-15b20d9f4110",
+          "MfdbManifest",
+          "WORLD",
+          "object_rules",
+          "data/object_rules/",
+          "../object_rules/object_rules.105.bejson",
+          15,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "d3dd6ec1-54ee-48a5-aa1a-0d7ccdd27067",
+          "MfdbManifest",
+          "WORLD",
+          "levels",
+          "data/levels/",
+          "../levels/levels.105.bejson",
+          20,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "d5c2cc9b-5f5f-47d5-85a3-bb0462051230",
+          "MfdbManifest",
+          "ACTOR",
+          "actor_stats",
+          "data/actor_stats/",
+          "../actor_stats/actor_stats.105.bejson",
+          30,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "e3a57343-6c59-4996-8265-d81dc2b0ea10",
+          "MfdbManifest",
+          "ASSET",
+          "sprites_manifest",
+          "data/sprites/",
+          "../sprites/sprites_manifest.105a.bejson",
+          35,
+          "105a",
+          false,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "fd7762e9-4b52-488f-95e7-df077315b444",
+          "MfdbManifest",
+          "ASSET",
+          "tiles_manifest",
+          "data/tiles/",
+          "../tiles/tiles_manifest.105a.bejson",
+          36,
+          "105a",
+          false,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "a19f44d2-81c3-4e01-b712-5549e81c0921",
+          "MfdbManifest",
+          "ASSET",
+          "audio_manifest",
+          "data/audio/",
+          "../audio/audio_manifest.105a.bejson",
+          37,
+          "105a",
+          false,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "6afd57c2-f0ab-4e8b-84a8-8454bcdbb900",
+          "MfdbManifest",
+          "ITEM",
+          "items",
+          "data/items/",
+          "../items/items.105.bejson",
+          40,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "6690d77a-79f7-4282-a0a8-608820d4ac2e",
+          "MfdbManifest",
+          "ACTOR",
+          "actors",
+          "data/actors/",
+          "../actors/actors.105.bejson",
+          50,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "8568c5c4-ca21-4704-952b-7af6219a9cea",
+          "MfdbManifest",
+          "WORLD",
+          "portals",
+          "data/portals/",
+          "../portals/portals.105.bejson",
+          60,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "bcea9610-1e3a-4ff2-909a-b3f8e65d7c5f",
+          "MfdbManifest",
+          "EVENT",
+          "events",
+          "data/events/",
+          "../events/events.105.bejson",
+          70,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f13f2303-e8d7-41f2-8f63-d20ef390f04d",
+          "MfdbManifest",
+          "WORLD",
+          "objects",
+          "data/objects/",
+          "../objects/objects.105.bejson",
+          80,
+          "105",
+          false,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "fc6df8b6-5b73-4e7f-80f8-35d5c992f9cf",
+          "MfdbManifest",
+          "CHUNK",
+          "chunks",
+          "data/chunks/",
+          "../chunks/cave_chunk_0_0.105.bejson",
+          90,
+          "105",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "d1a10001-0000-4000-8000-000000000001",
+          "MfdbManifest",
+          "ACTOR",
+          "shadow_link_combat_animations",
+          "data/combat/",
+          "../combat/shadow_link_combat_animations.105a.bejson",
+          95,
+          "105a",
+          false,
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "d2a20001-0000-4000-8000-000000000001",
+          "MfdbManifest",
+          "ITEM",
+          "weapons_combat_registry",
+          "data/combat/",
+          "../combat/weapons_combat_registry.105a.bejson",
+          96,
+          "105a",
+          false,
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "d3a30001-0000-4000-8000-000000000001",
+          "MfdbManifest",
+          "RUNTIME",
+          "projectile_combat_registry",
+          "data/combat/",
+          "../combat/projectile_combat_registry.105a.bejson",
+          97,
+          "105a",
+          false,
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "c4a5b6c7-0000-4000-8000-000000000001",
+          "MfdbManifest",
+          "RUNTIME",
+          "projectile_impact_dynamics",
+          "data/combat/",
+          "../combat/projectile_impact_dynamics.105a.bejson",
+          98,
+          "105a",
+          false,
+          "2026-11-16T07:32:00Z"
+        ]
+      ]
+    },
+    "levels/levels.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_level_loader.js",
+      "Primary_Key_Field": "lvl_uuid",
+      "Type_Discriminator_Field": "lvl_record_type",
+      "Domain_Type_Field": "lvl_environment_zone_type",
+      "Records_Type": [
+        "GameLevel"
+      ],
+      "Fields": [
+        {
+          "name": "lvl_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "lvl_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GameLevel"
+          ]
+        },
+        {
+          "name": "lvl_environment_zone_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "CAVERN_DUNGEON",
+            "BOSS_ARENA",
+            "SAFE_HUB",
+            "OVERWORLD_FIELD"
+          ]
+        },
+        {
+          "name": "lvl_map_size_tier_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SMALL_32X32",
+            "MEDIUM_64X64",
+            "LARGE_96X96",
+            "HUGE_128X128"
+          ]
+        },
+        {
+          "name": "lvl_victory_condition_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DEFEAT_ALL_ENEMIES",
+            "REACH_PORTAL",
+            "COLLECT_ITEM",
+            "SURVIVE_TIMER",
+            "NONE"
+          ]
+        },
+        {
+          "name": "lvl_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lvl_display_title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lvl_width_tiles_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "lvl_height_tiles_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "lvl_tile_unit_size_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "lvl_biome_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "biomes.biome_uuid",
+            "on_delete": "restrict"
+          }
+        },
+        {
+          "name": "lvl_bgm_audio_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "audio.aud_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "lvl_bgm_track_slug_code",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lvl_victory_condition_payload_json",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lvl_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lvl_updated_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          "GameLevel",
+          "BOSS_ARENA",
+          "MEDIUM_64X64",
+          "NONE",
+          "ganon_sanctuary",
+          "Ganon's Dark Sanctuary",
+          64,
+          64,
+          16,
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "ganon_theme",
+          "{\"type\": \"NONE\"}",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
+          "GameLevel",
+          "SAFE_HUB",
+          "MEDIUM_64X64",
+          "NONE",
+          "debug_chamber",
+          "Debug Item & Feature Test Chamber",
+          64,
+          64,
+          16,
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "ganon_theme",
+          "{\"type\": \"NONE\"}",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          "GameLevel",
+          "CAVERN_DUNGEON",
+          "LARGE_96X96",
+          "DEFEAT_ALL_ENEMIES",
+          "forgotten_cavern",
+          "Forgotten Dark Cavern - Level 1",
+          96,
+          96,
+          16,
+          "0f94d339-50d0-4daf-aa01-88eeea870b2b",
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "ambient_drip",
+          "{\"type\": \"DEFEAT_ALL_ENEMIES\", \"target_faction\": \"HOSTILE\"}",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "fa8b5962-afc8-439c-966a-470241c6d3f8",
+          "GameLevel",
+          "OVERWORLD_FIELD",
+          "LARGE_96X96",
+          "REACH_PORTAL",
+          "castle_courtyard",
+          "Hyrule Castle Courtyard - Level 2",
+          96,
+          96,
+          16,
+          "0f94d339-50d0-4daf-aa01-88eeea870b2c",
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "castle_march",
+          "{\"type\": \"REACH_PORTAL\"}",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "fa8b5962-afc8-439c-966a-470241c6d3f9",
+          "GameLevel",
+          "BOSS_ARENA",
+          "SMALL_32X32",
+          "COLLECT_ITEM",
+          "princess_tower",
+          "Princess Zelda's Tower Chamber",
+          32,
+          32,
+          16,
+          "0f94d339-50d0-4daf-aa01-88eeea870b2c",
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "dark_prophecy",
+          "{\"type\": \"COLLECT_ITEM\", \"item_slug\": \"princess_zelda\"}",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "fa8b5962-afc8-439c-966a-470241c6d3f2",
+          "GameLevel",
+          "OVERWORLD_FIELD",
+          "HUGE_128X128",
+          "REACH_PORTAL",
+          "dark_world_overworld",
+          "Dark World Hyrule Overworld",
+          128,
+          128,
+          16,
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "ganon_theme",
+          "{\"type\": \"REACH_PORTAL\"}",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "actors/actors.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_actor_controller.js",
+      "Primary_Key_Field": "actor_uuid",
+      "Type_Discriminator_Field": "actor_record_type",
+      "Domain_Type_Field": "actor_entity_role_type",
+      "Records_Type": [
+        "ActorInstance"
+      ],
+      "Fields": [
+        {
+          "name": "actor_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "actor_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ActorInstance"
+          ]
+        },
+        {
+          "name": "actor_entity_role_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "PLAYER",
+            "NPC_DIALOGUE",
+            "NPC_MERCHANT",
+            "ENEMY_MOB",
+            "ENEMY_BOSS"
+          ]
+        },
+        {
+          "name": "actor_fsm_lifecycle_state_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "IDLE",
+            "MOVING",
+            "ATTACKING",
+            "HURT",
+            "DIALOGUE",
+            "DEAD"
+          ]
+        },
+        {
+          "name": "actor_lvl_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "levels.lvl_uuid",
+            "on_delete": "cascade"
+          }
+        },
+        {
+          "name": "actor_stat_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "actor_stats.stat_uuid",
+            "on_delete": "restrict"
+          }
+        },
+        {
+          "name": "actor_archetype_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "actor_display_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "actor_start_position_x_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "actor_start_position_y_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "actor_current_position_x_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "actor_current_position_y_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "actor_facing_direction_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "UP",
+            "DOWN",
+            "LEFT",
+            "RIGHT"
+          ]
+        },
+        {
+          "name": "actor_current_health_points_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "actor_override_attack_power_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "actor_override_defense_rating_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "actor_weapon_item_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "items.item_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "actor_armor_item_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "items.item_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "actor_interaction_evt_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "events.evt_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "actor_inventory_item_uuids_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "actor_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "actor_updated_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "2d70ddc2-4471-4d88-af8a-ec96832571ce",
+          "ActorInstance",
+          "PLAYER",
+          "IDLE",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          "967bec9e-e89b-40bf-9194-f07227e4f7a1",
+          "player",
+          "Shadow Link",
+          192.0,
+          300.0,
+          192.0,
+          300.0,
+          "UP",
+          120,
+          20,
+          8,
+          "d7efa941-b0b8-4f8f-bd00-72d0277a1b0d",
+          null,
+          null,
+          "[\"6ff5b8c1-466e-44fb-8592-41f44cbbf8c5\"]",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3464096b-6f5b-4a48-87b4-f68e70edd6f0",
+          "ActorInstance",
+          "ENEMY_BOSS",
+          "IDLE",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          "f34bebc3-90c5-4fcc-b40b-300dbdd4cb30",
+          "ganon",
+          "Ganon Dark Lord",
+          192.0,
+          100.0,
+          192.0,
+          100.0,
+          "DOWN",
+          999,
+          50,
+          20,
+          null,
+          null,
+          "994b1b9c-42b1-415f-8d21-6233d9672390",
+          "[]",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3464096b-6f5b-4a48-87b4-f68e70edd6f2",
+          "ActorInstance",
+          "NPC_DIALOGUE",
+          "IDLE",
+          "fa8b5962-afc8-439c-966a-470241c6d3f9",
+          "f34bebc3-90c5-4fcc-b40b-300dbdd4cb32",
+          "zelda",
+          "Princess Zelda",
+          192.0,
+          120.0,
+          192.0,
+          120.0,
+          "DOWN",
+          100,
+          0,
+          1,
+          null,
+          null,
+          "994b1b9c-42b1-415f-8d21-6233d9672392",
+          "[]",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3464096b-6f5b-4a48-87b4-f68e70edd6f3",
+          "ActorInstance",
+          "ENEMY_MOB",
+          "IDLE",
+          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          "6f08ff8c-ae51-4a46-895c-651ad32a07ea",
+          "slime",
+          "Shadow Slime 1",
+          200.0,
+          200.0,
+          200.0,
+          200.0,
+          "LEFT",
+          35,
+          10,
+          2,
+          null,
+          null,
+          null,
+          "[]",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3464096b-6f5b-4a48-87b4-f68e70edd6f4",
+          "ActorInstance",
+          "ENEMY_MOB",
+          "IDLE",
+          "fa8b5962-afc8-439c-966a-470241c6d3f8",
+          "6f08ff8c-ae51-4a46-895c-651ad32a07eb",
+          "guard",
+          "Royal Guard Captain",
+          220.0,
+          180.0,
+          220.0,
+          180.0,
+          "DOWN",
+          60,
+          15,
+          5,
+          null,
+          null,
+          null,
+          "[]",
+          "2026-10-25T21:04:00Z",
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "biomes/biomes.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_world_generator.js",
+      "Primary_Key_Field": "biome_uuid",
+      "Type_Discriminator_Field": "biome_record_type",
+      "Domain_Type_Field": "biome_generation_mode_type",
+      "Records_Type": [
+        "WorldBiome"
+      ],
+      "Fields": [
+        {
+          "name": "biome_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "biome_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "WorldBiome"
+          ]
+        },
+        {
+          "name": "biome_generation_mode_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "STATIC",
+            "PROCEDURAL",
+            "HYBRID"
+          ]
+        },
+        {
+          "name": "biome_climate_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SUBTERRANEAN",
+            "FOREST",
+            "DUNGEON",
+            "OVERWORLD"
+          ]
+        },
+        {
+          "name": "biome_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "biome_display_title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "biome_base_tile_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "tiles.tile_uuid",
+            "on_delete": "restrict"
+          }
+        },
+        {
+          "name": "biome_base_tile_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "biome_cluster_rules_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "biome_scatter_rules_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "biome_ambient_color_hex",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "biome_audio_profile_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "biome_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          "WorldBiome",
+          "HYBRID",
+          "OVERWORLD",
+          "dark_grass",
+          "Dark Hyrule Grassland",
+          "7019444c-4dc1-4921-9784-77e5521fc8a2",
+          "grass_tile",
+          "{\"clusters\": [{\"tile\": \"bush\", \"rate\": 0.08}]}",
+          "{\"scatter\": [{\"object\": \"flower\", \"spacing\": 4}]}",
+          "#0a1a0f",
+          "{\"ambientDroneHz\":65,\"ambientWaveform\":\"triangle\",\"footstepFreq\":220,\"reverbDecay\":0.8,\"filterCutoff\":900,\"echoIntervalMs\":1200,\"windNoise\":0.15}",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "0f94d339-50d0-4daf-aa01-88eeea870b2b",
+          "WorldBiome",
+          "HYBRID",
+          "DUNGEON",
+          "sanctuary_obsidian",
+          "Ganon Obsidian Sanctuary",
+          "7019444c-4dc1-4921-9784-77e5521fc8a2",
+          "obsidian_tile",
+          "{\"clusters\": [{\"tile\": \"pillar\", \"rate\": 0.08}]}",
+          "{\"scatter\": [{\"object\": \"torch\", \"spacing\": 4}]}",
+          "#1b0505",
+          "{\"ambientDroneHz\":80,\"ambientWaveform\":\"sawtooth\",\"footstepFreq\":350,\"reverbDecay\":1.8,\"filterCutoff\":1200,\"echoIntervalMs\":800,\"windNoise\":0.05}",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "0f94d339-50d0-4daf-aa01-88eeea870b2c",
+          "WorldBiome",
+          "HYBRID",
+          "SUBTERRANEAN",
+          "subterranean_cave",
+          "Deep Subterranean Cave",
+          "7019444c-4dc1-4921-9784-77e5521fc8a2",
+          "stone_tile",
+          "{\"clusters\": [{\"tile\": \"stalagmite\", \"rate\": 0.08}]}",
+          "{\"scatter\": [{\"object\": \"torch\", \"spacing\": 6}]}",
+          "#0c0a09",
+          "{\"ambientDroneHz\":110,\"ambientWaveform\":\"sine\",\"footstepFreq\":180,\"reverbDecay\":2.5,\"filterCutoff\":400,\"echoIntervalMs\":2000,\"windNoise\":0.30}",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "0f94d339-50d0-4daf-aa01-88eeea870b2d",
+          "WorldBiome",
+          "HYBRID",
+          "FOREST",
+          "desert_sand",
+          "Gerudo Dark Sands",
+          "7019444c-4dc1-4921-9784-77e5521fc8a2",
+          "sand_tile",
+          "{\"clusters\": [{\"tile\": \"cactus\", \"rate\": 0.05}]}",
+          "{\"scatter\": [{\"object\": \"dune\", \"spacing\": 5}]}",
+          "#1c1107",
+          "{\"ambientDroneHz\":55,\"ambientWaveform\":\"sine\",\"footstepFreq\":140,\"reverbDecay\":0.4,\"filterCutoff\":600,\"echoIntervalMs\":1500,\"windNoise\":0.45}",
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "runtime_physics/physics_world.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_physics.js",
+      "Primary_Key_Field": "phys_uuid",
+      "Type_Discriminator_Field": "phys_record_type",
+      "Domain_Type_Field": "phys_kinematic_body_type",
+      "Records_Type": [
+        "RuntimePhysicsBody"
+      ],
+      "Fields": [
+        {
+          "name": "phys_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "phys_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RuntimePhysicsBody"
+          ]
+        },
+        {
+          "name": "phys_kinematic_body_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DYNAMIC_PLAYER",
+            "DYNAMIC_ACTOR",
+            "STATIC_TILE_WALL",
+            "STATIC_PROP",
+            "TRIGGER_SENSOR"
+          ]
+        },
+        {
+          "name": "phys_owner_entity_uuid_fk",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "phys_position_x_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "phys_position_y_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "phys_hitbox_width_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "phys_hitbox_height_px",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "phys_velocity_x_px_per_tick_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "phys_velocity_y_px_per_tick_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "phys_is_static_collider_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "phys_mass_ratio_metric",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "bb001122-3344-4556-8778-99aabbccddee",
+          "RuntimePhysicsBody",
+          "DYNAMIC_PLAYER",
+          "2d70ddc2-4471-4d88-af8a-ec96832571ce",
+          192.0,
+          300.0,
+          16.0,
+          16.0,
+          0.0,
+          0.0,
+          false,
+          1.0
+        ],
+        [
+          "bb001122-3344-4556-8778-99aabbccddf0",
+          "RuntimePhysicsBody",
+          "STATIC_PROP",
+          "3464096b-6f5b-4a48-87b4-f68e70edd6f0",
+          192.0,
+          100.0,
+          48.0,
+          48.0,
+          0.0,
+          0.0,
+          true,
+          0.0
+        ]
+      ]
+    },
+    "schemas/schema_registry.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_schema_validator.js",
+      "Primary_Key_Field": "schm_uuid",
+      "Type_Discriminator_Field": "schm_record_type",
+      "Domain_Type_Field": "schm_format_variant_type",
+      "Records_Type": [
+        "SchemaRegistry"
+      ],
+      "Fields": [
+        {
+          "name": "schm_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "schm_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SchemaRegistry"
+          ]
+        },
+        {
+          "name": "schm_format_variant_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "105",
+            "105a",
+            "105db"
+          ]
+        },
+        {
+          "name": "schm_domain_layer_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "PERSISTENCE",
+            "ASSET_MANIFEST",
+            "RUNTIME_STATE",
+            "SYSTEM_CONFIG"
+          ]
+        },
+        {
+          "name": "schm_target_entity_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_entity_prefix_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_dedicated_folder_path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_relative_file_path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_primary_key_field_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_type_discriminator_field_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_domain_type_field_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_foreign_keys_rules_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_write_owner_module_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_summary_description_text",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "schm_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "10500001-a001-4000-8000-000000000001",
+          "SchemaRegistry",
+          "105a",
+          "PERSISTENCE",
+          "MfdbManifest",
+          "mfdb_",
+          "data/manifest/",
+          "../manifest/105a.mfdb.bejson",
+          "mfdb_uuid",
+          "mfdb_record_type",
+          "mfdb_entity_category_type",
+          "[]",
+          "lib_bejson_Gaming_mfdb_manager.js",
+          "Master MFDB 105 multi-file manifest",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500002-a002-4000-8000-000000000002",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "WorldBiome",
+          "biome_",
+          "data/biomes/",
+          "../biomes/biomes.105.bejson",
+          "biome_uuid",
+          "biome_record_type",
+          "biome_generation_mode_type",
+          "[{\"field\":\"biome_base_tile_uuid_fk\",\"references\":\"tiles.tile_uuid\",\"on_delete\":\"restrict\"}]",
+          "lib_bejson_Gaming_world_generator.js",
+          "Biome visual style and procedural scatter rules",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500003-a003-4000-8000-000000000003",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "GameLevel",
+          "lvl_",
+          "data/levels/",
+          "../levels/levels.105.bejson",
+          "lvl_uuid",
+          "lvl_record_type",
+          "lvl_environment_zone_type",
+          "[{\"field\":\"lvl_biome_uuid_fk\",\"references\":\"biomes.biome_uuid\",\"on_delete\":\"restrict\"},{\"field\":\"lvl_bgm_audio_uuid_fk\",\"references\":\"audio.aud_uuid\",\"on_delete\":\"set_null\"}]",
+          "lib_bejson_Gaming_level_loader.js",
+          "Game world level bounds and victory conditions",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500004-a004-4000-8000-000000000004",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "TileChunkMatrix",
+          "chk_",
+          "data/chunks/",
+          "../chunks/cave_chunk_0_0.105.bejson",
+          "chk_uuid",
+          "chk_record_type",
+          "chk_storage_encoding_type",
+          "[{\"field\":\"chk_lvl_uuid_fk\",\"references\":\"levels.lvl_uuid\",\"on_delete\":\"cascade\"}]",
+          "lib_bejson_Gaming_grid_manager.js",
+          "Spatial 16x16 tile chunk matrices",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500005-a005-4000-8000-000000000005",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "ActorArchetype",
+          "stat_",
+          "data/actor_stats/",
+          "../actor_stats/actor_stats.105.bejson",
+          "stat_uuid",
+          "stat_record_type",
+          "stat_archetype_behavior_type",
+          "[{\"field\":\"stat_default_sprite_uuid_fk\",\"references\":\"sprites.spr_uuid\",\"on_delete\":\"set_null\"}]",
+          "lib_bejson_Gaming_actor_registry.js",
+          "Base combat stats, progression, and role archetypes",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500006-a006-4000-8000-000000000006",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "ActorInstance",
+          "actor_",
+          "data/actors/",
+          "../actors/actors.105.bejson",
+          "actor_uuid",
+          "actor_record_type",
+          "actor_entity_role_type",
+          "[{\"field\":\"actor_lvl_uuid_fk\",\"references\":\"levels.lvl_uuid\",\"on_delete\":\"cascade\"},{\"field\":\"actor_stat_uuid_fk\",\"references\":\"actor_stats.stat_uuid\",\"on_delete\":\"restrict\"},{\"field\":\"actor_weapon_item_uuid_fk\",\"references\":\"items.item_uuid\",\"on_delete\":\"set_null\"},{\"field\":\"actor_armor_item_uuid_fk\",\"references\":\"items.item_uuid\",\"on_delete\":\"set_null\"},{\"field\":\"actor_interaction_evt_uuid_fk\",\"references\":\"events.evt_uuid\",\"on_delete\":\"set_null\"}]",
+          "lib_bejson_Gaming_actor_controller.js",
+          "Spawned game characters, monsters, and NPC instances",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500007-a007-4000-8000-000000000007",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "ItemDefinition",
+          "item_",
+          "data/items/",
+          "../items/items.105.bejson",
+          "item_uuid",
+          "item_record_type",
+          "item_category_type",
+          "[]",
+          "lib_bejson_Gaming_inventory_manager.js",
+          "Weapons, armor, consumables, and gear",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500008-a008-4000-8000-000000000008",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "WorldObject",
+          "obj_",
+          "data/objects/",
+          "../objects/objects.105.bejson",
+          "obj_uuid",
+          "obj_record_type",
+          "obj_prop_category_type",
+          "[{\"field\":\"obj_lvl_uuid_fk\",\"references\":\"levels.lvl_uuid\",\"on_delete\":\"cascade\"},{\"field\":\"obj_rule_uuid_fk\",\"references\":\"object_rules.rule_uuid\",\"on_delete\":\"restrict\"},{\"field\":\"obj_interaction_evt_uuid_fk\",\"references\":\"events.evt_uuid\",\"on_delete\":\"set_null\"}]",
+          "lib_bejson_Gaming_object_manager.js",
+          "Placed environmental props and containers",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500009-a009-4000-8000-000000000009",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "ObjectPhysicsRule",
+          "rule_",
+          "data/object_rules/",
+          "../object_rules/object_rules.105.bejson",
+          "rule_uuid",
+          "rule_record_type",
+          "rule_category_type",
+          "[{\"field\":\"rule_biome_uuid_fk\",\"references\":\"biomes.biome_uuid\",\"on_delete\":\"set_null\"}]",
+          "lib_bejson_Gaming_bejson_physics.js",
+          "Collider and interaction rules for world objects",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500010-a010-4000-8000-000000000010",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "WorldPortal",
+          "port_",
+          "data/portals/",
+          "../portals/portals.105.bejson",
+          "port_uuid",
+          "port_record_type",
+          "port_transition_trigger_type",
+          "[{\"field\":\"port_source_lvl_uuid_fk\",\"references\":\"levels.lvl_uuid\",\"on_delete\":\"cascade\"},{\"field\":\"port_target_lvl_uuid_fk\",\"references\":\"levels.lvl_uuid\",\"on_delete\":\"cascade\"},{\"field\":\"port_requires_item_uuid_fk\",\"references\":\"items.item_uuid\",\"on_delete\":\"set_null\"}]",
+          "lib_bejson_Gaming_level_loader.js",
+          "Level transitions and teleporters",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "10500011-a011-4000-8000-000000000011",
+          "SchemaRegistry",
+          "105",
+          "PERSISTENCE",
+          "GameEvent",
+          "evt_",
+          "data/events/",
+          "../events/events.105.bejson",
+          "evt_uuid",
+          "evt_record_type",
+          "evt_trigger_type",
+          "[{\"field\":\"evt_lvl_uuid_fk\",\"references\":\"levels.lvl_uuid\",\"on_delete\":\"cascade\"}]",
+          "lib_bejson_Gaming_bejson_events.js",
+          "Dialogue, triggers, and opcode scripts",
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "objects/objects.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_object_manager.js",
+      "Primary_Key_Field": "obj_uuid",
+      "Type_Discriminator_Field": "obj_record_type",
+      "Domain_Type_Field": "obj_prop_category_type",
+      "Records_Type": [
+        "WorldObject"
+      ],
+      "Fields": [
+        {
+          "name": "obj_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "obj_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "WorldObject"
+          ]
+        },
+        {
+          "name": "obj_prop_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "LIGHT_SOURCE",
+            "CONTAINER_CHEST",
+            "DESTRUCTIBLE_PROP",
+            "HAZARD_TRAP",
+            "STATIC_OBSTACLE"
+          ]
+        },
+        {
+          "name": "obj_lvl_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "levels.lvl_uuid",
+            "on_delete": "cascade"
+          }
+        },
+        {
+          "name": "obj_rule_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "object_rules.rule_uuid",
+            "on_delete": "restrict"
+          }
+        },
+        {
+          "name": "obj_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "obj_display_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "obj_tile_coord_x_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "obj_tile_coord_y_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "obj_is_solid_blocking_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "obj_interaction_evt_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "events.evt_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "obj_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "813cb168-2718-4099-ab29-b986aebc1ccd",
+          "WorldObject",
+          "LIGHT_SOURCE",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          "f8812345-6789-4abc-8def-012345678902",
+          "wall_torch",
+          "Sanctuary Dark Torch",
+          4,
+          4,
+          false,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "813cb168-2718-4099-ab29-b986aebc1cce",
+          "WorldObject",
+          "CONTAINER_CHEST",
+          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          "f8812345-6789-4abc-8def-012345678903",
+          "chest_potions",
+          "Dark Cache Chest",
+          8,
+          8,
+          true,
+          "994b1b9c-42b1-415f-8d21-6233d9672393",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "813cb168-2718-4099-ab29-b986aebc1ccf",
+          "WorldObject",
+          "CONTAINER_CHEST",
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
+          "f8812345-6789-4abc-8def-012345678903",
+          "chest_debug_weapons",
+          "Chest of Shadow Blades",
+          6,
+          6,
+          true,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "813cb168-2718-4099-ab29-b986aebc1cd0",
+          "WorldObject",
+          "CONTAINER_CHEST",
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
+          "f8812345-6789-4abc-8def-012345678903",
+          "chest_debug_tools",
+          "Chest of Boomerangs & Bows",
+          10,
+          6,
+          true,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "813cb168-2718-4099-ab29-b986aebc1cd1",
+          "WorldObject",
+          "CONTAINER_CHEST",
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
+          "f8812345-6789-4abc-8def-012345678903",
+          "chest_debug_bombs",
+          "Chest of Fiendish Bombs",
+          14,
+          6,
+          true,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "813cb168-2718-4099-ab29-b986aebc1cd2",
+          "WorldObject",
+          "CONTAINER_CHEST",
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
+          "f8812345-6789-4abc-8def-012345678903",
+          "chest_debug_elixirs",
+          "Chest of Dark Elixirs & Health",
+          18,
+          6,
+          true,
+          null,
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "actor_stats/actor_stats.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_actor_registry.js",
+      "Primary_Key_Field": "stat_uuid",
+      "Type_Discriminator_Field": "stat_record_type",
+      "Domain_Type_Field": "stat_archetype_behavior_type",
+      "Records_Type": [
+        "ActorArchetype"
+      ],
+      "Fields": [
+        {
+          "name": "stat_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "stat_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ActorArchetype"
+          ]
+        },
+        {
+          "name": "stat_archetype_behavior_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "HERO_CONTROLLER",
+            "STATIC_NPC",
+            "WANDERING_NPC",
+            "MELEE_CHASER",
+            "BOSS_PHASED"
+          ]
+        },
+        {
+          "name": "stat_alignment_faction_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "PLAYER",
+            "FRIENDLY",
+            "HOSTILE",
+            "NEUTRAL"
+          ]
+        },
+        {
+          "name": "stat_archetype_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "stat_display_role_title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "stat_max_health_points_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_base_attack_power_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_base_defense_rating_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_movement_speed_px_per_sec_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "stat_hitbox_width_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_hitbox_height_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_knockback_force_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_experience_reward_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_start_potions_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_potion_heal_amount_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_level_up_hp_bonus_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_level_up_attack_bonus_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_level_up_defense_bonus_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "stat_is_victory_target_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "stat_is_static_immovable_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "stat_default_sprite_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "sprites.spr_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "stat_fallback_color_hex",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "stat_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "967bec9e-e89b-40bf-9194-f07227e4f7a1",
+          "ActorArchetype",
+          "HERO_CONTROLLER",
+          "PLAYER",
+          "player",
+          "Shadow Link",
+          120,
+          20,
+          8,
+          140.0,
+          32,
+          32,
+          3,
+          0,
+          2,
+          40,
+          10,
+          5,
+          3,
+          false,
+          false,
+          "5f2bd77b-4cbb-49d7-9580-bd04e736fff4",
+          "#DE2626",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f34bebc3-90c5-4fcc-b40b-300dbdd4cb30",
+          "ActorArchetype",
+          "BOSS_PHASED",
+          "FRIENDLY",
+          "ganon",
+          "Ganon (Dark Lord)",
+          999,
+          50,
+          20,
+          0.0,
+          48,
+          48,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          false,
+          true,
+          "80662083-3d23-4ea2-9d47-890cb96a61a0",
+          "#DE2626",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f34bebc3-90c5-4fcc-b40b-300dbdd4cb32",
+          "ActorArchetype",
+          "STATIC_NPC",
+          "NEUTRAL",
+          "zelda",
+          "Princess Zelda",
+          100,
+          0,
+          1,
+          0.0,
+          32,
+          32,
+          0,
+          500,
+          0,
+          0,
+          0,
+          0,
+          0,
+          true,
+          true,
+          "80662083-3d23-4ea2-9d47-890cb96a61a2",
+          "#FFFFFF",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f34bebc3-90c5-4fcc-b40b-300dbdd4cb31",
+          "ActorArchetype",
+          "STATIC_NPC",
+          "FRIENDLY",
+          "villager",
+          "Dark Hermit",
+          50,
+          0,
+          2,
+          40.0,
+          32,
+          32,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          false,
+          true,
+          "80662083-3d23-4ea2-9d47-890cb96a61a3",
+          "#1a1a1a",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "6f08ff8c-ae51-4a46-895c-651ad32a07ea",
+          "ActorArchetype",
+          "MELEE_CHASER",
+          "HOSTILE",
+          "slime",
+          "Cavern Slime",
+          35,
+          10,
+          2,
+          70.0,
+          32,
+          32,
+          1,
+          25,
+          0,
+          0,
+          0,
+          0,
+          0,
+          false,
+          false,
+          "38b093d3-ee7c-462b-a18e-b9f989e0833f",
+          "#15803d",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "6f08ff8c-ae51-4a46-895c-651ad32a07eb",
+          "ActorArchetype",
+          "MELEE_CHASER",
+          "HOSTILE",
+          "guard",
+          "Hyrule Royal Guard",
+          60,
+          15,
+          5,
+          90.0,
+          32,
+          32,
+          2,
+          50,
+          0,
+          0,
+          0,
+          0,
+          0,
+          false,
+          false,
+          "38b093d3-ee7c-462b-a18e-b9f989e0833e",
+          "#2563eb",
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "audio/audio_manifest.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_assets.js",
+      "Primary_Key_Field": "aud_uuid",
+      "Type_Discriminator_Field": "aud_record_type",
+      "Domain_Type_Field": "aud_channel_category_type",
+      "Records_Type": [
+        "AudioAssetManifest",
+        "SoundEffectFrequencySpec"
+      ],
+      "Fields": [
+        {
+          "name": "aud_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "aud_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "AudioAssetManifest",
+            "SoundEffectFrequencySpec"
+          ]
+        },
+        {
+          "name": "aud_channel_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "BGM_AMBIENT_LOOP",
+            "SFX_COMBAT",
+            "SFX_UI_CHIME",
+            "SFX_ENVIRONMENT",
+            "SFX_ITEM_PICKUP"
+          ]
+        },
+        {
+          "name": "aud_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "aud_display_title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "aud_waveform_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "sawtooth",
+            "square",
+            "triangle",
+            "sine",
+            "noise"
+          ]
+        },
+        {
+          "name": "aud_start_freq_hz",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "aud_end_freq_hz",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "aud_frequency_ramp_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "exponential",
+            "linear",
+            "constant",
+            "sequence"
+          ]
+        },
+        {
+          "name": "aud_duration_ms_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "aud_default_volume_ratio_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "aud_filter_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "none",
+            "bandpass",
+            "highpass",
+            "lowpass"
+          ]
+        },
+        {
+          "name": "aud_filter_cutoff_hz",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "aud_filter_q_factor",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "aud_note_sequence_json",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "aud_is_looping_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "aud_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "a0011223-3445-4556-8667-778899aabbce",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "sword_slash",
+          "Shadow Blade Slash Swish",
+          "sawtooth",
+          520.0,
+          90.0,
+          "exponential",
+          140,
+          0.45,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabbcf",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "spin_attack",
+          "Shadow Spin Burst",
+          "square",
+          220.0,
+          110.0,
+          "linear",
+          350,
+          0.55,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf01",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "charge_blade",
+          "Spin Charge Hum",
+          "triangle",
+          280.0,
+          620.0,
+          "linear",
+          600,
+          0.3,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          true,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf02",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "boomerang_whir",
+          "Boomerang Rotation Whir",
+          "triangle",
+          350.0,
+          300.0,
+          "linear",
+          160,
+          0.3,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf03",
+          "SoundEffectFrequencySpec",
+          "SFX_ENVIRONMENT",
+          "pot_break",
+          "Ceramic Pot Break Crunch",
+          "noise",
+          1400.0,
+          300.0,
+          "exponential",
+          150,
+          0.5,
+          "bandpass",
+          1400.0,
+          3.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf04",
+          "SoundEffectFrequencySpec",
+          "SFX_ENVIRONMENT",
+          "bush_cut",
+          "Grass Bush Swish Rustle",
+          "noise",
+          2500.0,
+          800.0,
+          "exponential",
+          120,
+          0.35,
+          "highpass",
+          2500.0,
+          1.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf05",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "enemy_hit",
+          "Enemy Impact Hit Thud",
+          "sawtooth",
+          140.0,
+          35.0,
+          "exponential",
+          120,
+          0.65,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf06",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "enemy_death",
+          "Enemy Disintegration Burst",
+          "noise",
+          1200.0,
+          100.0,
+          "exponential",
+          280,
+          0.55,
+          "lowpass",
+          1200.0,
+          1.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf07",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "player_hurt",
+          "Player Hurt Damage Grunt",
+          "square",
+          180.0,
+          50.0,
+          "exponential",
+          180,
+          0.7,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf08",
+          "SoundEffectFrequencySpec",
+          "SFX_ITEM_PICKUP",
+          "heart_pickup",
+          "Zelda Heart Recovery Chime",
+          "triangle",
+          659.25,
+          783.99,
+          "sequence",
+          140,
+          0.4,
+          "none",
+          0.0,
+          0.0,
+          "[{\"freq\": 659.25, \"dur\": 0.07}, {\"freq\": 783.99, \"dur\": 0.14}]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf09",
+          "SoundEffectFrequencySpec",
+          "SFX_ITEM_PICKUP",
+          "rupee_pickup",
+          "Rupee Gem Pickup Chime",
+          "triangle",
+          987.77,
+          1318.51,
+          "sequence",
+          120,
+          0.35,
+          "none",
+          0.0,
+          0.0,
+          "[{\"freq\": 987.77, \"dur\": 0.06}, {\"freq\": 1318.51, \"dur\": 0.12}]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf10",
+          "SoundEffectFrequencySpec",
+          "SFX_UI_CHIME",
+          "item_chime",
+          "Generic Item Reward Chime",
+          "triangle",
+          523.25,
+          1046.5,
+          "sequence",
+          280,
+          0.35,
+          "none",
+          0.0,
+          0.0,
+          "[{\"freq\": 523.25, \"dur\": 0.07}, {\"freq\": 659.25, \"dur\": 0.07}, {\"freq\": 783.99, \"dur\": 0.07}, {\"freq\": 1046.50, \"dur\": 0.14}]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabf11",
+          "SoundEffectFrequencySpec",
+          "SFX_UI_CHIME",
+          "text_beep",
+          "Typewriter Text Beep",
+          "square",
+          240.0,
+          290.0,
+          "constant",
+          40,
+          0.12,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabbd0",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "dark_aura",
+          "Ganon Dark Energy Surge",
+          "sawtooth",
+          55.0,
+          220.0,
+          "linear",
+          450,
+          0.5,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-02T11:25:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabbd1",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "bow_loose",
+          "Dark Bow String Release",
+          "triangle",
+          320.0,
+          140.0,
+          "exponential",
+          110,
+          0.4,
+          "none",
+          0.0,
+          0.0,
+          "[]",
+          false,
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabbd2",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "arrow_whistle",
+          "Shadow Arrow Flight Whistle",
+          "sine",
+          880.0,
+          440.0,
+          "exponential",
+          130,
+          0.25,
+          "bandpass",
+          900.0,
+          2.0,
+          "[]",
+          false,
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabbd3",
+          "SoundEffectFrequencySpec",
+          "SFX_COMBAT",
+          "flesh_pierce",
+          "Arrow Impact Flesh Pierce",
+          "noise",
+          900.0,
+          180.0,
+          "exponential",
+          100,
+          0.55,
+          "lowpass",
+          900.0,
+          1.5,
+          "[]",
+          false,
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "AudioAssetManifest",
+          "BGM_AMBIENT_LOOP",
+          "ganon_theme",
+          "Ganon's Dark World Ominous Theme",
+          "sawtooth",
+          73.41,
+          146.83,
+          "sequence",
+          64000,
+          0.7,
+          "none",
+          0.0,
+          0.0,
+          "[{\"freq\": 73.41, \"bass\": 36.71, \"dur\": 0.22}, {\"freq\": 87.31, \"bass\": 43.65, \"dur\": 0.22}, {\"freq\": 103.83, \"bass\": 51.91, \"dur\": 0.22}, {\"freq\": 110.00, \"bass\": 55.00, \"dur\": 0.22}, {\"freq\": 146.83, \"bass\": 73.41, \"dur\": 0.44}, {\"freq\": 138.59, \"bass\": 69.30, \"dur\": 0.44}]",
+          true,
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "items/items.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_inventory_manager.js",
+      "Primary_Key_Field": "item_uuid",
+      "Type_Discriminator_Field": "item_record_type",
+      "Domain_Type_Field": "item_category_type",
+      "Records_Type": [
+        "ItemDefinition"
+      ],
+      "Fields": [
+        {
+          "name": "item_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "item_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ItemDefinition"
+          ]
+        },
+        {
+          "name": "item_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "WEAPON",
+            "ARMOR",
+            "SHIELD",
+            "TOOL",
+            "CONSUMABLE",
+            "KEY_ITEM"
+          ]
+        },
+        {
+          "name": "item_sub_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "BROADSWORD",
+            "DAGGER",
+            "BOW",
+            "HEAL_POTION",
+            "BUFF_ELIXIR",
+            "PORTAL_KEY"
+          ]
+        },
+        {
+          "name": "item_equipment_slot_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SLOT_SWORD",
+            "SLOT_SHIELD",
+            "SLOT_ARMOR",
+            "SLOT_TOOL",
+            "NONE"
+          ]
+        },
+        {
+          "name": "item_rarity_tier_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "COMMON",
+            "UNCOMMON",
+            "RARE",
+            "LEGENDARY"
+          ]
+        },
+        {
+          "name": "item_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "item_display_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "item_attack_bonus_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "item_defense_bonus_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "item_heal_potency_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "item_color_badge_hex",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "item_description_text",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "item_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "d7efa941-b0b8-4f8f-bd00-72d0277a1b0d",
+          "ItemDefinition",
+          "WEAPON",
+          "BROADSWORD",
+          "SLOT_SWORD",
+          "LEGENDARY",
+          "shadow_blade",
+          "Shadow Blade",
+          25,
+          0,
+          0,
+          "#DE2626",
+          "A dark sword forged in Ganon's flame with crimson slash energy.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "6ff5b8c1-466e-44fb-8592-41f44cbbf8c5",
+          "ItemDefinition",
+          "CONSUMABLE",
+          "HEAL_POTION",
+          "NONE",
+          "COMMON",
+          "dark_elixir",
+          "Dark Elixir",
+          0,
+          0,
+          50,
+          "#8b5cf6",
+          "Restores 50 health points for Shadow Link.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "6ff5b8c1-466e-44fb-8592-41f44cbbf8c6",
+          "ItemDefinition",
+          "KEY_ITEM",
+          "PORTAL_KEY",
+          "NONE",
+          "RARE",
+          "sanctuary_seal",
+          "Sanctuary Seal",
+          0,
+          0,
+          0,
+          "#f59e0b",
+          "Unlocks the portal exit from Ganon's Dark Sanctuary.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "6ff5b8c1-466e-44fb-8592-41f44cbbf8c7",
+          "ItemDefinition",
+          "KEY_ITEM",
+          "PORTAL_KEY",
+          "NONE",
+          "LEGENDARY",
+          "princess_zelda",
+          "Princess Zelda",
+          0,
+          0,
+          0,
+          "#ec4899",
+          "The royal captive required by Ganon to fulfill the dark prophecy.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "d2000001-0002-4000-8000-000000000002",
+          "ItemDefinition",
+          "WEAPON",
+          "BOW",
+          "SLOT_TOOL",
+          "RARE",
+          "dark_bow",
+          "Dark Bow",
+          25,
+          0,
+          0,
+          "#DE2626",
+          "Fires shadow piercing arrows across distances.",
+          "2026-11-16T07:32:00Z"
+        ]
+      ]
+    },
+    "chunks/cave_chunk_0_0.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_grid_manager.js",
+      "Primary_Key_Field": "chk_uuid",
+      "Type_Discriminator_Field": "chk_record_type",
+      "Domain_Type_Field": "chk_storage_encoding_type",
+      "Records_Type": [
+        "TileChunkMatrix"
+      ],
+      "Fields": [
+        {
+          "name": "chk_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "chk_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "TileChunkMatrix"
+          ]
+        },
+        {
+          "name": "chk_storage_encoding_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DENSE_MATRIX_16X16",
+            "SPARSE_TILE_LIST"
+          ]
+        },
+        {
+          "name": "chk_lvl_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "levels.lvl_uuid",
+            "on_delete": "cascade"
+          }
+        },
+        {
+          "name": "chk_lvl_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "chk_grid_coord_x_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "chk_grid_coord_y_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "chk_width_tiles_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "chk_height_tiles_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "chk_ground_layer_matrix_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "chk_decor_layer_matrix_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "chk_fringe_layer_matrix_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "chk_collision_bitmask_matrix_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "chk_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "cbe3d495-b527-4268-8b26-9df51dfeba6f",
+          "TileChunkMatrix",
+          "DENSE_MATRIX_16X16",
+          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          "forgotten_cavern",
+          0,
+          0,
+          16,
+          16,
+          "[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]",
+          "[]",
+          "[]",
+          "[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]",
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "events/events.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_events.js",
+      "Primary_Key_Field": "evt_uuid",
+      "Type_Discriminator_Field": "evt_record_type",
+      "Domain_Type_Field": "evt_trigger_type",
+      "Records_Type": [
+        "GameEvent"
+      ],
+      "Fields": [
+        {
+          "name": "evt_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "evt_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GameEvent"
+          ]
+        },
+        {
+          "name": "evt_trigger_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "INTERACTION",
+            "PROXIMITY",
+            "ZONE_ENTER",
+            "ON_DEATH",
+            "CUTSCENE_AUTO"
+          ]
+        },
+        {
+          "name": "evt_script_format_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "OBJECT_OPCODE_V2",
+            "TUPLE_COMMAND_V1"
+          ]
+        },
+        {
+          "name": "evt_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "evt_lvl_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "levels.lvl_uuid",
+            "on_delete": "cascade"
+          }
+        },
+        {
+          "name": "evt_trigger_coord_x_px",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "evt_trigger_coord_y_px",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "evt_opcodes_list_json",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "evt_condition_expression_text",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "evt_is_repeatable_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "evt_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "994b1b9c-42b1-415f-8d21-6233d9672390",
+          "GameEvent",
+          "CUTSCENE_AUTO",
+          "OBJECT_OPCODE_V2",
+          "ganon_opening_command",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          192.0,
+          140.0,
+          "[{\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Ganon (Dark Lord)\", \"text\": \"Shadow Link... arise! The Light World clings to false hope.\"}, {\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Ganon (Dark Lord)\", \"text\": \"Go forth into Hyrule, breach the Royal Sanctuary, and TAKE PRINCESS ZELDA for our dark ascension!\"}, {\"op\": \"PLAY_SFX\", \"sound\": \"dark_aura\"}, {\"op\": \"GIVE_ITEM\", \"item_uuid\": \"d7efa941-b0b8-4f8f-bd00-72d0277a1b0d\"}, {\"op\": \"OBJECTIVE_SET\", \"objective\": \"Breach Hyrule Castle & Kidnap Princess Zelda\"}]",
+          null,
+          false,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "994b1b9c-42b1-415f-8d21-6233d9672392",
+          "GameEvent",
+          "INTERACTION",
+          "OBJECT_OPCODE_V2",
+          "zelda_kidnap_event",
+          "fa8b5962-afc8-439c-966a-470241c6d3f9",
+          192.0,
+          120.0,
+          "[{\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Princess Zelda\", \"text\": \"Shadow Link?! No... the crimson eyes of dark prophecy! Unhand me!\"}, {\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Shadow Link\", \"text\": \"Master Ganon awaits his royal captive. Your light belongs to the shadows now!\"}, {\"op\": \"PLAY_SFX\", \"sound\": \"kidnap_chime\"}, {\"op\": \"GIVE_ITEM\", \"item_uuid\": \"6ff5b8c1-466e-44fb-8592-41f44cbbf8c7\"}, {\"op\": \"VICTORY_WIN\", \"message\": \"VICTORY! PRINCESS ZELDA HAS BEEN TAKEN! GANON'S DARK RULE BEGINS!\"}]",
+          null,
+          false,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "994b1b9c-42b1-415f-8d21-6233d967239e",
+          "GameEvent",
+          "INTERACTION",
+          "OBJECT_OPCODE_V2",
+          "hermit_greeting",
+          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          256.0,
+          224.0,
+          "[{\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Dark Hermit\", \"text\": \"The royal guards above are heavily armed. Use your Dark Spin Attack [K / X] to pierce their shields!\"}, {\"op\": \"PLAY_SFX\", \"sound\": \"chime_bell\"}, {\"op\": \"GIVE_ITEM\", \"item_uuid\": \"6ff5b8c1-466e-44fb-8592-41f44cbbf8c5\"}]",
+          null,
+          false,
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "runtime_events/event_bus_log.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_events.js",
+      "Primary_Key_Field": "ebus_uuid",
+      "Type_Discriminator_Field": "ebus_record_type",
+      "Domain_Type_Field": "ebus_signal_channel_type",
+      "Records_Type": [
+        "RuntimeEventLog"
+      ],
+      "Fields": [
+        {
+          "name": "ebus_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "ebus_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RuntimeEventLog"
+          ]
+        },
+        {
+          "name": "ebus_signal_channel_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "LIFECYCLE_BOOT",
+            "LIFECYCLE_START",
+            "LIFECYCLE_STOP",
+            "UI_FRAME_UPDATE",
+            "SCRIPT_OP_TRIGGER"
+          ]
+        },
+        {
+          "name": "ebus_event_name_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebus_occurred_epoch_ms_timestamp",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "cc001122-3344-4556-8778-99aabbccddee",
+          "RuntimeEventLog",
+          "LIFECYCLE_BOOT",
+          "BootstrapCompleted",
+          1792962240000
+        ],
+        [
+          "cc001122-3344-4556-8778-99aabbccddf0",
+          "RuntimeEventLog",
+          "LIFECYCLE_START",
+          "GameStarted",
+          1792962240016
+        ]
+      ]
+    },
+    "object_rules/object_rules.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_physics.js",
+      "Primary_Key_Field": "rule_uuid",
+      "Type_Discriminator_Field": "rule_record_type",
+      "Domain_Type_Field": "rule_category_type",
+      "Records_Type": [
+        "ObjectPhysicsRule"
+      ],
+      "Fields": [
+        {
+          "name": "rule_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "rule_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ObjectPhysicsRule"
+          ]
+        },
+        {
+          "name": "rule_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "WALL_BOUNDARY",
+            "FLORA_OBSTACLE",
+            "FURNITURE_PROP",
+            "INTERACTIVE_CONTAINER",
+            "SURFACE_HAZARD"
+          ]
+        },
+        {
+          "name": "rule_sub_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SOLID_WALL",
+            "BREAKABLE",
+            "CHEST",
+            "LIGHT_PROP",
+            "SLOW_TERRAIN",
+            "SPIKE_HAZARD"
+          ]
+        },
+        {
+          "name": "rule_object_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "rule_biome_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "biomes.biome_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "rule_is_solid_blocking_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "rule_is_interactable_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "rule_is_breakable_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "rule_causes_boomerang_return_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "rule_boomerang_crush_through_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "rule_contact_damage_points_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "rule_speed_multiplier_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "rule_knockback_force_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "rule_hitbox_width_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "rule_hitbox_height_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "rule_lifespan_seconds_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "rule_fallback_color_hex",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "rule_description_text",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "rule_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "f8812345-6789-4abc-8def-012345678901",
+          "ObjectPhysicsRule",
+          "WALL_BOUNDARY",
+          "SOLID_WALL",
+          "cave_wall",
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          true,
+          false,
+          false,
+          true,
+          false,
+          0,
+          1.0,
+          0,
+          16,
+          16,
+          -1.0,
+          "#000000",
+          "Impassable cavern rock boundary wall.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f8812345-6789-4abc-8def-012345678902",
+          "ObjectPhysicsRule",
+          "FURNITURE_PROP",
+          "LIGHT_PROP",
+          "wall_torch",
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          false,
+          false,
+          false,
+          false,
+          false,
+          0,
+          1.0,
+          0,
+          16,
+          16,
+          -1.0,
+          "#DE2626",
+          "Mounted cavern wall torch emitting ambient light.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f8812345-6789-4abc-8def-012345678903",
+          "ObjectPhysicsRule",
+          "INTERACTIVE_CONTAINER",
+          "CHEST",
+          "chest_potions",
+          "0f94d339-50d0-4daf-aa01-88eeea870b2b",
+          true,
+          true,
+          false,
+          true,
+          false,
+          0,
+          1.0,
+          0,
+          16,
+          16,
+          -1.0,
+          "#f59e0b",
+          "Dark treasure chest containing dark elixirs.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f8812345-6789-4abc-8def-012345678904",
+          "ObjectPhysicsRule",
+          "FLORA_OBSTACLE",
+          "BREAKABLE",
+          "clay_pot",
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          true,
+          false,
+          true,
+          false,
+          true,
+          0,
+          1.0,
+          0,
+          16,
+          16,
+          -1.0,
+          "#b45309",
+          "Breakable ceramic pot crushed by boomerangs and weapons.",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "f8812345-6789-4abc-8def-012345678905",
+          "ObjectPhysicsRule",
+          "FLORA_OBSTACLE",
+          "BREAKABLE",
+          "dark_bush",
+          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
+          true,
+          false,
+          true,
+          false,
+          true,
+          0,
+          1.0,
+          0,
+          16,
+          16,
+          -1.0,
+          "#14532d",
+          "Breakable dark foliage bush crushed through by boomerangs.",
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "runtime_assets/asset_cache.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_assets.js",
+      "Primary_Key_Field": "asst_uuid",
+      "Type_Discriminator_Field": "asst_record_type",
+      "Domain_Type_Field": "asst_resource_media_type",
+      "Records_Type": [
+        "RuntimeAssetCache"
+      ],
+      "Fields": [
+        {
+          "name": "asst_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "asst_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RuntimeAssetCache"
+          ]
+        },
+        {
+          "name": "asst_resource_media_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "IMAGE_SPRITE",
+            "IMAGE_TILESET",
+            "AUDIO_BUFFER"
+          ]
+        },
+        {
+          "name": "asst_lookup_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "asst_source_uri_path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "asst_is_loaded_ready_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "asst_cached_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "ee112233-4455-6677-8899-00aabbccdd01",
+          "RuntimeAssetCache",
+          "AUDIO_BUFFER",
+          "ganon_theme",
+          "synth_procedural",
+          true,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd02",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "shadow_link_sheet",
+          "/assets/sprites/shadow_link_sheet_32x32.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd03",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "ganon_sheet",
+          "/assets/sprites/ganon_sheet_48x48.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd04",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "slime_sheet",
+          "/assets/sprites/slime_sheet_32x32.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd05",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "guard_sheet",
+          "/assets/sprites/guard_sheet_32x32.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd06",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "item_shadow_blade",
+          "/assets/items/item_shadow_blade_16x16.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd07",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "item_obsidian_shield",
+          "/assets/items/item_obsidian_shield_16x16.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd08",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "item_dark_elixir",
+          "/assets/items/item_dark_elixir_16x16.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd09",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "item_sanctuary_seal",
+          "/assets/items/item_sanctuary_seal_16x16.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd10",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "item_boomerang",
+          "/assets/items/item_boomerang_16x16.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd11",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "item_heart_container",
+          "/assets/items/item_heart_container_16x16.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd12",
+          "RuntimeAssetCache",
+          "IMAGE_SPRITE",
+          "item_bomb",
+          "/assets/items/item_bomb_16x16.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd13",
+          "RuntimeAssetCache",
+          "IMAGE_TILESET",
+          "tile_sanctuary_floor",
+          "/assets/tiles/tile_sanctuary_floor_32x32.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd14",
+          "RuntimeAssetCache",
+          "IMAGE_TILESET",
+          "tile_sanctuary_carpet",
+          "/assets/tiles/tile_sanctuary_carpet_32x32.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd15",
+          "RuntimeAssetCache",
+          "IMAGE_TILESET",
+          "tile_dark_grass",
+          "/assets/tiles/tile_dark_grass_32x32.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "ee112233-4455-6677-8899-00aabbccdd16",
+          "RuntimeAssetCache",
+          "IMAGE_TILESET",
+          "tile_dungeon_wall",
+          "/assets/tiles/tile_dungeon_wall_32x32.png",
+          true,
+          "2026-11-14T13:30:00Z"
+        ]
+      ]
+    },
+    "runtime_telemetry/frame_telemetry.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_game.js",
+      "Primary_Key_Field": "telm_uuid",
+      "Type_Discriminator_Field": "telm_record_type",
+      "Domain_Type_Field": "telm_health_severity_type",
+      "Records_Type": [
+        "RuntimeTelemetryFrame"
+      ],
+      "Fields": [
+        {
+          "name": "telm_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "telm_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RuntimeTelemetryFrame"
+          ]
+        },
+        {
+          "name": "telm_health_severity_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "NOMINAL_60FPS",
+            "DEGRADED_LOW_FPS",
+            "CRITICAL_PHYSICS_BOTTLENECK",
+            "CRITICAL_RENDER_BOTTLENECK"
+          ]
+        },
+        {
+          "name": "telm_rolling_fps_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "telm_frame_duration_ms_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "telm_update_duration_ms_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "telm_draw_duration_ms_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "telm_physics_duration_ms_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "telm_actor_sync_duration_ms_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "telm_chunk_draw_duration_ms_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "telm_collision_checks_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "telm_total_bodies_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "telm_static_bodies_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "telm_dynamic_bodies_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "telm_tiles_drawn_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "telm_tiles_culled_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "telm_used_js_heap_mb_metric",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "telm_alerts_list_json",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "ee001122-3344-4556-8778-99aabbccddee",
+          "RuntimeTelemetryFrame",
+          "NOMINAL_60FPS",
+          60,
+          4.2,
+          1.1,
+          3.1,
+          0.8,
+          0.1,
+          1.9,
+          120,
+          62,
+          60,
+          2,
+          256,
+          0,
+          14.25,
+          "[]"
+        ]
+      ]
+    },
+    "runtime_grid/grid_cells.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_grid.js",
+      "Primary_Key_Field": "grid_uuid",
+      "Type_Discriminator_Field": "grid_record_type",
+      "Domain_Type_Field": "grid_terrain_surface_type",
+      "Records_Type": [
+        "RuntimeGridCell"
+      ],
+      "Fields": [
+        {
+          "name": "grid_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "grid_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RuntimeGridCell"
+          ]
+        },
+        {
+          "name": "grid_terrain_surface_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "EMPTY",
+            "STONE_FLOOR",
+            "STONE_WALL",
+            "CAVERN_WATER"
+          ]
+        },
+        {
+          "name": "grid_row_coord_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "grid_column_coord_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "grid_is_solid_blocking_flag",
+          "type": "boolean",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "dd001122-3344-4556-8778-99aabbccddee",
+          "RuntimeGridCell",
+          "STONE_WALL",
+          0,
+          0,
+          true
+        ],
+        [
+          "dd001122-3344-4556-8778-99aabbccddf0",
+          "RuntimeGridCell",
+          "STONE_FLOOR",
+          1,
+          1,
+          false
+        ]
+      ]
+    },
+    "tiles/tiles_manifest.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_assets.js",
+      "Primary_Key_Field": "tile_uuid",
+      "Type_Discriminator_Field": "tile_record_type",
+      "Domain_Type_Field": "tile_layer_category_type",
+      "Records_Type": [
+        "TileAssetManifest"
+      ],
+      "Fields": [
+        {
+          "name": "tile_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "tile_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "TileAssetManifest"
+          ]
+        },
+        {
+          "name": "tile_layer_category_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GROUND_TERRAIN",
+            "WALL_BOUNDARY",
+            "LIQUID_HAZARD",
+            "DECOR_OVERLAY",
+            "FRINGE_CANOPY"
+          ]
+        },
+        {
+          "name": "tile_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tile_integer_index_code",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "tile_width_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "tile_height_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "tile_is_solid_blocking_flag",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "tile_footstep_audio_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "audio.aud_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "tile_material_sound_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tile_image_source_data_uri",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tile_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "7019444c-4dc1-4921-9784-77e5521fc8a1",
+          "TileAssetManifest",
+          "GROUND_TERRAIN",
+          "dark_tile",
+          0,
+          16,
+          16,
+          false,
+          null,
+          "footstep_stone",
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "7019444c-4dc1-4921-9784-77e5521fc8a2",
+          "TileAssetManifest",
+          "GROUND_TERRAIN",
+          "stone_floor",
+          1,
+          16,
+          16,
+          false,
+          null,
+          "footstep_stone",
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "23e26250-8bd4-4982-9fcd-f6f134ab3ac8",
+          "TileAssetManifest",
+          "WALL_BOUNDARY",
+          "stone_wall",
+          2,
+          16,
+          16,
+          true,
+          null,
+          "hit_wall",
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "952f6b55-6f37-4640-a102-4bea49cb3d8f",
+          "TileAssetManifest",
+          "LIQUID_HAZARD",
+          "cavern_water",
+          3,
+          16,
+          16,
+          true,
+          null,
+          "water_splash",
+          null,
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "portals/portals.105.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_level_loader.js",
+      "Primary_Key_Field": "port_uuid",
+      "Type_Discriminator_Field": "port_record_type",
+      "Domain_Type_Field": "port_transition_trigger_type",
+      "Records_Type": [
+        "WorldPortal"
+      ],
+      "Fields": [
+        {
+          "name": "port_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "port_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "WorldPortal"
+          ]
+        },
+        {
+          "name": "port_transition_trigger_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "STEP_ON_TILE",
+            "INTERACT_DOOR",
+            "BOSS_DEFEAT_UNLOCK",
+            "ONE_WAY_DROP"
+          ]
+        },
+        {
+          "name": "port_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "port_source_lvl_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "levels.lvl_uuid",
+            "on_delete": "cascade"
+          }
+        },
+        {
+          "name": "port_source_tile_coord_x_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "port_source_tile_coord_y_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "port_target_lvl_uuid_fk",
+          "type": "string",
+          "required": true,
+          "foreign_key": {
+            "references": "levels.lvl_uuid",
+            "on_delete": "cascade"
+          }
+        },
+        {
+          "name": "port_target_spawn_coord_x_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "port_target_spawn_coord_y_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "port_requires_item_uuid_fk",
+          "type": "string",
+          "required": false,
+          "foreign_key": {
+            "references": "items.item_uuid",
+            "on_delete": "set_null"
+          }
+        },
+        {
+          "name": "port_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "3cf77a77-c513-4b62-9b6c-4c161785d10d",
+          "WorldPortal",
+          "STEP_ON_TILE",
+          "sanctuary_to_debug_room",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          8,
+          18,
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
+          12,
+          18,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3cf77a77-c513-4b62-9b6c-4c161785d10e",
+          "WorldPortal",
+          "STEP_ON_TILE",
+          "debug_room_to_sanctuary",
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
+          12,
+          22,
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          12,
+          18,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3cf77a77-c513-4b62-9b6c-4c161785d10a",
+          "WorldPortal",
+          "STEP_ON_TILE",
+          "sanctuary_to_cavern",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          12,
+          22,
+          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          16,
+          2,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3cf77a77-c513-4b62-9b6c-4c161785d10b",
+          "WorldPortal",
+          "STEP_ON_TILE",
+          "cavern_to_castle",
+          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          16,
+          30,
+          "fa8b5962-afc8-439c-966a-470241c6d3f8",
+          16,
+          2,
+          null,
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "3cf77a77-c513-4b62-9b6c-4c161785d10c",
+          "WorldPortal",
+          "INTERACT_DOOR",
+          "castle_to_princess_tower",
+          "fa8b5962-afc8-439c-966a-470241c6d3f8",
+          16,
+          30,
+          "fa8b5962-afc8-439c-966a-470241c6d3f9",
+          12,
+          20,
+          null,
+          "2026-10-25T21:04:00Z"
+        ]
+      ]
+    },
+    "sprites/sprites_manifest.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_assets.js",
+      "Primary_Key_Field": "spr_uuid",
+      "Type_Discriminator_Field": "spr_record_type",
+      "Domain_Type_Field": "spr_animation_sheet_type",
+      "Records_Type": [
+        "SpriteAssetManifest"
+      ],
+      "Fields": [
+        {
+          "name": "spr_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true
+        },
+        {
+          "name": "spr_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SpriteAssetManifest"
+          ]
+        },
+        {
+          "name": "spr_animation_sheet_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DIRECTIONAL_4WAY",
+            "STATIC_SINGLE",
+            "SLASH_VFX_STRIP",
+            "PROJECTILE_LOOP"
+          ]
+        },
+        {
+          "name": "spr_slug_code",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "spr_frame_width_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "spr_frame_height_px",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "spr_total_frames_count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "spr_walk_frame_duration_ms_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "spr_attack_frame_duration_ms_metric",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "spr_palette_tint_hex",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "spr_image_source_data_uri",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "spr_created_utc_timestamp",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "5f2bd77b-4cbb-49d7-9580-bd04e736fff4",
+          "SpriteAssetManifest",
+          "DIRECTIONAL_4WAY",
+          "shadow_link_sheet",
+          32,
+          32,
+          16,
+          120,
+          80,
+          "#DE2626",
+          "/assets/sprites/shadow_link_sheet_32x32.png",
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "80662083-3d23-4ea2-9d47-890cb96a61a0",
+          "SpriteAssetManifest",
+          "DIRECTIONAL_4WAY",
+          "ganon_sheet",
+          48,
+          48,
+          4,
+          150,
+          100,
+          "#DE2626",
+          "/assets/sprites/ganon_sheet_48x48.png",
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "80662083-3d23-4ea2-9d47-890cb96a61a2",
+          "SpriteAssetManifest",
+          "DIRECTIONAL_4WAY",
+          "zelda_sheet",
+          32,
+          32,
+          4,
+          200,
+          0,
+          "#FFFFFF",
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><rect width='32' height='32' fill='none'/><polygon points='12,6 14,3 16,6 18,3 20,6' fill='%23f59e0b'/><circle cx='16' cy='10' r='4' fill='%23fde047'/><rect x='12' y='14' width='8' height='14' fill='%23ffffff'/><rect x='10' y='18' width='12' height='12' fill='%23f472b6'/></svg>",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "80662083-3d23-4ea2-9d47-890cb96a61a3",
+          "SpriteAssetManifest",
+          "DIRECTIONAL_4WAY",
+          "hermit_npc_sheet",
+          32,
+          32,
+          8,
+          125,
+          0,
+          "#1a1a1a",
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><rect width='32' height='32' fill='none'/><rect x='10' y='8' width='12' height='20' fill='%231a1a1a'/><rect x='13' y='12' width='6' height='6' fill='%23ffffff'/><rect x='24' y='6' width='2' height='22' fill='%23b45309'/></svg>",
+          "2026-10-25T21:04:00Z"
+        ],
+        [
+          "38b093d3-ee7c-462b-a18e-b9f989e0833f",
+          "SpriteAssetManifest",
+          "DIRECTIONAL_4WAY",
+          "slime_sheet",
+          32,
+          32,
+          4,
+          150,
+          100,
+          "#15803d",
+          "/assets/sprites/slime_sheet_32x32.png",
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "38b093d3-ee7c-462b-a18e-b9f989e0833e",
+          "SpriteAssetManifest",
+          "DIRECTIONAL_4WAY",
+          "guard_sheet",
+          32,
+          32,
+          4,
+          120,
+          90,
+          "#2563eb",
+          "/assets/sprites/guard_sheet_32x32.png",
+          "2026-11-14T13:30:00Z"
+        ],
+        [
+          "5f2bd77b-4cbb-49d7-9580-bd04e736fff5",
+          "SpriteAssetManifest",
+          "DIRECTIONAL_4WAY",
+          "shadow_link_bow_sheet",
+          32,
+          32,
+          16,
+          120,
+          65,
+          "#DE2626",
+          "/assets/sprites/shadow_link_bow_sheet_32x32.png",
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "5f2bd77b-4cbb-49d7-9580-bd04e736fff6",
+          "SpriteAssetManifest",
+          "PROJECTILE_LOOP",
+          "shadow_arrow_flight",
+          32,
+          32,
+          4,
+          65,
+          65,
+          "#DE2626",
+          "/assets/sprites/shadow_arrow_flight_32x32.png",
+          "2026-11-16T07:32:00Z"
+        ],
+        [
+          "5f2bd77b-4cbb-49d7-9580-bd04e736fff7",
+          "SpriteAssetManifest",
+          "SLASH_VFX_STRIP",
+          "vfx_arrow_impact_dynamics",
+          48,
+          48,
+          16,
+          50,
+          50,
+          "#DE2626",
+          "/assets/vfx/vfx_arrow_impact_dynamics_48x48.png",
+          "2026-11-16T07:32:00Z"
+        ]
+      ]
+    },
+    "combat/projectile_combat_registry.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_projectile_physics.js",
+      "Primary_Key_Field": "proj_uuid",
+      "Type_Discriminator_Field": "proj_record_type",
+      "Domain_Type_Field": "faction",
+      "Records_Type": [
+        "GamingProjectileRecord"
+      ],
+      "Schema_Name": "Projectile_Combat_Registry",
+      "Fields": [
+        {
+          "name": "proj_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true,
+          "field_uuid": "d3a30001-3333-4000-8000-000000000001"
+        },
+        {
+          "name": "proj_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GamingProjectileRecord"
+          ]
+        },
+        {
+          "name": "projectile_id",
+          "type": "string",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000002",
+          "required": true
+        },
+        {
+          "name": "faction",
+          "type": "string",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000003",
+          "required": true
+        },
+        {
+          "name": "flight_speed_px_s",
+          "type": "number",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000004",
+          "required": true
+        },
+        {
+          "name": "collision_radius_px",
+          "type": "integer",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000005",
+          "required": true
+        },
+        {
+          "name": "max_range_px",
+          "type": "integer",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000006",
+          "required": true
+        },
+        {
+          "name": "pierce_limit",
+          "type": "integer",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000007",
+          "required": true
+        },
+        {
+          "name": "topdown_elevation_z",
+          "type": "number",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000008",
+          "required": true
+        },
+        {
+          "name": "wake_particle_color",
+          "type": "string",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000009",
+          "required": true
+        },
+        {
+          "name": "impact_dynamics_key",
+          "type": "string",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000010",
+          "required": true
+        },
+        {
+          "name": "sfx_flight",
+          "type": "string",
+          "field_uuid": "d3a30001-3333-4000-8000-000000000011",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "d3000001-0001-4000-8000-000000000001",
+          "GamingProjectileRecord",
+          "shadow_arrow",
+          "bad_guy_tri_color",
+          480.0,
+          6,
+          360,
+          1,
+          8.0,
+          "#DE2626",
+          "projectile_impact_dynamics",
+          "arrow_whistle"
+        ],
+        [
+          "d3000001-0002-4000-8000-000000000002",
+          "GamingProjectileRecord",
+          "blood_slash_wave",
+          "bad_guy_tri_color",
+          320.0,
+          14,
+          120,
+          99,
+          4.0,
+          "#DE2626",
+          "projectile_impact_dynamics",
+          "sword_slash"
+        ],
+        [
+          "d3000001-0003-4000-8000-000000000003",
+          "GamingProjectileRecord",
+          "void_bomb_lob",
+          "bad_guy_tri_color",
+          180.0,
+          10,
+          140,
+          0,
+          16.0,
+          "#000000",
+          "projectile_impact_dynamics",
+          "enemy_death"
+        ],
+        [
+          "d3000001-0004-4000-8000-000000000004",
+          "GamingProjectileRecord",
+          "royal_arrow",
+          "hyrule_forces",
+          460.0,
+          6,
+          340,
+          1,
+          8.0,
+          "#F59E0B",
+          "projectile_impact_dynamics",
+          "arrow_whistle"
+        ],
+        [
+          "d3000001-0005-4000-8000-000000000005",
+          "GamingProjectileRecord",
+          "holy_light_beam",
+          "hyrule_forces",
+          640.0,
+          12,
+          280,
+          5,
+          10.0,
+          "#FFFFFF",
+          "projectile_impact_dynamics",
+          "dark_aura"
+        ]
+      ]
+    },
+    "combat/projectile_impact_dynamics.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_projectile_physics.js",
+      "Primary_Key_Field": "imp_uuid",
+      "Type_Discriminator_Field": "imp_record_type",
+      "Domain_Type_Field": "penetration_behavior",
+      "Records_Type": [
+        "ProjectileImpactDynamics"
+      ],
+      "Schema_Name": "Projectile_Impact_Dynamics_Registry",
+      "Fields": [
+        {
+          "name": "imp_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true,
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000000"
+        },
+        {
+          "name": "imp_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ProjectileImpactDynamics"
+          ]
+        },
+        {
+          "name": "object_type",
+          "type": "string",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000001",
+          "required": true
+        },
+        {
+          "name": "surface_hardness",
+          "type": "number",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000002",
+          "required": true
+        },
+        {
+          "name": "penetration_behavior",
+          "type": "string",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000003",
+          "required": true
+        },
+        {
+          "name": "damage_multiplier",
+          "type": "number",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000004",
+          "required": true
+        },
+        {
+          "name": "splash_particle_count",
+          "type": "integer",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000005",
+          "required": true
+        },
+        {
+          "name": "kinetic_recoil_factor",
+          "type": "number",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000006",
+          "required": true
+        },
+        {
+          "name": "primary_particle_color",
+          "type": "string",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000007",
+          "required": true
+        },
+        {
+          "name": "secondary_particle_color",
+          "type": "string",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000008",
+          "required": true
+        },
+        {
+          "name": "impact_vfx_preset",
+          "type": "string",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000009",
+          "required": true
+        },
+        {
+          "name": "sound_cue_id",
+          "type": "string",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000010",
+          "required": true
+        },
+        {
+          "name": "quiver_vibration_ms",
+          "type": "integer",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000011",
+          "required": true
+        },
+        {
+          "name": "status_debuff_inflicted",
+          "type": "string",
+          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000012",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "a0110001-0001-4000-8000-000000000001",
+          "ProjectileImpactDynamics",
+          "flesh_organic",
+          0.15,
+          "embed",
+          1.5,
+          24,
+          0.1,
+          "#DE2626",
+          "#000000",
+          "vfx_puncture_bleed",
+          "flesh_pierce",
+          200,
+          "bleed_slow"
+        ],
+        [
+          "a0110001-0002-4000-8000-000000000002",
+          "ProjectileImpactDynamics",
+          "stone_masonry",
+          0.9,
+          "shatter",
+          0.25,
+          18,
+          0.7,
+          "#FFFFFF",
+          "#64748B",
+          "vfx_flint_shatter",
+          "pot_break",
+          0,
+          "none"
+        ],
+        [
+          "a0110001-0003-4000-8000-000000000003",
+          "ProjectileImpactDynamics",
+          "wood_barrier",
+          0.45,
+          "embed",
+          0.85,
+          14,
+          0.4,
+          "#A16207",
+          "#78350F",
+          "vfx_grain_splinter",
+          "enemy_hit",
+          350,
+          "none"
+        ],
+        [
+          "a0110001-0004-4000-8000-000000000004",
+          "ProjectileImpactDynamics",
+          "metal_shield",
+          0.98,
+          "ricochet",
+          0.05,
+          32,
+          0.95,
+          "#FDE047",
+          "#FFFFFF",
+          "vfx_shield_ricochet",
+          "enemy_hit",
+          0,
+          "stun_deflect"
+        ],
+        [
+          "a0110001-0005-4000-8000-000000000005",
+          "ProjectileImpactDynamics",
+          "holy_barrier",
+          0.75,
+          "dispel",
+          0.5,
+          28,
+          0.5,
+          "#F59E0B",
+          "#1D4ED8",
+          "vfx_holy_dispel",
+          "dark_aura",
+          0,
+          "holy_blind"
+        ],
+        [
+          "a0110001-0006-4000-8000-000000000006",
+          "ProjectileImpactDynamics",
+          "water_liquid",
+          0.05,
+          "drag_sink",
+          0.4,
+          20,
+          0.2,
+          "#38BDF8",
+          "#FFFFFF",
+          "vfx_splash_ripple",
+          "bush_cut",
+          0,
+          "drench"
+        ]
+      ]
+    },
+    "combat/shadow_link_combat_animations.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_bejson_assets.js",
+      "Primary_Key_Field": "anim_uuid",
+      "Type_Discriminator_Field": "anim_record_type",
+      "Domain_Type_Field": "direction",
+      "Records_Type": [
+        "GamingCombatAnimationState"
+      ],
+      "Schema_Name": "Shadow_Link_Combat_Animations",
+      "Fields": [
+        {
+          "name": "anim_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true,
+          "field_uuid": "d1a10001-1111-4000-8000-000000000001"
+        },
+        {
+          "name": "anim_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GamingCombatAnimationState"
+          ]
+        },
+        {
+          "name": "anim_id",
+          "type": "string",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000002",
+          "required": true
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000003",
+          "required": true
+        },
+        {
+          "name": "frame_count",
+          "type": "integer",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000004",
+          "required": true
+        },
+        {
+          "name": "frame_duration_ms",
+          "type": "integer",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000005",
+          "required": true
+        },
+        {
+          "name": "hitbox_active_start_frame",
+          "type": "integer",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000006",
+          "required": true
+        },
+        {
+          "name": "hitbox_active_end_frame",
+          "type": "integer",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000007",
+          "required": true
+        },
+        {
+          "name": "hitbox_relative_box_json",
+          "type": "string",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000008",
+          "required": true
+        },
+        {
+          "name": "damage_value",
+          "type": "number",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000009",
+          "required": true
+        },
+        {
+          "name": "knockback_speed",
+          "type": "number",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000010",
+          "required": true
+        },
+        {
+          "name": "stamina_cost",
+          "type": "number",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000011",
+          "required": true
+        },
+        {
+          "name": "vfx_trigger_key",
+          "type": "string",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000012",
+          "required": true
+        },
+        {
+          "name": "sfx_cue",
+          "type": "string",
+          "field_uuid": "d1a10001-1111-4000-8000-000000000013",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "d1000001-0001-4000-8000-000000000001",
+          "GamingCombatAnimationState",
+          "walk_down",
+          "down",
+          4,
+          125,
+          -1,
+          -1,
+          "[]",
+          0.0,
+          0.0,
+          0.0,
+          "none",
+          "bush_cut"
+        ],
+        [
+          "d1000001-0002-4000-8000-000000000002",
+          "GamingCombatAnimationState",
+          "walk_up",
+          "up",
+          4,
+          125,
+          -1,
+          -1,
+          "[]",
+          0.0,
+          0.0,
+          0.0,
+          "none",
+          "bush_cut"
+        ],
+        [
+          "d1000001-0003-4000-8000-000000000003",
+          "GamingCombatAnimationState",
+          "walk_left",
+          "left",
+          4,
+          125,
+          -1,
+          -1,
+          "[]",
+          0.0,
+          0.0,
+          0.0,
+          "none",
+          "bush_cut"
+        ],
+        [
+          "d1000001-0004-4000-8000-000000000004",
+          "GamingCombatAnimationState",
+          "walk_right",
+          "right",
+          4,
+          125,
+          -1,
+          -1,
+          "[]",
+          0.0,
+          0.0,
+          0.0,
+          "none",
+          "bush_cut"
+        ],
+        [
+          "d1000001-0005-4000-8000-000000000005",
+          "GamingCombatAnimationState",
+          "slash_down",
+          "down",
+          4,
+          80,
+          1,
+          2,
+          "[-12, 12, 24, 16]",
+          40.0,
+          4.0,
+          5.0,
+          "vfx_blood_slash_arc_down",
+          "sword_slash"
+        ],
+        [
+          "d1000001-0006-4000-8000-000000000006",
+          "GamingCombatAnimationState",
+          "slash_up",
+          "up",
+          4,
+          80,
+          1,
+          2,
+          "[-12, -24, 24, 16]",
+          40.0,
+          4.0,
+          5.0,
+          "vfx_blood_slash_arc_up",
+          "sword_slash"
+        ],
+        [
+          "d1000001-0007-4000-8000-000000000007",
+          "GamingCombatAnimationState",
+          "slash_left",
+          "left",
+          4,
+          80,
+          1,
+          2,
+          "[-24, -12, 16, 24]",
+          40.0,
+          4.0,
+          5.0,
+          "vfx_blood_slash_arc_left",
+          "sword_slash"
+        ],
+        [
+          "d1000001-0008-4000-8000-000000000008",
+          "GamingCombatAnimationState",
+          "slash_right",
+          "right",
+          4,
+          80,
+          1,
+          2,
+          "[12, -12, 16, 24]",
+          40.0,
+          4.0,
+          5.0,
+          "vfx_blood_slash_arc_right",
+          "sword_slash"
+        ],
+        [
+          "d1000001-0009-4000-8000-000000000009",
+          "GamingCombatAnimationState",
+          "dark_spin_attack",
+          "all",
+          12,
+          42,
+          3,
+          10,
+          "[-36, -36, 72, 72]",
+          95.0,
+          8.5,
+          20.0,
+          "vfx_dark_spin_burst",
+          "spin_attack"
+        ],
+        [
+          "d1000001-0010-4000-8000-000000000010",
+          "GamingCombatAnimationState",
+          "bow_shoot_down",
+          "down",
+          4,
+          65,
+          3,
+          3,
+          "[0, 16, 8, 8]",
+          25.0,
+          2.0,
+          8.0,
+          "spawn_shadow_arrow_down",
+          "bow_loose"
+        ],
+        [
+          "d1000001-0011-4000-8000-000000000011",
+          "GamingCombatAnimationState",
+          "bow_shoot_up",
+          "up",
+          4,
+          65,
+          3,
+          3,
+          "[0, -16, 8, 8]",
+          25.0,
+          2.0,
+          8.0,
+          "spawn_shadow_arrow_up",
+          "bow_loose"
+        ],
+        [
+          "d1000001-0012-4000-8000-000000000012",
+          "GamingCombatAnimationState",
+          "bow_shoot_left",
+          "left",
+          4,
+          65,
+          3,
+          3,
+          "[-16, 0, 8, 8]",
+          25.0,
+          2.0,
+          8.0,
+          "spawn_shadow_arrow_left",
+          "bow_loose"
+        ],
+        [
+          "d1000001-0013-4000-8000-000000000013",
+          "GamingCombatAnimationState",
+          "bow_shoot_right",
+          "right",
+          4,
+          65,
+          3,
+          3,
+          "[16, 0, 8, 8]",
+          25.0,
+          2.0,
+          8.0,
+          "spawn_shadow_arrow_right",
+          "bow_loose"
+        ]
+      ]
+    },
+    "combat/weapons_combat_registry.105a.bejson": {
+      "Format": "BEJSON",
+      "Format_Version": "105a",
+      "Format_Creator": "Elton Boehnen",
+      "Schema_Version": "2.0.0-105",
+      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
+      "Write_Owner_Module": "lib_bejson_Gaming_inventory_manager.js",
+      "Primary_Key_Field": "wpn_uuid",
+      "Type_Discriminator_Field": "wpn_record_type",
+      "Domain_Type_Field": "category",
+      "Records_Type": [
+        "GamingWeaponCombatRecord"
+      ],
+      "Schema_Name": "Weapons_Combat_Registry",
+      "Fields": [
+        {
+          "name": "wpn_uuid",
+          "type": "string",
+          "required": true,
+          "primary_key": true,
+          "field_uuid": "d2a20001-2222-4000-8000-000000000001"
+        },
+        {
+          "name": "wpn_record_type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GamingWeaponCombatRecord"
+          ]
+        },
+        {
+          "name": "weapon_id",
+          "type": "string",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000002",
+          "required": true
+        },
+        {
+          "name": "faction",
+          "type": "string",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000003",
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000004",
+          "required": true
+        },
+        {
+          "name": "base_damage",
+          "type": "number",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000005",
+          "required": true
+        },
+        {
+          "name": "reach_px",
+          "type": "integer",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000006",
+          "required": true
+        },
+        {
+          "name": "swing_cadence_ms",
+          "type": "integer",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000007",
+          "required": true
+        },
+        {
+          "name": "block_absorption_pct",
+          "type": "number",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000008",
+          "required": true
+        },
+        {
+          "name": "elemental_affinity",
+          "type": "string",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000009",
+          "required": true
+        },
+        {
+          "name": "sprite_key",
+          "type": "string",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000010",
+          "required": true
+        },
+        {
+          "name": "projectile_ref",
+          "type": "string",
+          "field_uuid": "d2a20001-2222-4000-8000-000000000011",
+          "required": true
+        }
+      ],
+      "Values": [
+        [
+          "d2000001-0001-4000-8000-000000000001",
+          "GamingWeaponCombatRecord",
+          "shadow_blade",
+          "bad_guy_tri_color",
+          "sword",
+          40.0,
+          28,
+          320,
+          0.0,
+          "dark",
+          "item_shadow_blade_16x16",
+          "none"
+        ],
+        [
+          "d2000001-0002-4000-8000-000000000002",
+          "GamingWeaponCombatRecord",
+          "dark_bow",
+          "bad_guy_tri_color",
+          "bow",
+          25.0,
+          320,
+          260,
+          0.0,
+          "void",
+          "item_void_bow_16x16",
+          "shadow_arrow"
+        ],
+        [
+          "d2000001-0003-4000-8000-000000000003",
+          "GamingWeaponCombatRecord",
+          "obsidian_shield",
+          "bad_guy_tri_color",
+          "shield",
+          15.0,
+          16,
+          200,
+          1.0,
+          "dark",
+          "item_obsidian_shield_16x16",
+          "none"
+        ],
+        [
+          "d2000001-0004-4000-8000-000000000004",
+          "GamingWeaponCombatRecord",
+          "master_broadsword",
+          "hyrule_forces",
+          "sword",
+          45.0,
+          26,
+          340,
+          0.0,
+          "holy",
+          "item_master_broadsword_16x16",
+          "none"
+        ],
+        [
+          "d2000001-0005-4000-8000-000000000005",
+          "GamingWeaponCombatRecord",
+          "hyrule_halberd",
+          "hyrule_forces",
+          "halberd",
+          35.0,
+          38,
+          480,
+          0.2,
+          "holy",
+          "item_hyrule_halberd_16x16",
+          "none"
+        ],
+        [
+          "d2000001-0006-4000-8000-000000000006",
+          "GamingWeaponCombatRecord",
+          "royal_kite_shield",
+          "hyrule_forces",
+          "shield",
+          10.0,
+          14,
+          200,
+          0.9,
+          "holy",
+          "item_royal_kite_shield_16x16",
+          "none"
+        ],
+        [
+          "d2000001-0007-4000-8000-000000000007",
+          "GamingWeaponCombatRecord",
+          "sacred_light_staff",
+          "hyrule_forces",
+          "staff",
+          60.0,
+          240,
+          450,
+          0.0,
+          "holy_radiance",
+          "item_triforce_seal_16x16",
+          "holy_light_beam"
+        ]
+      ]
+    }
+  }
+};
+
+    console.log("[Standalone HTML Game] Booting full engine replica with embedded BEJSON chunk...", EMBEDDED_BEJSON_BUNDLE);
+
+    // Extract SVG / Base64 sprite assets from embedded BEJSON dataset manifest
+    const spriteImages = {};
+    try {
+      const sprDoc = EMBEDDED_BEJSON_BUNDLE.Datasets ? EMBEDDED_BEJSON_BUNDLE.Datasets['sprites/sprites_manifest.105a.bejson'] : null;
+      if (sprDoc && sprDoc.Values && sprDoc.Fields) {
+        const slugIdx = sprDoc.Fields.findIndex(f => f.name === 'spr_slug_code');
+        const uriIdx = sprDoc.Fields.findIndex(f => f.name === 'spr_image_source_data_uri');
+        if (slugIdx >= 0 && uriIdx >= 0) {
+          sprDoc.Values.forEach(row => {
+            const slug = row[slugIdx];
+            const uri = row[uriIdx];
+            if (slug && uri) {
+              const img = new Image();
+              img.src = uri;
+              spriteImages[slug] = img;
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Sprite asset manifest parse note:", err);
+    }
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Level map & world coordinate specs (1:1 with React engine)
+    let tilesW = 64;
+    let tilesH = 64;
+    const tileUnitPx = 16;
+    let mapWorldWidth = tilesW * tileUnitPx;   // 1024px
+    let mapWorldHeight = tilesH * tileUnitPx; // 1024px
+    const zoomScale = 1.25;
+
+    let px = mapWorldWidth / 2; // 512
+    let py = mapWorldHeight / 2 + 40; // 552
+    let playerFacing = 'DOWN';
+    let playerHp = 120, playerMaxHp = 120;
+    let playerHurtTime = 0;
+    let playerKnockback = { vx: 0, vy: 0 };
+    let isMoving = false, isSheathed = false;
+    let bHeldTime = 0, isCharging = false;
+    let swordCooldown = 0;
+    let slashAnim = null, spinAnim = null;
+    let swordVariation = 0;
+    let tickCount = 0;
+
+    let activeYItem = 'shadow_boomerang';
+    let currentLevelSlug = 'debug_chamber';
+
+    let boomerangs = [];
+    let droppedItems = [];
+    let otherProjectiles = [];
+    let props = [];
+    let enemies = [];
+
+    function setDebugRoom(slug) {
+      currentLevelSlug = slug;
+      if (slug === 'forgotten_cavern' || slug === 'castle_courtyard') {
+        tilesW = 96;
+        tilesH = 96;
+      } else {
+        tilesW = 64;
+        tilesH = 64;
+      }
+      mapWorldWidth = tilesW * tileUnitPx;
+      mapWorldHeight = tilesH * tileUnitPx;
+
+      px = mapWorldWidth / 2;
+      py = mapWorldHeight / 2 + 40;
+
+      if (slug === 'debug_chamber') {
+        props = [
+          { id: 'ped_boomerang', x: px - 120, y: py - 160, type: 'pedestal', destroyed: false, itemId: 'shadow_boomerang', icon: '🪃', title: 'BOOMERANG' },
+          { id: 'ped_bow', x: px - 40, y: py - 160, type: 'pedestal', destroyed: false, itemId: 'dark_bow', icon: '🏹', title: 'DARK BOW' },
+          { id: 'p1', x: px - 160, y: py - 60, type: 'pot', destroyed: false },
+          { id: 'p2', x: px - 200, y: py - 60, type: 'bush', destroyed: false },
+          { id: 'p3', x: px + 160, y: py - 60, type: 'pot', destroyed: false },
+          { id: 'p4', x: px + 200, y: py - 60, type: 'bush', destroyed: false }
+        ];
+      } else {
+        props = [
+          { id: 'p1', x: px - 60, y: py - 50, type: 'pot', destroyed: false },
+          { id: 'p2', x: px + 60, y: py - 50, type: 'bush', destroyed: false },
+          { id: 'p3', x: px - 100, y: py + 50, type: 'pot', destroyed: false },
+          { id: 'p4', x: px + 100, y: py + 50, type: 'bush', destroyed: false }
+        ];
+      }
+
+      enemies = [
+        { id: 'e1', type: 'guard', x: px - 120, y: py - 120, hp: 60, maxHp: 60, attack: 15, hurtTime: 0, knockback: { vx: 0, vy: 0 }, aiState: 'PATROL', aiTimer: 60, targetX: px - 120, targetY: py - 120, chargeVx: 0, chargeVy: 0, patrolVx: 0, patrolVy: 0 },
+        { id: 'e2', type: 'slime', x: px + 120, y: py - 120, hp: 35, maxHp: 35, attack: 10, hurtTime: 0, knockback: { vx: 0, vy: 0 }, aiState: 'PATROL', aiTimer: 40, targetX: px + 120, targetY: py - 120, chargeVx: 0, chargeVy: 0, patrolVx: 0, patrolVy: 0 }
+      ];
+
+      ['debug', 'sanctuary', 'cavern', 'courtyard'].forEach(name => {
+        const btn = document.getElementById('btn-room-' + name);
+        if (btn) btn.classList.remove('active');
+      });
+      if (slug === 'debug_chamber') document.getElementById('btn-room-debug')?.classList.add('active');
+      else if (slug === 'ganon_sanctuary') document.getElementById('btn-room-sanctuary')?.classList.add('active');
+      else if (slug === 'forgotten_cavern') document.getElementById('btn-room-cavern')?.classList.add('active');
+      else if (slug === 'castle_courtyard') document.getElementById('btn-room-courtyard')?.classList.add('active');
+    }
+
+    setDebugRoom('debug_chamber');
+
+    const keys = {};
+    let joystickVector = { x: 0, y: 0 };
+
+    window.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      keys[k] = true;
+      if (k === '1') setDebugRoom('debug_chamber');
+      if (k === '2') setDebugRoom('ganon_sanctuary');
+      if (k === '3') setDebugRoom('forgotten_cavern');
+      if (k === '4') setDebugRoom('castle_courtyard');
+      if (k === 'q' || k === 'tab') {
+        e.preventDefault();
+        activeYItem = activeYItem === 'shadow_boomerang' ? 'dark_bow' : 'shadow_boomerang';
+      }
+      if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k.startsWith('arrow')) {
+        document.getElementById('joystick')?.classList.add('active');
+        document.getElementById('joystick-knob')?.classList.add('active');
+      }
+      if (k === 'j' || k === 'z' || k === 'b') {
+        document.getElementById('btn-b')?.classList.add('active');
+        executeSwordSlash();
+      }
+      if (k === 'y' || k === 'i') {
+        document.getElementById('btn-y')?.classList.add('active');
+        executeYItem();
+      }
+      if (k === 'e' || k === 'a' || e.key === ' ') {
+        document.getElementById('btn-a')?.classList.add('active');
+        executeInteract();
+      }
+      if (k === 'x' || k === 'k') {
+        document.getElementById('btn-x')?.classList.add('active');
+      }
+      if (k === 'enter' || k === ' ') dismissIntro();
+    });
+
+    window.addEventListener('keyup', e => {
+      const k = e.key.toLowerCase();
+      keys[k] = false;
+      if (!keys['w'] && !keys['a'] && !keys['s'] && !keys['d'] && !keys['arrowup'] && !keys['arrowdown'] && !keys['arrowleft'] && !keys['arrowright']) {
+        if (Math.hypot(joystickVector.x, joystickVector.y) < 0.1) {
+          document.getElementById('joystick')?.classList.remove('active');
+          document.getElementById('joystick-knob')?.classList.remove('active');
+        }
+      }
+      if (k === 'j' || k === 'z' || k === 'b') document.getElementById('btn-b')?.classList.remove('active');
+      if (k === 'y' || k === 'i') document.getElementById('btn-y')?.classList.remove('active');
+      if (k === 'e' || k === 'a' || e.key === ' ') document.getElementById('btn-a')?.classList.remove('active');
+      if (k === 'x' || k === 'k') document.getElementById('btn-x')?.classList.remove('active');
+    });
+
+    const introScreen = document.getElementById('intro-screen');
+    function dismissIntro(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (introScreen) introScreen.style.display = 'none';
+    }
+
+    const btnStartGame = document.getElementById('btn-start-game');
+    if (btnStartGame) {
+      btnStartGame.addEventListener('pointerdown', dismissIntro);
+      btnStartGame.addEventListener('click', dismissIntro);
+    }
+    introScreen?.addEventListener('pointerdown', dismissIntro);
+
+    const joyEl = document.getElementById('joystick');
+    const knobEl = document.getElementById('joystick-knob');
+    let activePointerId = null;
+
+    function handleJoystickPointer(clientX, clientY) {
+      const rect = joyEl.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      let dx = clientX - centerX;
+      let dy = clientY - centerY;
+      const maxRadius = 44;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > maxRadius) {
+        dx = (dx / dist) * maxRadius;
+        dy = (dy / dist) * maxRadius;
+      }
+
+      knobEl.style.transform = `translate(${dx}px, ${dy}px)`;
+
+      if (dist < 6) {
+        joystickVector = { x: 0, y: 0 };
+      } else {
+        joystickVector = { x: dx / maxRadius, y: dy / maxRadius };
+      }
+    }
+
+    function resetJoystick() {
+      activePointerId = null;
+      joyEl.classList.remove('active');
+      knobEl.classList.remove('active');
+      knobEl.style.transform = 'translate(0px, 0px)';
+      joystickVector = { x: 0, y: 0 };
+    }
+
+    joyEl.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dismissIntro();
+      activePointerId = e.pointerId;
+      joyEl.classList.add('active');
+      knobEl.classList.add('active');
+      try { joyEl.setPointerCapture(e.pointerId); } catch (err) {}
+      handleJoystickPointer(e.clientX, e.clientY);
+    });
+
+    joyEl.addEventListener('pointermove', e => {
+      if (activePointerId === e.pointerId) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleJoystickPointer(e.clientX, e.clientY);
+      }
+    });
+
+    joyEl.addEventListener('pointerup', e => {
+      if (activePointerId === e.pointerId) {
+        e.preventDefault();
+        e.stopPropagation();
+        try { joyEl.releasePointerCapture(e.pointerId); } catch (err) {}
+        resetJoystick();
+      }
+    });
+
+    joyEl.addEventListener('pointercancel', e => {
+      if (activePointerId === e.pointerId) {
+        try { joyEl.releasePointerCapture(e.pointerId); } catch (err) {}
+        resetJoystick();
+      }
+    });
+
+    joyEl.addEventListener('touchstart', e => { e.preventDefault(); }, { passive: false });
+    joyEl.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
+
+    const btnB = document.getElementById('btn-b');
+    if (btnB) {
+      btnB.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissIntro();
+        btnB.classList.add('active');
+        keys['b'] = true;
+        executeSwordSlash();
+      });
+      btnB.addEventListener('pointerup', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        btnB.classList.remove('active');
+        keys['b'] = false;
+      });
+      btnB.addEventListener('pointercancel', () => {
+        btnB.classList.remove('active');
+        keys['b'] = false;
+      });
+    }
+
+    const btnY = document.getElementById('btn-y');
+    if (btnY) {
+      btnY.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissIntro();
+        btnY.classList.add('active');
+        executeYItem();
+      });
+      btnY.addEventListener('pointerup', () => btnY.classList.remove('active'));
+      btnY.addEventListener('pointercancel', () => btnY.classList.remove('active'));
+    }
+
+    const btnA = document.getElementById('btn-a');
+    if (btnA) {
+      btnA.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissIntro();
+        btnA.classList.add('active');
+        executeInteract();
+      });
+      btnA.addEventListener('pointerup', () => btnA.classList.remove('active'));
+      btnA.addEventListener('pointercancel', () => btnA.classList.remove('active'));
+    }
+
+    const btnX = document.getElementById('btn-x');
+    if (btnX) {
+      btnX.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissIntro();
+        btnX.classList.add('active');
+        isSheathed = !isSheathed;
+      });
+      btnX.addEventListener('pointerup', () => btnX.classList.remove('active'));
+      btnX.addEventListener('pointercancel', () => btnX.classList.remove('active'));
+    }
+
+    const handleSelect = (e) => {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      dismissIntro();
+      document.getElementById('btn-select')?.classList.add('active');
+      document.getElementById('row-select')?.classList.add('active');
+      activeYItem = activeYItem === 'shadow_boomerang' ? 'dark_bow' : 'shadow_boomerang';
+      setTimeout(() => {
+        document.getElementById('btn-select')?.classList.remove('active');
+        document.getElementById('row-select')?.classList.remove('active');
+      }, 150);
+    };
+    document.getElementById('btn-select')?.addEventListener('pointerdown', handleSelect);
+    document.getElementById('row-select')?.addEventListener('pointerdown', handleSelect);
+
+    const handleStart = (e) => {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      dismissIntro();
+      document.getElementById('btn-start')?.classList.add('active');
+      document.getElementById('row-start')?.classList.add('active');
+      px = mapWorldWidth / 2;
+      py = mapWorldHeight / 2 + 40;
+      setTimeout(() => {
+        document.getElementById('btn-start')?.classList.remove('active');
+        document.getElementById('row-start')?.classList.remove('active');
+      }, 150);
+    };
+    document.getElementById('btn-start')?.addEventListener('pointerdown', handleStart);
+    document.getElementById('row-start')?.addEventListener('pointerdown', handleStart);
+
+    function executeSwordSlash() {
+      if (isSheathed) { isSheathed = false; return; }
+      if (swordCooldown > 0 || (slashAnim && slashAnim.timer > 0)) return;
+
+      swordVariation = (swordVariation + 1) % 3;
+      // 18 frames = 0.30s animation commit & stun delay
+      slashAnim = { x: px, y: py, dir: playerFacing, timer: 18, maxTimer: 18, variation: swordVariation };
+      swordCooldown = 20;
+
+      let hx = px, hy = py;
+      const reach = 48; // Extended sword reach (from 35 -> 48px)
+      if (playerFacing === 'UP') hy -= reach;
+      if (playerFacing === 'DOWN') hy += reach;
+      if (playerFacing === 'LEFT') hx -= reach;
+      if (playerFacing === 'RIGHT') hx += reach;
+
+      props.forEach(p => {
+        if (!p.destroyed && Math.hypot(p.x - hx, p.y - hy) < 36) {
+          if (p.type === 'pedestal') {
+            if (p.itemId) activeYItem = p.itemId;
+            return;
+          }
+          p.destroyed = true;
+          droppedItems.push({ x: p.x, y: p.y, type: 'heart', timer: 300 });
+        }
+      });
+
+      enemies = enemies.map(e => {
+        if (e.hp > 0 && Math.hypot(e.x - hx, e.y - hy) < 44) {
+          const angle = Math.atan2(e.y - py, e.x - px);
+          // Improved vector knockback impulse (10.5 force) with 0.3s stun (18 frames)
+          const kb = { vx: Math.cos(angle) * 10.5, vy: Math.sin(angle) * 10.5 };
+          return { ...e, hp: Math.max(0, e.hp - 25), hurtTime: 18, knockback: kb };
+        }
+        return e;
+      });
+    }
+
+    function executeWhirlingBlade() {
+      spinAnim = { x: px, y: py, timer: 20, maxTimer: 20 };
+      enemies = enemies.map(e => {
+        if (e.hp > 0 && Math.hypot(e.x - px, e.y - py) < 75) {
+          const angle = Math.atan2(e.y - py, e.x - px);
+          const kb = { vx: Math.cos(angle) * 15.0, vy: Math.sin(angle) * 15.0 };
+          return { ...e, hp: Math.max(0, e.hp - 40), hurtTime: 20, knockback: kb };
+        }
+        return e;
+      });
+
+      props.forEach(p => {
+        if (!p.destroyed && Math.hypot(p.x - px, p.y - py) < 55) {
+          if (p.type === 'pedestal') return;
+          p.destroyed = true;
+          droppedItems.push({ x: p.x, y: p.y, type: 'rupee', timer: 300 });
+        }
+      });
+    }
+
+    function executeYItem() {
+      isSheathed = false;
+      if (activeYItem === 'shadow_boomerang') {
+        if (boomerangs.length > 0) return;
+        let vx = 0, vy = 0;
+        if (playerFacing === 'UP') vy = -8;
+        if (playerFacing === 'DOWN') vy = 8;
+        if (playerFacing === 'LEFT') vx = -8;
+        if (playerFacing === 'RIGHT') vx = 8;
+        boomerangs.push({ x: px, y: py, vx, vy, life: 0, returning: false, startX: px, startY: py });
+      } else {
+        let vx = 0, vy = 0;
+        const arrowSpeed = 5.5;
+        if (playerFacing === 'UP') vy = -arrowSpeed;
+        if (playerFacing === 'DOWN') vy = arrowSpeed;
+        if (playerFacing === 'LEFT') vx = -arrowSpeed;
+        if (playerFacing === 'RIGHT') vx = arrowSpeed;
+        otherProjectiles.push({ x: px, y: py, vx, vy, type: 'arrow', timer: 55 });
+      }
+    }
+
+    function executeInteract() {
+      props.forEach(p => {
+        if (!p.destroyed && Math.hypot(px - p.x, py - p.y) < 32) {
+          if (p.type === 'pedestal' && p.itemId) {
+            activeYItem = p.itemId;
+          }
+        }
+      });
+      playerHp = Math.min(playerMaxHp, playerHp + 10);
+    }
+
+    function update() {
+      tickCount++;
+      // Balanced movement speed: 2.2 normal walk, 3.2 shift sprint (Zelda calibrated)
+      let speed = keys['shift'] ? 3.2 : 2.2;
+      let dx = 0, dy = 0;
+
+      const up = keys['w'] || keys['arrowup'];
+      const down = keys['s'] || keys['arrowdown'];
+      const left = keys['a'] || keys['arrowleft'];
+      const right = keys['d'] || keys['arrowright'];
+
+      if (up) dy -= speed;
+      if (down) dy += speed;
+      if (left) dx -= speed;
+      if (right) dx += speed;
+
+      if (Math.hypot(joystickVector.x, joystickVector.y) > 0.12) {
+        dx = joystickVector.x * speed;
+        dy = joystickVector.y * speed;
+      }
+
+      // 8-directional movement with 4-directional facing & first-input priority latch
+      const isH = Math.abs(dx) > 0.05;
+      const isV = Math.abs(dy) > 0.05;
+      if (isH && isV) {
+        // Moving diagonally: latch to current facing if it matches one of the active axes
+        const matchesH = (dx > 0 && playerFacing === 'RIGHT') || (dx < 0 && playerFacing === 'LEFT');
+        const matchesV = (dy > 0 && playerFacing === 'DOWN') || (dy < 0 && playerFacing === 'UP');
+        if (!matchesH && !matchesV) {
+          playerFacing = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'RIGHT' : 'LEFT') : (dy > 0 ? 'DOWN' : 'UP');
+        }
+      } else if (isH) {
+        playerFacing = dx > 0 ? 'RIGHT' : 'LEFT';
+      } else if (isV) {
+        playerFacing = dy > 0 ? 'DOWN' : 'UP';
+      }
+
+      // Hit animation stun delay: attack swing commits player (~0.3s) or player hurt stun
+      if ((slashAnim && slashAnim.timer > 0) || playerHurtTime > 0) {
+        dx = 0;
+        dy = 0;
+      }
+
+      isMoving = Math.hypot(dx, dy) > 0.1;
+
+      // 45° Diagonal Wall-Sliding Vector Math
+      const testX = px + dx + playerKnockback.vx;
+      const testY = py + dy + playerKnockback.vy;
+      if (testX < 24 || testX > mapWorldWidth - 24) {
+        dx = 0; // Perpendicular horizontal incidence zeroes out, vertical slide preserved
+      }
+      if (testY < 24 || testY > mapWorldHeight - 24) {
+        dy = 0; // Perpendicular vertical incidence zeroes out, horizontal slide preserved
+      }
+
+      px += dx + playerKnockback.vx;
+      py += dy + playerKnockback.vy;
+      playerKnockback.vx *= 0.85;
+      playerKnockback.vy *= 0.85;
+
+      px = Math.max(24, Math.min(mapWorldWidth - 24, px));
+      py = Math.max(24, Math.min(mapWorldHeight - 24, py));
+
+      if (keys['b'] || keys['j'] || keys['z']) {
+        bHeldTime++;
+        if (bHeldTime > 25) isCharging = true;
+      } else {
+        if (isCharging) executeWhirlingBlade();
+        bHeldTime = 0;
+        isCharging = false;
+      }
+
+      if (swordCooldown > 0) swordCooldown--;
+      if (playerHurtTime > 0) playerHurtTime--;
+
+      boomerangs = boomerangs.filter(b => {
+        if (!b.returning) {
+          b.x += b.vx;
+          b.y += b.vy;
+          b.life++;
+          
+          props.forEach(p => {
+            if (!p.destroyed && Math.hypot(p.x - b.x, p.y - b.y) < 22) {
+              if (p.type === 'pedestal') return;
+              p.destroyed = true;
+              droppedItems.push({ x: p.x, y: p.y, type: 'heart', timer: 300 });
+            }
+          });
+
+          enemies.forEach(e => {
+            if (e.hp > 0 && Math.hypot(e.x - b.x, e.y - b.y) < 26) {
+              e.hp = Math.max(0, e.hp - 15);
+              e.hurtTime = 18; // 0.3s stun
+              b.returning = true;
+            }
+          });
+
+          if (b.x < 30 || b.x > mapWorldWidth - 30 || b.y < 30 || b.y > mapWorldHeight - 30 || b.life > 28) {
+            b.returning = true;
+          }
+        } else {
+          const dist = Math.hypot(px - b.x, py - b.y);
+          if (dist < 16) return false;
+          b.x += ((px - b.x) / dist) * 9;
+          b.y += ((py - b.y) / dist) * 9;
+        }
+        return true;
+      });
+
+      otherProjectiles = otherProjectiles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.timer--;
+        enemies.forEach(e => {
+          if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) < 22) {
+            e.hp = Math.max(0, e.hp - 20);
+            e.hurtTime = 18; // 0.3s stun
+            p.timer = 0;
+          }
+        });
+        return p.timer > 0 && p.x > 10 && p.x < mapWorldWidth - 10 && p.y > 10 && p.y < mapWorldHeight - 10;
+      });
+
+      droppedItems = droppedItems.filter(i => {
+        i.timer--;
+        if (Math.hypot(px - i.x, py - i.y) < 16) {
+          playerHp = Math.min(playerMaxHp, playerHp + (i.type === 'heart' ? 20 : 10));
+          return false;
+        }
+        return i.timer > 0;
+      });
+
+      // State-Driven Enemy AI (Awareness -> Stun Pause -> Lock-On -> Blind Charge -> Cooldown)
+      enemies = enemies.map(e => {
+        if (e.hp <= 0) return e;
+        let ex = e.x + e.knockback.vx;
+        let ey = e.y + e.knockback.vy;
+        e.knockback.vx *= 0.85;
+        e.knockback.vy *= 0.85;
+
+        let state = e.aiState || 'PATROL';
+        let timer = e.aiTimer || 0;
+        let tx = e.targetX || ex;
+        let ty = e.targetY || ey;
+        let cvx = e.chargeVx || 0;
+        let cvy = e.chargeVy || 0;
+        let pvx = e.patrolVx || 0;
+        let pvy = e.patrolVy || 0;
+
+        const distToPlayer = Math.hypot(px - ex, py - ey);
+
+        // Taking damage interrupts any active state into HURT knockback stun
+        if (e.hurtTime > 0) {
+          state = 'HURT';
+          timer = e.hurtTime;
+        } else if (state === 'HURT') {
+          state = 'COOLDOWN';
+          timer = 30; // 0.5s recovery post-hurt
+        }
+
+        if (state === 'PATROL') {
+          // Slow wander pace
+          timer--;
+          if (timer <= 0) {
+            timer = 50 + Math.floor(Math.random() * 40);
+            const angle = Math.random() * Math.PI * 2;
+            const wanderSpeed = e.type === 'guard' ? 0.6 : 0.4;
+            pvx = Math.cos(angle) * wanderSpeed;
+            pvy = Math.sin(angle) * wanderSpeed;
+          }
+          ex += pvx;
+          ey += pvy;
+
+          // Stage 1: Awareness detection within 160px
+          if (distToPlayer < 160) {
+            state = 'ALERT';
+            timer = 20; // 20 frames (~0.33s) startled pause with '!'
+            pvx = 0; pvy = 0;
+          }
+        } else if (state === 'ALERT') {
+          // Stage 2: Brief stunned awareness pause
+          timer--;
+          if (timer <= 0) {
+            state = 'LOCK_ON';
+            timer = 26; // 26 frames (~0.43s) telegraph delay
+            // Lock Link's position at start of lock-on
+            tx = px;
+            ty = py;
+          }
+        } else if (state === 'LOCK_ON') {
+          // Stage 3: Telegraph delay - enemy freezes & aims at locked target position
+          // Giving the player ample time to dodge/move!
+          timer--;
+          if (timer <= 0) {
+            state = 'CHARGE';
+            timer = 35; // Max blind charge duration (~0.6s)
+            const chargeDist = Math.hypot(tx - ex, ty - ey);
+            const chargeSpeed = e.type === 'guard' ? 2.6 : 1.8;
+            if (chargeDist > 4) {
+              cvx = ((tx - ex) / chargeDist) * chargeSpeed;
+              cvy = ((ty - ey) / chargeDist) * chargeSpeed;
+            } else {
+              cvx = 0; cvy = 0;
+            }
+          }
+        } else if (state === 'CHARGE') {
+          // Stage 4: Blind straight-line charge (does NOT track player mid-lunge)
+          ex += cvx;
+          ey += cvy;
+          timer--;
+
+          const distToTarget = Math.hypot(tx - ex, ty - ey);
+          if (distToTarget < 12 || timer <= 0 || ex < 24 || ex > mapWorldWidth - 24 || ey < 24 || ey > mapWorldHeight - 24) {
+            state = 'COOLDOWN';
+            timer = 40; // 40 frames (~0.67s) punish opening
+            cvx = 0; cvy = 0;
+          }
+
+          // Collision with Link during blind charge
+          if (distToPlayer < 18 && playerHurtTime <= 0 && e.hurtTime <= 0) {
+            playerHp = Math.max(0, playerHp - (e.attack || (e.type === 'guard' ? 15 : 10)));
+            playerHurtTime = 18; // 0.3s player damage stun
+            const angle = Math.atan2(py - ey, px - ex);
+            playerKnockback = { vx: Math.cos(angle) * 9.5, vy: Math.sin(angle) * 9.5 };
+            state = 'COOLDOWN';
+            timer = 40;
+            cvx = 0; cvy = 0;
+          }
+        } else if (state === 'COOLDOWN') {
+          // Stage 5: Cooldown / exhaustion recovery window (completely vulnerable)
+          timer--;
+          if (timer <= 0) {
+            if (distToPlayer < 140) {
+              state = 'ALERT';
+              timer = 20;
+            } else {
+              state = 'PATROL';
+              timer = 45;
+            }
+          }
+        }
+
+        ex = Math.max(24, Math.min(mapWorldWidth - 24, ex));
+        ey = Math.max(24, Math.min(mapWorldHeight - 24, ey));
+
+        return {
+          ...e,
+          x: ex,
+          y: ey,
+          aiState: state,
+          aiTimer: timer,
+          targetX: tx,
+          targetY: ty,
+          chargeVx: cvx,
+          chargeVy: cvy,
+          patrolVx: pvx,
+          patrolVy: pvy,
+          hurtTime: Math.max(0, e.hurtTime - 1)
+        };
+      });
+    }
+
+    function render() {
+      ctx.fillStyle = '#050204';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const viewportWorldW = canvas.width / zoomScale; // 358.4px
+      const viewportWorldH = canvas.height / zoomScale; // 358.4px
+
+      let camX = px - viewportWorldW / 2;
+      let camY = py - viewportWorldH / 2;
+
+      camX = Math.max(0, Math.min(mapWorldWidth - viewportWorldW, camX));
+      camY = Math.max(0, Math.min(mapWorldHeight - viewportWorldH, camY));
+
+      ctx.save();
+      ctx.scale(zoomScale, zoomScale);
+      ctx.translate(-camX, -camY);
+
+      // Frustum culling bounds
+      const minCol = Math.max(0, Math.floor(camX / tileUnitPx) - 1);
+      const maxCol = Math.min(tilesW - 1, Math.ceil((camX + viewportWorldW) / tileUnitPx) + 1);
+      const minRow = Math.max(0, Math.floor(camY / tileUnitPx) - 1);
+      const maxRow = Math.min(tilesH - 1, Math.ceil((camY + viewportWorldH) / tileUnitPx) + 1);
+
+      // 1. Terrain tile grid rendering (1:1 React parity)
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          const tx = c * tileUnitPx;
+          const ty = r * tileUnitPx;
+          const isBoundary = r === 0 || r === tilesH - 1 || c === 0 || c === tilesW - 1;
+
+          if (isBoundary) {
+            ctx.fillStyle = currentLevelSlug === 'ganon_sanctuary' ? '#1f1924' : '#1c281e';
+            ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+            ctx.fillStyle = currentLevelSlug === 'ganon_sanctuary' ? '#2d2436' : '#2d4232';
+            ctx.fillRect(tx + 2, ty + 2, tileUnitPx - 4, 12);
+            ctx.fillRect(tx + 2, ty + 18, tileUnitPx - 4, 12);
+            ctx.strokeStyle = currentLevelSlug === 'ganon_sanctuary' ? '#110c17' : '#0f1710';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
+          } else if (currentLevelSlug === 'debug_chamber') {
+            const isHallway = (c >= 30 && c <= 33) || (r >= 30 && r <= 33);
+            if (isHallway) {
+              const altWay = (r + c) % 2 === 0;
+              ctx.fillStyle = altWay ? '#52525b' : '#3f3f46';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.strokeStyle = '#27272a';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
+            } else if (c < 30 && r < 30) {
+              // Zone A: Dark Grassland Biome
+              const alt = (r + c) % 2 === 0;
+              ctx.fillStyle = alt ? '#2e7d32' : '#256628';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              const seed = (r * 31 + c * 17) % 5;
+              if (seed === 0) {
+                ctx.fillStyle = '#4caf50';
+                ctx.fillRect(tx + 6, ty + 8, 2, 4);
+                ctx.fillRect(tx + 10, ty + 6, 2, 6);
+              }
+            } else if (c > 33 && r < 30) {
+              // Zone B: Obsidian Sanctuary Biome
+              const alt = (r + c) % 2 === 0;
+              ctx.fillStyle = alt ? '#26262a' : '#1e1e22';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.strokeStyle = '#333338';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(tx + 1, ty + 1, tileUnitPx - 2, tileUnitPx - 2);
+            } else if (c < 30 && r > 33) {
+              // Zone C: Subterranean Cavern Biome
+              const alt = (r + c) % 2 === 0;
+              ctx.fillStyle = alt ? '#3f3f46' : '#27272a';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+            } else {
+              // Zone D: Gerudo Dark Sands Biome
+              const alt = (r + c) % 2 === 0;
+              ctx.fillStyle = alt ? '#b45309' : '#92400e';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+            }
+          } else if (currentLevelSlug === 'ganon_sanctuary') {
+            const isCenterCarpet = (c >= 14 && c <= 17) || (c >= 30 && c <= 33);
+            if (isCenterCarpet) {
+              ctx.fillStyle = '#991b1b';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.fillStyle = '#7f1d1d';
+              ctx.fillRect(tx + 4, ty + 4, tileUnitPx - 8, tileUnitPx - 8);
+              ctx.strokeStyle = '#f59e0b';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
+            } else {
+              const alt = (r + c) % 2 === 0;
+              ctx.fillStyle = alt ? '#26262a' : '#1e1e22';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.strokeStyle = '#333338';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(tx + 1, ty + 1, tileUnitPx - 2, tileUnitPx - 2);
+            }
+          } else if (currentLevelSlug === 'forgotten_cavern') {
+            // Forgotten Dark Cavern Biome: Subterranean Slate Floor & Blue Water Streams
+            const isWaterStream = (c >= 44 && c <= 52) || (r >= 44 && r <= 52);
+            if (isWaterStream) {
+              const altWater = (r + c) % 2 === 0;
+              ctx.fillStyle = altWater ? '#1e3a8a' : '#172554';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              if ((r * 13 + c * 7) % 4 === 0) {
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(tx + 4, ty + 7, 6, 2);
+              }
+            } else {
+              const altCavern = (r + c) % 2 === 0;
+              ctx.fillStyle = altCavern ? '#27272a' : '#1e1e24';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.strokeStyle = '#18181b';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(tx + 1, ty + 1, tileUnitPx - 2, tileUnitPx - 2);
+            }
+          } else if (currentLevelSlug === 'castle_courtyard') {
+            // Castle Courtyard Biome: Cobblestone Path Crossroads & Royal Green Gardens
+            const isPath = (c >= 44 && c <= 50) || (r >= 44 && r <= 50);
+            if (isPath) {
+              const altCobble = (r + c) % 2 === 0;
+              ctx.fillStyle = altCobble ? '#71717a' : '#52525b';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.strokeStyle = '#3f3f46';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
+            } else {
+              const altLawn = (r + c) % 2 === 0;
+              ctx.fillStyle = altLawn ? '#15803d' : '#166534';
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              const flowerSeed = (r * 29 + c * 11) % 7;
+              if (flowerSeed === 0) {
+                ctx.fillStyle = '#DE2626'; // Crimson flower accent
+                ctx.fillRect(tx + 6, ty + 6, 3, 3);
+              } else if (flowerSeed === 1) {
+                ctx.fillStyle = '#4ade80'; // Bright grass tuft
+                ctx.fillRect(tx + 8, ty + 7, 2, 5);
+              }
+            }
+          } else {
+            const altGrass = (r + c) % 2 === 0;
+            ctx.fillStyle = altGrass ? '#2e7d32' : '#256628';
+            ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+            const seed = (r * 31 + c * 17) % 5;
+            if (seed === 0) {
+              ctx.fillStyle = '#4caf50';
+              ctx.fillRect(tx + 6, ty + 8, 2, 4);
+              ctx.fillRect(tx + 10, ty + 6, 2, 6);
+            }
+          }
+        }
+      }
+
+      // Stone Pillars
+      const pillars = [
+        { x: 128, y: 128 }, { x: 896, y: 128 },
+        { x: 128, y: 640 }, { x: 896, y: 640 },
+        { x: 384, y: 384 }, { x: 640, y: 384 }
+      ];
+      pillars.forEach(p => {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(p.x - 16, p.y - 16, 32, 32);
+        ctx.strokeStyle = '#DE2626'; ctx.lineWidth = 1.5; ctx.strokeRect(p.x - 16, p.y - 16, 32, 32);
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(p.x - 6, p.y - 6, 12, 12);
+      });
+
+      // 2. Y-Sorted Draw Queue for 2.5D Depth Sorting
+      const renderQueue = [];
+
+      props.forEach(pr => {
+        if (!pr.destroyed) renderQueue.push({ sortY: pr.y + 6, type: 'prop', data: pr });
+      });
+
+      droppedItems.forEach(i => {
+        renderQueue.push({ sortY: i.y, type: 'item', data: i });
+      });
+
+      if (currentLevelSlug === 'ganon_sanctuary') {
+        renderQueue.push({ sortY: 150, type: 'ganon', data: null });
+      }
+
+      enemies.forEach(e => {
+        if (e.hp > 0) renderQueue.push({ sortY: e.y + 10, type: 'enemy', data: e });
+      });
+
+      otherProjectiles.forEach(p => {
+        renderQueue.push({ sortY: p.y, type: 'projectile', data: p });
+      });
+
+      boomerangs.forEach(b => {
+        renderQueue.push({ sortY: b.y, type: 'boomerang', data: b });
+      });
+
+      renderQueue.push({ sortY: py + 8, type: 'player', data: null });
+
+      renderQueue.sort((a, b) => a.sortY - b.sortY);
+
+      // 3. Execute Y-Sorted Render Pass
+      renderQueue.forEach(item => {
+        if (item.type === 'prop') {
+          const pr = item.data;
+          if (pr.type === 'pedestal') {
+            ctx.fillStyle = '#451a03'; ctx.fillRect(pr.x - 14, pr.y - 2, 28, 12);
+            ctx.fillStyle = '#f59e0b'; ctx.fillRect(pr.x - 12, pr.y - 12, 24, 10);
+            ctx.strokeStyle = '#DE2626'; ctx.lineWidth = 1.5; ctx.strokeRect(pr.x - 12, pr.y - 12, 24, 10);
+            ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(pr.icon || '🪃', pr.x, pr.y - 16);
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 8px monospace';
+            ctx.fillText(pr.title || 'ITEM', pr.x, pr.y + 18);
+          } else if (pr.type === 'pot') {
+            ctx.fillStyle = '#b45309'; ctx.beginPath(); ctx.arc(pr.x, pr.y + 1, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#d97706'; ctx.beginPath(); ctx.arc(pr.x - 2, pr.y - 1, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#78350f'; ctx.fillRect(pr.x - 7, pr.y - 7, 14, 3);
+          } else {
+            ctx.fillStyle = '#14532d'; ctx.beginPath(); ctx.arc(pr.x, pr.y + 2, 11, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#15803d'; ctx.beginPath(); ctx.arc(pr.x - 2, pr.y - 1, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(pr.x - 4, pr.y - 3, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ef4444'; ctx.fillRect(pr.x + 3, pr.y - 2, 2, 2);
+          }
+        } else if (item.type === 'item') {
+          const drop = item.data;
+          ctx.fillStyle = drop.type === 'heart' ? '#DE2626' : '#10b981';
+          ctx.fillRect(drop.x - 4, drop.y - 4, 8, 8);
+        } else if (item.type === 'ganon') {
+          ctx.fillStyle = '#7f1d1d'; ctx.fillRect(470, 110, 84, 50);
+          ctx.strokeStyle = '#f59e0b'; ctx.strokeRect(470, 110, 84, 50);
+          [440, 584].forEach(torchX => {
+            ctx.fillStyle = '#334155'; ctx.fillRect(torchX - 6, 120, 12, 24);
+            ctx.fillStyle = tickCount % 10 < 5 ? '#f97316' : '#ef4444';
+            ctx.beginPath(); ctx.arc(torchX, 114, 6, 0, Math.PI * 2); ctx.fill();
+          });
+          const gx = 512, gy = 135;
+          ctx.fillStyle = '#991b1b'; ctx.fillRect(gx - 20, gy - 10, 40, 30);
+          ctx.fillStyle = '#312e81'; ctx.fillRect(gx - 14, gy - 8, 28, 24);
+          ctx.fillStyle = '#1e1b4b'; ctx.beginPath(); ctx.arc(gx, gy - 16, 12, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ef4444'; ctx.fillRect(gx - 7, gy - 19, 4, 3); ctx.fillRect(gx + 3, gy - 19, 4, 3);
+        } else if (item.type === 'enemy') {
+          const e = item.data;
+          const sprKey = e.type === 'guard' ? 'guard_sheet' : 'slime_sheet';
+          const img = spriteImages[sprKey];
+          if (img && img.complete && img.naturalWidth > 0) {
+            const eCol = Math.floor(tickCount / 10) % 4;
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(img, eCol * 32, 0, 32, 32, Math.round(e.x - 16), Math.round(e.y - 16), 32, 32);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = e.hurtTime > 0 ? '#ffffff' : (e.type === 'guard' ? '#2563eb' : '#16a34a');
+            ctx.fillRect(e.x - 10, e.y - 10, 20, 20);
+            ctx.strokeStyle = '#000'; ctx.strokeRect(e.x - 10, e.y - 10, 20, 20);
+          }
+          ctx.fillStyle = '#18181b'; ctx.fillRect(e.x - 12, e.y - 18, 24, 3);
+          ctx.fillStyle = '#DE2626'; ctx.fillRect(e.x - 12, e.y - 18, (e.hp / e.maxHp) * 24, 3);
+
+          // State Indicators: ALERT (!), LOCK_ON (pulsing ! & crosshair), COOLDOWN (•••)
+          if (e.aiState === 'ALERT') {
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath(); ctx.arc(e.x, e.y - 26, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 1; ctx.stroke();
+            ctx.fillStyle = '#000000'; ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('!', e.x, e.y - 26);
+          } else if (e.aiState === 'LOCK_ON') {
+            const pulse = (tickCount % 6 < 3);
+            ctx.fillStyle = pulse ? '#DE2626' : '#f97316';
+            ctx.beginPath(); ctx.arc(e.x, e.y - 26, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 9px monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('!', e.x, e.y - 26);
+
+            // Red target crosshair at locked (targetX, targetY)
+            ctx.strokeStyle = '#DE2626'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(e.targetX, e.targetY, 6, 0, Math.PI * 2);
+            ctx.moveTo(e.targetX - 9, e.targetY); ctx.lineTo(e.targetX + 9, e.targetY);
+            ctx.moveTo(e.targetX, e.targetY - 9); ctx.lineTo(e.targetX, e.targetY + 9);
+            ctx.stroke();
+          } else if (e.aiState === 'COOLDOWN') {
+            ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 8px monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('•••', e.x, e.y - 24);
+          }
+        } else if (item.type === 'projectile') {
+          const p = item.data;
+          const arrowImg = spriteImages['shadow_arrow_flight'];
+          if (p.type === 'arrow' && arrowImg && arrowImg.complete && arrowImg.naturalWidth > 0) {
+            let arrowCol = 0;
+            if (p.vy < 0) arrowCol = 1;
+            else if (p.vx < 0) arrowCol = 2;
+            else if (p.vx > 0) arrowCol = 3;
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(arrowImg, arrowCol * 32, 0, 32, 32, Math.round(p.x - 16), Math.round(p.y - 16), 32, 32);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(p.x - 2, p.y - 2, 5, 5);
+          }
+        } else if (item.type === 'boomerang') {
+          const b = item.data;
+          ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (item.type === 'player') {
+          const isHurt = playerHurtTime > 0 && Math.floor(playerHurtTime / 3) % 2 === 0;
+
+          const renderShield = () => {
+            if (playerFacing === 'UP') {
+              ctx.fillStyle = '#000000'; ctx.fillRect(px - 6, py - 8, 12, 15);
+              ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.strokeRect(px - 6, py - 8, 12, 15);
+              ctx.fillStyle = '#DE2626'; ctx.beginPath(); ctx.moveTo(px - 4, py - 5); ctx.lineTo(px + 4, py - 5); ctx.lineTo(px, py + 4); ctx.closePath(); ctx.fill();
+            } else {
+              const sX = playerFacing === 'LEFT' ? px - 12 : (playerFacing === 'RIGHT' ? px + 2 : px - 12);
+              ctx.fillStyle = '#000000'; ctx.fillRect(sX, py - 3, 12, 15);
+              ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.strokeRect(sX, py - 3, 12, 15);
+              ctx.fillStyle = '#DE2626'; ctx.fillRect(sX + 2, py, 8, 8);
+            }
+          };
+
+          if (playerFacing === 'UP') renderShield();
+
+          const linkImg = spriteImages['shadow_link_sheet'];
+          if (linkImg && linkImg.complete && linkImg.naturalWidth > 0 && !isHurt) {
+            let row = 0;
+            if (playerFacing === 'UP') row = 1;
+            else if (playerFacing === 'LEFT') row = 2;
+            else if (playerFacing === 'RIGHT') row = 3;
+            const moving = Boolean(keys['w'] || keys['a'] || keys['s'] || keys['d'] || keys['arrowup'] || keys['arrowdown'] || keys['arrowleft'] || keys['arrowright']);
+            const col = moving ? (Math.floor(tickCount / 8) % 4) : 0;
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(linkImg, col * 32, row * 32, 32, 32, Math.round(px - 16), Math.round(py - 20), 32, 32);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = isHurt ? '#ffffff' : '#000000'; ctx.fillRect(px - 9, py - 10, 18, 20);
+            ctx.fillStyle = '#DE2626'; ctx.fillRect(px - 3, py, 6, 4);
+            ctx.fillStyle = '#DE2626';
+            if (playerFacing === 'DOWN') { ctx.fillRect(px - 6, py - 7, 4, 3); ctx.fillRect(px + 2, py - 7, 4, 3); }
+            else if (playerFacing === 'LEFT') ctx.fillRect(px - 7, py - 7, 4, 3);
+            else if (playerFacing === 'RIGHT') ctx.fillRect(px + 3, py - 7, 4, 3);
+          }
+
+          if (playerFacing !== 'UP') renderShield();
+
+          if (slashAnim && slashAnim.timer > 0) {
+            const maxT = slashAnim.maxTimer || 18;
+            const progress = 1 - slashAnim.timer / maxT;
+            let baseAngle = Math.PI / 2;
+            if (slashAnim.dir === 'UP') baseAngle = -Math.PI / 2;
+            if (slashAnim.dir === 'LEFT') baseAngle = Math.PI;
+            if (slashAnim.dir === 'RIGHT') baseAngle = 0;
+
+            const sweepSpan = Math.PI * 1.2;
+            const frameIdx = Math.min(3, Math.floor(progress * 4));
+            const phaseAngles = [-0.48, -0.08, 0.32, 0.50];
+            const phaseLengths = [0.68, 1.0, 1.12, 0.82];
+            const phaseAlpha = [0.25, 0.55, 0.45, 0.18];
+
+            const currentBladeAngle = baseAngle + phaseAngles[frameIdx] * sweepSpan;
+            const bladeLength = 42 * phaseLengths[frameIdx];
+            const bladeX = px + Math.cos(currentBladeAngle) * bladeLength;
+            const bladeY = py + Math.sin(currentBladeAngle) * bladeLength;
+
+            if (frameIdx >= 1) {
+              const prevAngle = baseAngle + phaseAngles[frameIdx - 1] * sweepSpan;
+              ctx.fillStyle = `rgba(222, 38, 38, ${phaseAlpha[frameIdx]})`;
+              ctx.beginPath();
+              ctx.arc(px, py, bladeLength + 2, prevAngle, currentBladeAngle);
+              ctx.arc(px, py, Math.max(10, bladeLength * 0.45), currentBladeAngle, prevAngle, true);
+              ctx.closePath();
+              ctx.fill();
+
+              const prevLen = 42 * phaseLengths[frameIdx - 1];
+              ctx.strokeStyle = 'rgba(222, 38, 38, 0.45)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(px + Math.cos(prevAngle) * 6, py + Math.sin(prevAngle) * 6);
+              ctx.lineTo(px + Math.cos(prevAngle) * prevLen, py + Math.sin(prevAngle) * prevLen);
+              ctx.stroke();
+            }
+
+            ctx.strokeStyle = '#DE2626'; ctx.lineWidth = frameIdx === 0 ? 3 : 5;
+            ctx.beginPath(); ctx.moveTo(px + Math.cos(currentBladeAngle) * 5, py + Math.sin(currentBladeAngle) * 5); ctx.lineTo(bladeX, bladeY); ctx.stroke();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(px + Math.cos(currentBladeAngle) * 4, py + Math.sin(currentBladeAngle) * 4); ctx.lineTo(bladeX, bladeY); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(bladeX - 1.5, bladeY - 1.5, 3, 3);
+            slashAnim.timer--;
+          }
+
+          if (spinAnim && spinAnim.timer > 0) {
+            ctx.fillStyle = 'rgba(222, 38, 38, 0.3)'; ctx.beginPath();
+            ctx.arc(px, py, 50, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#DE2626'; ctx.lineWidth = 5; ctx.beginPath();
+            ctx.arc(px, py, 45, 0, Math.PI * 2); ctx.stroke();
+            spinAnim.timer--;
+          }
+        }
+      });
+
+      ctx.restore();
+
+      // Top In-Canvas HUD
+      ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, 32);
+      ctx.fillStyle = '#DE2626'; ctx.font = 'bold 11px monospace';
+      const yItemLabel = activeYItem === 'shadow_boomerang' ? '🪃 BOOMERANG' : '🏹 DARK BOW';
+      const roomName = currentLevelSlug.replace('_', ' ').toUpperCase();
+      ctx.fillText(`SHADOW LINK | HP: ${playerHp}/${playerMaxHp} | Y: ${yItemLabel}`, 12, 20);
+
+      // Bottom In-Canvas HUD with Real-Time Coordinates
+      ctx.fillStyle = '#09090b'; ctx.fillRect(0, canvas.height - 24, canvas.width, 24);
+      ctx.fillStyle = '#10b981'; ctx.font = '10px monospace';
+      ctx.fillText(`ROOM: ${roomName} (${tilesW}x${tilesH}) | CAM FOLLOW: (${Math.round(px)}, ${Math.round(py)}) | ZOOM: 1.25x`, 12, canvas.height - 8);
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

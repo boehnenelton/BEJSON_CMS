@@ -4,8 +4,8 @@
   "Format_Creator": "Elton Boehnen",
   "Project_Name": "BEJSON_CMS",
   "Project_Version": "18.38",
-  "Package_Version": "149",
-  "Project_Modified_Date": "2026-11-12T13:18:00+00:00",
+  "Package_Version": "154",
+  "Project_Modified_Date": "2026-11-16T19:30:00+00:00",
   "Project_Description": "Personal BEJSON/MFDB-based CMS: Flask publisher, admin tooling, and exported static site (dark/light themes).",
   "Schema_Version": "1.8.0",
   "Records_Type": [
@@ -545,10 +545,35 @@
       "pkg148 -- Published Leethaxor69 Masterclasses (The JSON Attention Tax & Fort Knox in RAM) to CMS and Google Blogger.",
       "2026-11-12",
       "Authored and ingested two comprehensive 8-chapter masterclass articles (1,402 and 1,157 lines) by Leethaxor69. Published static edge build. Dispatched live syndication to Google Blogger (boehnenelton2024.blogspot.com). All 108 tests passing."
+    ],
+    [
+      "pkg150 -- Unified API Integrations & Syndication section (Cloudflare Pages, Google Blogger, Substack) in Publisher UI, zero-SDK Substack publisher tool, and secureenv dynamic resolution.",
+      "2026-11-14",
+      "Created dedicated API Integrations & Syndication card in BEJSON_CMS_Publisher.py replacing standalone Cloudflare card. Moved Cloudflare Pages and Google Blogger into this section and added Substack syndication. Created tools/substack_publisher.py for batch syndicating CMS posts as drafts. Populated placeholder variables in secureenv_file.json (CLOUDFLARE_PROJECT_NAME, BLOGGER_API_KEY, SUBSTACK_SID, SUBSTACK_SUBDOMAIN, SUBSTACK_URL, SUBSTACK_USER_ID, SUBSTACK_USER_HANDLE). Added 5 unit tests in tests/test_bejson_cms_api_integrations.py (113/113 passing)."
+    ],
+    [
+      "pkg151 -- Profile System 2.0 Dynamic Affective Compiler, dual-mode profile validation, and Leethaxor69 BEJSON 104 Foundations Masterclass publication.",
+      "2026-11-14",
+      "Engineered lib_bejson_AI_profile_2_compiler.py implementing ProfileCompiler2 with affective dynamic temper states (T in [0, 100]), Stability multipliers (Tier 1-4), Job Contract Precedence (Job > Persona > Rules), Invisibility Invariant, and Abstraction Invariant. Upgraded lib_bejson_AI_gemini_standard_profiles.py to v4.1.0 with dual-mode validation. Integrated Profile 2.0 assembly into lib_cms_persona_writer.py. Upgraded ai-persona-channeler CLI tool with simulation, state stepping, and AuthorProfile synchronization. Authored and published 'The Leethaxor Disassembly: BEJSON 104 Foundations & The Annihilation of JSON Bloat' (7 chapters) into BEJSON_CMS. All 113 tests passing."
+    ],
+    [
+      "pkg152 -- GitHub repository link anchoring, YouTube video bulletin/embeds, ProseMirror Substack formatter, and Leethaxor 104 Libraries Beginner Guide publication.",
+      "2026-11-14",
+      "Anchored GitHub profile (boehnenelton) and library repository links (BEJSON_104-Libraries, BEJSON_104) at the top of Leethaxor articles. Embedded featured YouTube video (h7WtEqdrKm8) into article headers and CMS homepage video bulletin. Authored and ingested 'The Noob's Survival Guide to the Legacy BEJSON 104 Libraries: Zero-Bloat Architecture, Polyglot Usage, and Schema Disassembly' (UUID 2ec89c17-9b49-40ec-a29f-ae89ecf9fd6f). Developed zero-dependency Markdown-to-ProseMirror AST compiler (md_to_prosemirror.py) to render structured drafts on Substack without raw HTML tag leakage, updating drafts 224844664 and 224843833. Recompiled static site and verified 113/113 tests passing."
+    ],
+    [
+      "pkg153 -- Leethaxor69 canonical backstory, Cheeto dust keyboard nuances, 4-tier dialect word bank, purpose-driven title rule, and mandatory subject study invariant.",
+      "2026-11-14",
+      "Updated Leethaxor69 profile across AI_Profile, AuthorProfile, ProfileCompiler2, leethaxor-persona-writer skill, ai-persona-channeler skill, and GEMINI.md policy. Codified backstory: 14-year-old hacker who attempted a DDoS/ransomware attack, discovered BEJSON, and surrendered ransom to work for chocolate bars and soda pop. Added keyboard Cheeto dust mechanics, bad temper, and Elton Boehnen peer respect. Injected 4-category dialect bank (corporate, 1337speak, gamer, rage bridges) for subtle/timely deployment. Enforced 4-8 word purpose-driven title law with snappy comments in subtitles, and established mandatory subject study phase before authoring. All 113 tests passing."
+    ],
+    [
+      "pkg154 -- Featured image auto-capture and retention across rebuilds, app and markdown import asset matching, Cloudflare/Blogger/Substack syndication fixes.",
+      "2026-11-16",
+      "Implemented automated resolution and persistent capture of featured images from linked StandaloneApp metadata, Markdown frontmatter/images, and HTML tags/hero assets across cms-manage.py and BEJSON_CMS_Publisher.py. Fixed rebuild image erasure bug ensuring custom/defined images are never overwritten with defaults. Synchronized syndication tooling (Cloudflare Pages deploy, Google Blogger deduplication, Substack ProseMirror AST publication). Verified with full test suite passing."
     ]
   ],
   "Type": "python",
   "Status": "Active",
-  "Versioned_UUID": "8a8cb312-7635-4566-9a7c-3abc14db6184"
+  "Versioned_UUID": "c8f219d3-6e4a-4a57-b08e-5d1b7a9423c1"
 }
 

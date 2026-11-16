@@ -11,7 +11,7 @@ Date:           2026-11-09
 Author:         Elton Boehnen
 Contact:        boehnenelton2024@gmail.com · boehnenelton2024.pages.dev · github.com/boehnenelton
 Format_Creator: Elton Boehnen
-RELATIONAL_ID:  4dc45f04-c682-42ab-9d61-503dbac9b250
+RELATIONAL_ID:  21c24fd5-0319-4abe-88d6-56d566bd6dfe
 
 Changelog:
   4.0.0 (2026-10-18) -- BREAKING (API only; no profile file needs migration).
@@ -78,6 +78,8 @@ Changelog:
           via the mandatory Field Map Cache.
   2.1.1 -- AI-family audit fix: added missing module-level VERSION var.
   2.1.0 -- Initial creation.
+
+CHANGE (2026-11-09): Google Search support removed (tool, parameter and schema/profile column), per project decision.
 """
 
 import json
@@ -102,7 +104,18 @@ from lib_bejson_Core_bejson_core import (
 import lib_bejson_Core_bejson_validator
 import lib_bejson_AI_profile_parser_runtime as _rt
 
-VERSION = "4.0.1"
+try:
+    from lib_bejson_AI_profile_2_compiler import (
+        PROFILE_2_FIELDS,
+        PROFILE_2_FIELD_NAMES,
+        ProfileCompiler2,
+    )
+except ImportError:
+    PROFILE_2_FIELDS = []
+    PROFILE_2_FIELD_NAMES = set()
+    ProfileCompiler2 = None
+
+VERSION = "4.1.0"
 
 logger = logging.getLogger(__name__)
 
@@ -162,19 +175,25 @@ _TOLERATED_STRING_FIELDS = OPTIONAL_PROFILE_FIELDS + [{"name": LEGACY_MODE_FIELD
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def gemini_profiles_is_v2(doc: Dict[str, Any]) -> bool:
+    """Returns True if the document declares or matches the Profile 2.0 schema."""
+    if not isinstance(doc, dict):
+        return False
+    rec_types = doc.get("Records_Type", [])
+    if "AI_Profile_v2" in rec_types:
+        return True
+    fields = doc.get("Fields", [])
+    field_names = {f["name"] for f in fields if isinstance(f, dict)}
+    if PROFILE_2_FIELD_NAMES and PROFILE_2_FIELD_NAMES.issubset(field_names):
+        return True
+    return False
+
+
 def gemini_profiles_validate(doc: Dict[str, Any]) -> bool:
     """
     Validates that *doc* conforms to the AI_Profile schema.
-    Returns True only if:
-      1. The document passes the Core BEJSON structural validator.
-      2. Every canonical This_Case field name is present.
-      3. Records_Type contains "AI_Profile".
-      4. Any optional column present (Parser_Language, Parser, Renderer, or
-         the legacy Mode) is declared "string". Missing columns and null/blank
-         values are fine.
-      5. Every record's embedded code passes the static checks in
-         gemini_profiles_validate_embedded() (structure only -- nothing is
-         executed, and no approval is needed to validate).
+    Dual-mode: accepts both Profile 1.0 (23 canonical fields) and
+    Profile 2.0 (32 canonical fields).
     """
     try:
         # _bejson_field_map is the Core Field Map Cache injected into the doc
@@ -185,18 +204,31 @@ def gemini_profiles_validate(doc: Dict[str, Any]) -> bool:
             json.dumps({k: v for k, v in doc.items() if k != "_bejson_field_map"})
         )
         fields = doc.get("Fields", [])
-        field_names = {f["name"] for f in fields}
-        missing = _REQUIRED_FIELD_NAMES - field_names
-        if missing:
-            logger.debug("Profile validation: missing fields: %s", missing)
-            return False
-        if "AI_Profile" not in doc.get("Records_Type", []):
-            logger.debug("Profile validation: Records_Type does not contain AI_Profile")
-            return False
+        field_names = {f["name"] for f in fields if isinstance(f, dict)}
+        rec_types = doc.get("Records_Type", [])
+
+        is_v2 = gemini_profiles_is_v2(doc)
+        if is_v2:
+            missing_v2 = PROFILE_2_FIELD_NAMES - field_names
+            if missing_v2:
+                logger.debug("Profile 2.0 validation: missing fields: %s", missing_v2)
+                return False
+            if not any(t in rec_types for t in ("AI_Profile", "AI_Profile_v2")):
+                logger.debug("Profile 2.0 validation: Records_Type must contain AI_Profile or AI_Profile_v2")
+                return False
+        else:
+            missing_v1 = _REQUIRED_FIELD_NAMES - field_names
+            if missing_v1:
+                logger.debug("Profile validation: missing fields: %s", missing_v1)
+                return False
+            if "AI_Profile" not in rec_types:
+                logger.debug("Profile validation: Records_Type does not contain AI_Profile")
+                return False
+
         # Optional fields: absent is valid; present must have the right type.
         for opt in _TOLERATED_STRING_FIELDS:
             for f in fields:
-                if f["name"] == opt["name"] and f.get("type") != opt["type"]:
+                if isinstance(f, dict) and f.get("name") == opt["name"] and f.get("type") != opt["type"]:
                     logger.debug(
                         "Profile validation: optional field %s declared %s, expected %s",
                         opt["name"], f.get("type"), opt["type"],

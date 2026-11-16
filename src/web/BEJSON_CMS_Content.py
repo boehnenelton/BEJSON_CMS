@@ -216,7 +216,8 @@ def edit_content(page_uuid):
         markdown_content = request.form.get('markdown_content', None)
         convert_md_on_save = request.form.get('convert_md_on_save') == 'on'
         title = request.form.get('title', page['page_title'])
-        featured_img = request.form.get('page_featured_img', page.get('page_featured_img', ''))
+        raw_featured_img = request.form.get('page_featured_img', '').strip()
+        featured_img = raw_featured_img if raw_featured_img else page.get('page_featured_img', '')
         featured_diagram = request.form.get('page_featured_diagram', page.get('page_featured_diagram', ''))
         author = request.form.get('page_author_name', page.get('page_author_name', ''))
         category = request.form.get('page_cat_name', page.get('page_cat_name', ''))

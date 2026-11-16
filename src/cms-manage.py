@@ -248,6 +248,67 @@ def _checked_add(db, entity_name, record, sync_count=True):
     return db.add_record(entity_name, record, sync_count=sync_count)
 
 
+def extract_featured_image_from_content(html_body="", markdown_body="", assets_dir=None):
+    """Captures already defined featured image from markdown or HTML content."""
+    if assets_dir is None:
+        assets_dir = SCRIPT_PATH.parent / "storage" / "mfdb" / "assets"
+
+    # 1. Frontmatter in markdown
+    if markdown_body:
+        frontmatter_match = re.search(r"^---\s*\n(.*?)\n---", markdown_body, re.DOTALL)
+        if frontmatter_match:
+            image_key_match = re.search(
+                r"^(?:featured_img|featured_image|image|hero_image|cover_image):\s*['\"]?([^'\"\r\n]+)",
+                frontmatter_match.group(1),
+                re.MULTILINE | re.IGNORECASE
+            )
+            if image_key_match:
+                candidate_filename = os.path.basename(image_key_match.group(1).strip())
+                if (assets_dir / candidate_filename).exists():
+                    return candidate_filename
+
+    # 2. Markdown image syntax: ![alt](/assets/foo.png) or ![alt](foo.png)
+    if markdown_body:
+        for match_item in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", markdown_body):
+            raw_url = match_item.group(1).split()[0].strip()
+            candidate_filename = raw_url.split("/assets/")[-1].split("?")[0].split("#")[0] if "/assets/" in raw_url else os.path.basename(raw_url)
+            if candidate_filename not in (DEFAULT_FEATURED_IMAGE, "bejson_brand_3_icon.jpeg") and (assets_dir / candidate_filename).exists():
+                return candidate_filename
+
+    # 3. HTML og:image or article-featured-image or first img in html
+    if html_body:
+        meta_match = re.search(r'<meta\s+[^>]*(?:property|name)=[\'"](?:og:image|twitter:image)[\'"]\s+content=[\'"]([^\'"]+)[\'"]', html_body, re.IGNORECASE)
+        if meta_match:
+            raw_url = meta_match.group(1).strip()
+            candidate_filename = raw_url.split("/assets/")[-1].split("?")[0].split("#")[0] if "/assets/" in raw_url else os.path.basename(raw_url)
+            if (assets_dir / candidate_filename).exists():
+                return candidate_filename
+
+        for match_item in re.finditer(r'<img\s+[^>]*src=[\'"]([^\'"]+)[\'"]', html_body, re.IGNORECASE):
+            raw_url = match_item.group(1).strip()
+            candidate_filename = raw_url.split("/assets/")[-1].split("?")[0].split("#")[0] if "/assets/" in raw_url else os.path.basename(raw_url)
+            if candidate_filename not in (DEFAULT_FEATURED_IMAGE, "bejson_brand_3_icon.jpeg") and (assets_dir / candidate_filename).exists():
+                return candidate_filename
+
+    return None
+
+
+def find_matching_hero_asset(slug="", title="", assets_dir=None):
+    """Finds an existing hero asset in assets/ directory matching slug or title."""
+    if assets_dir is None:
+        assets_dir = SCRIPT_PATH.parent / "storage" / "mfdb" / "assets"
+    if not assets_dir.exists():
+        return None
+
+    clean_slug = slug.replace("-", "_") if slug else ""
+    for ext in [".webp", ".png", ".svg", ".jpg", ".jpeg"]:
+        if clean_slug:
+            for pat in [f"{clean_slug}_hero{ext}", f"{clean_slug}{ext}"]:
+                if (assets_dir / pat).exists():
+                    return pat
+    return None
+
+
 def _create_page(db, record, title, html_body, markdown_body="", sync_count=True):
     """Two-part page write (AGENTS.md): PageRecord row via CMSCore plus the
     pages_db content file. The content file goes first, so a failed row write
@@ -255,6 +316,22 @@ def _create_page(db, record, title, html_body, markdown_body="", sync_count=True
     points at nothing."""
     if _schema_problem(db, "PageRecord", record):
         return False
+
+    # Capture already defined featured image or preserve existing
+    current_img = record.get("page_featured_img")
+    if not current_img or current_img == DEFAULT_FEATURED_IMAGE:
+        page_slug = record.get("page_slug", "")
+        existing = next((p for p in db.get_records("PageRecord") if (page_slug and p.get("page_slug") == page_slug) or p.get("page_title") == title), None)
+        existing_img = existing.get("page_featured_img") if existing else None
+        if existing_img and existing_img not in (DEFAULT_FEATURED_IMAGE, "None", "none", ""):
+            record["page_featured_img"] = existing_img
+        else:
+            captured = extract_featured_image_from_content(html_body, markdown_body)
+            if not captured:
+                captured = find_matching_hero_asset(page_slug, title)
+            if captured:
+                record["page_featured_img"] = captured
+
     content_path = _write_page_content_file(record["page_uuid"], title, html_body, markdown_body)
     if db.add_record("PageRecord", record, sync_count=sync_count):
         return True
@@ -413,6 +490,8 @@ def cmd_page_update(args):
     updates = {"page_title": args.title}
     if args.category: updates["page_cat_name"] = args.category
     if args.author: updates["page_author_name"] = args.author
+    if getattr(args, "featured_img", None) is not None and args.featured_img.strip():
+        updates["page_featured_img"] = args.featured_img.strip()
     if args.featured_video is not None: updates["page_featured_video_url"] = args.featured_video
     if getattr(args, "featured_diagram", None) is not None: updates["page_featured_diagram"] = args.featured_diagram
     if getattr(args, "type", None): updates["page_type"] = args.type
@@ -513,7 +592,18 @@ def cmd_page_import(args):
         new_uuid = str(uuid.uuid4())
         slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
         page_type = getattr(args, "type", "page") or "page"
-        featured_img = getattr(args, "featured_img", None) or DEFAULT_FEATURED_IMAGE
+
+        existing = next((p for p in db.get_records("PageRecord") if p.get("page_slug") == slug or p.get("page_title") == title), None)
+        existing_img = existing.get("page_featured_img") if existing else None
+        user_featured_img = getattr(args, "featured_img", None)
+        if user_featured_img:
+            featured_img = user_featured_img
+        elif existing_img and existing_img not in (DEFAULT_FEATURED_IMAGE, "None", "none", ""):
+            featured_img = existing_img
+        else:
+            captured = extract_featured_image_from_content(html_body=html_body)
+            featured_img = captured or find_matching_hero_asset(slug, title) or DEFAULT_FEATURED_IMAGE
+
         if _create_page(db, {
             "page_uuid": new_uuid, "page_title": title, "page_slug": slug,
             "page_cat_name": args.category, "page_type": page_type,
@@ -538,9 +628,23 @@ def cmd_page_import(args):
             return
         app_name = app.get("app_name", "")
         app_slug = app.get("app_slug", "")
+        app_img = app.get("app_featured_img") or ""
         page_title = args.title or f"App: {app_name}"
         new_uuid = str(uuid.uuid4())
         page_slug = re.sub(r'[^a-z0-9]', '-', page_title.lower()).strip('-')
+
+        existing = next((p for p in db.get_records("PageRecord") if p.get("page_slug") == page_slug or p.get("page_title") == page_title), None)
+        existing_img = existing.get("page_featured_img") if existing else None
+        user_featured_img = getattr(args, "featured_img", None)
+        if user_featured_img:
+            featured_img = user_featured_img
+        elif existing_img and existing_img not in (DEFAULT_FEATURED_IMAGE, "None", "none", ""):
+            featured_img = existing_img
+        elif app_img and app_img not in (DEFAULT_FEATURED_IMAGE, "None", "none", ""):
+            featured_img = app_img
+        else:
+            featured_img = DEFAULT_FEATURED_IMAGE
+
         # Iframe embed body -- matches the live renderer's expectation for item_type="app"
         html_body = (
             f"<div class='app-embed-container'>\n"
@@ -557,7 +661,7 @@ def cmd_page_import(args):
             "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": f"/apps/{app_slug}/",
             "page_author_name": _author_or_anonymous(db, args.author),
-            "page_featured_img": DEFAULT_FEATURED_IMAGE
+            "page_featured_img": featured_img
         }, page_title, html_body):
             print(f"App '{app_name}' imported as page: {page_title} (UUID: {new_uuid})")
             print(f"  Embed route: /apps/{app_slug}/")
@@ -584,15 +688,30 @@ def _import_markdown_file(db, md_path, category, author, page_type, featured_img
     from lib_bejson_CMS_md2html import convert_markdown_to_cms_article
     md_path = Path(md_path)
     fallback_title = md_path.stem.replace("_", " ").replace("-", " ").title()
-    parsed = convert_markdown_to_cms_article(md_path.read_text(encoding="utf-8"), fallback_title)
+    raw_md_text = md_path.read_text(encoding="utf-8")
+    parsed = convert_markdown_to_cms_article(raw_md_text, fallback_title)
     wrapped_html = f'<article class="bejson-cms-article">\n{parsed["html_body"]}\n</article>'
     new_uuid = str(uuid.uuid4())
+
+    existing = next((p for p in db.get_records("PageRecord") if p.get("page_slug") == parsed["slug"] or p.get("page_title") == parsed["title"]), None)
+    existing_img = existing.get("page_featured_img") if existing else None
+
+    if featured_img and featured_img != DEFAULT_FEATURED_IMAGE:
+        final_featured_img = featured_img
+    elif existing_img and existing_img not in (DEFAULT_FEATURED_IMAGE, "None", "none", ""):
+        final_featured_img = existing_img
+    elif parsed.get("featured_image"):
+        final_featured_img = parsed["featured_image"]
+    else:
+        captured = extract_featured_image_from_content(markdown_body=raw_md_text)
+        final_featured_img = captured or find_matching_hero_asset(parsed["slug"], parsed["title"]) or DEFAULT_FEATURED_IMAGE
+
     page_record = {
         "page_uuid": new_uuid, "page_title": parsed["title"], "page_slug": parsed["slug"],
         "page_cat_name": category, "page_type": page_type,
         "page_created_at": datetime.now().strftime("%Y-%m-%d"),
         "page_external_url": None, "page_author_name": author,
-        "page_featured_img": featured_img,
+        "page_featured_img": final_featured_img,
         "page_template_key": "post.html",
     }
     if not _create_page(db, page_record, parsed["title"], wrapped_html, parsed["markdown_body"], sync_count=sync_count):
@@ -1482,6 +1601,7 @@ def main():
     p_pupd.add_argument("--type", help="Page type")
     p_pupd.add_argument("--body", help="HTML body content")
     p_pupd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
+    p_pupd.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets). Pass an empty string to keep current.")
     p_pupd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Pass an empty string to clear it.")
     p_pupd.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets). Pass an empty string to clear it.")
 

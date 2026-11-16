@@ -48,6 +48,14 @@
       "Public-facing client-side interactive benchmarking platform for measuring BEJSON vs standard JSON token economics, payload compression, parser latency, and MFDB referential integrity.",
       "BEJSON_Interactive_Benchmark_Suite.html",
       "bejson_104_telemetry_hero.webp"
+    ],
+    [
+      "ffc32480-419a-47c6-bfa8-85c1c5e72ff6",
+      "Sword Slasher: Shadow Link's Awakening",
+      "sword-slasher--shadow-link-s-awakening",
+      "Top-down 2D action-RPG simulation prototype driven by 24 decoupled BEJSON 105 (2.0.0-105) tables, 1x cell-sliced pixel sprite sheets, 4-frame phased sword frame data, and mathematical Web Audio procedural synthesis.",
+      "standalone-game.html",
+      "ss2_js_debug_chamber.png"
     ]
   ]
 }

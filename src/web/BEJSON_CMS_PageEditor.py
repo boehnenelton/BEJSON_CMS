@@ -185,6 +185,14 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
     existing_page = next((p for p in existing_pages if p.get('page_uuid') == page_uuid), None)
     
     if is_new:
+        final_img = (featured_img or "").strip()
+        if not final_img:
+            asset_matches = re.findall(r'(?:src|content)=[\'"](?:(?:\.\.\/)*|\/)assets\/([^\'"\?#]+)', body_html)
+            for candidate_match in asset_matches:
+                candidate_basename = os.path.basename(candidate_match)
+                if os.path.exists(os.path.join(ASSETS_DIR, candidate_basename)):
+                    final_img = candidate_basename
+                    break
         db.add_record("PageRecord", {
             "page_uuid":    page_uuid,
             "page_title":   title,
@@ -194,7 +202,7 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_created_at":   today,
             "page_external_url": None,
             "page_author_name":   author,
-            "page_featured_img": featured_img,
+            "page_featured_img": final_img or DEFAULT_FEATURED_IMAGE,
             "page_featured_diagram": featured_diagram or "",
             "page_template_key": template_key,
             "page_featured_video_url": "",
@@ -209,8 +217,8 @@ def _write_page_record(page_uuid, title, category, author, body_html, is_new=Tru
             "page_template_key": template_key,
             "page_topical_links": topical_links,
         }
-        if featured_img is not None:
-            updates["page_featured_img"] = featured_img
+        if featured_img is not None and featured_img.strip():
+            updates["page_featured_img"] = featured_img.strip()
         if featured_diagram is not None:
             updates["page_featured_diagram"] = featured_diagram
             

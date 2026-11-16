@@ -55,11 +55,11 @@
     ],
     [
       "home_bulletin_mode",
-      "standard"
+      "video"
     ],
     [
       "home_bulletin_video_url",
-      ""
+      "https://youtube.com/watch?v=h7WtEqdrKm8"
     ],
     [
       "home_category_bar_position",
@@ -71,23 +71,23 @@
     ],
     [
       "home_bulletin_badge",
-      "FEATURED CRASH COURSE"
+      "FEATURED VIDEO MASTERCLASS"
     ],
     [
       "home_bulletin_title",
-      "BEJSON + MFDB Crash Course 23"
+      "BEJSON - Solving AI Hallucinations & 95% Token Reduction"
     ],
     [
       "home_bulletin_text",
-      "Comprehensive technical guide to BEJSON 104/105 data envelopes, field map caching, and MFDB v1.31/1.40 multi-file database relational architecture with zero ORM overhead."
+      "Watch BElton dissect how BEJSON eliminates model hallucinations and achieves 95% token compression over standard JSON bloat."
     ],
     [
       "home_bulletin_link",
-      "page/bejson/bejson-mfdb-crash-course-23/index.html"
+      "page/bejson/the-leethaxor-disassembly-bejson-104-foundations-the-annihilation-of-json-bloat/index.html"
     ],
     [
       "home_bulletin_link_label",
-      "Open Crash Course"
+      "Read Leethaxor Disassembly"
     ]
   ]
 }

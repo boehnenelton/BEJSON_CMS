@@ -320,6 +320,26 @@ def convert_markdown_to_cms_article(md_text: str, fallback_title: str = "Untitle
                 excerpt = (plain[:152] + "...") if len(plain) > 155 else plain
                 break
 
+    # Extract featured image from frontmatter or first markdown image
+    featured_image_candidate = None
+    frontmatter_match = re.search(r"^---\s*\n(.*?)\n---", md_text, re.DOTALL)
+    if frontmatter_match:
+        image_key_match = re.search(
+            r"^(?:featured_img|featured_image|image|hero_image|cover_image):\s*['\"]?([^'\"\r\n]+)",
+            frontmatter_match.group(1),
+            re.MULTILINE | re.IGNORECASE
+        )
+        if image_key_match:
+            featured_image_candidate = os.path.basename(image_key_match.group(1).strip())
+    if not featured_image_candidate:
+        first_markdown_image_match = re.search(r"!\[[^\]]*\]\(([^)]+)\)", md_text)
+        if first_markdown_image_match:
+            raw_image_url = first_markdown_image_match.group(1).split()[0].strip()
+            if "/assets/" in raw_image_url:
+                featured_image_candidate = raw_image_url.split("/assets/")[-1].split("?")[0].split("#")[0]
+            elif not raw_image_url.startswith("http://") and not raw_image_url.startswith("https://") and not raw_image_url.startswith("data:"):
+                featured_image_candidate = os.path.basename(raw_image_url)
+
     return {
         "title": final_title,
         "slug": final_slug,
@@ -327,6 +347,7 @@ def convert_markdown_to_cms_article(md_text: str, fallback_title: str = "Untitle
         "markdown_body": md_text,
         "excerpt": excerpt,
         "headings": headings,
+        "featured_image": featured_image_candidate,
     }
 
 

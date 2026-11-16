@@ -31,6 +31,11 @@ except ImportError:
 
 from lib_bejson_AI_ai_writing import ai_writing_call
 
+try:
+    from lib_bejson_AI_profile_2_compiler import ProfileCompiler2
+except ImportError:
+    ProfileCompiler2 = None
+
 
 DEFAULT_AI_MODEL = os.environ.get("CMS_DEFAULT_AI_MODEL", "gemini-2.5-flash")
 DEFAULT_AI_PROVIDER = os.environ.get("CMS_DEFAULT_AI_PROVIDER", "geminirest")
@@ -66,11 +71,38 @@ class PersonaWriter:
             pass
         return None
 
-    def assemble_system_instruction(self, persona, allow_inactive=False):
+    def assemble_profile_2_instruction(
+        self,
+        persona,
+        current_temper=None,
+        knowledge_context=None,
+        author_override=None,
+        allow_inactive=False,
+    ):
+        """
+        Compiles Profile System 2.0 system instruction using ProfileCompiler2.
+        Enforces Job Precedence, Invisibility, and Abstraction Invariants.
+        """
         if not persona:
             return ""
         if not allow_inactive and persona.get("Active") is False:
             return ""
+        if ProfileCompiler2:
+            return ProfileCompiler2.compile_payload(
+                persona,
+                current_temper=current_temper,
+                knowledge_context=knowledge_context,
+                author_override=author_override,
+            )
+        return self.assemble_system_instruction(persona, allow_inactive=allow_inactive)
+
+    def assemble_system_instruction(self, persona, allow_inactive=False, force_v2=False):
+        if not persona:
+            return ""
+        if not allow_inactive and persona.get("Active") is False:
+            return ""
+        if force_v2 and ProfileCompiler2:
+            return ProfileCompiler2.compile_payload(persona)
 
         name_val = persona.get("Name") or "AI"
         arch_val = persona.get("Archetype") or "Unspecified"

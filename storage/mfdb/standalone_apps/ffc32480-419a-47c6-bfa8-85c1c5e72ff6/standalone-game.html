@@ -68,11 +68,83 @@
         <p style="font-size: 10px; color: #71717a; font-family: monospace; margin-top: 20px;">Author: Elton Boehnen · BEJSON 105 Pure Data Engine</p>
       </div>
       <canvas id="gameCanvas" width="448" height="448"></canvas>
+      <div id="debug-mode-badge" style="display: none; position: absolute; top: 12px; left: 12px; background: rgba(245, 158, 11, 0.25); border: 1px solid rgba(245, 158, 11, 0.7); color: #fcd34d; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 4px; z-index: 20; pointer-events: none; font-family: monospace;">
+        ● DEBUG DOMAIN
+      </div>
     </div>
 
-    <div id="room-controls">
-      <button id="btn-room-debug" class="room-btn active" onclick="setDebugRoom('debug_chamber')">🔧 Debug Chamber [1]</button>
-      <button id="btn-room-sanctuary" class="room-btn" onclick="setDebugRoom('ganon_sanctuary')">🏛️ Ganon Sanctuary [2]</button>
+    <!-- SELECT: System & Debug Mode Overlay -->
+    <div id="select-menu-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.88); backdrop-filter: blur(4px); z-index: 999; align-items: center; justify-content: center;">
+      <div style="background: #09090b; border: 2px solid #3f3f46; border-radius: 12px; width: 90%; max-width: 420px; padding: 20px; box-shadow: 0 0 35px rgba(0,0,0,0.9); display: flex; flex-direction: column; gap: 14px; font-family: monospace; color: #fff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 10px;">
+          <span style="font-weight: bold; font-size: 13px; color: #f4f4f5; letter-spacing: 0.05em;">SYSTEM & DEBUG SETTINGS</span>
+          <button id="btn-close-select-menu" style="background: #27272a; border: 1px solid #3f3f46; color: #a1a1aa; border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer;">✕</button>
+        </div>
+
+        <div style="background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 12px; font-weight: bold; color: #fbbf24;">DEBUG MODE SWITCH</div>
+              <div style="font-size: 10px; color: #71717a; font-family: sans-serif; margin-top: 2px;">Separate debug testing room from real game world</div>
+            </div>
+            <button id="btn-toggle-debug" style="background: #27272a; border: 1px solid #52525b; color: #e4e4e7; border-radius: 6px; padding: 6px 14px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: monospace; transition: all 0.2s;">
+              DEBUG: OFF
+            </button>
+          </div>
+          <div style="background: #09090b; border: 1px solid #27272a; border-radius: 6px; padding: 8px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #71717a;">ACTIVE REALM:</span>
+            <span id="label-active-realm" style="color: #34d399; font-weight: bold;">🗡️ [GAME WORLD 1]</span>
+          </div>
+        </div>
+
+        <button id="btn-resume-game" style="background: #DE2626; border: none; color: #fff; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 11px; cursor: pointer; font-family: monospace; letter-spacing: 0.05em; margin-top: 4px;">
+          RESUME GAME [SELECT / ESC]
+        </button>
+      </div>
+    </div>
+
+    <!-- X-BUTTON: Context-Sensitive Spatial World Map Overlay (8x8 Overworld Mode 7 & Supertile 0x00 4-Quadrant Map) -->
+    <div id="spatial-map-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.90); backdrop-filter: blur(6px); z-index: 1000; align-items: center; justify-content: center; padding: 12px;">
+      <div style="background: #09090b; border: 4px solid #DE2626; border-radius: 12px; width: 100%; max-width: 640px; padding: 16px; box-shadow: 0 0 35px rgba(222,38,38,0.7); display: flex; flex-direction: column; gap: 12px; font-family: monospace; color: #fff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #27272a; padding-bottom: 10px; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="spatial-map-badge" style="background: #DE2626; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 900; letter-spacing: 0.05em;">SUPERTILE MAP</span>
+            <span id="spatial-map-subtitle" style="font-size: 11px; color: #a1a1aa; font-weight: bold;">SUPERTILE 0x00 · SHADOW CAVE (HOME BASE)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button id="btn-spatial-toggle-domain" style="background: #18181b; border: 1px solid rgba(245,158,11,0.6); color: #fbbf24; border-radius: 6px; padding: 4px 10px; font-size: 10px; font-weight: bold; cursor: pointer; font-family: monospace;">
+              VIEW 8x8 OVERWORLD
+            </button>
+            <button id="btn-spatial-close-top" style="background: #27272a; border: 1px solid #3f3f46; color: #d4d4d8; border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer;">✕</button>
+          </div>
+        </div>
+
+        <div id="spatial-map-toolbar" style="background: rgba(24,24,27,0.9); border: 1px solid #27272a; border-radius: 6px; padding: 6px 10px; font-size: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+          <div id="spatial-map-stats" style="display: flex; gap: 12px; flex-wrap: wrap; color: #a1a1aa;"></div>
+          <button id="btn-spatial-toggle-tilt" style="display: none; background: #09090b; border: 1px solid #3f3f46; color: #e4e4e7; border-radius: 4px; padding: 2px 8px; font-size: 9px; font-weight: bold; cursor: pointer; font-family: monospace;">
+            PERSPECTIVE: MODE 7 TILT
+          </button>
+        </div>
+
+        <div id="spatial-map-body" style="background: #18181b; border: 2px solid #27272a; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;"></div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #27272a; padding-top: 10px; font-size: 10px; color: #a1a1aa; flex-wrap: wrap; gap: 8px;">
+          <span id="spatial-map-footer-coords">WORLD POS: (256, 256) · METATILE: (16, 16)</span>
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-spatial-warp-home" style="background: #18181b; border: 1px solid rgba(245,158,11,0.7); color: #fbbf24; border-radius: 6px; padding: 5px 10px; font-size: 9px; font-weight: bold; cursor: pointer; font-family: monospace;">
+              WARP: SHADOW CAVE (HOME)
+            </button>
+            <button id="btn-spatial-close-bottom" style="background: #DE2626; border: none; color: #fff; border-radius: 6px; padding: 5px 12px; font-size: 9px; font-weight: bold; cursor: pointer; font-family: monospace;">
+              CLOSE [X]
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="room-controls" style="display: none;">
+      <button id="btn-room-debug" class="room-btn" onclick="if(isDebugMode) setDebugRoom('debug_chamber')">🔧 Debug Chamber [1]</button>
+      <button id="btn-room-sanctuary" class="room-btn active" onclick="setDebugRoom('ganon_sanctuary')">🏛️ Ganon Sanctuary [2]</button>
       <button id="btn-room-cavern" class="room-btn" onclick="setDebugRoom('forgotten_cavern')">🦇 Forgotten Cavern [3]</button>
       <button id="btn-room-courtyard" class="room-btn" onclick="setDebugRoom('castle_courtyard')">🏰 Castle Courtyard [4]</button>
     </div>
@@ -117,8 +189,8 @@
   "Schema_Version": "1.0.0",
   "Release_Version": 300,
   "Author": "Elton Boehnen \u00b7 boehnenelton2024@gmail.com",
-  "Total_Datasets": 24,
-  "Total_Records": 160,
+  "Total_Datasets": 20,
+  "Total_Records": 93,
   "Datasets": {
     "manifest/105a.mfdb.bejson": {
       "Format": "BEJSON",
@@ -377,54 +449,6 @@
           "105",
           true,
           "2026-10-25T21:04:00Z"
-        ],
-        [
-          "d1a10001-0000-4000-8000-000000000001",
-          "MfdbManifest",
-          "ACTOR",
-          "shadow_link_combat_animations",
-          "data/combat/",
-          "../combat/shadow_link_combat_animations.105a.bejson",
-          95,
-          "105a",
-          false,
-          "2026-11-16T07:32:00Z"
-        ],
-        [
-          "d2a20001-0000-4000-8000-000000000001",
-          "MfdbManifest",
-          "ITEM",
-          "weapons_combat_registry",
-          "data/combat/",
-          "../combat/weapons_combat_registry.105a.bejson",
-          96,
-          "105a",
-          false,
-          "2026-11-16T07:32:00Z"
-        ],
-        [
-          "d3a30001-0000-4000-8000-000000000001",
-          "MfdbManifest",
-          "RUNTIME",
-          "projectile_combat_registry",
-          "data/combat/",
-          "../combat/projectile_combat_registry.105a.bejson",
-          97,
-          "105a",
-          false,
-          "2026-11-16T07:32:00Z"
-        ],
-        [
-          "c4a5b6c7-0000-4000-8000-000000000001",
-          "MfdbManifest",
-          "RUNTIME",
-          "projectile_impact_dynamics",
-          "data/combat/",
-          "../combat/projectile_impact_dynamics.105a.bejson",
-          98,
-          "105a",
-          false,
-          "2026-11-16T07:32:00Z"
         ]
       ]
     },
@@ -558,20 +582,38 @@
         [
           "fa8b5962-afc8-439c-966a-470241c6d3f0",
           "GameLevel",
-          "BOSS_ARENA",
-          "MEDIUM_64X64",
+          "CAVERN_DUNGEON",
+          "SMALL_32X32",
           "NONE",
-          "ganon_sanctuary",
-          "Ganon's Dark Sanctuary",
-          64,
-          64,
+          "shadow_cave",
+          "[GAME WORLD 1] Shadow Cave (Home Base)",
+          32,
+          32,
+          16,
+          "0f94d339-50d0-4daf-aa01-88eeea870b2b",
+          "a0011223-3445-4556-8667-778899aabbcc",
+          "ambient_drip",
+          "{\"type\": \"NONE\", \"supertile_id\": 0, \"partition_mode\": \"FULL_4Q\", \"is_home_base\": true}",
+          "2026-11-23T23:55:00Z",
+          "2026-11-23T23:55:00Z"
+        ],
+        [
+          "fa8b5962-afc8-439c-966a-470241c6d3f2",
+          "GameLevel",
+          "OVERWORLD_FIELD",
+          "HUGE_128X128",
+          "NONE",
+          "overworld_grid",
+          "[GAME WORLD 1] Overworld 8x8 Sector Grid",
+          256,
+          256,
           16,
           "0f94d339-50d0-4daf-aa01-88eeea870b2a",
           "a0011223-3445-4556-8667-778899aabbcc",
           "ganon_theme",
-          "{\"type\": \"NONE\"}",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
+          "{\"type\": \"NONE\", \"sector_cols\": 8, \"sector_rows\": 8, \"sector_px\": 512, \"home_sector_id\": 27}",
+          "2026-11-23T23:55:00Z",
+          "2026-11-23T23:55:00Z"
         ],
         [
           "fa8b5962-afc8-439c-966a-470241c6d3f1",
@@ -580,88 +622,16 @@
           "MEDIUM_64X64",
           "NONE",
           "debug_chamber",
-          "Debug Item & Feature Test Chamber",
+          "[DEBUG DOMAIN] Item & Feature Test Chamber",
           64,
           64,
           16,
           "0f94d339-50d0-4daf-aa01-88eeea870b2a",
           "a0011223-3445-4556-8667-778899aabbcc",
           "ganon_theme",
-          "{\"type\": \"NONE\"}",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "fa8b5962-afc8-439c-966a-470241c6d3f7",
-          "GameLevel",
-          "CAVERN_DUNGEON",
-          "LARGE_96X96",
-          "DEFEAT_ALL_ENEMIES",
-          "forgotten_cavern",
-          "Forgotten Dark Cavern - Level 1",
-          96,
-          96,
-          16,
-          "0f94d339-50d0-4daf-aa01-88eeea870b2b",
-          "a0011223-3445-4556-8667-778899aabbcc",
-          "ambient_drip",
-          "{\"type\": \"DEFEAT_ALL_ENEMIES\", \"target_faction\": \"HOSTILE\"}",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "fa8b5962-afc8-439c-966a-470241c6d3f8",
-          "GameLevel",
-          "OVERWORLD_FIELD",
-          "LARGE_96X96",
-          "REACH_PORTAL",
-          "castle_courtyard",
-          "Hyrule Castle Courtyard - Level 2",
-          96,
-          96,
-          16,
-          "0f94d339-50d0-4daf-aa01-88eeea870b2c",
-          "a0011223-3445-4556-8667-778899aabbcc",
-          "castle_march",
-          "{\"type\": \"REACH_PORTAL\"}",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "fa8b5962-afc8-439c-966a-470241c6d3f9",
-          "GameLevel",
-          "BOSS_ARENA",
-          "SMALL_32X32",
-          "COLLECT_ITEM",
-          "princess_tower",
-          "Princess Zelda's Tower Chamber",
-          32,
-          32,
-          16,
-          "0f94d339-50d0-4daf-aa01-88eeea870b2c",
-          "a0011223-3445-4556-8667-778899aabbcc",
-          "dark_prophecy",
-          "{\"type\": \"COLLECT_ITEM\", \"item_slug\": \"princess_zelda\"}",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "fa8b5962-afc8-439c-966a-470241c6d3f2",
-          "GameLevel",
-          "OVERWORLD_FIELD",
-          "HUGE_128X128",
-          "REACH_PORTAL",
-          "dark_world_overworld",
-          "Dark World Hyrule Overworld",
-          128,
-          128,
-          16,
-          "0f94d339-50d0-4daf-aa01-88eeea870b2a",
-          "a0011223-3445-4556-8667-778899aabbcc",
-          "ganon_theme",
-          "{\"type\": \"REACH_PORTAL\"}",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
+          "{\"type\": \"NONE\", \"domain\": \"DEBUG_ISOLATED\"}",
+          "2026-11-23T23:55:00Z",
+          "2026-11-23T23:55:00Z"
         ]
       ]
     },
@@ -845,11 +815,11 @@
           "967bec9e-e89b-40bf-9194-f07227e4f7a1",
           "player",
           "Shadow Link",
-          192.0,
-          300.0,
-          192.0,
-          300.0,
-          "UP",
+          256.0,
+          256.0,
+          256.0,
+          256.0,
+          "DOWN",
           120,
           20,
           8,
@@ -857,70 +827,22 @@
           null,
           null,
           "[\"6ff5b8c1-466e-44fb-8592-41f44cbbf8c5\"]",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "3464096b-6f5b-4a48-87b4-f68e70edd6f0",
-          "ActorInstance",
-          "ENEMY_BOSS",
-          "IDLE",
-          "fa8b5962-afc8-439c-966a-470241c6d3f0",
-          "f34bebc3-90c5-4fcc-b40b-300dbdd4cb30",
-          "ganon",
-          "Ganon Dark Lord",
-          192.0,
-          100.0,
-          192.0,
-          100.0,
-          "DOWN",
-          999,
-          50,
-          20,
-          null,
-          null,
-          "994b1b9c-42b1-415f-8d21-6233d9672390",
-          "[]",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "3464096b-6f5b-4a48-87b4-f68e70edd6f2",
-          "ActorInstance",
-          "NPC_DIALOGUE",
-          "IDLE",
-          "fa8b5962-afc8-439c-966a-470241c6d3f9",
-          "f34bebc3-90c5-4fcc-b40b-300dbdd4cb32",
-          "zelda",
-          "Princess Zelda",
-          192.0,
-          120.0,
-          192.0,
-          120.0,
-          "DOWN",
-          100,
-          0,
-          1,
-          null,
-          null,
-          "994b1b9c-42b1-415f-8d21-6233d9672392",
-          "[]",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z",
+          "2026-11-23T23:55:00Z"
         ],
         [
           "3464096b-6f5b-4a48-87b4-f68e70edd6f3",
           "ActorInstance",
           "ENEMY_MOB",
           "IDLE",
-          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
           "6f08ff8c-ae51-4a46-895c-651ad32a07ea",
           "slime",
-          "Shadow Slime 1",
-          200.0,
-          200.0,
-          200.0,
-          200.0,
+          "Debug Test Slime",
+          400.0,
+          400.0,
+          400.0,
+          400.0,
           "LEFT",
           35,
           10,
@@ -929,22 +851,22 @@
           null,
           null,
           "[]",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z",
+          "2026-11-23T23:55:00Z"
         ],
         [
           "3464096b-6f5b-4a48-87b4-f68e70edd6f4",
           "ActorInstance",
           "ENEMY_MOB",
           "IDLE",
-          "fa8b5962-afc8-439c-966a-470241c6d3f8",
+          "fa8b5962-afc8-439c-966a-470241c6d3f1",
           "6f08ff8c-ae51-4a46-895c-651ad32a07eb",
           "guard",
-          "Royal Guard Captain",
-          220.0,
-          180.0,
-          220.0,
-          180.0,
+          "Debug Test Guard",
+          600.0,
+          400.0,
+          600.0,
+          400.0,
           "DOWN",
           60,
           15,
@@ -953,8 +875,8 @@
           null,
           null,
           "[]",
-          "2026-10-25T21:04:00Z",
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z",
+          "2026-11-23T23:55:00Z"
         ]
       ]
     },
@@ -1638,26 +1560,26 @@
           "fa8b5962-afc8-439c-966a-470241c6d3f0",
           "f8812345-6789-4abc-8def-012345678902",
           "wall_torch",
-          "Sanctuary Dark Torch",
-          4,
-          4,
+          "Shadow Cave Brazier",
+          12,
+          10,
           false,
           null,
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z"
         ],
         [
           "813cb168-2718-4099-ab29-b986aebc1cce",
           "WorldObject",
           "CONTAINER_CHEST",
-          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
           "f8812345-6789-4abc-8def-012345678903",
-          "chest_potions",
-          "Dark Cache Chest",
-          8,
-          8,
+          "chest_home_cache",
+          "Shadow Cave Supply Chest",
+          16,
+          10,
           true,
-          "994b1b9c-42b1-415f-8d21-6233d9672393",
-          "2026-10-25T21:04:00Z"
+          null,
+          "2026-11-23T23:55:00Z"
         ],
         [
           "813cb168-2718-4099-ab29-b986aebc1ccf",
@@ -1671,7 +1593,7 @@
           6,
           true,
           null,
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z"
         ],
         [
           "813cb168-2718-4099-ab29-b986aebc1cd0",
@@ -1685,7 +1607,7 @@
           6,
           true,
           null,
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z"
         ],
         [
           "813cb168-2718-4099-ab29-b986aebc1cd1",
@@ -1699,7 +1621,7 @@
           6,
           true,
           null,
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z"
         ],
         [
           "813cb168-2718-4099-ab29-b986aebc1cd2",
@@ -1713,7 +1635,7 @@
           6,
           true,
           null,
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z"
         ]
       ]
     },
@@ -2432,63 +2354,6 @@
           "2026-11-02T11:25:00Z"
         ],
         [
-          "a0011223-3445-4556-8667-778899aabbd1",
-          "SoundEffectFrequencySpec",
-          "SFX_COMBAT",
-          "bow_loose",
-          "Dark Bow String Release",
-          "triangle",
-          320.0,
-          140.0,
-          "exponential",
-          110,
-          0.4,
-          "none",
-          0.0,
-          0.0,
-          "[]",
-          false,
-          "2026-11-16T07:32:00Z"
-        ],
-        [
-          "a0011223-3445-4556-8667-778899aabbd2",
-          "SoundEffectFrequencySpec",
-          "SFX_COMBAT",
-          "arrow_whistle",
-          "Shadow Arrow Flight Whistle",
-          "sine",
-          880.0,
-          440.0,
-          "exponential",
-          130,
-          0.25,
-          "bandpass",
-          900.0,
-          2.0,
-          "[]",
-          false,
-          "2026-11-16T07:32:00Z"
-        ],
-        [
-          "a0011223-3445-4556-8667-778899aabbd3",
-          "SoundEffectFrequencySpec",
-          "SFX_COMBAT",
-          "flesh_pierce",
-          "Arrow Impact Flesh Pierce",
-          "noise",
-          900.0,
-          180.0,
-          "exponential",
-          100,
-          0.55,
-          "lowpass",
-          900.0,
-          1.5,
-          "[]",
-          false,
-          "2026-11-16T07:32:00Z"
-        ],
-        [
           "a0011223-3445-4556-8667-778899aabbcc",
           "AudioAssetManifest",
           "BGM_AMBIENT_LOOP",
@@ -2691,22 +2556,6 @@
           "#ec4899",
           "The royal captive required by Ganon to fulfill the dark prophecy.",
           "2026-10-25T21:04:00Z"
-        ],
-        [
-          "d2000001-0002-4000-8000-000000000002",
-          "ItemDefinition",
-          "WEAPON",
-          "BOW",
-          "SLOT_TOOL",
-          "RARE",
-          "dark_bow",
-          "Dark Bow",
-          25,
-          0,
-          0,
-          "#DE2626",
-          "Fires shadow piercing arrows across distances.",
-          "2026-11-16T07:32:00Z"
         ]
       ]
     },
@@ -2812,17 +2661,17 @@
           "cbe3d495-b527-4268-8b26-9df51dfeba6f",
           "TileChunkMatrix",
           "DENSE_MATRIX_16X16",
-          "fa8b5962-afc8-439c-966a-470241c6d3f7",
-          "forgotten_cavern",
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
+          "shadow_cave",
           0,
           0,
-          16,
-          16,
+          32,
+          32,
           "[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]",
           "[]",
           "[]",
-          "[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]",
-          "2026-10-25T21:04:00Z"
+          "[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1]]",
+          "2026-11-23T23:55:00Z"
         ]
       ]
     },
@@ -2924,44 +2773,16 @@
         [
           "994b1b9c-42b1-415f-8d21-6233d9672390",
           "GameEvent",
-          "CUTSCENE_AUTO",
+          "INTERACTION",
           "OBJECT_OPCODE_V2",
-          "ganon_opening_command",
+          "shadow_cave_home_inscription",
           "fa8b5962-afc8-439c-966a-470241c6d3f0",
-          192.0,
-          140.0,
-          "[{\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Ganon (Dark Lord)\", \"text\": \"Shadow Link... arise! The Light World clings to false hope.\"}, {\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Ganon (Dark Lord)\", \"text\": \"Go forth into Hyrule, breach the Royal Sanctuary, and TAKE PRINCESS ZELDA for our dark ascension!\"}, {\"op\": \"PLAY_SFX\", \"sound\": \"dark_aura\"}, {\"op\": \"GIVE_ITEM\", \"item_uuid\": \"d7efa941-b0b8-4f8f-bd00-72d0277a1b0d\"}, {\"op\": \"OBJECTIVE_SET\", \"objective\": \"Breach Hyrule Castle & Kidnap Princess Zelda\"}]",
-          null,
-          false,
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "994b1b9c-42b1-415f-8d21-6233d9672392",
-          "GameEvent",
-          "INTERACTION",
-          "OBJECT_OPCODE_V2",
-          "zelda_kidnap_event",
-          "fa8b5962-afc8-439c-966a-470241c6d3f9",
-          192.0,
-          120.0,
-          "[{\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Princess Zelda\", \"text\": \"Shadow Link?! No... the crimson eyes of dark prophecy! Unhand me!\"}, {\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Shadow Link\", \"text\": \"Master Ganon awaits his royal captive. Your light belongs to the shadows now!\"}, {\"op\": \"PLAY_SFX\", \"sound\": \"kidnap_chime\"}, {\"op\": \"GIVE_ITEM\", \"item_uuid\": \"6ff5b8c1-466e-44fb-8592-41f44cbbf8c7\"}, {\"op\": \"VICTORY_WIN\", \"message\": \"VICTORY! PRINCESS ZELDA HAS BEEN TAKEN! GANON'S DARK RULE BEGINS!\"}]",
-          null,
-          false,
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "994b1b9c-42b1-415f-8d21-6233d967239e",
-          "GameEvent",
-          "INTERACTION",
-          "OBJECT_OPCODE_V2",
-          "hermit_greeting",
-          "fa8b5962-afc8-439c-966a-470241c6d3f7",
           256.0,
-          224.0,
-          "[{\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Dark Hermit\", \"text\": \"The royal guards above are heavily armed. Use your Dark Spin Attack [K / X] to pierce their shields!\"}, {\"op\": \"PLAY_SFX\", \"sound\": \"chime_bell\"}, {\"op\": \"GIVE_ITEM\", \"item_uuid\": \"6ff5b8c1-466e-44fb-8592-41f44cbbf8c5\"}]",
+          160.0,
+          "[{\"op\": \"SHOW_DIALOGUE\", \"speaker\": \"Shadow Cave Inscription\", \"text\": \"Shadow Cave \u2014 Home Base. Step through the south threshold to enter the open 8x8 Overworld Grid.\"}]",
           null,
-          false,
-          "2026-10-25T21:04:00Z"
+          true,
+          "2026-11-23T23:55:00Z"
         ]
       ]
     },
@@ -3352,141 +3173,6 @@
           "synth_procedural",
           true,
           "2026-10-25T21:04:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd02",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "shadow_link_sheet",
-          "/assets/sprites/shadow_link_sheet_32x32.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd03",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "ganon_sheet",
-          "/assets/sprites/ganon_sheet_48x48.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd04",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "slime_sheet",
-          "/assets/sprites/slime_sheet_32x32.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd05",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "guard_sheet",
-          "/assets/sprites/guard_sheet_32x32.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd06",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "item_shadow_blade",
-          "/assets/items/item_shadow_blade_16x16.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd07",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "item_obsidian_shield",
-          "/assets/items/item_obsidian_shield_16x16.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd08",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "item_dark_elixir",
-          "/assets/items/item_dark_elixir_16x16.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd09",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "item_sanctuary_seal",
-          "/assets/items/item_sanctuary_seal_16x16.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd10",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "item_boomerang",
-          "/assets/items/item_boomerang_16x16.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd11",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "item_heart_container",
-          "/assets/items/item_heart_container_16x16.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd12",
-          "RuntimeAssetCache",
-          "IMAGE_SPRITE",
-          "item_bomb",
-          "/assets/items/item_bomb_16x16.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd13",
-          "RuntimeAssetCache",
-          "IMAGE_TILESET",
-          "tile_sanctuary_floor",
-          "/assets/tiles/tile_sanctuary_floor_32x32.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd14",
-          "RuntimeAssetCache",
-          "IMAGE_TILESET",
-          "tile_sanctuary_carpet",
-          "/assets/tiles/tile_sanctuary_carpet_32x32.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd15",
-          "RuntimeAssetCache",
-          "IMAGE_TILESET",
-          "tile_dark_grass",
-          "/assets/tiles/tile_dark_grass_32x32.png",
-          true,
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "ee112233-4455-6677-8899-00aabbccdd16",
-          "RuntimeAssetCache",
-          "IMAGE_TILESET",
-          "tile_dungeon_wall",
-          "/assets/tiles/tile_dungeon_wall_32x32.png",
-          true,
-          "2026-11-14T13:30:00Z"
         ]
       ]
     },
@@ -3950,74 +3636,32 @@
       ],
       "Values": [
         [
-          "3cf77a77-c513-4b62-9b6c-4c161785d10d",
-          "WorldPortal",
-          "STEP_ON_TILE",
-          "sanctuary_to_debug_room",
-          "fa8b5962-afc8-439c-966a-470241c6d3f0",
-          8,
-          18,
-          "fa8b5962-afc8-439c-966a-470241c6d3f1",
-          12,
-          18,
-          null,
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "3cf77a77-c513-4b62-9b6c-4c161785d10e",
-          "WorldPortal",
-          "STEP_ON_TILE",
-          "debug_room_to_sanctuary",
-          "fa8b5962-afc8-439c-966a-470241c6d3f1",
-          12,
-          22,
-          "fa8b5962-afc8-439c-966a-470241c6d3f0",
-          12,
-          18,
-          null,
-          "2026-10-25T21:04:00Z"
-        ],
-        [
           "3cf77a77-c513-4b62-9b6c-4c161785d10a",
           "WorldPortal",
           "STEP_ON_TILE",
-          "sanctuary_to_cavern",
+          "shadow_cave_exit_to_overworld",
           "fa8b5962-afc8-439c-966a-470241c6d3f0",
-          12,
-          22,
-          "fa8b5962-afc8-439c-966a-470241c6d3f7",
           16,
-          2,
+          30,
+          "fa8b5962-afc8-439c-966a-470241c6d3f2",
+          112,
+          114,
           null,
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z"
         ],
         [
           "3cf77a77-c513-4b62-9b6c-4c161785d10b",
           "WorldPortal",
           "STEP_ON_TILE",
-          "cavern_to_castle",
-          "fa8b5962-afc8-439c-966a-470241c6d3f7",
+          "overworld_entry_to_shadow_cave",
+          "fa8b5962-afc8-439c-966a-470241c6d3f2",
+          112,
+          112,
+          "fa8b5962-afc8-439c-966a-470241c6d3f0",
           16,
-          30,
-          "fa8b5962-afc8-439c-966a-470241c6d3f8",
-          16,
-          2,
+          28,
           null,
-          "2026-10-25T21:04:00Z"
-        ],
-        [
-          "3cf77a77-c513-4b62-9b6c-4c161785d10c",
-          "WorldPortal",
-          "INTERACT_DOOR",
-          "castle_to_princess_tower",
-          "fa8b5962-afc8-439c-966a-470241c6d3f8",
-          16,
-          30,
-          "fa8b5962-afc8-439c-966a-470241c6d3f9",
-          12,
-          20,
-          null,
-          "2026-10-25T21:04:00Z"
+          "2026-11-23T23:55:00Z"
         ]
       ]
     },
@@ -4118,8 +3762,8 @@
           120,
           80,
           "#DE2626",
-          "/assets/sprites/shadow_link_sheet_32x32.png",
-          "2026-11-14T13:30:00Z"
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><rect width='32' height='32' fill='none'/><path d='M12 4h8v4h-8zM10 8h12v4h-12zM8 12h16v6h-16z' fill='%231e1e2d'/><circle cx='13' cy='11' r='1.5' fill='%23f87171'/><circle cx='19' cy='11' r='1.5' fill='%23f87171'/><rect x='10' y='17' width='12' height='3' fill='%23DE2626'/><rect x='10' y='20' width='12' height='8' fill='%2314141f'/><rect x='11' y='28' width='4' height='3' fill='%23ffffff'/><rect x='17' y='28' width='4' height='3' fill='%23ffffff'/><rect x='6' y='14' width='4' height='10' fill='%231e1e2d' stroke='%23ffffff' stroke-width='1'/><polygon points='8,18 8,24 5,21' fill='%23DE2626'/></svg>",
+          "2026-10-25T21:04:00Z"
         ],
         [
           "80662083-3d23-4ea2-9d47-890cb96a61a0",
@@ -4128,12 +3772,12 @@
           "ganon_sheet",
           48,
           48,
-          4,
+          8,
           150,
           100,
           "#DE2626",
-          "/assets/sprites/ganon_sheet_48x48.png",
-          "2026-11-14T13:30:00Z"
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><rect width='48' height='48' fill='none'/><rect x='8' y='12' width='32' height='28' fill='%23991b1b'/><rect x='12' y='14' width='24' height='22' fill='%23312e81'/><circle cx='24' cy='16' r='10' fill='%231e1b4b'/><rect x='18' y='13' width='4' height='3' fill='%23ef4444'/><rect x='26' y='13' width='4' height='3' fill='%23ef4444'/><rect x='4' y='8' width='3' height='32' fill='%23f59e0b'/><polygon points='2,8 5,2 8,8' fill='%23f59e0b'/></svg>",
+          "2026-10-25T21:04:00Z"
         ],
         [
           "80662083-3d23-4ea2-9d47-890cb96a61a2",
@@ -4174,8 +3818,8 @@
           150,
           100,
           "#15803d",
-          "/assets/sprites/slime_sheet_32x32.png",
-          "2026-11-14T13:30:00Z"
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><rect width='32' height='32' fill='none'/><ellipse cx='16' cy='18' rx='11' ry='8' fill='%2316a34a'/><rect x='11' y='14' width='3' height='3' fill='%23ffffff'/><rect x='18' y='14' width='3' height='3' fill='%23ffffff'/><rect x='12' y='15' width='2' height='2' fill='%23000000'/><rect x='19' y='15' width='2' height='2' fill='%23000000'/></svg>",
+          "2026-10-25T21:04:00Z"
         ],
         [
           "38b093d3-ee7c-462b-a18e-b9f989e0833e",
@@ -4184,926 +3828,12 @@
           "guard_sheet",
           32,
           32,
-          4,
+          8,
           120,
           90,
           "#2563eb",
-          "/assets/sprites/guard_sheet_32x32.png",
-          "2026-11-14T13:30:00Z"
-        ],
-        [
-          "5f2bd77b-4cbb-49d7-9580-bd04e736fff5",
-          "SpriteAssetManifest",
-          "DIRECTIONAL_4WAY",
-          "shadow_link_bow_sheet",
-          32,
-          32,
-          16,
-          120,
-          65,
-          "#DE2626",
-          "/assets/sprites/shadow_link_bow_sheet_32x32.png",
-          "2026-11-16T07:32:00Z"
-        ],
-        [
-          "5f2bd77b-4cbb-49d7-9580-bd04e736fff6",
-          "SpriteAssetManifest",
-          "PROJECTILE_LOOP",
-          "shadow_arrow_flight",
-          32,
-          32,
-          4,
-          65,
-          65,
-          "#DE2626",
-          "/assets/sprites/shadow_arrow_flight_32x32.png",
-          "2026-11-16T07:32:00Z"
-        ],
-        [
-          "5f2bd77b-4cbb-49d7-9580-bd04e736fff7",
-          "SpriteAssetManifest",
-          "SLASH_VFX_STRIP",
-          "vfx_arrow_impact_dynamics",
-          48,
-          48,
-          16,
-          50,
-          50,
-          "#DE2626",
-          "/assets/vfx/vfx_arrow_impact_dynamics_48x48.png",
-          "2026-11-16T07:32:00Z"
-        ]
-      ]
-    },
-    "combat/projectile_combat_registry.105a.bejson": {
-      "Format": "BEJSON",
-      "Format_Version": "105a",
-      "Format_Creator": "Elton Boehnen",
-      "Schema_Version": "2.0.0-105",
-      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
-      "Write_Owner_Module": "lib_bejson_Gaming_projectile_physics.js",
-      "Primary_Key_Field": "proj_uuid",
-      "Type_Discriminator_Field": "proj_record_type",
-      "Domain_Type_Field": "faction",
-      "Records_Type": [
-        "GamingProjectileRecord"
-      ],
-      "Schema_Name": "Projectile_Combat_Registry",
-      "Fields": [
-        {
-          "name": "proj_uuid",
-          "type": "string",
-          "required": true,
-          "primary_key": true,
-          "field_uuid": "d3a30001-3333-4000-8000-000000000001"
-        },
-        {
-          "name": "proj_record_type",
-          "type": "string",
-          "required": true,
-          "enum": [
-            "GamingProjectileRecord"
-          ]
-        },
-        {
-          "name": "projectile_id",
-          "type": "string",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000002",
-          "required": true
-        },
-        {
-          "name": "faction",
-          "type": "string",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000003",
-          "required": true
-        },
-        {
-          "name": "flight_speed_px_s",
-          "type": "number",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000004",
-          "required": true
-        },
-        {
-          "name": "collision_radius_px",
-          "type": "integer",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000005",
-          "required": true
-        },
-        {
-          "name": "max_range_px",
-          "type": "integer",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000006",
-          "required": true
-        },
-        {
-          "name": "pierce_limit",
-          "type": "integer",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000007",
-          "required": true
-        },
-        {
-          "name": "topdown_elevation_z",
-          "type": "number",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000008",
-          "required": true
-        },
-        {
-          "name": "wake_particle_color",
-          "type": "string",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000009",
-          "required": true
-        },
-        {
-          "name": "impact_dynamics_key",
-          "type": "string",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000010",
-          "required": true
-        },
-        {
-          "name": "sfx_flight",
-          "type": "string",
-          "field_uuid": "d3a30001-3333-4000-8000-000000000011",
-          "required": true
-        }
-      ],
-      "Values": [
-        [
-          "d3000001-0001-4000-8000-000000000001",
-          "GamingProjectileRecord",
-          "shadow_arrow",
-          "bad_guy_tri_color",
-          480.0,
-          6,
-          360,
-          1,
-          8.0,
-          "#DE2626",
-          "projectile_impact_dynamics",
-          "arrow_whistle"
-        ],
-        [
-          "d3000001-0002-4000-8000-000000000002",
-          "GamingProjectileRecord",
-          "blood_slash_wave",
-          "bad_guy_tri_color",
-          320.0,
-          14,
-          120,
-          99,
-          4.0,
-          "#DE2626",
-          "projectile_impact_dynamics",
-          "sword_slash"
-        ],
-        [
-          "d3000001-0003-4000-8000-000000000003",
-          "GamingProjectileRecord",
-          "void_bomb_lob",
-          "bad_guy_tri_color",
-          180.0,
-          10,
-          140,
-          0,
-          16.0,
-          "#000000",
-          "projectile_impact_dynamics",
-          "enemy_death"
-        ],
-        [
-          "d3000001-0004-4000-8000-000000000004",
-          "GamingProjectileRecord",
-          "royal_arrow",
-          "hyrule_forces",
-          460.0,
-          6,
-          340,
-          1,
-          8.0,
-          "#F59E0B",
-          "projectile_impact_dynamics",
-          "arrow_whistle"
-        ],
-        [
-          "d3000001-0005-4000-8000-000000000005",
-          "GamingProjectileRecord",
-          "holy_light_beam",
-          "hyrule_forces",
-          640.0,
-          12,
-          280,
-          5,
-          10.0,
-          "#FFFFFF",
-          "projectile_impact_dynamics",
-          "dark_aura"
-        ]
-      ]
-    },
-    "combat/projectile_impact_dynamics.105a.bejson": {
-      "Format": "BEJSON",
-      "Format_Version": "105a",
-      "Format_Creator": "Elton Boehnen",
-      "Schema_Version": "2.0.0-105",
-      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
-      "Write_Owner_Module": "lib_bejson_Gaming_projectile_physics.js",
-      "Primary_Key_Field": "imp_uuid",
-      "Type_Discriminator_Field": "imp_record_type",
-      "Domain_Type_Field": "penetration_behavior",
-      "Records_Type": [
-        "ProjectileImpactDynamics"
-      ],
-      "Schema_Name": "Projectile_Impact_Dynamics_Registry",
-      "Fields": [
-        {
-          "name": "imp_uuid",
-          "type": "string",
-          "required": true,
-          "primary_key": true,
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000000"
-        },
-        {
-          "name": "imp_record_type",
-          "type": "string",
-          "required": true,
-          "enum": [
-            "ProjectileImpactDynamics"
-          ]
-        },
-        {
-          "name": "object_type",
-          "type": "string",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000001",
-          "required": true
-        },
-        {
-          "name": "surface_hardness",
-          "type": "number",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000002",
-          "required": true
-        },
-        {
-          "name": "penetration_behavior",
-          "type": "string",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000003",
-          "required": true
-        },
-        {
-          "name": "damage_multiplier",
-          "type": "number",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000004",
-          "required": true
-        },
-        {
-          "name": "splash_particle_count",
-          "type": "integer",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000005",
-          "required": true
-        },
-        {
-          "name": "kinetic_recoil_factor",
-          "type": "number",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000006",
-          "required": true
-        },
-        {
-          "name": "primary_particle_color",
-          "type": "string",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000007",
-          "required": true
-        },
-        {
-          "name": "secondary_particle_color",
-          "type": "string",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000008",
-          "required": true
-        },
-        {
-          "name": "impact_vfx_preset",
-          "type": "string",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000009",
-          "required": true
-        },
-        {
-          "name": "sound_cue_id",
-          "type": "string",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000010",
-          "required": true
-        },
-        {
-          "name": "quiver_vibration_ms",
-          "type": "integer",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000011",
-          "required": true
-        },
-        {
-          "name": "status_debuff_inflicted",
-          "type": "string",
-          "field_uuid": "c4a5b6c7-4444-4000-8000-000000000012",
-          "required": true
-        }
-      ],
-      "Values": [
-        [
-          "a0110001-0001-4000-8000-000000000001",
-          "ProjectileImpactDynamics",
-          "flesh_organic",
-          0.15,
-          "embed",
-          1.5,
-          24,
-          0.1,
-          "#DE2626",
-          "#000000",
-          "vfx_puncture_bleed",
-          "flesh_pierce",
-          200,
-          "bleed_slow"
-        ],
-        [
-          "a0110001-0002-4000-8000-000000000002",
-          "ProjectileImpactDynamics",
-          "stone_masonry",
-          0.9,
-          "shatter",
-          0.25,
-          18,
-          0.7,
-          "#FFFFFF",
-          "#64748B",
-          "vfx_flint_shatter",
-          "pot_break",
-          0,
-          "none"
-        ],
-        [
-          "a0110001-0003-4000-8000-000000000003",
-          "ProjectileImpactDynamics",
-          "wood_barrier",
-          0.45,
-          "embed",
-          0.85,
-          14,
-          0.4,
-          "#A16207",
-          "#78350F",
-          "vfx_grain_splinter",
-          "enemy_hit",
-          350,
-          "none"
-        ],
-        [
-          "a0110001-0004-4000-8000-000000000004",
-          "ProjectileImpactDynamics",
-          "metal_shield",
-          0.98,
-          "ricochet",
-          0.05,
-          32,
-          0.95,
-          "#FDE047",
-          "#FFFFFF",
-          "vfx_shield_ricochet",
-          "enemy_hit",
-          0,
-          "stun_deflect"
-        ],
-        [
-          "a0110001-0005-4000-8000-000000000005",
-          "ProjectileImpactDynamics",
-          "holy_barrier",
-          0.75,
-          "dispel",
-          0.5,
-          28,
-          0.5,
-          "#F59E0B",
-          "#1D4ED8",
-          "vfx_holy_dispel",
-          "dark_aura",
-          0,
-          "holy_blind"
-        ],
-        [
-          "a0110001-0006-4000-8000-000000000006",
-          "ProjectileImpactDynamics",
-          "water_liquid",
-          0.05,
-          "drag_sink",
-          0.4,
-          20,
-          0.2,
-          "#38BDF8",
-          "#FFFFFF",
-          "vfx_splash_ripple",
-          "bush_cut",
-          0,
-          "drench"
-        ]
-      ]
-    },
-    "combat/shadow_link_combat_animations.105a.bejson": {
-      "Format": "BEJSON",
-      "Format_Version": "105a",
-      "Format_Creator": "Elton Boehnen",
-      "Schema_Version": "2.0.0-105",
-      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
-      "Write_Owner_Module": "lib_bejson_Gaming_bejson_assets.js",
-      "Primary_Key_Field": "anim_uuid",
-      "Type_Discriminator_Field": "anim_record_type",
-      "Domain_Type_Field": "direction",
-      "Records_Type": [
-        "GamingCombatAnimationState"
-      ],
-      "Schema_Name": "Shadow_Link_Combat_Animations",
-      "Fields": [
-        {
-          "name": "anim_uuid",
-          "type": "string",
-          "required": true,
-          "primary_key": true,
-          "field_uuid": "d1a10001-1111-4000-8000-000000000001"
-        },
-        {
-          "name": "anim_record_type",
-          "type": "string",
-          "required": true,
-          "enum": [
-            "GamingCombatAnimationState"
-          ]
-        },
-        {
-          "name": "anim_id",
-          "type": "string",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000002",
-          "required": true
-        },
-        {
-          "name": "direction",
-          "type": "string",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000003",
-          "required": true
-        },
-        {
-          "name": "frame_count",
-          "type": "integer",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000004",
-          "required": true
-        },
-        {
-          "name": "frame_duration_ms",
-          "type": "integer",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000005",
-          "required": true
-        },
-        {
-          "name": "hitbox_active_start_frame",
-          "type": "integer",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000006",
-          "required": true
-        },
-        {
-          "name": "hitbox_active_end_frame",
-          "type": "integer",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000007",
-          "required": true
-        },
-        {
-          "name": "hitbox_relative_box_json",
-          "type": "string",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000008",
-          "required": true
-        },
-        {
-          "name": "damage_value",
-          "type": "number",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000009",
-          "required": true
-        },
-        {
-          "name": "knockback_speed",
-          "type": "number",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000010",
-          "required": true
-        },
-        {
-          "name": "stamina_cost",
-          "type": "number",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000011",
-          "required": true
-        },
-        {
-          "name": "vfx_trigger_key",
-          "type": "string",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000012",
-          "required": true
-        },
-        {
-          "name": "sfx_cue",
-          "type": "string",
-          "field_uuid": "d1a10001-1111-4000-8000-000000000013",
-          "required": true
-        }
-      ],
-      "Values": [
-        [
-          "d1000001-0001-4000-8000-000000000001",
-          "GamingCombatAnimationState",
-          "walk_down",
-          "down",
-          4,
-          125,
-          -1,
-          -1,
-          "[]",
-          0.0,
-          0.0,
-          0.0,
-          "none",
-          "bush_cut"
-        ],
-        [
-          "d1000001-0002-4000-8000-000000000002",
-          "GamingCombatAnimationState",
-          "walk_up",
-          "up",
-          4,
-          125,
-          -1,
-          -1,
-          "[]",
-          0.0,
-          0.0,
-          0.0,
-          "none",
-          "bush_cut"
-        ],
-        [
-          "d1000001-0003-4000-8000-000000000003",
-          "GamingCombatAnimationState",
-          "walk_left",
-          "left",
-          4,
-          125,
-          -1,
-          -1,
-          "[]",
-          0.0,
-          0.0,
-          0.0,
-          "none",
-          "bush_cut"
-        ],
-        [
-          "d1000001-0004-4000-8000-000000000004",
-          "GamingCombatAnimationState",
-          "walk_right",
-          "right",
-          4,
-          125,
-          -1,
-          -1,
-          "[]",
-          0.0,
-          0.0,
-          0.0,
-          "none",
-          "bush_cut"
-        ],
-        [
-          "d1000001-0005-4000-8000-000000000005",
-          "GamingCombatAnimationState",
-          "slash_down",
-          "down",
-          4,
-          80,
-          1,
-          2,
-          "[-12, 12, 24, 16]",
-          40.0,
-          4.0,
-          5.0,
-          "vfx_blood_slash_arc_down",
-          "sword_slash"
-        ],
-        [
-          "d1000001-0006-4000-8000-000000000006",
-          "GamingCombatAnimationState",
-          "slash_up",
-          "up",
-          4,
-          80,
-          1,
-          2,
-          "[-12, -24, 24, 16]",
-          40.0,
-          4.0,
-          5.0,
-          "vfx_blood_slash_arc_up",
-          "sword_slash"
-        ],
-        [
-          "d1000001-0007-4000-8000-000000000007",
-          "GamingCombatAnimationState",
-          "slash_left",
-          "left",
-          4,
-          80,
-          1,
-          2,
-          "[-24, -12, 16, 24]",
-          40.0,
-          4.0,
-          5.0,
-          "vfx_blood_slash_arc_left",
-          "sword_slash"
-        ],
-        [
-          "d1000001-0008-4000-8000-000000000008",
-          "GamingCombatAnimationState",
-          "slash_right",
-          "right",
-          4,
-          80,
-          1,
-          2,
-          "[12, -12, 16, 24]",
-          40.0,
-          4.0,
-          5.0,
-          "vfx_blood_slash_arc_right",
-          "sword_slash"
-        ],
-        [
-          "d1000001-0009-4000-8000-000000000009",
-          "GamingCombatAnimationState",
-          "dark_spin_attack",
-          "all",
-          12,
-          42,
-          3,
-          10,
-          "[-36, -36, 72, 72]",
-          95.0,
-          8.5,
-          20.0,
-          "vfx_dark_spin_burst",
-          "spin_attack"
-        ],
-        [
-          "d1000001-0010-4000-8000-000000000010",
-          "GamingCombatAnimationState",
-          "bow_shoot_down",
-          "down",
-          4,
-          65,
-          3,
-          3,
-          "[0, 16, 8, 8]",
-          25.0,
-          2.0,
-          8.0,
-          "spawn_shadow_arrow_down",
-          "bow_loose"
-        ],
-        [
-          "d1000001-0011-4000-8000-000000000011",
-          "GamingCombatAnimationState",
-          "bow_shoot_up",
-          "up",
-          4,
-          65,
-          3,
-          3,
-          "[0, -16, 8, 8]",
-          25.0,
-          2.0,
-          8.0,
-          "spawn_shadow_arrow_up",
-          "bow_loose"
-        ],
-        [
-          "d1000001-0012-4000-8000-000000000012",
-          "GamingCombatAnimationState",
-          "bow_shoot_left",
-          "left",
-          4,
-          65,
-          3,
-          3,
-          "[-16, 0, 8, 8]",
-          25.0,
-          2.0,
-          8.0,
-          "spawn_shadow_arrow_left",
-          "bow_loose"
-        ],
-        [
-          "d1000001-0013-4000-8000-000000000013",
-          "GamingCombatAnimationState",
-          "bow_shoot_right",
-          "right",
-          4,
-          65,
-          3,
-          3,
-          "[16, 0, 8, 8]",
-          25.0,
-          2.0,
-          8.0,
-          "spawn_shadow_arrow_right",
-          "bow_loose"
-        ]
-      ]
-    },
-    "combat/weapons_combat_registry.105a.bejson": {
-      "Format": "BEJSON",
-      "Format_Version": "105a",
-      "Format_Creator": "Elton Boehnen",
-      "Schema_Version": "2.0.0-105",
-      "Parent_Hierarchy": "../manifest/105a.mfdb.bejson",
-      "Write_Owner_Module": "lib_bejson_Gaming_inventory_manager.js",
-      "Primary_Key_Field": "wpn_uuid",
-      "Type_Discriminator_Field": "wpn_record_type",
-      "Domain_Type_Field": "category",
-      "Records_Type": [
-        "GamingWeaponCombatRecord"
-      ],
-      "Schema_Name": "Weapons_Combat_Registry",
-      "Fields": [
-        {
-          "name": "wpn_uuid",
-          "type": "string",
-          "required": true,
-          "primary_key": true,
-          "field_uuid": "d2a20001-2222-4000-8000-000000000001"
-        },
-        {
-          "name": "wpn_record_type",
-          "type": "string",
-          "required": true,
-          "enum": [
-            "GamingWeaponCombatRecord"
-          ]
-        },
-        {
-          "name": "weapon_id",
-          "type": "string",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000002",
-          "required": true
-        },
-        {
-          "name": "faction",
-          "type": "string",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000003",
-          "required": true
-        },
-        {
-          "name": "category",
-          "type": "string",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000004",
-          "required": true
-        },
-        {
-          "name": "base_damage",
-          "type": "number",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000005",
-          "required": true
-        },
-        {
-          "name": "reach_px",
-          "type": "integer",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000006",
-          "required": true
-        },
-        {
-          "name": "swing_cadence_ms",
-          "type": "integer",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000007",
-          "required": true
-        },
-        {
-          "name": "block_absorption_pct",
-          "type": "number",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000008",
-          "required": true
-        },
-        {
-          "name": "elemental_affinity",
-          "type": "string",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000009",
-          "required": true
-        },
-        {
-          "name": "sprite_key",
-          "type": "string",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000010",
-          "required": true
-        },
-        {
-          "name": "projectile_ref",
-          "type": "string",
-          "field_uuid": "d2a20001-2222-4000-8000-000000000011",
-          "required": true
-        }
-      ],
-      "Values": [
-        [
-          "d2000001-0001-4000-8000-000000000001",
-          "GamingWeaponCombatRecord",
-          "shadow_blade",
-          "bad_guy_tri_color",
-          "sword",
-          40.0,
-          28,
-          320,
-          0.0,
-          "dark",
-          "item_shadow_blade_16x16",
-          "none"
-        ],
-        [
-          "d2000001-0002-4000-8000-000000000002",
-          "GamingWeaponCombatRecord",
-          "dark_bow",
-          "bad_guy_tri_color",
-          "bow",
-          25.0,
-          320,
-          260,
-          0.0,
-          "void",
-          "item_void_bow_16x16",
-          "shadow_arrow"
-        ],
-        [
-          "d2000001-0003-4000-8000-000000000003",
-          "GamingWeaponCombatRecord",
-          "obsidian_shield",
-          "bad_guy_tri_color",
-          "shield",
-          15.0,
-          16,
-          200,
-          1.0,
-          "dark",
-          "item_obsidian_shield_16x16",
-          "none"
-        ],
-        [
-          "d2000001-0004-4000-8000-000000000004",
-          "GamingWeaponCombatRecord",
-          "master_broadsword",
-          "hyrule_forces",
-          "sword",
-          45.0,
-          26,
-          340,
-          0.0,
-          "holy",
-          "item_master_broadsword_16x16",
-          "none"
-        ],
-        [
-          "d2000001-0005-4000-8000-000000000005",
-          "GamingWeaponCombatRecord",
-          "hyrule_halberd",
-          "hyrule_forces",
-          "halberd",
-          35.0,
-          38,
-          480,
-          0.2,
-          "holy",
-          "item_hyrule_halberd_16x16",
-          "none"
-        ],
-        [
-          "d2000001-0006-4000-8000-000000000006",
-          "GamingWeaponCombatRecord",
-          "royal_kite_shield",
-          "hyrule_forces",
-          "shield",
-          10.0,
-          14,
-          200,
-          0.9,
-          "holy",
-          "item_royal_kite_shield_16x16",
-          "none"
-        ],
-        [
-          "d2000001-0007-4000-8000-000000000007",
-          "GamingWeaponCombatRecord",
-          "sacred_light_staff",
-          "hyrule_forces",
-          "staff",
-          60.0,
-          240,
-          450,
-          0.0,
-          "holy_radiance",
-          "item_triforce_seal_16x16",
-          "holy_light_beam"
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><rect width='32' height='32' fill='none'/><rect x='10' y='10' width='12' height='16' fill='%232563eb'/><rect x='11' y='6' width='10' height='6' fill='%2394a3b8'/><rect x='24' y='4' width='2' height='24' fill='%23cbd5e1'/><polygon points='23,4 25,0 27,4' fill='%23cbd5e1'/></svg>",
+          "2026-10-25T21:04:00Z"
         ]
       ]
     }
@@ -5159,8 +3889,295 @@
     let swordVariation = 0;
     let tickCount = 0;
 
-    let activeYItem = 'shadow_boomerang';
-    let currentLevelSlug = 'debug_chamber';
+    // 10-Slot Parallel Ancilla Engine (ALttP $0C4A Parallel Slot Architecture)
+    class AncillaEngineJS {
+      constructor() {
+        this.TOTAL_SLOTS = 10;
+        this.FRONT_SLOT_MAX = 4;
+        this.BACK_SLOT_MIN = 5;
+        this.slots = new Array(this.TOTAL_SLOTS).fill(null);
+        this.searchIndex = 9;
+      }
+
+      clearAll() {
+        for (let i = 0; i < this.TOTAL_SLOTS; i++) {
+          this.slots[i] = null;
+        }
+      }
+
+      getActiveQuotaCount(itemId) {
+        if (!itemId) return 0;
+        let count = 0;
+        for (let i = 0; i <= this.FRONT_SLOT_MAX; i++) {
+          const slot = this.slots[i];
+          if (slot && slot.active && slot.itemId === itemId) count++;
+        }
+        return count;
+      }
+
+      allocateSlot(slotCategory, itemId, quota = 1) {
+        if (slotCategory === 'primary') {
+          if (itemId && quota > 0) {
+            if (this.getActiveQuotaCount(itemId) >= quota) return -1;
+          }
+          for (let i = this.FRONT_SLOT_MAX; i >= 0; i--) {
+            if (!this.slots[i] || !this.slots[i].active) return i;
+          }
+          let startIdx = Math.min(this.searchIndex, this.TOTAL_SLOTS - 1);
+          for (let i = startIdx; i >= 0; i--) {
+            const slot = this.slots[i];
+            if (slot && slot.active && slot.evictable) {
+              this.slots[i] = null;
+              return i;
+            }
+          }
+          return -1;
+        } else {
+          for (let i = this.TOTAL_SLOTS - 1; i >= this.BACK_SLOT_MIN; i--) {
+            if (!this.slots[i] || !this.slots[i].active) return i;
+          }
+          for (let i = this.FRONT_SLOT_MAX; i >= 0; i--) {
+            if (!this.slots[i] || !this.slots[i].active) return i;
+          }
+          return -1;
+        }
+      }
+
+      spawnAncilla(def) {
+        const category = def.category || (def.type === 'particle' ? 'particle' : 'primary');
+        const slotIdx = this.allocateSlot(category, def.itemId, def.quota ?? 1);
+        if (slotIdx === -1) return -1;
+        this.slots[slotIdx] = {
+          slotId: slotIdx,
+          active: true,
+          category,
+          itemId: def.itemId || 'generic',
+          type: def.type || 'generic',
+          x: def.x || 0,
+          y: def.y || 0,
+          vx: def.vx || 0,
+          vy: def.vy || 0,
+          angle: def.angle || 0,
+          timer: def.timer ?? 60,
+          maxTimer: def.timer ?? 60,
+          layer: def.layer ?? 0,
+          evictable: def.evictable ?? (category === 'particle'),
+          state: def.state || {},
+          onUpdate: def.onUpdate || null,
+          onRender: def.onRender || null
+        };
+        return slotIdx;
+      }
+
+      updateAll(context) {
+        for (let i = 0; i < this.TOTAL_SLOTS; i++) {
+          const slot = this.slots[i];
+          if (!slot || !slot.active) continue;
+          slot.x += slot.vx;
+          slot.y += slot.vy;
+          slot.timer--;
+          if (typeof slot.onUpdate === 'function') {
+            const keepAlive = slot.onUpdate(slot, context);
+            if (keepAlive === false) {
+              slot.active = false;
+              this.slots[i] = null;
+              continue;
+            }
+          }
+          if (slot.timer <= 0) {
+            slot.active = false;
+            this.slots[i] = null;
+          }
+        }
+      }
+
+      getActiveAncillae() {
+        const list = [];
+        for (let i = 0; i < this.TOTAL_SLOTS; i++) {
+          const slot = this.slots[i];
+          if (slot && slot.active) list.push(slot);
+        }
+        return list;
+      }
+    }
+
+    // Decoupled Item Registry Interface
+    class ItemRegistry {
+      constructor() {
+        this.itemMap = new Map();
+      }
+      registerItem(itemDef) {
+        if (!itemDef || !itemDef.id) return;
+        this.itemMap.set(itemDef.id, {
+          quota: 1,
+          cooldownFrames: 20,
+          useAnimationFrames: 14,
+          ammoType: null,
+          ammoCost: 0,
+          category: 'Y_ITEM',
+          ...itemDef
+        });
+      }
+      getItem(id) { return this.itemMap.get(id) || null; }
+      getAllItems() { return Array.from(this.itemMap.values()); }
+    }
+
+    // 24-Slot Inventory & Player State Machine Coordinator ($7EF340+ & $0202 Parity)
+    class InventoryState {
+      constructor(registry) {
+        this.registry = registry;
+        this.SLOT_COUNT = 24;
+        this.slots = new Array(this.SLOT_COUNT).fill(null);
+        this.equippedYItemId = null;
+        this.swordLockout = false;
+        this.actionLockoutTimer = 0;
+        this.activeItemCooldown = 0;
+      }
+      setSwordLockout(isLocked) { this.swordLockout = !!isLocked; }
+      tickLockouts() {
+        if (this.actionLockoutTimer > 0) this.actionLockoutTimer--;
+        if (this.activeItemCooldown > 0) this.activeItemCooldown--;
+      }
+      setEquippedYItem(itemId) {
+        const item = this.registry.getItem(itemId);
+        if (item) this.equippedYItemId = item.id;
+      }
+      getEquippedYItem() { return this.registry.getItem(this.equippedYItemId); }
+      setSlot(idx, data) { if (idx >= 0 && idx < this.SLOT_COUNT) this.slots[idx] = data; }
+      executeEquippedYItem(context, ancilla) {
+        if (this.swordLockout) return { success: false, reason: 'SWORD_LOCKOUT' };
+        if (this.actionLockoutTimer > 0 || this.activeItemCooldown > 0) return { success: false, reason: 'ACTION_LOCKED' };
+        const item = this.getEquippedYItem();
+        if (!item) return { success: false, reason: 'NO_ITEM_EQUIPPED' };
+        if (typeof item.onExecute === 'function') {
+          const res = item.onExecute(context, ancilla);
+          if (res === false || res === -1) return { success: false, reason: 'EXECUTION_REJECTED' };
+        }
+        this.actionLockoutTimer = item.useAnimationFrames || 14;
+        this.activeItemCooldown = item.cooldownFrames || 20;
+        return { success: true };
+      }
+    }
+
+    const ancillaEngine = new AncillaEngineJS();
+    const itemRegistry = new ItemRegistry();
+    const inventoryState = new InventoryState(itemRegistry);
+
+    // Register Items through Decoupled Interface
+    itemRegistry.registerItem({
+      id: 'shadow_boomerang',
+      name: 'Shadow Boomerang',
+      icon: '🪃',
+      quota: 1,
+      cooldownFrames: 16,
+      useAnimationFrames: 12,
+      onExecute: (ctx, engine) => {
+        if (engine.getActiveQuotaCount('shadow_boomerang') > 0) return false;
+        let vx = 0, vy = 0;
+        if (ctx.playerFacing === 'UP') vy = -8;
+        if (ctx.playerFacing === 'DOWN') vy = 8;
+        if (ctx.playerFacing === 'LEFT') vx = -8;
+        if (ctx.playerFacing === 'RIGHT') vx = 8;
+
+        return engine.spawnAncilla({
+          type: 'boomerang',
+          itemId: 'shadow_boomerang',
+          category: 'primary',
+          x: ctx.px,
+          y: ctx.py,
+          vx,
+          vy,
+          timer: 100,
+          state: { outwardTimer: 25, returning: false, startX: ctx.px, startY: ctx.py },
+          onUpdate: (slot, c) => {
+            if (!slot.state.returning) {
+              slot.state.outwardTimer--;
+              if (slot.x < 30 || slot.x > mapWorldWidth - 30 || slot.y < 30 || slot.y > mapWorldHeight - 30 || slot.state.outwardTimer <= 0) {
+                slot.state.returning = true;
+              }
+            } else {
+              const dist = Math.hypot(c.px - slot.x, c.py - slot.y);
+              if (dist < 18) return false;
+              slot.vx = ((c.px - slot.x) / dist) * 9;
+              slot.vy = ((c.py - slot.y) / dist) * 9;
+            }
+            if (typeof c.onBoomerangStep === 'function') c.onBoomerangStep(slot);
+            return true;
+          },
+          onRender: (slot, rCtx) => {
+            rCtx.fillStyle = '#f59e0b';
+            rCtx.beginPath();
+            rCtx.arc(slot.x, slot.y, 5, 0, Math.PI * 2);
+            rCtx.fill();
+          }
+        });
+      }
+    });
+
+    itemRegistry.registerItem({
+      id: 'dark_bow',
+      name: 'Dark Bow & Arrows',
+      icon: '🏹',
+      quota: 2,
+      cooldownFrames: 24,
+      useAnimationFrames: 14,
+      onExecute: (ctx, engine) => {
+        let vx = 0, vy = 0;
+        const arrowSpeed = 5.5;
+        if (ctx.playerFacing === 'UP') vy = -arrowSpeed;
+        if (ctx.playerFacing === 'DOWN') vy = arrowSpeed;
+        if (ctx.playerFacing === 'LEFT') vx = -arrowSpeed;
+        if (ctx.playerFacing === 'RIGHT') vx = arrowSpeed;
+
+        const slotIdx = engine.spawnAncilla({
+          type: 'arrow',
+          itemId: 'dark_bow',
+          category: 'primary',
+          x: ctx.px,
+          y: ctx.py,
+          vx,
+          vy,
+          timer: 55,
+          onUpdate: (slot, c) => {
+            if (typeof c.onArrowStep === 'function') {
+              const hit = c.onArrowStep(slot);
+              if (hit) return false;
+            }
+            return slot.x > 10 && slot.x < mapWorldWidth - 10 && slot.y > 10 && slot.y < mapWorldHeight - 10;
+          },
+          onRender: (slot, rCtx) => {
+            rCtx.fillStyle = '#ffffff';
+            rCtx.fillRect(slot.x - 2, slot.y - 2, 5, 5);
+          }
+        });
+
+        engine.spawnAncilla({
+          type: 'particle',
+          category: 'particle',
+          itemId: 'dark_bow',
+          x: ctx.px + (Math.random() - 0.5) * 6,
+          y: ctx.py + (Math.random() - 0.5) * 6,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5,
+          timer: 16,
+          evictable: true,
+          onRender: (slot, rCtx) => {
+            rCtx.fillStyle = 'rgba(56, 189, 248, 0.6)';
+            rCtx.fillRect(slot.x - 2, slot.y - 2, 4, 4);
+          }
+        });
+
+        return slotIdx;
+      }
+    });
+
+    inventoryState.setSlot(0, { itemId: 'shadow_boomerang', unlocked: true, tier: 1 });
+    inventoryState.setSlot(1, { itemId: 'dark_bow', unlocked: true, tier: 1 });
+    inventoryState.setEquippedYItem('shadow_boomerang');
+    let activeYItem = inventoryState.equippedYItemId || 'shadow_boomerang';
+    let isDebugMode = false;
+    let realWorldLevelSlug = 'shadow_cave';
+    let currentLevelSlug = realWorldLevelSlug;
 
     let boomerangs = [];
     let droppedItems = [];
@@ -5168,20 +4185,42 @@
     let props = [];
     let enemies = [];
 
-    function setDebugRoom(slug) {
+    function setDebugRoom(rawSlug, customSpawnX = null, customSpawnY = null) {
+      ancillaEngine.clearAll();
+      let slug = rawSlug;
+      if (rawSlug === 'ganon_sanctuary') slug = 'shadow_cave';
+      else if (rawSlug === 'forgotten_cavern' || rawSlug === 'castle_courtyard') slug = 'overworld_grid';
+
       currentLevelSlug = slug;
-      if (slug === 'forgotten_cavern' || slug === 'castle_courtyard') {
-        tilesW = 96;
-        tilesH = 96;
+      if (slug !== 'debug_chamber') {
+        realWorldLevelSlug = slug;
+      }
+      if (slug === 'overworld_grid') {
+        tilesW = 256; // 8x8 sectors of 32x32 metatiles = 4096px
+        tilesH = 256;
+      } else if (slug === 'shadow_cave') {
+        tilesW = 32;  // Underworld Supertile 0x00 (512x512px)
+        tilesH = 32;
       } else {
-        tilesW = 64;
+        tilesW = 64;  // Debug Chamber (1024x1024px)
         tilesH = 64;
       }
       mapWorldWidth = tilesW * tileUnitPx;
       mapWorldHeight = tilesH * tileUnitPx;
 
-      px = mapWorldWidth / 2;
-      py = mapWorldHeight / 2 + 40;
+      if (customSpawnX !== null && customSpawnY !== null) {
+        px = customSpawnX;
+        py = customSpawnY;
+      } else if (slug === 'overworld_grid') {
+        px = 1792; // Sector 0x1B (Col 3, Row 3) outside Shadow Cave
+        py = 1808;
+      } else if (slug === 'shadow_cave') {
+        px = 256; // Center of Shadow Cave Supertile 0x00
+        py = 256;
+      } else {
+        px = mapWorldWidth / 2;
+        py = mapWorldHeight / 2 + 40;
+      }
 
       if (slug === 'debug_chamber') {
         props = [
@@ -5192,31 +4231,33 @@
           { id: 'p3', x: px + 160, y: py - 60, type: 'pot', destroyed: false },
           { id: 'p4', x: px + 200, y: py - 60, type: 'bush', destroyed: false }
         ];
-      } else {
-        props = [
-          { id: 'p1', x: px - 60, y: py - 50, type: 'pot', destroyed: false },
-          { id: 'p2', x: px + 60, y: py - 50, type: 'bush', destroyed: false },
-          { id: 'p3', x: px - 100, y: py + 50, type: 'pot', destroyed: false },
-          { id: 'p4', x: px + 100, y: py + 50, type: 'bush', destroyed: false }
+        enemies = [
+          { id: 'e1', type: 'guard', x: px - 120, y: py - 120, hp: 60, maxHp: 60, attack: 15, hurtTime: 0, knockback: { vx: 0, vy: 0 }, aiState: 'PATROL', aiTimer: 60, targetX: px - 120, targetY: py - 120, chargeVx: 0, chargeVy: 0, patrolVx: 0, patrolVy: 0 },
+          { id: 'e2', type: 'slime', x: px + 120, y: py - 120, hp: 35, maxHp: 35, attack: 10, hurtTime: 0, knockback: { vx: 0, vy: 0 }, aiState: 'PATROL', aiTimer: 40, targetX: px + 120, targetY: py - 120, chargeVx: 0, chargeVy: 0, patrolVx: 0, patrolVy: 0 }
         ];
+      } else if (slug === 'shadow_cave') {
+        props = [
+          { id: 'sc_pot_nw', x: 144, y: 160, type: 'pot', destroyed: false },
+          { id: 'sc_pot_ne', x: 368, y: 160, type: 'pot', destroyed: false },
+          { id: 'sc_pot_sw', x: 144, y: 352, type: 'pot', destroyed: false },
+          { id: 'sc_pot_se', x: 368, y: 352, type: 'pot', destroyed: false }
+        ];
+        enemies = [];
+      } else {
+        props = [];
+        enemies = [];
       }
-
-      enemies = [
-        { id: 'e1', type: 'guard', x: px - 120, y: py - 120, hp: 60, maxHp: 60, attack: 15, hurtTime: 0, knockback: { vx: 0, vy: 0 }, aiState: 'PATROL', aiTimer: 60, targetX: px - 120, targetY: py - 120, chargeVx: 0, chargeVy: 0, patrolVx: 0, patrolVy: 0 },
-        { id: 'e2', type: 'slime', x: px + 120, y: py - 120, hp: 35, maxHp: 35, attack: 10, hurtTime: 0, knockback: { vx: 0, vy: 0 }, aiState: 'PATROL', aiTimer: 40, targetX: px + 120, targetY: py - 120, chargeVx: 0, chargeVy: 0, patrolVx: 0, patrolVy: 0 }
-      ];
 
       ['debug', 'sanctuary', 'cavern', 'courtyard'].forEach(name => {
         const btn = document.getElementById('btn-room-' + name);
         if (btn) btn.classList.remove('active');
       });
       if (slug === 'debug_chamber') document.getElementById('btn-room-debug')?.classList.add('active');
-      else if (slug === 'ganon_sanctuary') document.getElementById('btn-room-sanctuary')?.classList.add('active');
-      else if (slug === 'forgotten_cavern') document.getElementById('btn-room-cavern')?.classList.add('active');
-      else if (slug === 'castle_courtyard') document.getElementById('btn-room-courtyard')?.classList.add('active');
+      else if (slug === 'shadow_cave') document.getElementById('btn-room-sanctuary')?.classList.add('active');
+      else document.getElementById('btn-room-cavern')?.classList.add('active');
     }
 
-    setDebugRoom('debug_chamber');
+    setDebugRoom(isDebugMode ? 'debug_chamber' : realWorldLevelSlug);
 
     const keys = {};
     let joystickVector = { x: 0, y: 0 };
@@ -5224,13 +4265,22 @@
     window.addEventListener('keydown', e => {
       const k = e.key.toLowerCase();
       keys[k] = true;
-      if (k === '1') setDebugRoom('debug_chamber');
+      if (k === '1') {
+        if (isDebugMode) setDebugRoom('debug_chamber');
+      }
       if (k === '2') setDebugRoom('ganon_sanctuary');
       if (k === '3') setDebugRoom('forgotten_cavern');
       if (k === '4') setDebugRoom('castle_courtyard');
+      if (k === 'escape') {
+        const o = document.getElementById('select-menu-overlay');
+        if (o) o.style.display = 'none';
+        toggleSpatialMapOverlay(true);
+      }
       if (k === 'q' || k === 'tab') {
         e.preventDefault();
-        activeYItem = activeYItem === 'shadow_boomerang' ? 'dark_bow' : 'shadow_boomerang';
+        const nextItem = activeYItem === 'shadow_boomerang' ? 'dark_bow' : 'shadow_boomerang';
+        inventoryState.setEquippedYItem(nextItem);
+        activeYItem = inventoryState.equippedYItemId || nextItem;
       }
       if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k.startsWith('arrow')) {
         document.getElementById('joystick')?.classList.add('active');
@@ -5250,6 +4300,7 @@
       }
       if (k === 'x' || k === 'k') {
         document.getElementById('btn-x')?.classList.add('active');
+        toggleSpatialMapOverlay();
       }
       if (k === 'enter' || k === ' ') dismissIntro();
     });
@@ -5406,6 +4457,121 @@
       btnA.addEventListener('pointercancel', () => btnA.classList.remove('active'));
     }
 
+    let spatialMapViewMode = 'UNDERWORLD';
+    let spatialMapPerspectiveTilt = true;
+    const visitedOverworldSectors = new Set([0x1B]);
+
+    function renderSpatialMapOverlay() {
+      const isOverworldNow = currentLevelSlug === 'overworld_grid';
+      const curPx = Math.round(px);
+      const curPy = Math.round(py);
+      const secCol = Math.max(0, Math.min(7, (curPx >> 9) & 0x07));
+      const secRow = Math.max(0, Math.min(7, (curPy >> 9) & 0x07));
+      const activeSecId = isOverworldNow ? ((secRow << 3) | secCol) : 0x1B;
+      if (isOverworldNow) visitedOverworldSectors.add(activeSecId);
+      const qx = (Math.max(0, Math.min(511, curPx)) >> 8) & 1;
+      const qy = (Math.max(0, Math.min(511, curPy)) >> 8) & 1;
+      const activeQuadId = !isOverworldNow ? ((qy << 1) | qx) : 0;
+      const m7X = Math.max(0, Math.min(1023, (isOverworldNow ? curPx : 1792) >> 2));
+      const m7Y = Math.max(0, Math.min(1023, (isOverworldNow ? curPy : 1808) >> 2));
+
+      const badgeEl = document.getElementById('spatial-map-badge');
+      const subEl = document.getElementById('spatial-map-subtitle');
+      const toggleDomainBtn = document.getElementById('btn-spatial-toggle-domain');
+      const toggleTiltBtn = document.getElementById('btn-spatial-toggle-tilt');
+      const statsEl = document.getElementById('spatial-map-stats');
+      const bodyEl = document.getElementById('spatial-map-body');
+      const footerCoordsEl = document.getElementById('spatial-map-footer-coords');
+
+      if (footerCoordsEl) {
+        footerCoordsEl.textContent = `WORLD POS: (${curPx}, ${curPy}) · METATILE: (${curPx >> 4}, ${curPy >> 4})`;
+      }
+
+      if (spatialMapViewMode === 'OVERWORLD') {
+        if (badgeEl) badgeEl.textContent = 'FIELD MAP (8x8)';
+        if (subEl) subEl.textContent = '4096x4096 PX · 64 SECTORS (0x00..0x3F)';
+        if (toggleDomainBtn) toggleDomainBtn.textContent = 'VIEW HOME CAVE (0x00)';
+        if (toggleTiltBtn) {
+          toggleTiltBtn.style.display = 'inline-block';
+          toggleTiltBtn.textContent = spatialMapPerspectiveTilt ? 'PERSPECTIVE: MODE 7 TILT' : 'PERSPECTIVE: 2D ORTHO';
+        }
+        const secHex = activeSecId.toString(16).toUpperCase().padStart(2, '0');
+        if (statsEl) {
+          statsEl.innerHTML = `<span>ACTIVE SECTOR: <strong style="color:#34d399;">0x${secHex} (${activeSecId & 7},${(activeSecId >> 3) & 7})</strong></span>` +
+            `<span>MODE 7 (1:4): <strong style="color:#fbbf24;">(${m7X}, ${m7Y})</strong></span>`;
+        }
+        if (bodyEl) {
+          const tiltStyle = spatialMapPerspectiveTilt ? 'transform: perspective(620px) rotateX(22deg) scale(0.95);' : '';
+          let gridHtml = `<div style="display:grid; grid-template-columns:repeat(8,1fr); gap:4px; width:100%; max-width:440px; transition:transform 0.3s; ${tiltStyle}">`;
+          for (let i = 0; i < 64; i++) {
+            const c = i & 7;
+            const r = (i >> 3) & 7;
+            const isHere = isOverworldNow && i === activeSecId;
+            const isHome = i === 0x1B;
+            const isVis = visitedOverworldSectors.has(i);
+            const hId = i.toString(16).toUpperCase().padStart(2, '0');
+            let cellStyle = 'background:rgba(9,9,11,0.7); border:1px solid #27272a; opacity:0.65;';
+            if (isHere) cellStyle = 'background:rgba(222,38,38,0.30); border:1px solid #DE2626; box-shadow:0 0 8px rgba(222,38,38,0.6); opacity:1;';
+            else if (isHome) cellStyle = 'background:rgba(120,53,15,0.40); border:1px solid rgba(245,158,11,0.8); opacity:1;';
+            else if (isVis) cellStyle = 'background:rgba(6,78,59,0.30); border:1px solid rgba(16,185,129,0.5); opacity:1;';
+            const marker = isHere ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;border:2px solid #DE2626;"></span>'
+              : (isHome ? '<span style="color:#fbbf24;font-size:10px;">⌂</span>' : '');
+            gridHtml += `<div style="height:42px; border-radius:4px; padding:3px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; font-size:8px; ${cellStyle}">` +
+              `<div style="width:100%;display:flex;justify-content:space-between;font-size:7px;color:#a1a1aa;"><span>${hId}</span><span>${c},${r}</span></div>` +
+              `<div>${marker}</div>` +
+              `<div style="font-size:6px;color:#71717a;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isHome ? 'SHADOW CAVE' : 'EMPTY'}</div>` +
+              `</div>`;
+          }
+          gridHtml += `</div>`;
+          bodyEl.innerHTML = gridHtml;
+        }
+      } else {
+        if (badgeEl) badgeEl.textContent = 'SUPERTILE MAP';
+        if (subEl) subEl.textContent = 'SUPERTILE 0x00 · SHADOW CAVE (HOME BASE)';
+        if (toggleDomainBtn) toggleDomainBtn.textContent = 'VIEW 8x8 OVERWORLD';
+        if (toggleTiltBtn) toggleTiltBtn.style.display = 'none';
+        const qLabels = ['NW (Q0)', 'NE (Q1)', 'SW (Q2)', 'SE (Q3)'];
+        if (statsEl) {
+          statsEl.innerHTML = `<span>SUPERTILE: <strong style="color:#fbbf24;">0x00 (SHADOW CAVE · HOME BASE)</strong></span>` +
+            `<span>FLOOR: <strong style="color:#34d399;">1F (FULL_4Q · 512x512 PX)</strong></span>` +
+            `<span>QUADRANT: <strong style="color:#fff;">${qLabels[activeQuadId]}</strong></span>`;
+        }
+        if (bodyEl) {
+          let quadHtml = `<div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; width:240px; height:240px; padding:8px; background:#09090b; border:2px solid rgba(245,158,11,0.8); border-radius:8px;">`;
+          qLabels.forEach((ql, qIdx) => {
+            const isAct = !isOverworldNow && activeQuadId === qIdx;
+            const qStyle = isAct
+              ? 'background:rgba(222,38,38,0.25); border:1px dashed #DE2626;'
+              : 'background:rgba(24,24,27,0.6); border:1px dashed #3f3f46;';
+            const mid = isAct
+              ? '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><span style="color:#DE2626;font-size:14px;">▼</span><span style="font-size:8px;color:#fff;font-weight:bold;">SHADOW LINK</span></div>'
+              : '<span style="font-size:8px;color:#71717a;">256x256 PX</span>';
+            quadHtml += `<div style="border-radius:4px; padding:8px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; ${qStyle}">` +
+              `<span style="font-size:9px;font-weight:bold;color:#d4d4d8;">${ql}</span>` +
+              mid +
+              `<span style="font-size:7px;color:#71717a;">16x16 METATILES</span>` +
+              `</div>`;
+          });
+          quadHtml += `</div>` +
+            `<div style="margin-top:10px;font-size:10px;color:#fbbf24;font-weight:bold;">SOUTH EXIT DOORWAY (TILE 16,30) ➔ OVERWORLD SECTOR 0x1B (1792, 1808)</div>`;
+          bodyEl.innerHTML = quadHtml;
+        }
+      }
+    }
+
+    function toggleSpatialMapOverlay(forceClose = false) {
+      const overlay = document.getElementById('spatial-map-overlay');
+      if (!overlay) return;
+      const isVisible = overlay.style.display === 'flex';
+      if (forceClose || isVisible) {
+        overlay.style.display = 'none';
+        return;
+      }
+      spatialMapViewMode = currentLevelSlug === 'overworld_grid' ? 'OVERWORLD' : 'UNDERWORLD';
+      renderSpatialMapOverlay();
+      overlay.style.display = 'flex';
+    }
+
     const btnX = document.getElementById('btn-x');
     if (btnX) {
       btnX.addEventListener('pointerdown', e => {
@@ -5413,18 +4579,37 @@
         e.stopPropagation();
         dismissIntro();
         btnX.classList.add('active');
-        isSheathed = !isSheathed;
+        toggleSpatialMapOverlay();
       });
       btnX.addEventListener('pointerup', () => btnX.classList.remove('active'));
       btnX.addEventListener('pointercancel', () => btnX.classList.remove('active'));
     }
+
+    document.getElementById('btn-spatial-close-top')?.addEventListener('click', () => toggleSpatialMapOverlay(true));
+    document.getElementById('btn-spatial-close-bottom')?.addEventListener('click', () => toggleSpatialMapOverlay(true));
+    document.getElementById('btn-spatial-toggle-domain')?.addEventListener('click', () => {
+      spatialMapViewMode = spatialMapViewMode === 'OVERWORLD' ? 'UNDERWORLD' : 'OVERWORLD';
+      renderSpatialMapOverlay();
+    });
+    document.getElementById('btn-spatial-toggle-tilt')?.addEventListener('click', () => {
+      spatialMapPerspectiveTilt = !spatialMapPerspectiveTilt;
+      renderSpatialMapOverlay();
+    });
+    document.getElementById('btn-spatial-warp-home')?.addEventListener('click', () => {
+      setDebugRoom('shadow_cave', 256, 256);
+      toggleSpatialMapOverlay(true);
+    });
 
     const handleSelect = (e) => {
       if (e) { e.preventDefault(); e.stopPropagation(); }
       dismissIntro();
       document.getElementById('btn-select')?.classList.add('active');
       document.getElementById('row-select')?.classList.add('active');
-      activeYItem = activeYItem === 'shadow_boomerang' ? 'dark_bow' : 'shadow_boomerang';
+      const overlay = document.getElementById('select-menu-overlay');
+      if (overlay) {
+        const isVisible = overlay.style.display === 'flex';
+        overlay.style.display = isVisible ? 'none' : 'flex';
+      }
       setTimeout(() => {
         document.getElementById('btn-select')?.classList.remove('active');
         document.getElementById('row-select')?.classList.remove('active');
@@ -5432,6 +4617,54 @@
     };
     document.getElementById('btn-select')?.addEventListener('pointerdown', handleSelect);
     document.getElementById('row-select')?.addEventListener('pointerdown', handleSelect);
+
+    const handleToggleDebug = (e) => {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      isDebugMode = !isDebugMode;
+      const btn = document.getElementById('btn-toggle-debug');
+      const realmLabel = document.getElementById('label-active-realm');
+      const roomControls = document.getElementById('room-controls');
+      const debugBadge = document.getElementById('debug-mode-badge');
+
+      if (isDebugMode) {
+        setDebugRoom('debug_chamber');
+        if (btn) {
+          btn.textContent = 'DEBUG: ON';
+          btn.style.background = '#d97706';
+          btn.style.borderColor = '#f59e0b';
+          btn.style.color = '#ffffff';
+        }
+        if (realmLabel) {
+          realmLabel.textContent = '🔧 [DEBUG DOMAIN] TEST CHAMBER';
+          realmLabel.style.color = '#fbbf24';
+        }
+        if (roomControls) roomControls.style.display = 'flex';
+        if (debugBadge) debugBadge.style.display = 'block';
+      } else {
+        setDebugRoom(realWorldLevelSlug || 'ganon_sanctuary');
+        if (btn) {
+          btn.textContent = 'DEBUG: OFF';
+          btn.style.background = '#27272a';
+          btn.style.borderColor = '#52525b';
+          btn.style.color = '#e4e4e7';
+        }
+        if (realmLabel) {
+          realmLabel.textContent = '🗡️ [GAME WORLD 1]';
+          realmLabel.style.color = '#34d399';
+        }
+        if (roomControls) roomControls.style.display = 'none';
+        if (debugBadge) debugBadge.style.display = 'none';
+      }
+    };
+    document.getElementById('btn-toggle-debug')?.addEventListener('click', handleToggleDebug);
+    document.getElementById('btn-close-select-menu')?.addEventListener('click', () => {
+      const o = document.getElementById('select-menu-overlay');
+      if (o) o.style.display = 'none';
+    });
+    document.getElementById('btn-resume-game')?.addEventListener('click', () => {
+      const o = document.getElementById('select-menu-overlay');
+      if (o) o.style.display = 'none';
+    });
 
     const handleStart = (e) => {
       if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -5467,7 +4700,10 @@
       props.forEach(p => {
         if (!p.destroyed && Math.hypot(p.x - hx, p.y - hy) < 36) {
           if (p.type === 'pedestal') {
-            if (p.itemId) activeYItem = p.itemId;
+            if (p.itemId) {
+              inventoryState.setEquippedYItem(p.itemId);
+              activeYItem = inventoryState.equippedYItemId || p.itemId;
+            }
             return;
           }
           p.destroyed = true;
@@ -5508,30 +4744,52 @@
 
     function executeYItem() {
       isSheathed = false;
-      if (activeYItem === 'shadow_boomerang') {
-        if (boomerangs.length > 0) return;
-        let vx = 0, vy = 0;
-        if (playerFacing === 'UP') vy = -8;
-        if (playerFacing === 'DOWN') vy = 8;
-        if (playerFacing === 'LEFT') vx = -8;
-        if (playerFacing === 'RIGHT') vx = 8;
-        boomerangs.push({ x: px, y: py, vx, vy, life: 0, returning: false, startX: px, startY: py });
-      } else {
-        let vx = 0, vy = 0;
-        const arrowSpeed = 5.5;
-        if (playerFacing === 'UP') vy = -arrowSpeed;
-        if (playerFacing === 'DOWN') vy = arrowSpeed;
-        if (playerFacing === 'LEFT') vx = -arrowSpeed;
-        if (playerFacing === 'RIGHT') vx = arrowSpeed;
-        otherProjectiles.push({ x: px, y: py, vx, vy, type: 'arrow', timer: 55 });
-      }
+      const isSwordBusy = bHeldTime > 0 || isCharging || (slashAnim && slashAnim.timer > 0) || swordCooldown > 0;
+      inventoryState.setSwordLockout(isSwordBusy);
+
+      const context = {
+        px,
+        py,
+        playerFacing,
+        onBoomerangStep: (slot) => {
+          props.forEach(p => {
+            if (!p.destroyed && Math.hypot(p.x - slot.x, p.y - slot.y) < 24) {
+              if (p.type === 'pedestal') return;
+              p.destroyed = true;
+              droppedItems.push({ x: p.x, y: p.y, type: 'rupee', timer: 300 });
+            }
+          });
+          enemies.forEach(e => {
+            if (e.hp > 0 && Math.hypot(e.x - slot.x, e.y - slot.y) < 26) {
+              e.hp = Math.max(0, e.hp - 15);
+              e.hurtTime = 18;
+              if (slot.state) slot.state.returning = true;
+            }
+          });
+        },
+        onArrowStep: (slot) => {
+          let hit = false;
+          enemies.forEach(e => {
+            if (e.hp > 0 && Math.hypot(e.x - slot.x, e.y - slot.y) < 22) {
+              e.hp = Math.max(0, e.hp - 20);
+              e.hurtTime = 18;
+              hit = true;
+            }
+          });
+          return hit;
+        }
+      };
+
+      const res = inventoryState.executeEquippedYItem(context, ancillaEngine);
+      if (!res.success) return;
     }
 
     function executeInteract() {
       props.forEach(p => {
         if (!p.destroyed && Math.hypot(px - p.x, py - p.y) < 32) {
           if (p.type === 'pedestal' && p.itemId) {
-            activeYItem = p.itemId;
+            inventoryState.setEquippedYItem(p.itemId);
+            activeYItem = inventoryState.equippedYItemId || p.itemId;
           }
         }
       });
@@ -5601,6 +4859,13 @@
       px = Math.max(24, Math.min(mapWorldWidth - 24, px));
       py = Math.max(24, Math.min(mapWorldHeight - 24, py));
 
+      // Threshold Doorway Transitions: Shadow Cave (Supertile 0x00) <-> Empty 8x8 Overworld Grid (Sector 0x1B)
+      if (currentLevelSlug === 'shadow_cave' && py >= 468 && Math.abs(px - 256) < 28) {
+        setDebugRoom('overworld_grid', 1792, 1808);
+      } else if (currentLevelSlug === 'overworld_grid' && Math.abs(px - 1792) < 24 && Math.abs(py - 1784) < 16) {
+        setDebugRoom('shadow_cave', 256, 420);
+      }
+
       if (keys['b'] || keys['j'] || keys['z']) {
         bHeldTime++;
         if (bHeldTime > 25) isCharging = true;
@@ -5612,6 +4877,44 @@
 
       if (swordCooldown > 0) swordCooldown--;
       if (playerHurtTime > 0) playerHurtTime--;
+
+      // Step inventory lockout timers ($3C sword lockout & $0301 action commit)
+      const isSwordBusy = bHeldTime > 0 || isCharging || (slashAnim && slashAnim.timer > 0);
+      inventoryState.setSwordLockout(isSwordBusy);
+      inventoryState.tickLockouts();
+
+      // Step 10-Slot Ancilla Engine (ALttP $0C4A Parallel Slot Architecture)
+      ancillaEngine.updateAll({
+        px,
+        py,
+        onBoomerangStep: (slot) => {
+          props.forEach(p => {
+            if (!p.destroyed && Math.hypot(p.x - slot.x, p.y - slot.y) < 24) {
+              if (p.type === 'pedestal') return;
+              p.destroyed = true;
+              droppedItems.push({ x: p.x, y: p.y, type: 'rupee', timer: 300 });
+            }
+          });
+          enemies.forEach(e => {
+            if (e.hp > 0 && Math.hypot(e.x - slot.x, e.y - slot.y) < 26) {
+              e.hp = Math.max(0, e.hp - 15);
+              e.hurtTime = 18;
+              if (slot.state) slot.state.returning = true;
+            }
+          });
+        },
+        onArrowStep: (slot) => {
+          let hit = false;
+          enemies.forEach(e => {
+            if (e.hp > 0 && Math.hypot(e.x - slot.x, e.y - slot.y) < 22) {
+              e.hp = Math.max(0, e.hp - 20);
+              e.hurtTime = 18;
+              hit = true;
+            }
+          });
+          return hit;
+        }
+      });
 
       boomerangs = boomerangs.filter(b => {
         if (!b.returning) {
@@ -5807,11 +5110,27 @@
       const viewportWorldW = canvas.width / zoomScale; // 358.4px
       const viewportWorldH = canvas.height / zoomScale; // 358.4px
 
+      // $0600 Equivalent Sector / Supertile Camera Scroll Clamps
+      let clampMinX = 0, clampMinY = 0, clampMaxX = mapWorldWidth, clampMaxY = mapWorldHeight;
+      if (currentLevelSlug === 'overworld_grid') {
+        const secCol = Math.max(0, Math.min(7, (Math.floor(px) >> 9) & 7));
+        const secRow = Math.max(0, Math.min(7, (Math.floor(py) >> 9) & 7));
+        clampMinX = secCol * 512;
+        clampMinY = secRow * 512;
+        clampMaxX = (secCol + 1) * 512;
+        clampMaxY = (secRow + 1) * 512;
+      } else if (currentLevelSlug === 'shadow_cave') {
+        clampMinX = 0;
+        clampMinY = 0;
+        clampMaxX = 512;
+        clampMaxY = 512;
+      }
+
       let camX = px - viewportWorldW / 2;
       let camY = py - viewportWorldH / 2;
 
-      camX = Math.max(0, Math.min(mapWorldWidth - viewportWorldW, camX));
-      camY = Math.max(0, Math.min(mapWorldHeight - viewportWorldH, camY));
+      camX = Math.max(clampMinX, Math.min(Math.max(clampMinX, clampMaxX - viewportWorldW), camX));
+      camY = Math.max(clampMinY, Math.min(Math.max(clampMinY, clampMaxY - viewportWorldH), camY));
 
       ctx.save();
       ctx.scale(zoomScale, zoomScale);
@@ -5823,20 +5142,22 @@
       const minRow = Math.max(0, Math.floor(camY / tileUnitPx) - 1);
       const maxRow = Math.min(tilesH - 1, Math.ceil((camY + viewportWorldH) / tileUnitPx) + 1);
 
-      // 1. Terrain tile grid rendering (1:1 React parity)
+      const isShadowCave = currentLevelSlug === 'shadow_cave';
+
+      // 1. PASS 1 (BG1): Terrain metatile grid rendering
       for (let r = minRow; r <= maxRow; r++) {
         for (let c = minCol; c <= maxCol; c++) {
           const tx = c * tileUnitPx;
           const ty = r * tileUnitPx;
           const isBoundary = r === 0 || r === tilesH - 1 || c === 0 || c === tilesW - 1;
+          const isSouthExitGap = isShadowCave && r === tilesH - 1 && c >= 15 && c <= 17;
 
-          if (isBoundary) {
-            ctx.fillStyle = currentLevelSlug === 'ganon_sanctuary' ? '#1f1924' : '#1c281e';
+          if (isBoundary && !isSouthExitGap) {
+            ctx.fillStyle = isShadowCave ? '#1f1924' : '#1c281e';
             ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
-            ctx.fillStyle = currentLevelSlug === 'ganon_sanctuary' ? '#2d2436' : '#2d4232';
+            ctx.fillStyle = isShadowCave ? '#2d2436' : '#2d4232';
             ctx.fillRect(tx + 2, ty + 2, tileUnitPx - 4, 12);
-            ctx.fillRect(tx + 2, ty + 18, tileUnitPx - 4, 12);
-            ctx.strokeStyle = currentLevelSlug === 'ganon_sanctuary' ? '#110c17' : '#0f1710';
+            ctx.strokeStyle = isShadowCave ? '#110c17' : '#0f1710';
             ctx.lineWidth = 1;
             ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
           } else if (currentLevelSlug === 'debug_chamber') {
@@ -5849,18 +5170,10 @@
               ctx.lineWidth = 0.5;
               ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
             } else if (c < 30 && r < 30) {
-              // Zone A: Dark Grassland Biome
               const alt = (r + c) % 2 === 0;
               ctx.fillStyle = alt ? '#2e7d32' : '#256628';
               ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
-              const seed = (r * 31 + c * 17) % 5;
-              if (seed === 0) {
-                ctx.fillStyle = '#4caf50';
-                ctx.fillRect(tx + 6, ty + 8, 2, 4);
-                ctx.fillRect(tx + 10, ty + 6, 2, 6);
-              }
             } else if (c > 33 && r < 30) {
-              // Zone B: Obsidian Sanctuary Biome
               const alt = (r + c) % 2 === 0;
               ctx.fillStyle = alt ? '#26262a' : '#1e1e22';
               ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
@@ -5868,26 +5181,22 @@
               ctx.lineWidth = 0.5;
               ctx.strokeRect(tx + 1, ty + 1, tileUnitPx - 2, tileUnitPx - 2);
             } else if (c < 30 && r > 33) {
-              // Zone C: Subterranean Cavern Biome
               const alt = (r + c) % 2 === 0;
               ctx.fillStyle = alt ? '#3f3f46' : '#27272a';
               ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
             } else {
-              // Zone D: Gerudo Dark Sands Biome
               const alt = (r + c) % 2 === 0;
               ctx.fillStyle = alt ? '#b45309' : '#92400e';
               ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
             }
-          } else if (currentLevelSlug === 'ganon_sanctuary') {
-            const isCenterCarpet = (c >= 14 && c <= 17) || (c >= 30 && c <= 33);
-            if (isCenterCarpet) {
-              ctx.fillStyle = '#991b1b';
-              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+          } else if (isShadowCave) {
+            // Supertile 0x00: Shadow Cave (Home Base) — 32x32 metatiles (512x512px) with 4 Quadrants
+            const isCenterPath = c >= 15 && c <= 17 && r >= 14;
+            if (isCenterPath) {
               ctx.fillStyle = '#7f1d1d';
-              ctx.fillRect(tx + 4, ty + 4, tileUnitPx - 8, tileUnitPx - 8);
-              ctx.strokeStyle = '#f59e0b';
-              ctx.lineWidth = 0.5;
-              ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
+              ctx.fillStyle = '#991b1b';
+              ctx.fillRect(tx + 2, ty + 2, tileUnitPx - 4, tileUnitPx - 4);
             } else {
               const alt = (r + c) % 2 === 0;
               ctx.fillStyle = alt ? '#26262a' : '#1e1e22';
@@ -5896,74 +5205,51 @@
               ctx.lineWidth = 0.5;
               ctx.strokeRect(tx + 1, ty + 1, tileUnitPx - 2, tileUnitPx - 2);
             }
-          } else if (currentLevelSlug === 'forgotten_cavern') {
-            // Forgotten Dark Cavern Biome: Subterranean Slate Floor & Blue Water Streams
-            const isWaterStream = (c >= 44 && c <= 52) || (r >= 44 && r <= 52);
-            if (isWaterStream) {
-              const altWater = (r + c) % 2 === 0;
-              ctx.fillStyle = altWater ? '#1e3a8a' : '#172554';
-              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
-              if ((r * 13 + c * 7) % 4 === 0) {
-                ctx.fillStyle = '#38bdf8';
-                ctx.fillRect(tx + 4, ty + 7, 6, 2);
-              }
-            } else {
-              const altCavern = (r + c) % 2 === 0;
-              ctx.fillStyle = altCavern ? '#27272a' : '#1e1e24';
-              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
-              ctx.strokeStyle = '#18181b';
-              ctx.lineWidth = 0.5;
-              ctx.strokeRect(tx + 1, ty + 1, tileUnitPx - 2, tileUnitPx - 2);
-            }
-          } else if (currentLevelSlug === 'castle_courtyard') {
-            // Castle Courtyard Biome: Cobblestone Path Crossroads & Royal Green Gardens
-            const isPath = (c >= 44 && c <= 50) || (r >= 44 && r <= 50);
-            if (isPath) {
-              const altCobble = (r + c) % 2 === 0;
-              ctx.fillStyle = altCobble ? '#71717a' : '#52525b';
-              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
-              ctx.strokeStyle = '#3f3f46';
-              ctx.lineWidth = 0.5;
+            if (c === 16 || r === 16) {
+              ctx.strokeStyle = 'rgba(245, 158, 11, 0.16)';
+              ctx.lineWidth = 1;
               ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
-            } else {
-              const altLawn = (r + c) % 2 === 0;
-              ctx.fillStyle = altLawn ? '#15803d' : '#166534';
-              ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
-              const flowerSeed = (r * 29 + c * 11) % 7;
-              if (flowerSeed === 0) {
-                ctx.fillStyle = '#DE2626'; // Crimson flower accent
-                ctx.fillRect(tx + 6, ty + 6, 3, 3);
-              } else if (flowerSeed === 1) {
-                ctx.fillStyle = '#4ade80'; // Bright grass tuft
-                ctx.fillRect(tx + 8, ty + 7, 2, 5);
-              }
             }
           } else {
+            // Empty 8x8 Overworld Grid (4096x4096px, 64 Sectors of 512x512px)
             const altGrass = (r + c) % 2 === 0;
-            ctx.fillStyle = altGrass ? '#2e7d32' : '#256628';
+            ctx.fillStyle = altGrass ? '#1e3a24' : '#19311e';
             ctx.fillRect(tx, ty, tileUnitPx, tileUnitPx);
-            const seed = (r * 31 + c * 17) % 5;
-            if (seed === 0) {
-              ctx.fillStyle = '#4caf50';
-              ctx.fillRect(tx + 6, ty + 8, 2, 4);
-              ctx.fillRect(tx + 10, ty + 6, 2, 6);
+
+            if (c % 32 === 0 || r % 32 === 0) {
+              ctx.strokeStyle = 'rgba(52, 211, 153, 0.22)';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(tx, ty, tileUnitPx, tileUnitPx);
             }
           }
         }
       }
 
-      // Stone Pillars
-      const pillars = [
-        { x: 128, y: 128 }, { x: 896, y: 128 },
-        { x: 128, y: 640 }, { x: 896, y: 640 },
-        { x: 384, y: 384 }, { x: 640, y: 384 }
-      ];
-      pillars.forEach(p => {
+      if (isShadowCave) {
+        ctx.fillStyle = '#18181b';
+        ctx.fillRect(256 - 32, 112, 64, 32);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(256 - 32, 112, 64, 32);
+        ctx.fillStyle = '#DE2626';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('SHADOW CAVE', 256 - 26, 126);
+        ctx.fillStyle = '#a1a1aa';
+        ctx.font = '7px monospace';
+        ctx.fillText('HOME BASE · 0x00', 256 - 30, 138);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(256 - 16, 480, 32, 12);
+      } else if (currentLevelSlug === 'overworld_grid') {
+        const caveX = 112 * tileUnitPx;
+        const caveY = 112 * tileUnitPx;
+        ctx.fillStyle = '#27272a';
+        ctx.fillRect(caveX - 32, caveY - 28, 64, 40);
+        ctx.strokeStyle = '#52525b';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(caveX - 32, caveY - 28, 64, 40);
         ctx.fillStyle = '#09090b';
-        ctx.fillRect(p.x - 16, p.y - 16, 32, 32);
-        ctx.strokeStyle = '#DE2626'; ctx.lineWidth = 1.5; ctx.strokeRect(p.x - 16, p.y - 16, 32, 32);
-        ctx.fillStyle = '#ef4444'; ctx.fillRect(p.x - 6, p.y - 6, 12, 12);
-      });
+        ctx.fillRect(caveX - 14, caveY - 8, 28, 22);
+      }
 
       // 2. Y-Sorted Draw Queue for 2.5D Depth Sorting
       const renderQueue = [];
@@ -5986,6 +5272,11 @@
 
       otherProjectiles.forEach(p => {
         renderQueue.push({ sortY: p.y, type: 'projectile', data: p });
+      });
+
+      // 10-Slot Parallel Ancilla Engine Entities & Particles (ALttP $0C4A Parity)
+      ancillaEngine.getActiveAncillae().forEach(anc => {
+        renderQueue.push({ sortY: anc.y, type: 'ancilla', data: anc });
       });
 
       boomerangs.forEach(b => {
@@ -6039,12 +5330,8 @@
           const e = item.data;
           const sprKey = e.type === 'guard' ? 'guard_sheet' : 'slime_sheet';
           const img = spriteImages[sprKey];
-          if (img && img.complete && img.naturalWidth > 0) {
-            const eCol = Math.floor(tickCount / 10) % 4;
-            ctx.save();
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(img, eCol * 32, 0, 32, 32, Math.round(e.x - 16), Math.round(e.y - 16), 32, 32);
-            ctx.restore();
+          if (img && img.complete) {
+            ctx.drawImage(img, e.x - 16, e.y - 16, 32, 32);
           } else {
             ctx.fillStyle = e.hurtTime > 0 ? '#ffffff' : (e.type === 'guard' ? '#2563eb' : '#16a34a');
             ctx.fillRect(e.x - 10, e.y - 10, 20, 20);
@@ -6084,22 +5371,13 @@
           }
         } else if (item.type === 'projectile') {
           const p = item.data;
-          const arrowImg = spriteImages['shadow_arrow_flight'];
-          if (p.type === 'arrow' && arrowImg && arrowImg.complete && arrowImg.naturalWidth > 0) {
-            let arrowCol = 0;
-            if (p.vy < 0) arrowCol = 1;
-            else if (p.vx < 0) arrowCol = 2;
-            else if (p.vx > 0) arrowCol = 3;
-            ctx.save();
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(arrowImg, arrowCol * 32, 0, 32, 32, Math.round(p.x - 16), Math.round(p.y - 16), 32, 32);
-            ctx.restore();
-          } else {
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(p.x - 2, p.y - 2, 5, 5);
-          }
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(p.x - 2, p.y - 2, 5, 5);
         } else if (item.type === 'boomerang') {
           const b = item.data;
           ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (item.type === 'ancilla') {
+          const anc = item.data;
+          if (typeof anc.onRender === 'function') anc.onRender(anc, ctx);
         } else if (item.type === 'player') {
           const isHurt = playerHurtTime > 0 && Math.floor(playerHurtTime / 3) % 2 === 0;
 
@@ -6119,17 +5397,8 @@
           if (playerFacing === 'UP') renderShield();
 
           const linkImg = spriteImages['shadow_link_sheet'];
-          if (linkImg && linkImg.complete && linkImg.naturalWidth > 0 && !isHurt) {
-            let row = 0;
-            if (playerFacing === 'UP') row = 1;
-            else if (playerFacing === 'LEFT') row = 2;
-            else if (playerFacing === 'RIGHT') row = 3;
-            const moving = Boolean(keys['w'] || keys['a'] || keys['s'] || keys['d'] || keys['arrowup'] || keys['arrowdown'] || keys['arrowleft'] || keys['arrowright']);
-            const col = moving ? (Math.floor(tickCount / 8) % 4) : 0;
-            ctx.save();
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(linkImg, col * 32, row * 32, 32, 32, Math.round(px - 16), Math.round(py - 20), 32, 32);
-            ctx.restore();
+          if (linkImg && linkImg.complete && !isHurt) {
+            ctx.drawImage(linkImg, px - 16, py - 16, 32, 32);
           } else {
             ctx.fillStyle = isHurt ? '#ffffff' : '#000000'; ctx.fillRect(px - 9, py - 10, 18, 20);
             ctx.fillStyle = '#DE2626'; ctx.fillRect(px - 3, py, 6, 4);
@@ -6142,47 +5411,18 @@
           if (playerFacing !== 'UP') renderShield();
 
           if (slashAnim && slashAnim.timer > 0) {
-            const maxT = slashAnim.maxTimer || 18;
-            const progress = 1 - slashAnim.timer / maxT;
             let baseAngle = Math.PI / 2;
             if (slashAnim.dir === 'UP') baseAngle = -Math.PI / 2;
             if (slashAnim.dir === 'LEFT') baseAngle = Math.PI;
             if (slashAnim.dir === 'RIGHT') baseAngle = 0;
 
             const sweepSpan = Math.PI * 1.2;
-            const frameIdx = Math.min(3, Math.floor(progress * 4));
-            const phaseAngles = [-0.48, -0.08, 0.32, 0.50];
-            const phaseLengths = [0.68, 1.0, 1.12, 0.82];
-            const phaseAlpha = [0.25, 0.55, 0.45, 0.18];
+            ctx.fillStyle = 'rgba(222, 38, 38, 0.45)'; ctx.beginPath();
+            ctx.arc(px, py, 44, baseAngle - sweepSpan * 0.5, baseAngle + sweepSpan * 0.5);
+            ctx.lineTo(px, py); ctx.fill();
 
-            const currentBladeAngle = baseAngle + phaseAngles[frameIdx] * sweepSpan;
-            const bladeLength = 42 * phaseLengths[frameIdx];
-            const bladeX = px + Math.cos(currentBladeAngle) * bladeLength;
-            const bladeY = py + Math.sin(currentBladeAngle) * bladeLength;
-
-            if (frameIdx >= 1) {
-              const prevAngle = baseAngle + phaseAngles[frameIdx - 1] * sweepSpan;
-              ctx.fillStyle = `rgba(222, 38, 38, ${phaseAlpha[frameIdx]})`;
-              ctx.beginPath();
-              ctx.arc(px, py, bladeLength + 2, prevAngle, currentBladeAngle);
-              ctx.arc(px, py, Math.max(10, bladeLength * 0.45), currentBladeAngle, prevAngle, true);
-              ctx.closePath();
-              ctx.fill();
-
-              const prevLen = 42 * phaseLengths[frameIdx - 1];
-              ctx.strokeStyle = 'rgba(222, 38, 38, 0.45)';
-              ctx.lineWidth = 2;
-              ctx.beginPath();
-              ctx.moveTo(px + Math.cos(prevAngle) * 6, py + Math.sin(prevAngle) * 6);
-              ctx.lineTo(px + Math.cos(prevAngle) * prevLen, py + Math.sin(prevAngle) * prevLen);
-              ctx.stroke();
-            }
-
-            ctx.strokeStyle = '#DE2626'; ctx.lineWidth = frameIdx === 0 ? 3 : 5;
-            ctx.beginPath(); ctx.moveTo(px + Math.cos(currentBladeAngle) * 5, py + Math.sin(currentBladeAngle) * 5); ctx.lineTo(bladeX, bladeY); ctx.stroke();
-            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5;
-            ctx.beginPath(); ctx.moveTo(px + Math.cos(currentBladeAngle) * 4, py + Math.sin(currentBladeAngle) * 4); ctx.lineTo(bladeX, bladeY); ctx.stroke();
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(bladeX - 1.5, bladeY - 1.5, 3, 3);
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath();
+            ctx.arc(px, py, 40, baseAngle - sweepSpan * 0.5, baseAngle + sweepSpan * 0.5); ctx.stroke();
             slashAnim.timer--;
           }
 
@@ -6196,19 +5436,49 @@
         }
       });
 
+      // PASS 3 (BG2): PRIORITY OCCLUSION LAYER (Overhead Arches & Lintels)
+      if (isShadowCave) {
+        ctx.fillStyle = '#3f3f46';
+        ctx.fillRect(256 - 28, 464, 56, 12);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(256 - 28, 464, 56, 12);
+      } else if (currentLevelSlug === 'overworld_grid') {
+        const caveX = 112 * tileUnitPx;
+        const caveY = 112 * tileUnitPx;
+        ctx.fillStyle = '#3f3f46';
+        ctx.fillRect(caveX - 24, caveY - 18, 48, 12);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(caveX - 24, caveY - 18, 48, 12);
+      }
+
       ctx.restore();
 
       // Top In-Canvas HUD
       ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, 32);
       ctx.fillStyle = '#DE2626'; ctx.font = 'bold 11px monospace';
-      const yItemLabel = activeYItem === 'shadow_boomerang' ? '🪃 BOOMERANG' : '🏹 DARK BOW';
-      const roomName = currentLevelSlug.replace('_', ' ').toUpperCase();
+      const curItem = inventoryState.getEquippedYItem();
+      const yItemLabel = curItem ? `${curItem.icon} ${curItem.name.toUpperCase()}` : (activeYItem === 'shadow_boomerang' ? '🪃 BOOMERANG' : '🏹 DARK BOW');
       ctx.fillText(`SHADOW LINK | HP: ${playerHp}/${playerMaxHp} | Y: ${yItemLabel}`, 12, 20);
 
-      // Bottom In-Canvas HUD with Real-Time Coordinates
+      // Bottom In-Canvas HUD with O(1) Spatial Sector / Supertile Telemetry
       ctx.fillStyle = '#09090b'; ctx.fillRect(0, canvas.height - 24, canvas.width, 24);
       ctx.fillStyle = '#10b981'; ctx.font = '10px monospace';
-      ctx.fillText(`ROOM: ${roomName} (${tilesW}x${tilesH}) | CAM FOLLOW: (${Math.round(px)}, ${Math.round(py)}) | ZOOM: 1.25x`, 12, canvas.height - 8);
+      if (currentLevelSlug === 'overworld_grid') {
+        const secCol = (Math.floor(px) >> 9) & 7;
+        const secRow = (Math.floor(py) >> 9) & 7;
+        const secId = (secRow << 3) | secCol;
+        const secHex = '0x' + secId.toString(16).toUpperCase().padStart(2, '0');
+        ctx.fillText(`OVERWORLD SEC ${secHex} (${secCol},${secRow}) | XY:(${Math.round(px)},${Math.round(py)})`, 12, canvas.height - 8);
+      } else if (currentLevelSlug === 'shadow_cave') {
+        const qx = (Math.floor(px) >> 8) & 1;
+        const qy = (Math.floor(py) >> 8) & 1;
+        const qLabel = ['NW', 'NE', 'SW', 'SE'][(qy << 1) | qx] || 'NW';
+        ctx.fillText(`SHADOW CAVE [ST 0x00 · Q:${qLabel}] | XY:(${Math.round(px)},${Math.round(py)})`, 12, canvas.height - 8);
+      } else {
+        ctx.fillText(`DEBUG DOMAIN (${tilesW}x${tilesH}) | XY:(${Math.round(px)},${Math.round(py)})`, 12, canvas.height - 8);
+      }
     }
 
     function gameLoop() {

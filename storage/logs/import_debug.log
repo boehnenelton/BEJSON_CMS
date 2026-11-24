@@ -312,3 +312,4 @@ lib_bejson_Core_mfdb_core.MFDBCoreError: Entity 'NoSuchEntity' not found in mani
 2026-11-24 09:09:46,290 WARNING Category 'Uncategorized' does not exist -- imported pages will not resolve to a category until it is created ('category add').
 2026-11-24 09:09:46,615 WARNING Category 'Uncategorized' does not exist -- imported pages will not resolve to a category until it is created ('category add').
 2026-11-24 09:09:46,666 WARNING Author 'Leethaxor69' has no AuthorProfile -- the page will show the name only, with no author card or page. Create it with 'author add'.
+2026-11-24 09:39:28,622 INFO [CMS] Logging initialized. debug_import_logging=True -> level=DEBUG

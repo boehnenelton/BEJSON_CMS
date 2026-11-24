@@ -31,5 +31,22 @@
       "type": "string"
     }
   ],
-  "Values": []
+  "Values": [
+    [
+      "admin",
+      18834,
+      5001,
+      false,
+      "2026-11-20T10:19:15.255956",
+      "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/tmp/logs/BEJSON_CMS_Admin.py.log"
+    ],
+    [
+      "publisher",
+      18872,
+      5011,
+      true,
+      "2026-11-20T10:19:34.076859",
+      "/storage/emulated/0/Admin/Dev/Repos/BEJSON_CMS/storage/tmp/logs/BEJSON_CMS_Publisher.py.log"
+    ]
+  ]
 }

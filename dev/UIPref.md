@@ -14,3 +14,6 @@
   - Part title inputs must maintain a `min-width: 200px` and wrap with status badges and action buttons across narrow viewports.
 - **Merged Article Preview Containers**:
   - Any rendered HTML preview container must enforce `overflow-x: auto; max-width: 100%;` alongside `overflow-y: auto` to contain tables and code blocks cleanly.
+
+## [2026-11-24] Linked Project Strip on Standard Posts
+- Render auto-injected project links on standard posts as a **compact single horizontally scrolling row strip directly below the hero image/header** (`display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;`).

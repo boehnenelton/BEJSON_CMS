@@ -1,0 +1,119 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Job Schema",
+  "Schema_Version": "1.0",
+  "Schema_Description": "Custom job schema for the NewAgent task creation and tracking system, managing individual task states and optional auditing. Each task carries its own task_context (embedded, chunked files), task_reference (path-only refs), and task_mandatory (marks a task as a required, built-in step for the job's Job_Type/Job_Subtype). Job_Type/Job_Subtype classify the job; Contextualize_Plan/Contextualize_Last control what each task is injected with at run time. Also reused unmodified as the Template payload shape.",
+  "Job_Goal": "Write the book \"Intro to BEJSON and MFDB Part 1\" for software engineers and systems architects, in English (en). Goal: Author a comprehensive 4-part technical publication on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each",
+  "Job_Type": "writing",
+  "Job_Subtype": "book",
+  "Contextualize_Plan": true,
+  "Contextualize_Last": true,
+  "Job_Complete": false,
+  "Creation_Date": "2026-11-20",
+  "Completion_Date": "",
+  "Records_Type": [
+    "JobTask"
+  ],
+  "Fields": [
+    {
+      "name": "task_id",
+      "type": "string"
+    },
+    {
+      "name": "task_order",
+      "type": "integer"
+    },
+    {
+      "name": "task_name",
+      "type": "string"
+    },
+    {
+      "name": "task_description",
+      "type": "string"
+    },
+    {
+      "name": "task_completed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_passed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_fail_reason",
+      "type": "string"
+    },
+    {
+      "name": "task_context",
+      "type": "array"
+    },
+    {
+      "name": "task_reference",
+      "type": "array"
+    },
+    {
+      "name": "task_mandatory",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "c0ba255f-c27d-4076-824e-c8fed016f340",
+      1,
+      "Part 1: AI Superpowers and the Empirical Verification Gauntlet",
+      "Unleashes the raw capability claims of BEJSON (Boehnen Elton JSON) and MFDB (Multi-File Database) framed as empirical AI superpowers, contrasting sub-50MB flat-file efficiency against bloated enterprise database daemons. Provides battle-tested verification prompt templates designed to challenge frontier LLMs (Large Language Models) to independently audit and verify token reduction, 80x lookup speedups, and zero-hallucination mechanics. Transitions directly into the structural evolution of the specification from its foundational beginnings to the current production standard.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "92cac67e-cfc1-43d9-828c-a3d15756cff6",
+      2,
+      "Part 2: The Two Eras: 104 Baseline to 105 Cryptographic Integrity",
+      "Contrasts the foundational 104 format era with the hardened 105 Integrity Era, detailing the tri-format taxonomy across homogeneous tables (104/105), configuration manifests (104a/105a), and single-file bundles (104db/105db). Clarifies the architectural role of MFDB as a multi-file orchestration layer that operates over individual format files rather than existing as an independent container format. Transitions to the physical data layout that underpins BEJSON's deterministic speed and context window compression.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "806760f1-4529-42de-8777-1ed13cd33326",
+      3,
+      "Part 3: Positional Field Separation, Matrix Layouts, and Token Economics",
+      "Dissects the mechanics of positional field access, explaining how decoupling schema metadata in the Fields array from row vectors in the Values array eliminates key repetition and token bloat. Explains how deterministic array indexing prevents key-spelling hallucinations while maintaining constant-time field lookups via the in-memory field-map cache. Establishes how these single-file layout optimizations scale into coordinated, multi-table systems governed by relational invariants.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "552ee386-da88-4bfc-b176-447d1606fcae",
+      4,
+      "Part 4: MFDB v1.40 Orchestration: Serverless Referential Integrity",
+      "Explores the MFDB v1.40 orchestration layer, breaking down how a centralized 104a manifest coordinates distributed 105 entity tables via bidirectional Parent_Hierarchy links and foreign key relationships. Demonstrates strict referential integrity enforcement across cascade, restrict, and set-null mutation plans with zero-daemon runtime overhead and strict sub-50MB resident memory bounds. Concludes the series with production integration guidelines and real-world deployment patterns for AI agent toolchains.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ]
+  ]
+}

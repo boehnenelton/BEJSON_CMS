@@ -215,7 +215,8 @@ pre, code, table, div { max-width: 100% !important; overflow-x: auto; }
     }
     .nav-menu.active { display: flex; }
     .nav-dropdown .dropdown-content { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; display: none; padding-left: 20px; }
-    .nav-dropdown:hover .dropdown-content { display: block; }
+    .nav-dropdown:hover .dropdown-content,
+    .nav-dropdown.open .dropdown-content { display: block; }
 }
 
 /* Card styles */

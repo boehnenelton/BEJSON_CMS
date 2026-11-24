@@ -1,0 +1,93 @@
+Intent: locate the uploaded container in the sandbox, verify it parses as a Chunked-104a document, then run the audit in phases — container integrity → tree reconstruction → hygiene → header/provenance policy → error-code registry → cross-language parity → embedded MFDB validation → executable verification (tests) → docs-vs-code. Findings will be ranked with evidence.
+File located: `/home/workspace/Chunked_libraries_105.104a.bejson.txt`, 3,338,697 bytes.
+
+**Intent:** Phase A — container-level audit first (JSON well-formedness, 104a header contract, positional integrity, chunk mechanics, checksums, path safety), then reassemble the tree and audit content layers.
+# Full-Spectrum Audit — `Chunked_libraries_105.104a.bejson.txt`
+
+**Verdict: SHIP-QUALITY CODE, DRIFTED GOVERNANCE.** Container and runtime layers are clean — 505/505 Python tests green, four-language error surface at parity, all five adversarial remediations verified in place. The failures are concentrated in the self-tracking layer: the `BEJSON/` ledger, tracker, and change-log no longer describe the tree they ship with. Nothing corrupts data; several things misdescribe it.
+
+**Method:** parsed container → verified all 216 SHA-1s → reconstructed tree → static scans (headers, hygiene, error registries, path guards) → executed every runnable suite → validated every shipped `.bejson` doc with the PY reference validators → cross-language static parity where runtimes were absent.
+
+---
+
+## 1. Container (Chunked-104a) — PASS
+
+| Check | Result |
+|---|---|
+| JSON parse / structure | OK, 12 header keys, `Records_Type: ["Chunked"]` |
+| Positional integrity | 216/216 rows × 8 fields, zero drift |
+| Type adherence | 0 violations (6 string, 2 boolean per row) |
+| `File_Hash` | **216/216 SHA-1 match** on `File_Content` |
+| Paths | 0 absolute, 0 `..`, 0 backslash, 0 duplicate `Relative_Path` |
+| Runtime keys | No persisted `_bejson_field_map` |
+| Schema conformance | Fields match `CHUNKED_104_FIELDS` in `bejson_chunking.py` exactly; `Schema_Version 1.0.1` consistent across PY/JS/TS/SH |
+
+Duplicate basenames (`README.md` ×5, `__init__.py`, `index.js/ts`) are per-family, legitimate. `Is_Mounted`/`Mount_Path` coherent.
+
+## 2. Runtime verification — PASS (505 tests, 0 failures)
+
+Python 3.10.9, real execution:
+
+| Family | Suites | Tests |
+|---|---|---|
+| Core | format105 91, parity 30, mfdb 9, RI 36, spec-levels 30, field-map 9, nesting 7, phase8 8, schema-api 14, adversarial 29, **stress 23** (scale 1, seed 20261117) | 286 |
+| Standards | 112 + state 3 | 115 |
+| Taxonomies | 22 + 17 | 39 |
+| Tax_Scaffolds | 25 + 28 | 53 |
+| Graphics | 12 | 12 |
+
+- `bash -n`: **29/29 SH files parse.**
+- All 75 PY files AST-parse; zero `exec`/`eval` in library code (env hits are docstrings — F3 remediation confirmed).
+- Shipped docs validated clean under reference validators: `canvas_templates_registry.105a`, `bejson_105_deck.105a` (base + strict-105 + Graphics barrier), `Testing.104db`, checklist `.bejson`, all 7 ledger entities.
+- **Not executed:** JS/TS/SH suites — no `node`, `tsc`, or `jq` in this environment. Static parity only; stated as a limit, not a pass.
+
+## 3. Findings
+
+### HIGH
+
+**H1 — The self-tracking MFDB is structurally perfect and factually stale.** All 7 entities resolve, counts match exactly, `Parent_Hierarchy` bidirectional. But content stops at 2026-10-30 (PKG111/112); the tree is PKG116:
+- `library_changes.bejson`: 135 rows, latest 2026-10-30. **PKG113, 115, 116 absent** (Graphics video export, dwell durations, Standards state module). PKG112's change-log already confessed "ledger was not regenerated"; it never was.
+- `errors.bejson`: **JS missing 11 registered codes** (43–47, 80–85), **SH missing 15** (43–47, 57–60, 80–85) — all present in the actual source files. **Graphics 500–512 (13 codes) not registered at all.** Registry covers only Core + Standards.
+- `families.bejson`: `Graphics/PY HAS_ERRORS_FILE='false'` — `lib_bejson_Graphics_graphics_errors.py` exists on disk. Direct contradiction. (Graphics/JS `false` is correct.)
+- `metadata.bejson`: **duplicate EAV keys** violate its own stated uniqueness — `ECOSYSTEM/CURRENT_VERSION` = 2.0.48 *and* 2.0.43; `Core/PY` = 2.5.0 *and* 2.4.0; `Core/TS` = 2.2.0 *and* 2.4.0. Live anchors disagree with all of them: PY `__init__` 3.0.3, SH `be_core` 2.2.5, TS index 2.4.0, JS 2.0.7.
+
+This is the claim-then-collide pattern relocated from error numbers to metadata. The registry is the ecosystem's source of truth; right now it audits clean while lying.
+
+### MED
+
+**M1 — Tracker/provenance break.** `bejson_project.json` = **5.9.3 / PKG116 (2026-11-02)**; `dev/change-log.md` has **no 5.9.3/PKG116 entry** (latest V5.9.2 PKG115). The current package has no audit trail. Manifest `Modified_At` 2026-10-31 corroborates the drift.
+
+**M2 — Core CRUD error-code parity gap (outside the conformance corpus).** Duplicate entity registration: **TS throws 57** (`DUPLICATE_ENTITY_NAME`), **JS throws 56** (`JOIN_FAILED`). PY/SH define 57–60 but never use them (no register API); JS doesn't define them at all. The corpus covers validators, not CRUD — this is exactly the blind spot. Validator-layer parity is otherwise exact: **PY = SH = TS, 77/77 numbers**, JS 73 (missing only 57–60).
+
+**M3 — TS `_coerceValue` null→NaN throw persists.** `bejson_core.ts`: `parseInt(null)` → NaN → `WRITE_TYPE_MISMATCH`. PY (`None always allowed`) and JS (`val === null → null`) permit null in numeric cells. Flagged in `test_phase6_ref_integrity.ts` as pre-existing/out-of-scope; still unfixed in the shipped tree. The related `registerEntity` `record_count` bug **is** fixed (`?? 0`, verified).
+
+**M4 — Graphics palette barrier has a scope hole, and the shipped deck exploits it.** Palette enforcement only inspects `accent_color`/`bg_theme`; `check_svg` validates structure, never colors. `bejson_105_deck.105a.bejson` (5 `GraphicSlideRecord` slides) passes the barrier while using **21 unauthorized hex colors** — `#111113`×8, `#222228`×8, `#777782`×6, `#1C1C22`×5, `#D8D9E0`×4, `#C0C0CA`×2, etc. — against Policy §8.1's 10-color set. PY and JS authorized sets are identical; both have the same hole. Your own presentation artifact is off-brand against White/Black/#DE2626.
+
+**M5 — `bejson_server.py` silent-degradation fallback.** On `ImportError`, replaces `ResilientPIDLock` with a **no-op** (`acquire → True`) and `atomic_write` with a plain non-atomic `json.dump`. Zero warning. Unlocked, non-atomic writes if Core ever fails to import — the exact silent-failure class your PKG101 logging fix targeted.
+
+### LOW
+
+- **L1 — Headers:** `Lib_JS/Graphics` schemas + canvas_templates missing `RELATIONAL_ID`. `gemini_showcase_intro.py` / `showcase_master.py`: `Module Purpose: Version: 2.0.3` (purpose field contains a version string, not a description); shebang sits after the module docstring (inert).
+- **L2 — Dead doc references:** README banner `images/banners/banner_420.png` (no `images/`); CLI matrix lists `bejson_105_cli.py` + `upgrade_mfdb_to_105.py` (absent); `START_HERE.md` referenced by 2 family READMEs (absent); manifest's Schemas description cites `docs/SCHEMAS_ENTITY_MIGRATION_DECISION.md` (absent). README carries no version badge at all.
+- **L3 — Stale doc claims:** crash-course V3 line 611 still cites README §3.7's `fk_target_field_uuid` as a live discrepancy — README was reconciled at PKG111 (verified: zero occurrences there). `security-notes.md` residual "TS validator does not check `file_path` escape" is obsolete — TS `_escapesRoot` handles absolute paths (PKG112, verified).
+- **L4 — PIDLock version provenance:** change-log claims `3.5.2→3.5.3`; `bejson_core.py` history shows 3.5.1 → 3.6.0 with no 3.5.2/3.5.3 entries. The reclaim-guard fix is functionally present (stress suite green) — the claimed lineage isn't in the file.
+- **L5 — `static_backend.py`:** library-side `print()` on the error path (line 69); entity `file_path` resolved with no path guard (read-side traversal — the class PKG112 fixed everywhere else); dead `{ADMIN_ROOT}` default. Lowercase-first field lookup is correct; my initial suspicion there was wrong.
+
+## 4. Verified clean (checked, not assumed)
+
+- Be25 removal complete: 110–114 absent from all four languages, **zero dangling non-comment references** to the removed constraint names/keys.
+- `errors.bejson`: zero cross-family number collisions, zero name/number conflicts.
+- Hygiene: no `__pycache__`/`.pyc`/locks/junk shipped; no hardcoded user absolute paths; no `print()` in library logic outside CLI `__main__` blocks (Graphics prints are all argparse-gated).
+- Security F1–F5: PY proven by adversarial (29) + stress (23) suites; JS/TS absolute-path guards confirmed (`_bejson_mfdb_escapes_root` / `_escapesRoot`, POSIX + drive-letter + `..` depth); SH guard confirmed; HMAC-fingerprinted 12-slot key caches in JS/TS.
+- `dependencies.bejson`: **59/59 edges resolve** to existing files.
+- 105a reserved-column layout correct in shipped docs (deck rows 14 = 13 fields + `record_uuid`).
+
+## 5. Recommended fix order
+
+1. Regenerate the `BEJSON/` ledger from the live tree (H1) — it's mechanical: re-derive errors from source, fix families/metadata, append PKG113–116 changes. Add a ledger-vs-disk audit to the suite so this can't silently recur.
+2. Write the PKG116 change-log entry (M1).
+3. Align JS duplicate-registration to 57; decide whether 57–60 stay dormant in PY/SH (M2). Extend the conformance corpus to Core CRUD codes.
+4. Null-passthrough in TS `_coerceValue` (M3); palette check inside `svg_markup` + recolor the deck (M4); warn-or-fail on the server's import fallback (M5).
+5. Sweep L1–L5 in one hygiene pass.
+
+**Bottom line:** the engine earns its Integrity Era name — the audit trail around it doesn't. Fix the ledger first; everything else is cosmetic by comparison.

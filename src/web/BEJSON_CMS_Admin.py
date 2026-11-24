@@ -1,3 +1,4 @@
+# Technical Note: Primary Flask admin shell; mounts Content, Media, PageEditor, ProfileManager, FileBrowser, System, Publisher, and APIPublisher blueprints.
 """
 Library:         BEJSON_CMS_Admin
 Family:          BEJSON_CMS
@@ -8,7 +9,7 @@ Description:     Main admin app entry point. Registers the four BEJSON_CMS
 Version:         18.25
 Library_Version: 59
 Date:            2026-11-03
-RELATIONAL_ID:   a71c3b84-5d20-4e91-8f34-2c6a9d1e4b80
+RELATIONAL_ID:  120eced3-b0e6-431d-a99f-a2c48d90fd94
 """
 
 VERSION = 1825
@@ -27,6 +28,7 @@ from BEJSON_CMS_Content import content_cube
 from BEJSON_CMS_Media import media_cube
 from BEJSON_CMS_Interface import interface_cube
 from BEJSON_CMS_FileBrowser import filebrowser_cube
+from BEJSON_CMS_GitHub import github_cube
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('CMS_SECRET_KEY') or os.urandom(24).hex()  # Set CMS_SECRET_KEY env var in production
@@ -37,6 +39,7 @@ app.register_blueprint(content_cube)
 app.register_blueprint(media_cube)
 app.register_blueprint(interface_cube)
 app.register_blueprint(filebrowser_cube)
+app.register_blueprint(github_cube)
 
 register_auth_guard(app)
 

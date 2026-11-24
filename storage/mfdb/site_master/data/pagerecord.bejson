@@ -58,6 +58,10 @@
     {
       "name": "page_featured_diagram",
       "type": "string"
+    },
+    {
+      "name": "page_project_uuid",
+      "type": "string"
     }
   ],
   "Values": [
@@ -72,6 +76,7 @@
       "Leethaxor69",
       "bejson_mfdb_hacker_guide_hero.webp",
       "post.html",
+      "",
       "",
       "",
       ""
@@ -89,7 +94,8 @@
       "post.html",
       "",
       "",
-      ""
+      "",
+      "547e8d18-639c-486f-bc78-951d03ad4538"
     ],
     [
       "7513e7fe-f937-4eaf-9908-96224251b66f",
@@ -104,7 +110,8 @@
       "post.html",
       "",
       "",
-      ""
+      "",
+      "f6630eea-3c78-43d5-83e7-bce3f7b83e96"
     ],
     [
       "ebe88c9c-47bd-47a4-9f8d-35463bd523f1",
@@ -119,7 +126,8 @@
       "post.html",
       "",
       "",
-      ""
+      "",
+      "547e8d18-639c-486f-bc78-951d03ad4538"
     ],
     [
       "d0dc2f5b-ab44-47a1-ba62-fcf566309907",
@@ -134,7 +142,8 @@
       "post.html",
       "",
       "",
-      ""
+      "",
+      "f6630eea-3c78-43d5-83e7-bce3f7b83e96"
     ],
     [
       "89b6ebfa-ad88-4521-a700-bf6f43d2ac37",
@@ -149,7 +158,8 @@
       "post.html",
       "",
       "link-github-sword-slasher,link-youtube-sword-slasher",
-      ""
+      "",
+      "547e8d18-639c-486f-bc78-951d03ad4538"
     ],
     [
       "11986eaf-b66c-4243-89ae-7c9012543f01",
@@ -164,7 +174,8 @@
       "post.html",
       "",
       null,
-      "b308859b-a444-4c12-9769-9fddd9dd0520.diag.json"
+      "b308859b-a444-4c12-9769-9fddd9dd0520.diag.json",
+      ""
     ],
     [
       "a72368ee-3689-4b72-bd57-bcb4b6415e89",
@@ -179,6 +190,7 @@
       "post.html",
       "",
       null,
+      "",
       ""
     ],
     [
@@ -194,7 +206,8 @@
       null,
       null,
       null,
-      null
+      null,
+      ""
     ],
     [
       "11a1a1b1-3356-4bed-b21e-b3ca94d503ac",
@@ -209,6 +222,7 @@
       "post.html",
       "",
       null,
+      "",
       ""
     ],
     [
@@ -220,11 +234,12 @@
       "2026-11-12",
       null,
       "Leethaxor69",
-      "default_page_image.webp",
+      "json_attention_tax_feed.webp",
       null,
       null,
       null,
-      null
+      null,
+      ""
     ],
     [
       "5cbdda76-937c-48ed-a697-6b38eec5efbd",
@@ -235,11 +250,12 @@
       "2026-11-12",
       null,
       "Leethaxor69",
-      "default_page_image.webp",
+      "database_passwords_memory_security_feed.webp",
       null,
       null,
       null,
-      null
+      null,
+      ""
     ],
     [
       "1d2ddf2f-c5a5-44fb-b76d-b8b769a3e6c1",
@@ -250,11 +266,12 @@
       "2026-11-13",
       null,
       "Leethaxor69",
-      "default_page_image.webp",
+      "bejson_104_foundations_zero_bloat_feed.webp",
       null,
       "https://youtube.com/watch?v=h7WtEqdrKm8",
       null,
-      null
+      null,
+      "f6630eea-3c78-43d5-83e7-bce3f7b83e96"
     ],
     [
       "2ec89c17-9b49-40ec-a29f-ae89ecf9fd6f",
@@ -265,11 +282,12 @@
       "2026-11-13",
       null,
       "Leethaxor69",
-      "default_page_image.webp",
+      "legacy_bejson_104_libraries_polyglot_feed.webp",
       null,
       "https://youtube.com/watch?v=h7WtEqdrKm8",
       null,
-      null
+      null,
+      "f6630eea-3c78-43d5-83e7-bce3f7b83e96"
     ],
     [
       "0c7f3fbe-0a86-43be-832d-3503de7c77c8",
@@ -284,7 +302,8 @@
       null,
       "https://youtu.be/MJPcbN8C4lM?is=fojuW0m4K4W0HVGm",
       null,
-      null
+      null,
+      "6da9e375-70d7-42aa-a71f-a255a929c618"
     ],
     [
       "dbbf52c6-8d3e-4469-8ff8-6ea0cabda68c",
@@ -299,7 +318,120 @@
       null,
       null,
       null,
-      null
+      null,
+      "6da9e375-70d7-42aa-a71f-a255a929c618"
+    ],
+    [
+      "497ad03d-789e-46e1-8fc0-6c41c4f786bb",
+      "BEJSON 105 Architecture and Relational Flat Files",
+      "bejson-105-architecture-and-relational-flat-files",
+      "BEJSON",
+      "article",
+      "2026-11-19",
+      null,
+      "Leethaxor69",
+      "bejson_105_relational_flat_files_feed.webp",
+      "post.html",
+      null,
+      null,
+      null,
+      "547e8d18-639c-486f-bc78-951d03ad4538"
+    ],
+    [
+      "a51f9b71-6de2-4e57-930c-bf2e344c9c2d",
+      "Designing 2D Action RPGs in BEJSON 105",
+      "designing-2d-action-rpgs-in-bejson-105",
+      "Projects",
+      "article",
+      "2026-11-19",
+      null,
+      "Leethaxor69",
+      "designing_2d_action_rpgs_bejson_105_feed.webp",
+      "post.html",
+      null,
+      null,
+      null,
+      "547e8d18-639c-486f-bc78-951d03ad4538"
+    ],
+    [
+      "854b97a8-e213-49a9-a00f-a6e21c653c6a",
+      "Intro to BEJSON and MFDB Part 1",
+      "intro-to-bejson-and-mfdb-part-1",
+      "BEJSON",
+      "blog",
+      "2026-11-19",
+      null,
+      "Leethaxor69",
+      "default_page_image.webp",
+      "blank",
+      null,
+      null,
+      null,
+      ""
+    ],
+    [
+      "9c371a60-747c-413f-bfaa-01c0e9c0b1c1",
+      "Intro to BEJSON and MFDB Part 2",
+      "intro-to-bejson-and-mfdb-part-2",
+      "BEJSON",
+      "blog",
+      "2026-11-19",
+      null,
+      "boehnenelton2024",
+      "default_page_image.webp",
+      "blank",
+      null,
+      null,
+      null,
+      ""
+    ],
+    [
+      "6da9e375-70d7-42aa-a71f-a255a929c618",
+      "Shadow Link's Awakening",
+      "shadow-link-awakening",
+      "Projects",
+      "project",
+      "2026-11-24",
+      null,
+      "Elton Boehnen",
+      "Project_Image.jpg",
+      null,
+      "https://www.youtube.com/watch?v=MJPcbN8C4lM",
+      null,
+      "",
+      ""
+    ],
+    [
+      "f6630eea-3c78-43d5-83e7-bce3f7b83e96",
+      "BEJSON_104 (Libraries_104)",
+      "bejson-104",
+      "Projects",
+      "project",
+      "2026-11-24",
+      null,
+      "Elton Boehnen",
+      "legacy_bejson_104_libraries_polyglot_feed.webp",
+      null,
+      "https://www.youtube.com/watch?v=h7WtEqdrKm8",
+      null,
+      "",
+      ""
+    ],
+    [
+      "547e8d18-639c-486f-bc78-951d03ad4538",
+      "BEJSON_105 (Libraries_105)",
+      "bejson-105",
+      "Projects",
+      "project",
+      "2026-11-24",
+      null,
+      "Elton Boehnen",
+      "BEJSON_105_Project_Image.jpg",
+      null,
+      "https://www.youtube.com/watch?v=h7WtEqdrKm8",
+      null,
+      "",
+      ""
     ]
   ]
 }

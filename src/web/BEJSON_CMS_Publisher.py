@@ -1,8 +1,11 @@
 """
 SCRIPT_NAME:    BEJSON_CMS_Publisher
-SCRIPT_VERSION: 16.5
-RELATIONAL_ID:  9e4c7b18-2f5a-4d39-8c16-7a2e5f9b4d31
+SCRIPT_VERSION: 16.8
+RELATIONAL_ID:  ac7f8c24-1f25-4134-84a8-3e4ae52744d3
 AUTHOR:         Elton Boehnen
+CHANGE (2026-11-24): Decoupled Google Blogger and Substack syndication into independent BEJSON_CMS_APIPublisher module; retained Cloudflare Pages edge deployment.
+CHANGE (2026-11-20): Subcategorized imported standalone apps under Applications dropdown in main nav and sidebar, filtering app links from top-level custom nav row.
+CHANGE (2026-11-20): Corrected exported site footer notice license from Polyglot to Polyform Non Commercial.
 CHANGE (2026-10-25): Centralized authentication guard via BEJSON_CMS_Shared.register_auth_guard,
 converted CF_KEYS BEJSON lookup to field_map cache, and removed dead _safe_slug() function.
 CHANGE (2026-08-05): Variable naming remediation pass (Part 2/Part 3 items
@@ -228,47 +231,6 @@ def get_cloudflare_config(db_instance) -> dict:
     return cf_cfg
 
 
-def get_blogger_config(db_instance) -> dict:
-    """
-    Retrieves Google Blogger syndication configuration from environment / secureenv.
-    Enforces 'no key in config': secret credentials resolved via resolve_secure_secret().
-    """
-    b_cfg = {
-        "blog_id": "",
-        "client_id": "",
-        "client_secret": "",
-        "refresh_token": "",
-        "api_key": ""
-    }
-    b_cfg["blog_id"] = resolve_secure_secret("BLOGGER_BLOG_ID")
-    b_cfg["client_id"] = resolve_secure_secret("BLOGGER_CLIENT_ID")
-    b_cfg["client_secret"] = resolve_secure_secret("BLOGGER_CLIENT_SECRET")
-    b_cfg["refresh_token"] = resolve_secure_secret("BLOGGER_REFRESH_TOKEN")
-    b_cfg["api_key"] = resolve_secure_secret("BLOGGER_API_KEY")
-    return b_cfg
-
-
-def get_substack_config(db_instance) -> dict:
-    """
-    Retrieves Substack syndication configuration from environment / secureenv.
-    Enforces 'no key in config': secret credentials resolved via resolve_secure_secret().
-    """
-    s_cfg = {
-        "session_sid": "",
-        "subdomain": "",
-        "base_url": "",
-        "user_id": "",
-        "user_handle": ""
-    }
-    s_cfg["session_sid"] = resolve_secure_secret("SUBSTACK_SID")
-    s_cfg["subdomain"] = resolve_secure_secret("SUBSTACK_SUBDOMAIN")
-    s_cfg["base_url"] = resolve_secure_secret("SUBSTACK_URL")
-    if not s_cfg["base_url"] and s_cfg["subdomain"]:
-        s_cfg["base_url"] = f"https://{s_cfg['subdomain']}.substack.com"
-    s_cfg["user_id"] = resolve_secure_secret("SUBSTACK_USER_ID")
-    s_cfg["user_handle"] = resolve_secure_secret("SUBSTACK_USER_HANDLE")
-    return s_cfg
-
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
 PUBLISHER_PORT = CMSPorts.get_port(CONFIG_PATH, "publisher_port", "CMS_PUBLISHER_PORT")
 
@@ -333,7 +295,8 @@ class SkeletonBuilder:
             self.build_category_skeleton()
             self.build_author_skeleton()
             self.build_apps_feed_skeleton()
-            return True, f"Successfully built 8 skeletons in:\n{OUTPUT_DIR}"
+            self.build_projects_feed_skeleton()
+            return True, f"Successfully built 9 skeletons in:\n{OUTPUT_DIR}"
         except Exception as e:
             return False, str(e)
 
@@ -363,12 +326,23 @@ class SkeletonBuilder:
                     <ul class="nav-menu" id="main-nav">
                         <li><a href="{{rel_prefix}}index.html">Home</a></li>
                         <li class="nav-dropdown">
-                            <a href="#">Categories <span class="chevron">▼</span></a>
+                            <a href="#" onclick="return toggleNavDropdown(this, event);">Categories <span class="chevron">▼</span></a>
                             <ul class="dropdown-content">
                                 {{sidebar_categories}}
                             </ul>
                         </li>
-                        <li><a href="{{rel_prefix}}apps/index.html">Applications</a></li>
+                        <li class="nav-dropdown">
+                            <a href="#" onclick="return toggleNavDropdown(this, event);">Applications <span class="chevron">▼</span></a>
+                            <ul class="dropdown-content">
+                                {{nav_apps}}
+                            </ul>
+                        </li>
+                        <li class="nav-dropdown">
+                            <a href="#" onclick="return toggleNavDropdown(this, event);">Projects <span class="chevron">▼</span></a>
+                            <ul class="dropdown-content">
+                                {{nav_projects}}
+                            </ul>
+                        </li>
                         {{custom_nav_links}}
                     </ul>
                 </nav>
@@ -393,6 +367,28 @@ class SkeletonBuilder:
                 </div>
             </div>
 
+            <div class="sidebar-collapsible" id="collapse-apps">
+                <button class="collapse-trigger" onclick="toggleCollapse('collapse-apps')">
+                    Applications <span class="chevron">▼</span>
+                </button>
+                <div class="collapse-content">
+                    <ul class="category-list">
+                        {{nav_apps}}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-collapsible" id="collapse-projects">
+                <button class="collapse-trigger" onclick="toggleCollapse('collapse-projects')">
+                    Projects <span class="chevron">▼</span>
+                </button>
+                <div class="collapse-content">
+                    <ul class="category-list">
+                        {{nav_projects}}
+                    </ul>
+                </div>
+            </div>
+
             <div class="sidebar-collapsible" id="collapse-social">
                 <button class="collapse-trigger" onclick="toggleCollapse('collapse-social')">
                     Connect <span class="chevron">▼</span>
@@ -412,11 +408,12 @@ class SkeletonBuilder:
                 <div class="copyright">&copy; {{current_year}} <strong>{{site_title}}</strong></div>
                 <div class="footer-links" style="display:flex; gap:20px;">
                     <a href="{{rel_prefix}}index.html">Home</a>
+                    <a href="{{rel_prefix}}projects/index.html">Projects</a>
                     <a href="{{rel_prefix}}apps/index.html">Apps</a>
                 </div>
             </div>
             <div class="footer-bottom-notice" style="text-align:center; font-size:0.75rem; margin-top:25px; color:var(--text-muted);">
-                Polyglot Non Commercial - <a href="https://github.com/boehnenelton/BEJSON_CMS" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">BEJSON_CMS</a>
+                Polyform Non Commercial - <a href="https://github.com/boehnenelton/BEJSON_CMS" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">BEJSON_CMS</a>
             </div>
         </div>
     </footer>
@@ -428,6 +425,13 @@ class SkeletonBuilder:
         function toggleMenu() {
             const nav = document.getElementById('main-nav');
             nav.classList.toggle('active');
+        }
+
+        function toggleNavDropdown(anchorEl, ev) {
+            if (ev) ev.preventDefault();
+            const parentLi = anchorEl.closest('.nav-dropdown');
+            if (parentLi) parentLi.classList.toggle('open');
+            return false;
         }
 
         function toggleCollapse(id) {
@@ -696,6 +700,14 @@ class SkeletonBuilder:
 <div class="grid">{{content_grid}}</div>"""
         self._write_file("Apps_Feed_Skeleton.html", html)
 
+    def build_projects_feed_skeleton(self):
+        html = """<div class="section-header">
+    <h1 class="article-title">Projects</h1>
+    <p class="hero-desc" style="margin-top:-10px; margin-bottom:40px;">Technical projects, repositories, video walkthroughs, and public design notepads.</p>
+</div>
+<div class="grid">{{content_grid}}</div>"""
+        self._write_file("Projects_Feed_Skeleton.html", html)
+
     def _write_file(self, filename, content):
         path = os.path.join(OUTPUT_DIR, filename)
         if os.path.exists(path) and not self.force:
@@ -717,6 +729,7 @@ SKELETON_DISPLAY_LABELS = {
     "Article_Skeleton.html": "Standard Article Body — Header, Media, Body & Related (Article_Skeleton.html)",
     "Category_Skeleton.html": "Standard Category Feed (Category_Skeleton.html)",
     "Apps_Feed_Skeleton.html": "Standard Applications Feed (Apps_Feed_Skeleton.html)",
+    "Projects_Feed_Skeleton.html": "Standard Projects Feed (Projects_Feed_Skeleton.html)",
     "App_Skeleton.html": "Standard Application Detail (App_Skeleton.html)",
     "Author_Skeleton.html": "Standard Author Profile (Author_Skeleton.html)",
 }
@@ -757,6 +770,13 @@ SKELETON_SLOT_DEFINITIONS = {
         "default": "Apps_Feed_Skeleton.html",
         "prefix": "Apps_Feed_",
     },
+    "active_projects_skeleton": {
+        "scope": "local",
+        "tab": "feeds",
+        "label": "Projects Feed Body Skeleton",
+        "default": "Projects_Feed_Skeleton.html",
+        "prefix": "Projects_Feed_",
+    },
     "active_app_detail_skeleton": {
         "scope": "local",
         "tab": "feeds",
@@ -779,6 +799,7 @@ DEFAULT_SKELETON_SITE_CONFIG = {
     "active_article_skeleton": "Article_Skeleton.html",
     "active_category_skeleton": "Category_Skeleton.html",
     "active_apps_skeleton": "Apps_Feed_Skeleton.html",
+    "active_projects_skeleton": "Projects_Feed_Skeleton.html",
     "active_app_detail_skeleton": "App_Skeleton.html",
     "active_author_skeleton": "Author_Skeleton.html",
     "home_bulletin_enabled": "true",
@@ -956,7 +977,6 @@ def _generate_horizontal_category_bar(categories: list, rel_prefix: str = "") ->
         f'<nav class="home-category-bar" aria-label="Categories">{pills_html}</nav>'
         '</div>'
     )
-
 
 
 # ==============================================================================
@@ -1195,6 +1215,42 @@ def _get_sidebar_html(categories, rel_prefix):
             html += f'<li><a href="{rel_prefix}category/{c_slug}/index.html">{c_name}</a></li>'
     return html
 
+def _get_apps_nav_html(standalone_apps, rel_prefix):
+    html = f'<li><a href="{rel_prefix}apps/index.html">All Applications</a></li>'
+    for sa in standalone_apps:
+        app_name = sa.get("app_name")
+        app_slug = sa.get("app_slug")
+        app_entry = sa.get("app_entry_file", "index.html")
+        if app_name and app_slug:
+            html += f'<li><a href="{rel_prefix}apps/{app_slug}/{app_entry}">{app_name}</a></li>'
+    return html
+
+
+def _get_projects_nav_html(project_items, categories, rel_prefix):
+    """Builds dropdown/sidebar sublinks for All Projects and individual project pages."""
+    html = f'<li><a href="{rel_prefix}projects/index.html">All Projects</a></li>'
+    for proj in project_items:
+        p_title = proj.get("page_title")
+        p_slug = proj.get("page_slug")
+        if p_title and p_slug:
+            html += f'<li><a href="{rel_prefix}projects/{p_slug}/index.html">{p_title}</a></li>'
+    return html
+
+
+def _get_custom_nav_html(nav_records, rel_prefix):
+    """Builds custom nav links using relative traversal for internal leading-'/' paths."""
+    parts = []
+    for n in nav_records:
+        raw_url = str(n.get("nav_target_url", "#")).strip()
+        if raw_url.startswith("/apps/") or raw_url.startswith("apps/"):
+            continue
+        if raw_url.startswith("/") and not raw_url.startswith("//"):
+            resolved_url = f"{rel_prefix}{raw_url.lstrip('/')}"
+        else:
+            resolved_url = raw_url
+        parts.append(f"<li><a href='{resolved_url}'>{n.get('nav_display_label', 'Link')}</a></li>")
+    return "".join(parts)
+
 def _generate_excerpt(html_content, word_limit=30):
     """Plain-text excerpt from an HTML body: strips tags, collapses
     whitespace, takes the first word_limit words, adds a trailing ellipsis
@@ -1202,8 +1258,8 @@ def _generate_excerpt(html_content, word_limit=30):
     which (unlike apps) have no dedicated description field of their own."""
     if not html_content:
         return ""
-    Stripped_Excerpt_Text = re.sub(r'<[^>]+>', ' ', html_content)   # strip tags
-    Stripped_Excerpt_Text = re.sub(r'\s+', ' ', Stripped_Excerpt_Text).strip()        # collapse whitespace
+    Stripped_Excerpt_Text = re.sub(r'<[^>]+>', ' ', html_content)
+    Stripped_Excerpt_Text = re.sub(r'\s+', ' ', Stripped_Excerpt_Text).strip()
     words = Stripped_Excerpt_Text.split(' ')
     if len(words) <= word_limit:
         return Stripped_Excerpt_Text
@@ -1233,7 +1289,6 @@ def _generate_card_html(item, link, target_attr, label, p_date, p_auth, rel_pref
 
     return f"""<a href="{link}" class="card"{target_attr}>{img_html}<div class="card-content"><span class="card-type">{label}</span><h3>{item['page_title']}</h3>{desc_html}<div class="card-meta">{p_date}</div></div></a>"""
 def _generate_ad_block(ad_units, rel_prefix, zone="sidebar"):
-    # BUG FIX: this used to pick a random active ad regardless of ad_zone,
     # even though the admin UI (site/ads) lets you assign header/footer/sidebar
     # per ad and shows a per-zone "Ad Zones Summary" -- the zone was collected
     # and displayed but never actually used to filter placement. This is only
@@ -1299,7 +1354,7 @@ def _write_sitemap_and_robots(output_dir, base_url, feed_items, categories):
         f.write(robots_txt)
 
 
-def _generate_related_block(items, current_item, default_author, categories):
+def _generate_related_block(items, current_item, default_author, categories, rel_prefix="../../../"):
     rel_cat = current_item.get('page_cat_name')
     related = [i for i in items if i.get('page_cat_name') == rel_cat and i.get('page_uuid') != current_item.get('page_uuid')]
     if not related: return ""
@@ -1313,9 +1368,9 @@ def _generate_related_block(items, current_item, default_author, categories):
         cat_slug = cat_obj['cat_slug'] if cat_obj and cat_obj.get('cat_slug') else "uncategorized"
         itype = s.get('page_type', 'page')
         # This is used in Article_Skeleton which is at itype/cat/slug/index.html (3 levels deep)
-        Generated_Page_Permalink = f"../../../{itype}/{cat_slug}/{s['page_slug']}/index.html"
+        Generated_Page_Permalink = f"{rel_prefix}projects/{s['page_slug']}/index.html" if itype == "project" else f"{rel_prefix}{itype}/{cat_slug}/{s['page_slug']}/index.html"
         p_date = s.get('page_created_at') or ""
-        grid_html += _generate_card_html(s, Generated_Page_Permalink, "", itype.upper(), p_date, default_author, "../../../")
+        grid_html += _generate_card_html(s, Generated_Page_Permalink, "", itype.upper(), p_date, default_author, rel_prefix)
         
     return f"""
     <hr style="border:0; border-top:1px solid #eee; margin:40px 0;">
@@ -1404,11 +1459,111 @@ def _generate_topical_links_block(item: dict, external_media_records: list) -> s
     """
 
 
-def _execute():
+
+def _extract_github_owner_repo(project_meta: dict):
+    """Extract (owner, repo) from project_github_url or project_featured_links entries."""
+    candidates = []
+    if project_meta.get("project_github_url"):
+        candidates.append(str(project_meta["project_github_url"]))
+    raw_feat = str(project_meta.get("project_featured_links") or "")
+    for line in raw_feat.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "|" in line:
+            candidates.append(line.split("|", 1)[1].strip())
+        else:
+            candidates.append(line)
+    gh_pattern = re.compile(r"https?://(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?(?:/|$|\?|#)", re.IGNORECASE)
+    for url in candidates:
+        m = gh_pattern.search(url)
+        if m:
+            return m.group(1), m.group(2)
+    return None
+
+
+def _fetch_github_repo_stats(owner: str, repo: str, token: str):
+    """Fetch public repository stats via GitHub REST API using an ephemeral in-memory token."""
+    if not token:
+        return None
+    import urllib.request
+    import urllib.error
+    api_url = f"https://api.github.com/repos/{owner}/{repo}"
+    req = urllib.request.Request(
+        api_url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "BEJSON_CMS-StaticPublisher",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status != 200:
+                return None
+            payload = json.loads(resp.read().decode("utf-8"))
+        lic = payload.get("license") or {}
+        spdx = lic.get("spdx_id") if isinstance(lic, dict) else ""
+        if spdx == "NOASSERTION":
+            spdx = ""
+        return {
+            "full_name": payload.get("full_name") or f"{owner}/{repo}",
+            "stars": int(payload.get("stargazers_count") or 0),
+            "forks": int(payload.get("forks_count") or 0),
+            "open_issues": int(payload.get("open_issues_count") or 0),
+            "language": payload.get("language") or "",
+            "license": spdx or "",
+            "pushed_at": payload.get("pushed_at") or "",
+        }
+    except Exception:
+        return None
+
+
+def _scrub_token_from_output(output_dir: str, secret_token: str) -> int:
+    """Post-build safety guard ensuring an ephemeral build token never leaks into public static files."""
+    if not secret_token or len(secret_token) < 8:
+        return 0
+    scrubbed = 0
+    text_exts = {".html", ".htm", ".xml", ".json", ".txt", ".css", ".js", ".svg"}
+    for root_p, _, files in os.walk(output_dir):
+        for fname in files:
+            if os.path.splitext(fname)[1].lower() not in text_exts:
+                continue
+            fpath = os.path.join(root_p, fname)
+            try:
+                content = Path(fpath).read_text(encoding="utf-8", errors="ignore")
+                if secret_token in content:
+                    Path(fpath).write_text(content.replace(secret_token, "[REDACTED]"), encoding="utf-8")
+                    scrubbed += 1
+            except Exception:
+                pass
+    return scrubbed
+
+
+def _execute(github_token=None):
     """
     Robust build execution using unified tag resolution.
     """
     _log("Initializing Build...")
+    from BEJSON_CMS_GitHub import (
+        check_connectivity as _gh_check_connectivity,
+        extract_github_owner_repo as _gh_extract_owner_repo,
+        get_github_settings as _gh_get_settings,
+        get_repo_stats_with_fallback as _gh_get_stats,
+        load_stats_cache as _gh_load_cache,
+        resolve_github_token as _gh_resolve_token,
+        save_stats_cache as _gh_save_cache,
+    )
+    gh_settings = _gh_get_settings(db)
+    gh_stats_enabled = gh_settings.get("github_stats_enabled", "true") == "true"
+    gh_strip_enabled = gh_settings.get("github_post_strip_enabled", "true") == "true"
+    active_github_token = _gh_resolve_token(db, explicit_token=github_token)
+    gh_stats_cache = _gh_load_cache() if gh_stats_enabled else {}
+    gh_is_online = False
+    if gh_stats_enabled:
+        gh_is_online = _gh_check_connectivity(timeout=2.0)
+        _log(f"GitHub connectivity probe: {'ONLINE' if gh_is_online else 'OFFLINE (using cached stats fallback)'}.")
     try:
         SkeletonBuilder().build_all_skeletons()
     except Exception:
@@ -1457,7 +1612,11 @@ def _execute():
     default_author = site_conf.get("creator", "The Architect")
     base_url       = site_conf.get("base_url", "https://boehnenelton2024-blog.pages.dev")
 
-    custom_nav_html = "".join([f"<li><a href='{n.get('nav_target_url', '#')}'>{n.get('nav_display_label', 'Link')}</a></li>" for n in nav_records])
+    custom_nav_html = "".join([
+        f"<li><a href='{n.get('nav_target_url', '#')}'>{n.get('nav_display_label', 'Link')}</a></li>"
+        for n in nav_records
+        if not (str(n.get("nav_target_url", "")).startswith("/apps/") or str(n.get("nav_target_url", "")).startswith("apps/"))
+    ])
     social_html     = "".join([f"<a href='{s.get('social_target_url', '#')}' target='_blank' class='social-btn'>{s.get('social_platform_name', 'Social')}</a>" for s in social_records])
 
     skeleton_config = _get_skeleton_config(site_conf)
@@ -1466,12 +1625,42 @@ def _execute():
     active_article_skeleton_name  = skeleton_config["active_article_skeleton"]
     active_category_skeleton_name = skeleton_config["active_category_skeleton"]
     active_apps_skeleton_name     = skeleton_config["active_apps_skeleton"]
+    active_projects_skeleton_name = skeleton_config["active_projects_skeleton"]
 
     _log(f"Global Shell: {active_global_skeleton_name} | Home Body: {active_home_skeleton_name}")
     wrapper_skel = _read_skel(active_global_skeleton_name)
     feed_items   = []
+    project_items = [p for p in items if p.get("page_type") == "project"]
+    project_meta_index = {}
+    import lib_bejson_Core_bejson_core as _CorePre
+    for _proj in project_items:
+        _pfile = os.path.join(PAGES_DB_DIR, f"{_proj['page_uuid']}.json")
+        if not os.path.exists(_pfile):
+            continue
+        try:
+            with open(_pfile, "r", encoding="utf-8") as _pfh:
+                _pjs = json.load(_pfh)
+            _pfm = _CorePre.bejson_core_get_field_map(_pjs)
+            _pidx = _pfm.get("Record_Type_Parent", 0)
+            _pmrow = next((r for r in _pjs.get("Values", []) if len(r) > _pidx and r[_pidx] == "ProjectMeta"), None)
+            _pm = {}
+            if _pmrow:
+                for _k in ("project_github_url", "project_gemini_notepad_url", "project_featured_links", "project_youtube_links", "project_asset_links", "project_bejson_era"):
+                    _ki = _pfm.get(_k, -1)
+                    if _ki != -1 and len(_pmrow) > _ki:
+                        _pm[_k] = _pmrow[_ki] or ""
+            if gh_stats_enabled:
+                _gh_t = _gh_extract_owner_repo(_pm)
+                if _gh_t:
+                    _st = _gh_get_stats(_gh_t[0], _gh_t[1], active_github_token, gh_is_online, gh_stats_cache)
+                    if _st:
+                        _pm["project_github_stats"] = _st
+            project_meta_index[_proj["page_uuid"]] = {"item": _proj, "meta": _pm}
+        except Exception:
+            pass
+    if gh_stats_enabled and gh_is_online and gh_stats_cache:
+        _gh_save_cache(gh_stats_cache)
 
-    # Common tags
     base_tags = {
         "site_title": site_title,
         "site_description": site_desc,
@@ -1500,7 +1689,14 @@ def _execute():
         cat_obj  = next((c for c in categories if c.get("cat_name") == item.get("page_cat_name")), None)
         cat_slug = cat_obj["cat_slug"] if cat_obj and cat_obj.get("cat_slug") else "uncategorized" 
 
-        target_dir = os.path.join(output_dir, itype, cat_slug, item["page_slug"])
+        if itype == "project":
+            page_rel_link = f"projects/{item['page_slug']}/index.html"
+            page_rel_prefix = "../../"
+            target_dir = os.path.join(output_dir, "projects", item["page_slug"])
+        else:
+            page_rel_link = f"{itype}/{cat_slug}/{item['page_slug']}/index.html"
+            page_rel_prefix = "../../../"
+            target_dir = os.path.join(output_dir, itype, cat_slug, item["page_slug"])
         os.makedirs(target_dir, exist_ok=True)
 
         src_file = os.path.join(PAGES_DB_DIR, f"{item['page_uuid']}.json")
@@ -1603,9 +1799,9 @@ def _execute():
 
             # Handle missing or "None" images with the seeded default image
             if not f_img or str(f_img).lower() == "none":
-                feat_img_html = f"<img src='../../../assets/{DEFAULT_FEATURED_IMAGE}' class='article-featured-image'>"
+                feat_img_html = f"<img src='{page_rel_prefix}assets/{DEFAULT_FEATURED_IMAGE}' class='article-featured-image'>"
             else:
-                feat_img_html = f"<img src='../../../assets/{f_img}' class='article-featured-image'>"
+                feat_img_html = f"<img src='{page_rel_prefix}assets/{f_img}' class='article-featured-image'>"
             
             feat_diag_html = ""
             if f_diag and f_diag.lower() != "none":
@@ -1621,13 +1817,50 @@ def _execute():
                     except Exception as diag_err:
                         _log(f"Warning: Error rendering Header Diagram '{f_diag}': {diag_err}")
 
-            related_html       = _generate_related_block(items, item, default_author, categories)
-            ad_html            = _generate_ad_block(ad_units, "../../../")
+            related_html       = _generate_related_block(items, item, default_author, categories, page_rel_prefix)
+            ad_html            = _generate_ad_block(ad_units, page_rel_prefix)
             topical_links_html = _generate_topical_links_block(item, external_media)
 
             # Render page content via strategy renderer dispatch
-            from BEJSON_CMS_Renderers import render_page
-            rendered_article_content = render_page(itype, {"page_title": item.get("page_title", ""), "html_body": html_body, "page_external_url": item.get("page_external_url"), "page_featured_img": f_img, "page_featured_video_url": item.get("page_featured_video_url")})
+            from BEJSON_CMS_Renderers import render_page, render_project_link_strip
+            project_meta_data = {}
+            if itype == "project":
+                project_meta_data = dict((project_meta_index.get(item["page_uuid"]) or {}).get("meta") or {})
+            rendered_article_content = render_page(
+                itype,
+                {
+                    "page_title": item.get("page_title", ""),
+                    "html_body": html_body,
+                    "page_external_url": item.get("page_external_url"),
+                    "page_featured_img": f_img,
+                    "page_featured_video_url": item.get("page_featured_video_url"),
+                },
+                meta_data=project_meta_data if project_meta_data else None,
+            )
+
+            # Auto-inject compact single horizontally scrolling project link strip below hero on linked standard posts
+            linked_proj_uuid = (item.get("page_project_uuid") or "").strip()
+            if itype != "project" and gh_strip_enabled and linked_proj_uuid and linked_proj_uuid in project_meta_index:
+                _lp_entry = project_meta_index[linked_proj_uuid]
+                _lp_item = _lp_entry["item"]
+                _lp_href = f"{page_rel_prefix}projects/{_lp_item['page_slug']}/index.html"
+                _strip_html = render_project_link_strip(_lp_item.get("page_title", "Project"), _lp_href, _lp_entry["meta"])
+                feat_img_html = feat_img_html + "\n" + _strip_html
+
+            # Auto-append reverse "Project Articles & Devlogs" on Project pages
+            if itype == "project":
+                _bound_posts = [
+                    bp_item for bp_item in items
+                    if bp_item.get("page_type") != "project" and (bp_item.get("page_project_uuid") or "").strip() == item["page_uuid"]
+                ]
+                if _bound_posts:
+                    _bp_items_html = []
+                    for _bp in _bound_posts:
+                        _bp_cat = next((c for c in categories if c.get("cat_name") == _bp.get("page_cat_name")), None)
+                        _bp_cslug = _bp_cat["cat_slug"] if _bp_cat and _bp_cat.get("cat_slug") else "uncategorized"
+                        _bp_href = f"{page_rel_prefix}{_bp.get('page_type', 'page')}/{_bp_cslug}/{_bp['page_slug']}/index.html"
+                        _bp_items_html.append(f'<li style="margin-bottom:6px;"><a href="{_bp_href}" style="color:var(--primary-color,#DE2626);text-decoration:underline;font-weight:600;">{_bp.get("page_title", "Post")}</a> <span style="color:var(--text-muted,#666);font-size:0.82rem;">({_bp.get("page_created_at") or ""})</span></li>')
+                    rendered_article_content += '<div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border-color,#E0E0E0);"><h3 style="margin:0 0 10px;">Linked Articles &amp; Devlogs</h3><ul style="margin:0;padding-left:18px;">' + "".join(_bp_items_html) + "</ul></div>"
 
             page_selected_article_skel = active_article_skeleton_name
             page_template_override = (item.get("page_template_key") or "").strip()
@@ -1644,17 +1877,23 @@ def _execute():
             if feat_diag_html and "{{featured_diagram_html}}" not in article_skel:
                 feat_img_html = feat_img_html + "\n" + feat_diag_html
 
-            # Build Page Tags
             page_tags = base_tags.copy()
             page_tags.update({
                 "page_title": item.get("page_title", ""),
-                "rel_prefix": "../../../",
-                "sidebar_categories": _get_sidebar_html(categories, "../../../"),
-                "breadcrumb_html": f"<a href='../../../category/{cat_slug}/index.html'>{item.get('page_cat_name', 'Uncategorized')}</a> <span>/</span> {item['page_title']}",
+                "rel_prefix": page_rel_prefix,
+                "custom_nav_links": _get_custom_nav_html(nav_records, page_rel_prefix),
+                "sidebar_categories": _get_sidebar_html(categories, page_rel_prefix),
+                "nav_apps": _get_apps_nav_html(standalone_apps, page_rel_prefix),
+                "nav_projects": _get_projects_nav_html(project_items, categories, page_rel_prefix),
+                "breadcrumb_html": (
+                    f"<a href='{page_rel_prefix}projects/index.html'>Projects</a> <span>/</span> {item['page_title']}"
+                    if itype == "project"
+                    else f"<a href='{page_rel_prefix}category/{cat_slug}/index.html'>{item.get('page_cat_name', 'Uncategorized')}</a> <span>/</span> {item['page_title']}"
+                ),
                 "seo_description": p_desc or site_desc,
                 "seo_author": p_author,
-                "seo_image": f"{base_url.rstrip('/')}/assets/{f_img}" if f_img else "",
-                "current_url": "",
+                "seo_image": f"{base_url.rstrip('/')}/assets/{f_img or DEFAULT_FEATURED_IMAGE}" if base_url else "",
+                "current_url": f"{base_url.rstrip('/')}/{page_rel_link}" if base_url else "",
                 # Inner Tags
                 "article_title": item.get("page_title", ""),
                 "category": item.get("page_cat_name", "Uncategorized"),
@@ -1666,7 +1905,6 @@ def _execute():
                 "timestamp": f"{p_date} \u2022 {p_author}"
             })
 
-            # Assemble Page
             main_content = _apply_tags(article_skel, page_tags)
             page_tags["main_content_injection"] = main_content
             
@@ -1674,7 +1912,7 @@ def _execute():
             final = _apply_tags(final, page_tags) 
 
             with open(os.path.join(target_dir, "index.html"), "w", encoding="utf-8") as f: f.write(final)
-            feed_items.append({"date": p_date, "item": item, "link": f"{itype}/{cat_slug}/{item['page_slug']}/index.html", "type": "page", "desc": p_desc})
+            feed_items.append({"date": p_date, "item": item, "link": page_rel_link, "type": "project" if itype == "project" else "page", "desc": p_desc, "era": project_meta_data.get("project_bejson_era", "")})
         except Exception as e:
             _log(f"Error processing {item['page_title']}: {e}")
 
@@ -1713,6 +1951,9 @@ def _execute():
         "page_title": "Home",
         "rel_prefix": "",
         "sidebar_categories": _get_sidebar_html(categories, ""),
+        "nav_apps": _get_apps_nav_html(standalone_apps, ""),
+        "nav_projects": _get_projects_nav_html(project_items, categories, ""),
+        "custom_nav_links": _get_custom_nav_html(nav_records, ""),
         "breadcrumb_html": "Dashboard",
         "seo_description": site_desc,
         "seo_author": site_title,
@@ -1742,6 +1983,9 @@ def _execute():
         "page_title": "Applications",
         "rel_prefix": "../",
         "sidebar_categories": _get_sidebar_html(categories, "../"),
+        "nav_apps": _get_apps_nav_html(standalone_apps, "../"),
+        "nav_projects": _get_projects_nav_html(project_items, categories, "../"),
+        "custom_nav_links": _get_custom_nav_html(nav_records, "../"),
         "breadcrumb_html": "Applications",
         "seo_description": "Web Tools",
         "seo_author": site_title,
@@ -1758,13 +2002,45 @@ def _execute():
     os.makedirs(os.path.join(output_dir, "apps"), exist_ok=True)
     with open(os.path.join(output_dir, "apps", "index.html"), "w", encoding="utf-8") as f: f.write(final)
 
+    # --- BUILD PROJECTS FEED ---
+    _log(f"Generating Projects Feed ({active_projects_skeleton_name})...")
+    projects_only = sorted([x for x in feed_items if x["type"] == "project"], key=lambda k: k["date"] or "", reverse=True)
+    projects_grid = "".join([
+        _generate_card_html(x["item"], f"../{x['link']}", x.get("target_attr", ""), f"PROJECT · {x['era']}" if x.get("era") else "PROJECT", x["date"], default_author, "../", x.get("desc", ""))
+        for x in projects_only
+    ])
+
+    projects_tags = base_tags.copy()
+    projects_tags.update({
+        "page_title": "Projects",
+        "rel_prefix": "../",
+        "custom_nav_links": _get_custom_nav_html(nav_records, "../"),
+        "sidebar_categories": _get_sidebar_html(categories, "../"),
+        "nav_apps": _get_apps_nav_html(standalone_apps, "../"),
+        "nav_projects": _get_projects_nav_html(project_items, categories, "../"),
+        "breadcrumb_html": "Projects",
+        "seo_description": "Technical projects, repositories, video walkthroughs, and public design notepads.",
+        "seo_author": site_title,
+        "seo_image": f"{base_url.rstrip('/')}/assets/{DEFAULT_FEATURED_IMAGE}" if base_url else "",
+        "current_url": f"{base_url.rstrip('/')}/projects/index.html" if base_url else "",
+        "content_grid": projects_grid + _generate_ad_block(ad_units, "../")
+    })
+
+    projects_inner = _apply_tags(_read_skel(active_projects_skeleton_name), projects_tags)
+    projects_tags["main_content_injection"] = projects_inner
+
+    final = _apply_tags(wrapper_skel, projects_tags)
+    final = _apply_tags(final, projects_tags)
+    os.makedirs(os.path.join(output_dir, "projects"), exist_ok=True)
+    with open(os.path.join(output_dir, "projects", "index.html"), "w", encoding="utf-8") as f: f.write(final)
+
     # --- BUILD CATEGORY FEEDS ---
     for cat in categories:
         c_name = cat.get("cat_name") or cat.get("category_name")
         if not c_name: continue
         c_slug = cat.get("cat_slug") or cat.get("category_slug") or "uncategorized"
         _log(f"Generating Category: {c_name} ({active_category_skeleton_name})")
-        c_items = [x for x in feed_items if x["type"] in ("page", "external_link") and x["item"].get("page_cat_name") == c_name]
+        c_items = [x for x in feed_items if x["type"] in ("page", "project", "external_link") and x["item"].get("page_cat_name") == c_name]
         c_grid = "".join([_generate_card_html(x["item"], x["link"] if x["type"] == "external_link" else f"../../{x['link']}", x.get("target_attr", ""), x["type"].upper(), x["date"], default_author, "../../", x.get("desc", "")) for x in c_items])
         
         cat_tags = base_tags.copy()
@@ -1772,6 +2048,9 @@ def _execute():
             "page_title": c_name,
             "rel_prefix": "../../",
             "sidebar_categories": _get_sidebar_html(categories, "../../"),
+            "nav_apps": _get_apps_nav_html(standalone_apps, "../../"),
+            "nav_projects": _get_projects_nav_html(project_items, categories, "../../"),
+            "custom_nav_links": _get_custom_nav_html(nav_records, "../../"),
             "breadcrumb_html": f"Category <span>/</span> {c_name}",
             "seo_description": "",
             "seo_author": site_title,
@@ -1796,6 +2075,10 @@ def _execute():
     _log("Generating sitemap.xml and robots.txt...")
     _write_sitemap_and_robots(output_dir, base_url, feed_items, categories)
 
+    if active_github_token:
+        leaked_count = _scrub_token_from_output(output_dir, active_github_token)
+        if leaked_count:
+            _log(f"Security guard scrubbed token reference from {leaked_count} output file(s).")
     _log("Build Complete!")
 
 
@@ -2120,21 +2403,10 @@ def r_publish():
     home_cat_pos_val      = str(skel_conf.get("home_category_bar_position", "below_bulletin")).lower().strip()
 
     cf_cfg = get_cloudflare_config(db)
-    blogger_cfg = get_blogger_config(db)
-    substack_cfg = get_substack_config(db)
-
     cf_badge = ('<span class="badge b-on">&#10003; Connected</span>' if cf_cfg.get("api_token")
                 else '<span class="badge b-off">Pending Setup</span>')
-    blogger_badge = ('<span class="badge b-on">&#10003; Connected</span>' if (blogger_cfg.get("blog_id") and (blogger_cfg.get("refresh_token") or blogger_cfg.get("client_id")))
-                     else '<span class="badge b-off">Pending Setup</span>')
-    substack_badge = ('<span class="badge b-on">&#10003; Connected</span>' if (substack_cfg.get("session_sid") and (substack_cfg.get("subdomain") or substack_cfg.get("base_url")))
-                      else '<span class="badge b-off">Pending Setup</span>')
-
     cf_account_masked = (cf_cfg["account_id"][:6] + "..." + cf_cfg["account_id"][-4:]) if len(cf_cfg.get("account_id", "")) >= 10 else (cf_cfg.get("account_id") or "ENV:CLOUDFLARE_ACCOUNT_ID")
-    blogger_blog_masked = blogger_cfg.get("blog_id") or "ENV:BLOGGER_BLOG_ID"
-    substack_sub_masked = substack_cfg.get("subdomain") or substack_cfg.get("base_url") or "ENV:SUBSTACK_SUBDOMAIN"
     cf_project_val = cf_cfg.get("project_name", "boehnenelton2024-blog")
-    substack_sub_val = substack_cfg.get("subdomain", "")
 
     build_badge = ("<span class='badge b-on'>IDLE</span>" if not building
                    else "<span class='badge' style='background:#7c2d12;color:#fca5a5;'>BUILDING...</span>")
@@ -2183,6 +2455,9 @@ def r_publish():
                 Stylesheets live in <code style="color:#aaa;word-break:break-all;">{STYLESHEETS_DIR}</code>.
               </p>
             </div>
+            <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;">
+              GitHub stats, connectivity fallback, and token settings are managed centrally in <a href="/github" style="color:#DE2626;text-decoration:underline;font-weight:600;">Admin &rarr; GitHub Hub (/github)</a>.
+            </p>
             <button class="btn btn-red" {"disabled" if building else ""}>&#9654; Build Now</button>
           </form>
         </div>
@@ -2206,83 +2481,25 @@ def r_publish():
       </div>
     </div>
 
-    <!-- API INTEGRATIONS & SYNDICATION SECTION -->
+    <!-- CLOUDFLARE PAGES EDGE DEPLOYMENT SECTION -->
     <div class="card" style="margin-top:16px;">
       <div class="card-hd">
-        <h3>API Integrations &amp; Syndication</h3>
-        <span class="badge b-off">ENV &bull; SecureEnv Resolved</span>
+        <h3>Cloudflare Pages Deployment</h3>
+        {cf_badge}
       </div>
       <p style="color:var(--muted);font-size:.86rem;margin-bottom:16px;">
-        Automated multi-platform edge deployment and syndication. Credentials resolve dynamically via <code>$DEFINITIONS_FILE</code>, <code>secureenv_file.json</code>, and shell environment without hardcoded secrets.
+        Deploy the static production build directory directly to Cloudflare Pages edge network via Wrangler. Credentials resolve dynamically via <code>$DEFINITIONS_FILE</code>, <code>secureenv_file.json</code>, and shell environment without hardcoded secrets.
       </p>
-
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
-        <!-- CLOUDFLARE PAGES -->
-        <div style="background:#111;border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <h4 style="margin:0;font-size:.9rem;font-weight:700;">&#9729; Cloudflare Pages</h4>
-            {cf_badge}
-          </div>
-          <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;flex:1;">
-            Deploy the static production build directory directly to Cloudflare Pages edge network via Wrangler.
-          </p>
-          <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px;">
-            Account ID: <code style="color:#aaa;">{cf_account_masked}</code>
-          </div>
-          <form method="POST" action="/publish/cloudflare" style="margin:0;">
-            <div class="fg">
-              <label style="font-size:.78rem;">Project Name</label>
-              <input type="text" name="cf_project" placeholder="Cloudflare Project" value="{cf_project_val}">
-            </div>
-            <button class="btn btn-green" style="width:100%;margin-top:6px;" {"disabled" if building else ""}>&#9729; Publish to Cloudflare</button>
-          </form>
-        </div>
-
-        <!-- GOOGLE BLOGGER -->
-        <div style="background:#111;border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <h4 style="margin:0;font-size:.9rem;font-weight:700;">&#9998; Google Blogger</h4>
-            {blogger_badge}
-          </div>
-          <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;flex:1;">
-            Syndicate CMS articles to Google Blogger v3 with rate limiting and duplicate detection.
-          </p>
-          <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px;">
-            Blog ID: <code style="color:#aaa;">{blogger_blog_masked}</code>
-          </div>
-          <form method="POST" action="/publish/blogger" style="margin:0;">
-            <div class="fg">
-              <label style="font-size:.78rem;">Publication Mode</label>
-              <select name="blogger_mode">
-                <option value="publish">Live (Published)</option>
-                <option value="draft">Draft Mode</option>
-              </select>
-            </div>
-            <button class="btn btn-red" style="width:100%;margin-top:6px;" {"disabled" if building else ""}>&#9998; Syndicate to Blogger</button>
-          </form>
-        </div>
-
-        <!-- SUBSTACK -->
-        <div style="background:#111;border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <h4 style="margin:0;font-size:.9rem;font-weight:700;">&#128214; Substack</h4>
-            {substack_badge}
-          </div>
-          <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;flex:1;">
-            Syndicate articles and drafts to your Substack publication using session token auth.
-          </p>
-          <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px;">
-            Subdomain: <code style="color:#aaa;">{substack_sub_masked}</code>
-          </div>
-          <form method="POST" action="/publish/substack" style="margin:0;">
-            <div class="fg">
-              <label style="font-size:.78rem;">Publication Subdomain</label>
-              <input type="text" name="substack_subdomain" placeholder="Subdomain (e.g. newsletter)" value="{substack_sub_val}">
-            </div>
-            <button class="btn btn-green" style="width:100%;margin-top:6px;" {"disabled" if building else ""}>&#128214; Syndicate to Substack</button>
-          </form>
-        </div>
+      <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px;">
+        Account ID: <code style="color:#aaa;">{cf_account_masked}</code>
       </div>
+      <form method="POST" action="/publish/cloudflare" style="margin:0;max-width:440px;">
+        <div class="fg">
+          <label style="font-size:.78rem;">Project Name</label>
+          <input type="text" name="cf_project" placeholder="Cloudflare Project" value="{cf_project_val}">
+        </div>
+        <button class="btn btn-green" style="width:100%;margin-top:6px;" {"disabled" if building else ""}>&#9729; Publish to Cloudflare</button>
+      </form>
     </div>
 
     <div class="card">
@@ -2535,12 +2752,13 @@ def r_build():
     Submitted_Stylesheet_Choice = request.form.get("stylesheet", "").strip()
     if Submitted_Stylesheet_Choice:
         _state["stylesheet"] = Submitted_Stylesheet_Choice
+    ephemeral_github_token = request.form.get("github_token", "").strip()
     if not _state["build_running"]:
         _state["build_running"] = True
         _state["build_log"]     = []
-        def _run():
+        def _run(gh_tok=ephemeral_github_token):
             try:
-                _execute()
+                _execute(github_token=gh_tok)
             finally:
                 _state["build_running"] = False
         threading.Thread(target=_run, daemon=True).start()
@@ -2575,7 +2793,6 @@ def r_regen():
     return _page("Publisher", "publish",
         '<p style="margin-top:12px;"><a href="/publish" class="btn btn-grey">&#8592; Back</a></p>',
         flash=msg, flash_cls="a-ok" if ok else "a-err")
-
 
 
 # ==============================================================================
@@ -2720,124 +2937,6 @@ def r_publish_cloudflare():
                 _state["build_running"] = False
 
         threading.Thread(target=_run_deploy, daemon=True).start()
-
-    return redirect("/publish")
-
-
-@app.route("/publish/blogger", methods=["POST"])
-def r_publish_blogger():
-    blogger_cfg = get_blogger_config(db)
-    mode = request.form.get("blogger_mode", "publish").strip().lower()
-    is_draft = (mode == "draft")
-
-    if not _state["build_running"]:
-        _state["build_running"] = True
-        _state["build_log"] = []
-        _log(f"[Blogger] Starting syndication to Google Blogger (mode: {'Draft' if is_draft else 'Live'})...")
-
-        def _run_blogger():
-            try:
-                tools_dir = os.path.join(PROJECT_ROOT, "tools")
-                blogger_script = os.path.join(tools_dir, "blogger_publisher.py")
-                if not os.path.exists(blogger_script):
-                    _log(f"[Error] Blogger publisher script not found: {blogger_script}")
-                    return
-
-                cmd = [sys.executable, blogger_script]
-                if is_draft:
-                    cmd.append("--draft")
-
-                blogger_env = os.environ.copy()
-                if blogger_cfg.get("client_id"):
-                    blogger_env["BLOGGER_CLIENT_ID"] = blogger_cfg["client_id"]
-                if blogger_cfg.get("client_secret"):
-                    blogger_env["BLOGGER_CLIENT_SECRET"] = blogger_cfg["client_secret"]
-                if blogger_cfg.get("blog_id"):
-                    blogger_env["BLOGGER_BLOG_ID"] = blogger_cfg["blog_id"]
-                if blogger_cfg.get("refresh_token"):
-                    blogger_env["BLOGGER_REFRESH_TOKEN"] = blogger_cfg["refresh_token"]
-
-                _log("[Blogger] Dispatching Google Blogger batch syndication...")
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    env=blogger_env
-                )
-                for line in process.stdout:
-                    clean_line = line.strip()
-                    if clean_line:
-                        _log(f"[blogger] {clean_line}")
-
-                process.wait()
-                if process.returncode == 0:
-                    _log("[Blogger] Syndication completed successfully!")
-                else:
-                    _log(f"[Blogger] Deployment completed with code {process.returncode}")
-            except Exception as e:
-                _log(f"[Blogger] Critical Error: {e}")
-            finally:
-                _state["build_running"] = False
-
-        threading.Thread(target=_run_blogger, daemon=True).start()
-
-    return redirect("/publish")
-
-
-@app.route("/publish/substack", methods=["POST"])
-def r_publish_substack():
-    substack_cfg = get_substack_config(db)
-    subdomain_input = request.form.get("substack_subdomain", "").strip()
-    target_subdomain = subdomain_input or substack_cfg.get("subdomain", "")
-
-    if not _state["build_running"]:
-        _state["build_running"] = True
-        _state["build_log"] = []
-        _log(f"[Substack] Starting syndication to Substack (target: {target_subdomain or 'default'})...")
-
-        def _run_substack():
-            try:
-                tools_dir = os.path.join(PROJECT_ROOT, "tools")
-                substack_script = os.path.join(tools_dir, "substack_publisher.py")
-                if not os.path.exists(substack_script):
-                    _log(f"[Error] Substack publisher script not found: {substack_script}")
-                    return
-
-                cmd = [sys.executable, substack_script]
-
-                substack_env = os.environ.copy()
-                if substack_cfg.get("session_sid"):
-                    substack_env["SUBSTACK_SID"] = substack_cfg["session_sid"]
-                if target_subdomain:
-                    substack_env["SUBSTACK_SUBDOMAIN"] = target_subdomain
-                if substack_cfg.get("base_url"):
-                    substack_env["SUBSTACK_URL"] = substack_cfg["base_url"]
-
-                _log("[Substack] Dispatching Substack batch syndication...")
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    env=substack_env
-                )
-                for line in process.stdout:
-                    clean_line = line.strip()
-                    if clean_line:
-                        _log(f"[substack] {clean_line}")
-
-                process.wait()
-                if process.returncode == 0:
-                    _log("[Substack] Syndication completed successfully!")
-                else:
-                    _log(f"[Substack] Deployment completed with code {process.returncode}")
-            except Exception as e:
-                _log(f"[Substack] Critical Error: {e}")
-            finally:
-                _state["build_running"] = False
-
-        threading.Thread(target=_run_substack, daemon=True).start()
 
     return redirect("/publish")
 

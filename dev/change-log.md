@@ -1,5 +1,43 @@
 # BEJSON_CMS Change Log
 
+## [1901-PKG4] - 2026-11-24
+
+### Fixed (Hostile Audit)
+- **`BEJSON_CMS_Content.py`**: Fixed `NameError` in `/pages/new` (`page_project_uuid` defaulted to `""`), wired `page_project_uuid` persistence into `/edit/<page_uuid>` `db.update_record(...)`, and moved `all_projects` template context to `/edit/<page_uuid>`.
+- **`BEJSON_CMS_GitHub.py`**: Aligned `get_github_settings()` and `save_github_settings()` to `siteconfig.bejson`'s actual `sys_key`/`sys_value` columns and verified live MFDB round-trip persistence.
+
+## [1901-PKG3] - 2026-11-24
+
+### Added & Integrated
+- **Dedicated Admin GitHub Hub (`/github` — `BEJSON_CMS_GitHub.py`)**:
+  - Moved GitHub token & feature toggles out of Publisher into `/github` (`NAV_SECTIONS['github']`), using `ENV:GITHUB_TOKEN` pointer + optional ephemeral in-memory session token (zero secrets on disk).
+  - Added fast pre-flight connectivity check (`Google 204` / `GitHub API`) with automatic BEJSON 104a public stats cache fallback (`github_stats_cache.104a.bejson`).
+  - Added 1-click **Fetch Repos -> Create Project Page** importer directly from GitHub.
+- **Seamless Post-to-Project Integration (`page_project_uuid`)**:
+  - Added `page_project_uuid` foreign-key column to `pagerecord.bejson` and **Linked Project** dropdown in the standard post editor (`BEJSON_CMS_Content.py`).
+  - Auto-injects a **compact single horizontally scrolling row strip** of project links (`BEJSON 104`/`105` badge, Project Page, GitHub, Featured Links, Notepad, and live/cached stats) directly below the hero on linked posts (`render_project_link_strip()`).
+  - Auto-appends reverse **Linked Articles & Devlogs** on each `/projects/<slug>/index.html` page.
+- **UI Preference Logged**: Recorded the horizontal post strip layout directive in `dev/UIPref.md`.
+- **Version Bump**: `Project_Version: 1901`, `Package_Version: 3` (`BEJSON_CMS-V1901-PKG3.zip`).
+
+## [1901-PKG2] - 2026-11-24
+
+### Added
+- **Ephemeral GitHub Token & Static Project Repo Stats**:
+  - Added a password-masked `github_token` input box to the Publisher Build Site form (`BEJSON_CMS_Publisher.py`), passed strictly in-memory to `_execute(github_token=...)` and never written to disk, configs, or logs.
+  - Added `_extract_github_owner_repo()` (reads `project_github_url` and `project_featured_links` repo entries) and zero-dependency `_fetch_github_repo_stats()` via GitHub REST API.
+  - Added static **GitHub Telemetry** strip (Stars, Forks, Issues, Language, License, Updated) to `ProjectPageRenderer` (`BEJSON_CMS_Renderers.py`).
+  - Added `_scrub_token_from_output()` post-build safety guard guaranteeing zero credential leakage in `storage/builds/`.
+- **Version Bump**: Set `Project_Version` to `1901` and `Package_Version` to `2` (`BEJSON_CMS-V1901-PKG2.zip`).
+
+## [19-PKG160] - 2026-11-24
+
+### Changed & Refined
+- **Clean Project Page Routing & Era Badges**: Routed `page_type='project'` directly to `/projects/<slug>/index.html` (`rel_prefix="../../"`), removed stale `storage/builds/project/`, added `project_bejson_era` (`104` / `105`) across Admin CRUD, `ProjectPageRenderer`, and `Projects_Feed_Skeleton` cards, and stripped trailing `.git` from GitHub URLs.
+- **BEJSON 104db E11 & SEO Fixes**: Added explicit `Record_Type_Parent` field descriptors and `os.fsync()` atomic writes to `_write_project_page_doc()`, converted internal `custom_nav_links` to calculated relative paths, populated `og:url` and fallback `og:image`, and added a **Projects** link to the site footer.
+- **Legacy Dev Notes Archival & Code Comment Audit**: Consolidated 27 legacy dev notes, audit reports, stray build markdowns, and one-off scratch scripts into `dev/archive/legacy_dev_notes_20261124.zip`; audited 30 CMS Python modules (20 noisy/bug-fix comments removed, 5 concise module notes added); preserved immutable Core/AI libraries.
+- **Version Bump**: Incremented `Project_Version` (`18.38` -> `19`) and `Package_Version` (`159` -> `160`) with fresh `RELATIONAL_ID` fingerprints across modified files.
+
 ## [18.38-PKG149] - 2026-11-12
 
 ### Changed

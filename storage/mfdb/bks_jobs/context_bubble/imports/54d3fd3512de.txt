@@ -1,0 +1,348 @@
+# BEJSON + MFDB Crash Course
+
+**Document Version 24 (Aligned) · Format 105 Integrity Era & MFDB Spec Version 1.31 / 1.32**  
+*Aligned with `libraries_105` Production Release & Unified Core Engines*  
+**Format Creator:** Elton Boehnen · https://boehnenelton2024.pages.dev  
+**Date:** 2026-10-13 · **RELATIONAL_ID:** 3da8c870-8a4b-4803-963f-9df2607217cd  
+**Supported Formats:** 104 Series (104 · 104a · 104db) and 105 Integrity Series (105 · 105a · 105db)  
+
+---
+
+## Read This First — What This Document Is (and Isn't)
+
+This is the **authoritative conceptual and technical reference** for understanding what BEJSON and MFDB are, how the formats are shaped, and how the pieces fit together across both the **104 Positional Era** and the **105 Integrity Era**. It exists so a developer, architect, or AI agent can read any `.bejson` file, manifest, or project across the ecosystem and know exactly how it is structured.
+
+**It is not a tutorial for writing a BEJSON parser or engine from scratch.** The core engine, structural validator, upgrade utility, and MFDB orchestration layer already exist as maintained libraries (`Lib_PY`, `Lib_JS`, `Lib_TS`, `Lib_SH` in `libraries_105` — see Part 3). Use them. Do not re-derive their logic from scratch.
+
+### The Architectural Evolution: 104 vs. 105
+
+* **The 104 Series (`104`, `104a`, `104db`) — The Positional Era**: Relies on raw positional index alignment where row elements in `Values` map 1:1 to indices in `Fields`.
+* **The 105 Series (`105`, `105a`, `105db`) — The Integrity Era**: Introduces cryptographic immutability, entity traceability, and automated cache self-maintenance:
+  1. **Mandatory `field_uuid`**: Every field definition in `Fields` carries an immutable, unique UUID string.
+  2. **Mandatory `record_uuid`**: Every row in `Values` prepends a reserved UUID at a fixed offset (column 0 for 105/105a; column 1 for 105db).
+  3. **Self-Maintaining Field Map Cache**: The cache is self-healing. The engine checks a lightweight fingerprint on every read and automatically re-indexes if the schema changed.
+  4. **Fail-on-Switch Enforcement**: Merely bumping a file header from `104` to `105` without compiling UUIDs causes an immediate hard validation failure (`E_INVALID_FIELDS` / `E_INVALID_VALUES`).
+
+---
+
+# PART 1: BEJSON Crash Course
+
+*(104 / 104a / 104db and 105 / 105a / 105db)*
+
+BEJSON is a strict, self-describing tabular data format built on JSON. Structurally, it eliminates the "Key Repetition Tax" of standard JSON by declaring the schema once in a header and locking data records into dense positional arrays.
+
+All BEJSON versions mandate the presence of these **Six Top-Level Mandatory Keys**:
+
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "104" | "104a" | "104db" | "105" | "105a" | "105db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [ ... ],
+  "Fields": [ ... ],
+  "Values": [ [ ... ], [ ... ] ]
+}
+```
+
+* `Format`: Strictly `"BEJSON"`.
+* `Format_Creator`: Strictly `"Elton Boehnen"`.
+* `Format_Version`: Strictly one of `"104"`, `"104a"`, `"104db"`, `"105"`, `"105a"`, or `"105db"`.
+
+---
+
+## Common Rules (All Versions)
+
+* The `Fields` key must contain an array of objects, structured as:
+  ```json
+  {"name": string, "type": "string"|"integer"|"boolean"|"array"|"object" [, "Record_Type_Parent": string] [, "field_uuid": string]}
+  ```
+* Non-spec types (e.g. `any`, `ANY`, `text`, `float`) are rejected with `E_INVALID_FIELDS` (Code 6).
+* **`integer`**: Standard numeric type for all counts, discrete quantities, and exact financial figures (stored in base units/cents).
+* **`string`**: Text values and textual identifiers.
+* **`boolean`**: `true` or `false` only.
+* **`array` / `object`**: Complex nested structures (permitted in 104, 104db, 105, 105db; strictly forbidden in 104a and 105a).
+* Each record within `Values` must contain an exact number of elements matching the required row width.
+* Optional or missing values must be represented by `null` to maintain length and position — never omitted, never empty strings `""` as null substitutes.
+* Duplicate field names are not permitted.
+* `null` is considered a valid value for any declared type.
+* **Field Resolution Standard**: Reads and writes go through the cached field map keyed by field name or `field_uuid`, not hardcoded numeric indices.
+
+---
+
+## Version Differences: The 104 Series (Positional Era)
+
+### BEJSON 104 — Single Record Type, Full Types
+* `Records_Type`: An array containing exactly one string (the entity name).
+* No custom top-level keys allowed beyond the six mandatory keys (except the built-in `Parent_Hierarchy` exception).
+* Supports complex data types (`array` and `object`).
+* Primary use: Homogeneous datasets, logs, metrics, MFDB entity files, or archives.
+
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "104",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": ["SensorReading"],
+  "Fields": [
+    {"name": "sensor_id", "type": "string"},
+    {"name": "timestamp", "type": "string"},
+    {"name": "temperature_celsius", "type": "integer"},
+    {"name": "tags", "type": "array"}
+  ],
+  "Values": [
+    ["S001", "2026-01-10T12:00:00Z", 24, ["indoor", "ground"]],
+    ["S002", "2026-01-10T12:00:00Z", 20, null]
+  ]
+}
+```
+
+### BEJSON 104a — Primitive Types + Custom Metadata
+* `Records_Type`: Must be exactly one string.
+* Custom top-level keys are allowed for file-level metadata (PascalCase recommended).
+* Fields are restricted to primitive types only: `string`, `integer`, `boolean`. Complex types (`array`, `object`) throw `E_INVALID_FIELDS`.
+* Primary use: Configuration files, health checks, simple log data, or MFDB manifests.
+
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Server_ID": "WEB-01",
+  "Environment": "Production",
+  "Retention_Days": 90,
+  "Records_Type": ["ConfigParam"],
+  "Fields": [
+    {"name": "key", "type": "string"},
+    {"name": "value", "type": "string"},
+    {"name": "sensitive", "type": "boolean"}
+  ],
+  "Values": [
+    ["db_host", "prod-db-01", true],
+    ["max_threads", "32", false]
+  ]
+}
+```
+
+### BEJSON 104db — Multi-Entity Lightweight Database
+* `Records_Type`: An array containing two or more unique strings.
+* No custom top-level keys allowed.
+* The very first field in `Fields` must be `{"name": "Record_Type_Parent", "type": "string"}`.
+* Position 0 of every record in `Values` must match a `Records_Type` entry.
+* Every other field must carry a `"Record_Type_Parent"` property assigning it to one owning entity.
+* Fields not applicable to a given entity must be `null` (null-padding).
+* Relationships use shared ID fields; convention recommends `_fk` suffix for foreign keys.
+
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": ["User", "Item"],
+  "Fields": [
+    {"name": "Record_Type_Parent", "type": "string"},
+    {"name": "created", "type": "string", "Record_Type_Parent": "User"},
+    {"name": "user_id", "type": "string", "Record_Type_Parent": "User"},
+    {"name": "username", "type": "string", "Record_Type_Parent": "User"},
+    {"name": "created_at", "type": "string", "Record_Type_Parent": "Item"},
+    {"name": "item_id", "type": "string", "Record_Type_Parent": "Item"},
+    {"name": "name", "type": "string", "Record_Type_Parent": "Item"},
+    {"name": "owner_user_id_fk", "type": "string", "Record_Type_Parent": "Item"}
+  ],
+  "Values": [
+    ["User", "2026-01-01", "U01", "alice", null, null, null, null],
+    ["User", "2026-01-02", "U02", "bob",   null, null, null, null],
+    ["Item", null, null, null, "2026-01-10", "I01", "Report A", "U01"],
+    ["Item", null, null, null, "2026-01-10", "I02", "Report B", "U02"]
+  ]
+}
+```
+
+---
+
+## Version Differences: The 105 Series (Integrity Era)
+
+Format 105 elevates BEJSON from a simple positional array into an immutable, cryptographically traceable data structure.
+
+### 1. Mandatory `field_uuid`
+In 105, 105a, and 105db, every single field object in `Fields` must carry a permanent, unique `"field_uuid"` string:
+```json
+{"name": "sensor_id", "type": "string", "field_uuid": "6e1c2b4a-1111-4444-8888-abcdef111111"}
+```
+If any field is missing `field_uuid` or carries a duplicate UUID, the validator halts with `E_INVALID_FIELDS`.
+
+### 2. Mandatory `record_uuid` & Absolute Column Offsets (`_bejson_core_abs_col`)
+Every row in `Values` carries a non-null, unique `record_uuid` at a fixed offset:
+* **In 105 and 105a**: Column 0 is reserved for `record_uuid`. The row layout is `[record_uuid, *Fields]`. Row length is `len(Fields) + 1`. Field `Fields[i]` lives at column `i + 1`.
+* **In 105db**: Column 0 is `Record_Type_Parent`. Column 1 is reserved for `record_uuid`. Entity fields follow starting at column 2: `[Record_Type_Parent, record_uuid, *Fields[1:]]`.
+
+| Format Series | Field Index `0` (`Record_Type_Parent` or 1st field) | Field Index `i >= 1` | Row Width |
+| :--- | :--- | :--- | :--- |
+| **104 / 104a** | Column `0` | Column `i` | `len(Fields)` |
+| **105 / 105a** | Column `1` (Column `0` is `record_uuid`) | Column `i + 1` | `len(Fields) + 1` |
+| **104db** | Column `0` (`Record_Type_Parent`) | Column `i` | `len(Fields)` |
+| **105db** | Column `0` (`Record_Type_Parent`) | Column `i + 1` (Column `1` is `record_uuid`) | `len(Fields) + 1` |
+
+### 3. Fail-on-Switch Constraint
+Merely bumping `Format_Version` to `"105"` in the header without compiling `field_uuid` on fields and prepending `record_uuid` on rows causes an immediate hard validation error:
+> `[E_INVALID_FIELDS] Format_Version claims 105-series but Fields were never compiled with field_uuid keys -- run bejson_core_upgrade_to_105() before using this file`
+
+### BEJSON 105 Example
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "105",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": ["SensorReading"],
+  "Fields": [
+    {"name": "sensor_id", "type": "string", "field_uuid": "f105-001-aaaa"},
+    {"name": "temperature_celsius", "type": "integer", "field_uuid": "f105-002-bbbb"},
+    {"name": "tags", "type": "array", "field_uuid": "f105-003-cccc"}
+  ],
+  "Values": [
+    ["rec-uuid-101", "S001", 24, ["indoor", "ground"]],
+    ["rec-uuid-102", "S002", 20, null]
+  ]
+}
+```
+
+### BEJSON 105a Example
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "105a",
+  "Format_Creator": "Elton Boehnen",
+  "Server_ID": "WEB-01",
+  "Environment": "Production",
+  "Records_Type": ["ConfigParam"],
+  "Fields": [
+    {"name": "key", "type": "string", "field_uuid": "f105a-001-aaaa"},
+    {"name": "value", "type": "string", "field_uuid": "f105a-002-bbbb"},
+    {"name": "sensitive", "type": "boolean", "field_uuid": "f105a-003-cccc"}
+  ],
+  "Values": [
+    ["rec-uuid-cfg1", "db_host", "prod-db-01", true],
+    ["rec-uuid-cfg2", "max_threads", "32", false]
+  ]
+}
+```
+
+### BEJSON 105db Example
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "105db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": ["User", "Item"],
+  "Fields": [
+    {"name": "Record_Type_Parent", "type": "string", "field_uuid": "f105db-000-rtp"},
+    {"name": "username", "type": "string", "Record_Type_Parent": "User", "field_uuid": "f105db-001-usr"},
+    {"name": "item_title", "type": "string", "Record_Type_Parent": "Item", "field_uuid": "f105db-002-itm"},
+    {"name": "owner_user_id_fk", "type": "string", "Record_Type_Parent": "Item", "field_uuid": "f105db-003-fku"}
+  ],
+  "Values": [
+    ["User", "rec-u-001", "alice", null, null],
+    ["User", "rec-u-002", "bob",   null, null],
+    ["Item", "rec-i-101", null, "Report A", "rec-u-001"]
+  ]
+}
+```
+
+---
+
+## BEJSON Core Nesting (Nested 104)
+
+BEJSON supports deeply nested, validated tabular structures directly within cells via the `Core_Nesting` library (Error codes 130–159).
+* Embedded 104 Documents: A cell within a document contains a complete, valid serialized BEJSON 104 document.
+* Column-Schema Uniformity (Hard Rule): Every nested document in the same parent column must share identical `Fields` (names, types, order). Violations raise hard error `E134` (`E_NESTING_SCHEMA_MISMATCH`).
+* Implicit Foreign Key: The cell address `NestAddress(parent_fp, row, col, depth)` serves as the implicit foreign key.
+* Safety Ceiling: Maximum recursive depth is capped at 16 (`NESTING_MAX_DEPTH`).
+* Circular Reference Protection: Tracks seen fingerprints; recursion loops trigger `E135` (`E_NESTING_CIRCULAR_REF`).
+* Dotted-Path Navigation: Traversed via `bejson_nesting_query` (e.g., `player_inventory[*].item_id`).
+
+---
+
+# PART 2: MFDB Crash Course (Multi-File Database)
+
+MFDB is an orchestration architecture built on top of BEJSON files. It is not a separate format version.
+
+```text
+mydb/
+  104a.mfdb.bejson        ← Master Manifest (104a or 105a)
+  data/
+    customers.bejson      ← Entity File (104 or 105)
+    orders.bejson         ← Entity File (104 or 105)
+```
+
+* **The Manifest (`104a.mfdb.bejson` or `105a.mfdb.bejson`)**: Registers every entity file, its relative file path, and its record count. `Records_Type: ["mfdb"]`.
+* **The Entity Files (`data/<entity>.bejson`)**: Hold dense records for one entity type. Each entity file carries a mandatory **`Parent_Hierarchy`** key pointing back to the manifest.
+
+### MFDB 105 Referential Integrity & Cascading Deletes (Phase 6)
+In `libraries_105`, MFDB introduces transactional cascading operations (`mfdb_core_delete_entity_record_105`):
+* **Plan-then-Commit**: Inspects all foreign key references across all entity files before mutating data.
+* **Byte-Identical Snapshot & Rollback**: If a cascading delete fails or an entity write encounters an error, the entire database rolls back to its pre-operation byte snapshot.
+* **Resilient PID Locking**: Employs `ResilientPIDLock` with atomic tombstone-renames and token-verified releases to guarantee locking integrity under process crash storms.
+
+---
+
+# PART 3: Core Library Families & The 105 Engine
+
+The ecosystem provides four parallel language runtimes (`Lib_PY`, `Lib_JS`, `Lib_TS`, `Lib_SH`).
+
+### 1. The Canonical 105 Upgrade Utility (`lib_bejson_Core_bejson_upgrade.py`)
+To migrate legacy 104 files to 105 safely:
+```python
+from lib_bejson_Core_bejson_upgrade import bejson_core_upgrade_to_105
+
+doc_data = json.load(open("data/users.104.bejson"))
+# Performs in-memory upgrade, validates strict integrity,
+# writes backup to Backups/users.104.bak, and atomically replaces target file:
+upgraded_doc = bejson_core_upgrade_to_105(doc_data, "data/users.104.bejson")
+```
+
+### 2. Self-Maintaining Field Map Cache
+In 105, `_bejson_get_field_map_cache(doc)` inspects a lightweight schema fingerprint on every read:
+$$\text{fingerprint} = (\text{Format\_Version}, \text{field\_names}, \text{field\_uuids})$$
+If stale or uninitialized, it automatically rebuilds in memory (`by_name`, `by_uuid`, `by_name_row`).
+
+### 3. Batched Transactions (`bejson_core_transaction`)
+```python
+from lib_bejson_Core_bejson_core import bejson_core_transaction, bejson_core_add_record_105
+
+with bejson_core_transaction(doc):
+    for row in csv_records:
+        bejson_core_add_record_105(doc, row)
+# Field map cache rebuild is deferred and executed once at block exit
+```
+
+### 4. Hybrid Index Resolver (`bejson_core_resolve_field_index`)
+Resolves column positions by field name, `field_uuid`, or a double-check dictionary, eliminating reliance on hardcoded column numbers.
+
+---
+
+# Validation Error Code Ranges
+
+```text
+1–16    BEJSON Validator errors (BEJSONValidationError)
+        1: E_INVALID_JSON
+        2: E_MISSING_MANDATORY_KEY
+        3: E_INVALID_FORMAT
+        4: E_INVALID_VERSION
+        5: E_INVALID_RECORDS_TYPE
+        6: E_INVALID_FIELDS (missing field_uuid in 105 / bad type)
+        7: E_INVALID_VALUES (missing record_uuid in 105)
+        8: E_TYPE_MISMATCH
+        9: E_RECORD_LENGTH_MISMATCH
+        10: E_RESERVED_KEY_COLLISION
+        11: E_INVALID_RECORD_TYPE_PARENT
+        16: E_INVALID_FORMAT_CREATOR
+20–27   BEJSON Core errors (BEJSONCoreError)
+30–49   MFDB Validator errors (MFDBValidationError)
+43–47   MFDB Referential Integrity errors
+80–85   Format 105 Integrity Era errors
+110–114 Format 105 Schema Constraint errors
+130–159 Core_Nesting errors (E_NESTING_*)
+```
+
+---
+
+*Authored by Elton Boehnen · Master Reference Aligned with `libraries_105` Release.*

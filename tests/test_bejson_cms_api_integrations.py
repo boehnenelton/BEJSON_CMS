@@ -41,44 +41,28 @@ def test_get_cloudflare_config_resolves():
     assert "api_token" in cfg
 
 
-def test_get_blogger_config_resolves():
-    """Verify get_blogger_config returns dict with expected Blogger keys."""
-    cfg = publisher_mod.get_blogger_config(publisher_mod.db)
-    assert isinstance(cfg, dict)
-    assert "blog_id" in cfg
-    assert "client_id" in cfg
-    assert "client_secret" in cfg
-    assert "refresh_token" in cfg
+def test_blogger_and_substack_decoupled_from_publisher():
+    """Verify get_blogger_config and get_substack_config have been moved out of Publisher."""
+    assert not hasattr(publisher_mod, "get_blogger_config")
+    assert not hasattr(publisher_mod, "get_substack_config")
 
 
-def test_get_substack_config_resolves():
-    """Verify get_substack_config returns dict with expected Substack keys."""
-    cfg = publisher_mod.get_substack_config(publisher_mod.db)
-    assert isinstance(cfg, dict)
-    assert "session_sid" in cfg
-    assert "subdomain" in cfg
-    assert "base_url" in cfg
-
-
-def test_publish_dashboard_contains_api_integrations_section():
-    """Verify /publish dashboard renders the API Integrations & Syndication card with all 3 services."""
+def test_publish_dashboard_contains_cloudflare_and_excludes_blogger_substack():
+    """Verify /publish dashboard renders Cloudflare Pages and excludes Blogger / Substack."""
     client = publisher_mod.app.test_client()
     resp = client.get("/publish", headers=_basic_auth_headers())
     assert resp.status_code == 200
     html_text = resp.get_data(as_text=True)
 
-    assert "API Integrations &amp; Syndication" in html_text
     assert "Cloudflare Pages" in html_text
-    assert "Google Blogger" in html_text
-    assert "Substack" in html_text
     assert 'action="/publish/cloudflare"' in html_text
-    assert 'action="/publish/blogger"' in html_text
-    assert 'action="/publish/substack"' in html_text
+    assert 'action="/publish/blogger"' not in html_text
+    assert 'action="/publish/substack"' not in html_text
 
 
 def test_publish_routes_registered():
-    """Verify all 3 API publishing routes are registered on the Flask application."""
+    """Verify Cloudflare route is registered on Publisher while Blogger and Substack are removed."""
     rules = [rule.rule for rule in publisher_mod.app.url_map.iter_rules()]
     assert "/publish/cloudflare" in rules
-    assert "/publish/blogger" in rules
-    assert "/publish/substack" in rules
+    assert "/publish/blogger" not in rules
+    assert "/publish/substack" not in rules

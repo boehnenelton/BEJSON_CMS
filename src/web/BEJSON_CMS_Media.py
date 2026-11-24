@@ -71,18 +71,18 @@ media_cube = Blueprint('media', __name__)
 # device (confirmed resolved by switching to Termux + wakelock) — not purely
 # a code bug. Rebuilding anyway with deliberately low peak-memory design so
 # it stays safe on constrained devices generally:
-#   - No multiprocessing. Forking duplicates this whole process's memory
-#     footprint at fork time — the worst possible thing to do when memory is
-#     already tight. A single serial background THREAD is used instead
-#     (shares memory, no copy, still keeps the request thread non-blocking).
-#   - PIL draft() mode: for JPEG, this tells the decoder to decode at a
-#     reduced DCT scale (1/2, 1/4, 1/8) DURING decode, so a large photo is
-#     never fully decoded at full resolution in memory at all.
-#   - Hard pixel-count cap checked from the header (Image.open() only reads
-#     header bytes, no pixel decode) before any decode is attempted.
-#   - Uploads are streamed straight to disk via Werkzeug's f.save(); this
-#     code never calls f.read() on a whole upload.
-#   - Hashing reads in fixed-size chunks; never loads a whole file into RAM.
+# - No multiprocessing. Forking duplicates this whole process's memory
+# footprint at fork time — the worst possible thing to do when memory is
+# already tight. A single serial background THREAD is used instead
+# (shares memory, no copy, still keeps the request thread non-blocking).
+# - PIL draft() mode: for JPEG, this tells the decoder to decode at a
+# reduced DCT scale (1/2, 1/4, 1/8) DURING decode, so a large photo is
+# never fully decoded at full resolution in memory at all.
+# - Hard pixel-count cap checked from the header (Image.open() only reads
+# header bytes, no pixel decode) before any decode is attempted.
+# - Uploads are streamed straight to disk via Werkzeug's f.save(); this
+# code never calls f.read() on a whole upload.
+# - Hashing reads in fixed-size chunks; never loads a whole file into RAM.
 # =============================================================================
 THUMB_SIZE = 320
 _THUMB_MAX_SOURCE_PIXELS = 40_000_000  # ~40MP header-check cap; skip thumbnailing anything larger rather than risk a big decode
@@ -206,7 +206,6 @@ def assets_list_json():
     # processing), the edit page polls this to detect when the new filename
     # actually appears, then adds/selects it in the Featured Image dropdown
     # without a full page reload (which would lose unsaved HTML edits).
-    # BUGFIX (2026-08-02): was reading get_assets() -- a raw os.listdir() of
     # ASSETS_DIR -- which is a different source of truth than the MediaAsset
     # database the rest of the media library (and the Insert Image picker)
     # actually uses. Switched to db.get_records("MediaAsset") so this stays
@@ -242,7 +241,6 @@ def assets_gallery():
     # ExternalMedia 'video' type has only ever meant YouTube (see
     # api_media_list_video() in BEJSON_CMS_PageEditorV2.py: "YouTube videos
     # are never uploaded files, only saved external links"), but they were
-    # previously mixed into the same flat Links table as PDFs and everything
     # else, making them hard to find and manage separately.
     youtube_links = [e for e in externals if (e.get('extmedia_type') or '').lower() == 'video']
     other_externals = [e for e in externals if (e.get('extmedia_type') or '').lower() != 'video']

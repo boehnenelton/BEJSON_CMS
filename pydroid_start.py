@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Technical Note: Pydroid3/Android entrypoint; bootstraps local paths and launches the CMS server.
 """
 SCRIPT_NAME:    pydroid_start.py
 SCRIPT_VERSION: 18.0

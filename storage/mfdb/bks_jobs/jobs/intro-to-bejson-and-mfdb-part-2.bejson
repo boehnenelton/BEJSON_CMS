@@ -1,0 +1,119 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Job Schema",
+  "Schema_Version": "1.0",
+  "Schema_Description": "Custom job schema for the NewAgent task creation and tracking system, managing individual task states and optional auditing. Each task carries its own task_context (embedded, chunked files), task_reference (path-only refs), and task_mandatory (marks a task as a required, built-in step for the job's Job_Type/Job_Subtype). Job_Type/Job_Subtype classify the job; Contextualize_Plan/Contextualize_Last control what each task is injected with at run time. Also reused unmodified as the Template payload shape.",
+  "Job_Goal": "Write the book \"Intro to BEJSON and MFDB Part 2\" for software engineers and systems architects, in English (en). Goal: Author a comprehensive 4-part technical publication on: [PART 1 HAS BEEN COMPLETE WE ARE WORKING ON PART 2 NOW]\n\n**Part 1 / Document 1 Sections:**\nMaintain few technical details, introduced the reader to the concepts. \n\n[PART 1 HAS BEEN COMPLETE WE ARE WORKING ON PART 2 NOW]\n \n [Title]\n [TOC]\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each\n  \n\n\n[PART 1 HAS BEEN COMPLETE WE ARE WORKING ON PART 2 NOW]\n\n[START HERE]\n\n  **Part 2 / Document 2 Sections**\n [BEJSON] \n \nDetailed subsections of each of the 3 formats. Explain the universal rules and format specific rules, the purpose of the format, its suggested use cases. DO NOT DETAIL EVERY VALIDATION RULE THIS IS NOT THE PLACE, JUST DEFINE ITS STRUCTURE... PROVIDE SCHDMA EXAMPLES.\n [MFDB]\nExplain MFDB, how it orchistrates 104 and 104a files, the bi directial integrity, the Network master and slave roles the context window benefits, the way it accesses only what it needs. It's usage of _fk, manifest cordination. DO NOT DETAIL EVERY VALIDATION RULE THIS IS NOT THE PLACE, JUST DEFINE ITS STRUCTURE... PROVIDE SCHDMA EXAMPLES. \n [Field Map Cache]\n Explain what index based lookups are, why they fail and our solution.\n [UUID Addressing] \n Explain how we do not reference by field name or row/col position but by Zuuid and why \n [Crash Course Rules]\n Here we define every validation rule.",
+  "Job_Type": "writing",
+  "Job_Subtype": "book",
+  "Contextualize_Plan": true,
+  "Contextualize_Last": true,
+  "Job_Complete": true,
+  "Creation_Date": "2026-11-20",
+  "Completion_Date": "2026-11-20",
+  "Records_Type": [
+    "JobTask"
+  ],
+  "Fields": [
+    {
+      "name": "task_id",
+      "type": "string"
+    },
+    {
+      "name": "task_order",
+      "type": "integer"
+    },
+    {
+      "name": "task_name",
+      "type": "string"
+    },
+    {
+      "name": "task_description",
+      "type": "string"
+    },
+    {
+      "name": "task_completed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_passed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_fail_reason",
+      "type": "string"
+    },
+    {
+      "name": "task_context",
+      "type": "array"
+    },
+    {
+      "name": "task_reference",
+      "type": "array"
+    },
+    {
+      "name": "task_mandatory",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "d7931176-f3eb-4842-83c8-326ddf2ff322",
+      1,
+      "Part 1: Structural Foundations of BEJSON Formats",
+      "This chapter defines the core structural specifications of the BEJSON 105 series, contrasting single-entity tables (`105`), primitive metadata configurations (`105a`), and multi-record lightweight database bundles (`105db`). It details universal header contracts, positional matrix layouts where values are decoupled from schema declarations, and exact entity type isolation rules without burying the runtime in validation boilerplate. The discussion then transitions directly into how these standalone documents are orchestrated across complex multi-file file systems.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "3dffa597-4c21-48ff-8de2-e5271d1223a6",
+      2,
+      "Part 2: Multi-File Database (MFDB) Orchestration and Federation",
+      "This chapter examines the Multi-File Database (MFDB) orchestration layer, explaining how a central `104a.mfdb.bejson` manifest coordinates discrete Format `105` entity files into a unified serverless relational graph. It details bidirectional path verification, `_fk` foreign key conventions, and the `Network_Role` Master-Slave topology that maximizes AI context window efficiency through operational structural blindness. This sets the stage for exploring how $O(1)$ memory access speeds are maintained across these federated disk layouts.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "1e5ca4fd-10a2-4f05-a0a2-03b1e8424403",
+      3,
+      "Part 3: O(1) Field Map Caching and Cryptographic UUID Addressing",
+      "This chapter breaks down constant-time $O(1)$ field map caching, an in-memory look-up mechanism that eliminates key-parsing overhead and positional fragility. It explains why traditional index-based access fails under schema evolution and demonstrates how `field_uuid` column fingerprints and `record_uuid` offset resolution guarantee zero-drift addressability across mutations. Understanding these deterministic memory lookups transitions directly into enforcing strict system-wide validation invariants.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "8b3622a6-f135-42eb-90e9-e5b199bc4feb",
+      4,
+      "Part 4: Crash Course Validation Rules and Integrity Gates",
+      "This chapter establishes the rigorous Level 1 through Level 3 validation gates that govern document syntax, bidirectional manifest linkages, and transactional referential integrity. It covers fail-on-switch constraints, precise error code ranges spanning `E_INVALID_FIELDS` (Code 6) through `E_MFDB_FK_UNRESOLVED` (Code 39), and pre-write atomic commit gates. This completes the operational blueprint required to deploy zero-daemon, hallucination-free relational data engines in production environments.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ]
+  ]
+}

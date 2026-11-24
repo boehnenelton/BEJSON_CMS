@@ -1,0 +1,107 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content",
+    "ProjectMeta"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string",
+      "Record_Type_Parent": "PageMeta"
+    },
+    {
+      "name": "html_body",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "source_code",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "project_github_url",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_gemini_notepad_url",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_youtube_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_asset_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_featured_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_bejson_era",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "BEJSON_105 (Libraries_105)",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "<h2>BEJSON 105 Integrity Era Libraries (Libraries_105)</h2><p>Integrity Era BEJSON 105 / 105a / 105db and MFDB v1.40 library suite featuring mandatory column-0 UUIDv4 record tracking, cross-entity foreign keys, cascade validation, and cryptographic integrity.</p><h3>Key Capabilities</h3><ul><li><strong>Column-0 UUIDv4 Identity:</strong> Every record carries a globally unique identifier and integrity fingerprint.</li><li><strong>MFDB v1.40 Relational Cascades:</strong> Cross-entity foreign-key enforcement and atomic manifest updates.</li><li><strong>Standardized Entities &amp; AI Core:</strong> Unified 16-field registry contracts and zero-SDK multi-provider AI dispatch.</li></ul>",
+      "",
+      "",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "ProjectMeta",
+      null,
+      null,
+      null,
+      null,
+      "https://github.com/Boehnenelton/BEJSON_105",
+      "",
+      "BEJSON - Solving AI Hallucinations & 95% Token Reduction | https://www.youtube.com/watch?v=h7WtEqdrKm8\nBElton YouTube Channel (@BElton2026) | https://www.youtube.com/@belton2026",
+      "BEJSON 105 Architecture and Relational Flat Files (CMS) | https://boehnenelton2024.pages.dev/article/bejson/bejson-105-architecture-and-relational-flat-files/index.html\nBEJSON 105 Architecture and Relational Flat Files (Substack) | https://leethaxor69.substack.com/p/bejson-105-architecture-and-relational\nBEJSON 105 & MFDB 1.40 Masterclass (Blogger) | https://boehnenelton2024.blogspot.com/2026/11/bejson-105-mfdb-140-identity-era.html\nBEJSON 105 Core Polyglot Guide Part 2 (Blogger) | https://boehnenelton2024.blogspot.com/2026/11/bejson-105-core-polyglot-guide-part-2.html",
+      "BEJSON 105 & MFDB Benchmark Suite | https://bejson-metrics.pages.dev\nInteractive Benchmark Suite | https://boehnenelton2024.pages.dev/apps/bejson-benchmark-suite/BEJSON_Interactive_Benchmark_Suite.html",
+      "105"
+    ]
+  ]
+}

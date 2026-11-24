@@ -2,11 +2,11 @@
 # =============================================================================
 # Library:      lib_bejson_CMS_md2html.py
 # Description:  Automated pipeline for converting Markdown documentation drops
-#               into native BEJSON CMS articles and pages.
-#               Generates style-agnostic HTML wrapped in <article class="bejson-cms-article">
-#               with responsive table wrappers, syntax code blocks, and callouts.
-#               Writes two-part page records: site_master/data/pagerecord.bejson
-#               and pages_db/<uuid>.json storing both html_body and raw markdown.
+# into native BEJSON CMS articles and pages.
+# Generates style-agnostic HTML wrapped in <article class="bejson-cms-article">
+# with responsive table wrappers, syntax code blocks, and callouts.
+# Writes two-part page records: site_master/data/pagerecord.bejson
+# and pages_db/<uuid>.json storing both html_body and raw markdown.
 # Version:      1.0.0
 # Author:       Elton Boehnen
 # Date:         2026-11-02

@@ -1,0 +1,57 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Project_Name": "libraries_105",
+  "Project_Version": "5.9.13",
+  "Package_Version": "125",
+  "Versioned_UUID": "04e9033c-2ee4-4840-8f2c-59cccc626ab2",
+  "Project_GUID": "1952586a-42b4-44ce-9471-40831d0bf46b",
+  "Type": "library",
+  "Status": "Active",
+  "Records_Type": [
+    "RootPackage"
+  ],
+  "Fields": [
+    {
+      "name": "change_log",
+      "type": "string"
+    }
+  ],
+  "Values": [
+    [
+      "5.9.13 | 2026-11-19 | AI_Core 2.1.1 / AI_Extensions reconciled across libraries_105, Release tree and agent vendored lib: single DEFAULT_TEXT_MODEL_ID (gemini-3.8-flash), env_vault fallback roots, stale compiler tests aligned, invariant tests (107 AI_Core, 21 AI_Extensions). NOT DONE: BEJSON/ ledger refresh (8 families unregistered, errors.bejson covers 4 of 14), AI_Core freeze."
+    ],
+    [
+      "5.9.12 | 2026-11-18 | Add Lib_PY/Metrics family (errors 580-584, 105a schemas, collector, validator, stacked-bar Canvas/SVG renderer, automated test runner & pipeline), consolidate benchmark/stress suites into dev/metrics/, compile index.html + results.md + Playwright visual audit screenshots, and add headline benchmark results section to README.md."
+    ],
+    [
+      "5.9.9 | 2026-11-17 | Lib_PY/AI v1.6.1 gap-audit remediation: API key removed from live-model URL, hardcoded vault paths removed ($DEFINITIONS_FILE honored), corrupt config preserved instead of reset, tool handler no longer double-executes, provider error text redacted and capped, provider discovery restricted to package dir, logging added to dispatcher/clients/key rotator, 7 regression tests (30/30)."
+    ],
+    [
+      "5.9.8 | 2026-11-14 | Add Lib_PY/AI v1.5.0 3-Tier Multi-AI Provider Gateway (Gemini REST & Interactions, Name_Case model catalog, persistent 105a config, config-gated Tooling_Registry, Parser_Registry, Extension_Parser_Registry, AIEnvVault, KeyRotator, JITKeyHandler, 18/18 unit tests), Canvas/JS test suites, AI Gateway architecture diagrams, extended README, and hardened .gitignore."
+    ],
+    [
+      "5.9.7 | 2026-11-12 | Integrate multi-scale (5,000 to 50,000 records) write speed, read speed, memory heap, and token cost benchmark lab into public interactive suite."
+    ],
+    [
+      "5.9.6 | 2026-11-12 | Add public-facing client-side interactive benchmark suite (docs/index.html & Admin/Dev/HTML_Apps) with token economics, parser latency, and client telemetry reporting."
+    ],
+    [
+      "5.9.5 | 2026-11-12 | Expand comprehensive 16-section README.md, synchronize Automation and EBook subsystems, and configure GitHub Actions CI and Release pipelines."
+    ],
+    [
+      "5.9.4 | 2026-11-06 | Integrate CMS MTV Scaffolding Engine family (Lib_PY/CMS), pre-built taxonomy archetypes, 105 MFDB v1.40 models, 13 canonical BEHTML templates, and admin dashboard."
+    ],
+    [
+      "5.9.3 | 2026-11-02 | Add Standards stateful loaded chamber logging module, unit tests, and multi-language conformance suite."
+    ],
+    [
+      "5.9.10 | 2026-11-17 | PARTIAL AI_Core urgent instructions: Lib_PY/AI renamed AI_Core (lib_bejson_AI_Core_*), validator 2.1.0 (allow pragma; scans every .py), plugin registry/schema (errors 236-244), AI_Extensions family (3 plugins, profile_runtime 1.0.1, NEW profile_compiler + profile_abstraction), 105 profiles 2.0.1 (104->105 converter no longer mutates source). 82/82 AI_Core tests. NOT DONE: AI_Extensions tests, Test_Clients/Chat, README, AI_Core freeze."
+    ],
+    [
+      "5.9.11 | 2026-11-17 | AI_Extensions tests added (tests/test_ai_extensions_profiles.py, 21 tests: compiler, abstraction, runtime); profile_runtime 1.0.2 docstring fix. Still open: Test_Clients/Chat, AI_Core README refresh, BEJSON/ ledger rows, AI_Core freeze."
+    ]
+  ],
+  "Project_Modified_Date": "2026-11-19"
+}

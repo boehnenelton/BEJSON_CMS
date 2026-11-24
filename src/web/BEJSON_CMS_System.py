@@ -435,7 +435,7 @@ def _migrate_db():
 
             # Append row to manifest Values
             # Manifest fields: entity_name, file_path, description,
-            #                  record_count, schema_version, primary_key
+            # record_count, schema_version, primary_key
             manifest["Values"].append(
                 [name, fp_rel, None, 0, "1.0", spec.get("primary_key")]
             )
@@ -444,7 +444,6 @@ def _migrate_db():
         # FIELD-level migration: an entity that already exists may still be
         # missing fields added to its schema in a later version (the loop
         # above only handles "entity doesn't exist yet"). AI_Profile grew
-        # from 8 to 25 fields after Persona Hub's connection to author
         # profiles / AI generation was wired up -- any AI_Profile entity
         # file already on disk from before that needs the new field names
         # appended to its own Fields list AND every existing row backfilled

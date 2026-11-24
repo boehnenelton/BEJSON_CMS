@@ -353,20 +353,7 @@ def main():
             existing_status = existing_entry.get("status")
             print(f"\n[{idx}/{len(posts)}] Existing {existing_status} found for '{clean_title}' (ID: {existing_id}).")
             if existing_status == "published":
-                print(f"    -> Updating live published post draft on Substack...")
-                try:
-                    update_substack_draft(
-                        base_url=base_url,
-                        session_sid=session_sid,
-                        draft_id=existing_id,
-                        title=clean_title,
-                        subtitle=post.get("description", ""),
-                        content=post.get("markdown_body") or post.get("html_body", ""),
-                        user_id=user_id,
-                    )
-                    print(f"    -> [✓] Updated draft content for ID {existing_id}.")
-                except Exception as update_err:
-                    print(f"    -> [!] Update note: {update_err}")
+                print(f"    -> [✓] Post is already published live (ID: {existing_id}). Skipping update to avoid duplicate fork.")
                 continue
 
             elif existing_status == "draft" and should_publish:

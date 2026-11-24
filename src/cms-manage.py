@@ -2,13 +2,13 @@
 """
 Script:        cms-manage.py
 Description:   Unified CLI Toolkit for BEJSON_CMS management.
-Version:       18.13
+Version:       18.14
 Author:        Elton Boehnen
-Date:          2026-11-08
-Relational_ID: 84fc121a-007a-4ed1-93f2-b6e6e537e147
+Date:          2026-11-19
+Relational_ID: 9d410e7a-9fea-4f72-b9a9-dda303d1d4f4
 """
 
-VERSION = "18.13"
+VERSION = "18.14"
 
 
 import os
@@ -487,23 +487,47 @@ def cmd_page_update(args):
     if not page:
         print(f"Page not found: {args.uuid}")
         return
-    updates = {"page_title": args.title}
-    if args.category: updates["page_cat_name"] = args.category
-    if args.author: updates["page_author_name"] = args.author
-    if getattr(args, "featured_img", None) is not None and args.featured_img.strip():
-        updates["page_featured_img"] = args.featured_img.strip()
-    if args.featured_video is not None: updates["page_featured_video_url"] = args.featured_video
-    if getattr(args, "featured_diagram", None) is not None: updates["page_featured_diagram"] = args.featured_diagram
-    if getattr(args, "type", None): updates["page_type"] = args.type
-    if not db.update_record("PageRecord", "page_uuid", args.uuid, updates):
-        print(f"Failed to update page record: {args.uuid}")
-        return
-    if args.body is not None:
+    updates = {}
+    if getattr(args, "title", None) is not None and args.title.strip():
+        updates["page_title"] = args.title.strip()
+    if getattr(args, "category", None):
+        updates["page_cat_name"] = args.category
+    if getattr(args, "author", None):
+        updates["page_author_name"] = args.author
+    featured_img_val = getattr(args, "featured_img", None)
+    if featured_img_val is not None and featured_img_val.strip():
+        updates["page_featured_img"] = featured_img_val.strip()
+    if getattr(args, "featured_video", None) is not None:
+        updates["page_featured_video_url"] = args.featured_video
+    if getattr(args, "featured_diagram", None) is not None:
+        updates["page_featured_diagram"] = args.featured_diagram
+    if getattr(args, "type", None):
+        updates["page_type"] = args.type
+    if updates:
+        if not db.update_record("PageRecord", "page_uuid", args.uuid, updates):
+            print(f"Failed to update page record: {args.uuid}")
+            return
+
+    body_content = None
+    if getattr(args, "body_file", None):
+        with open(args.body_file, "r", encoding="utf-8") as bf:
+            body_content = bf.read()
+    elif getattr(args, "md_file", None):
+        try:
+            from lib_bejson_CMS_md2html import md_to_html
+            with open(args.md_file, "r", encoding="utf-8") as mf:
+                body_content = md_to_html(mf.read())
+        except Exception:
+            with open(args.md_file, "r", encoding="utf-8") as mf:
+                body_content = f"<pre>{mf.read()}</pre>"
+    elif getattr(args, "body", None) is not None:
+        body_content = args.body
+
+    new_title = getattr(args, "title", None)
+    if body_content is not None or (new_title and new_title.strip()):
         pfile = os.path.join(get_pages_db_dir(), f"{args.uuid}.json")
         if os.path.exists(pfile):
-            # Field Map Cache lookup, matching BEJSON_CMS_Content.py::edit_content()
-            # exactly -- no positional indexing (System Development Policy Sec. BEJSON Usage).
-            with open(pfile, "r") as f:
+            with open(pfile, "r", encoding="utf-8") as f:
                 data = json.load(f)
             field_map = BEJSONCore.bejson_core_get_field_map(data)
             p_idx = field_map.get("Record_Type_Parent", -1)
@@ -512,15 +536,32 @@ def cmd_page_update(args):
             for row in data.get("Values", []):
                 if p_idx == -1:
                     continue
-                if row[p_idx] == "Content" and h_idx != -1:
-                    row[h_idx] = args.body
-                if row[p_idx] == "PageMeta" and m_idx != -1:
-                    row[m_idx] = args.title
+                if row[p_idx] == "Content" and h_idx != -1 and body_content is not None:
+                    row[h_idx] = body_content
+                if row[p_idx] == "PageMeta" and m_idx != -1 and new_title and new_title.strip():
+                    row[m_idx] = new_title.strip()
             tmp = pfile + ".tmp"
-            with open(tmp, "w") as f:
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, pfile)
     print(f"Page updated: {args.uuid}")
+    if getattr(args, "publish", False):
+        cmd_publish(args)
+
+
+def cmd_page_feed_image(args):
+    """Generate or update minimalist 840x420 feed card image for page(s)."""
+    tools_dir = SCRIPT_PATH.parent / "tools"
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+    import asyncio
+    try:
+        import generate_minimalist_post_feed_webp as feed_gen
+        asyncio.run(feed_gen.build_graphics(target_uuid=getattr(args, "uuid", None)))
+        if getattr(args, "publish", False):
+            cmd_publish(args)
+    except Exception as err:
+        print(f"Error generating feed image: {err}")
 
 def cmd_page_set_author(args):
     """Bulk re-author: point existing pages at an existing AuthorProfile."""
@@ -759,7 +800,6 @@ def cmd_page_md_import(args):
         results = []
         for md_file in sorted(target.glob(pattern)):
             try:
-                # sync_count=False + one sync_manifest_count() afterwards (AGENTS.md batch rule)
                 res = _import_markdown_file(db, md_file, category, author, page_type, featured_img, sync_count=False)
             except Exception as import_error:
                 LOGGER.error("Error importing %s: %s", md_file.name, import_error)
@@ -955,20 +995,52 @@ def cmd_asset_add(args):
         return
 
     dest = assets_dir / src.name
-    if dest.exists():
-        print(f"Error: an asset named '{src.name}' already exists -- rename the source file or delete the existing asset first.")
-        return
-
     file_hash = hashlib.sha256(src.read_bytes()).hexdigest()
-    if any(a.get("asset_file_hash") == file_hash for a in db.get_records("MediaAsset")):
+    if dest.exists():
+        if src.resolve() == dest.resolve():
+            existing = next((a for a in db.get_records("MediaAsset") if a.get("asset_filename") == dest.name or a.get("asset_file_hash") == file_hash), None)
+            if existing and not getattr(args, "force", False):
+                print(f"Asset '{dest.name}' is already registered in MediaAsset.")
+                return
+            file_size = dest.stat().st_size
+            mime_type = mimetypes.guess_type(str(dest))[0] or "application/octet-stream"
+            if existing:
+                db.update_record("MediaAsset", "asset_filename", dest.name, {
+                    "asset_file_hash": file_hash, "asset_file_size": file_size,
+                    "asset_mime_type": mime_type, "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
+                })
+                print(f"Asset record updated in place: {dest.name} ({file_size} bytes, {mime_type})")
+            elif _checked_add(db, "MediaAsset", {
+                "asset_filename": dest.name, "asset_original_name": dest.name, "asset_file_hash": file_hash,
+                "asset_file_size": file_size, "asset_mime_type": mime_type,
+                "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
+            }, sync_count=False):
+                db.sync_manifest_count("MediaAsset")
+                print(f"Asset registered in place: {dest.name} ({file_size} bytes, {mime_type})")
+            else:
+                print(f"Failed to register asset: {dest.name}")
+            return
+        elif not getattr(args, "force", False):
+            print(f"Error: an asset named '{src.name}' already exists -- pass --force to overwrite, or rename the source file.")
+            return
+
+    if not getattr(args, "force", False) and any(a.get("asset_file_hash") == file_hash for a in db.get_records("MediaAsset")):
         print(f"Error: a file with identical content is already registered (dedup by hash) -- not adding '{src.name}'.")
         return
 
-    shutil.copy2(src, dest)
+    if src.resolve() != dest.resolve():
+        shutil.copy2(src, dest)
     file_size = dest.stat().st_size
     mime_type = mimetypes.guess_type(str(dest))[0] or "application/octet-stream"
 
-    if _checked_add(db, "MediaAsset", {
+    existing_rec = next((a for a in db.get_records("MediaAsset") if a.get("asset_filename") == dest.name), None)
+    if existing_rec:
+        db.update_record("MediaAsset", "asset_filename", dest.name, {
+            "asset_file_hash": file_hash, "asset_file_size": file_size,
+            "asset_mime_type": mime_type, "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
+        })
+        print(f"Asset overwritten & updated: {dest.name} ({file_size} bytes, {mime_type})")
+    elif _checked_add(db, "MediaAsset", {
         "asset_filename": dest.name, "asset_original_name": src.name, "asset_file_hash": file_hash,
         "asset_file_size": file_size, "asset_mime_type": mime_type,
         "asset_uploaded_at": datetime.now(timezone.utc).isoformat()
@@ -1120,7 +1192,6 @@ def cmd_asset_optimize(args):
         print("No assets converted.")
         return
 
-    # Patch references in all pages_db/<uuid>.json content files
     # Uses Field Map Cache lookups -- no positional indexing (BEJSON Core Mandate).
     pages_dir = Path(get_pages_db_dir())
     patched_pages = 0
@@ -1154,6 +1225,26 @@ def cmd_asset_optimize(args):
                 patched_pages += 1
         except Exception as e:
             print(f"  WARNING: could not scan {pfile.name}: {e}")
+
+    # Update PageRecord.page_featured_img references in pagerecord.bejson
+    for page in db.get_records("PageRecord"):
+        current_img = page.get("page_featured_img")
+        if current_img in updated_names:
+            if not dry_run:
+                db.update_record("PageRecord", "page_uuid", page["page_uuid"], {
+                    "page_featured_img": updated_names[current_img]
+                })
+            print(f"  OK updated page '{page.get('page_title')}' featured_img: {current_img} -> {updated_names[current_img]}")
+
+    # Update StandaloneApp.app_featured_img references in standaloneapp.bejson
+    for app in db.get_records("StandaloneApp"):
+        current_img = app.get("app_featured_img")
+        if current_img in updated_names:
+            if not dry_run:
+                db.update_record("StandaloneApp", "app_uuid", app["app_uuid"], {
+                    "app_featured_img": updated_names[current_img]
+                })
+            print(f"  OK updated app '{app.get('app_name')}' app_featured_img: {current_img} -> {updated_names[current_img]}")
 
     print(f"Done. Converted {len(updated_names)} asset(s). Updated references in {patched_pages} page content file(s).")
 
@@ -1543,6 +1634,197 @@ def cmd_job_approve(args):
     }, indent=2))
 
 
+def _project_pages_db_dir():
+    return Path(__file__).resolve().parent.parent / "storage" / "mfdb" / "pages_db"
+
+
+def _read_project_meta_doc(page_uuid):
+    content_file = _project_pages_db_dir() / f"{page_uuid}.json"
+    result = {
+        "html_body": "",
+        "project_github_url": "",
+        "project_gemini_notepad_url": "",
+        "project_featured_links": "",
+        "project_youtube_links": "",
+        "project_asset_links": "",
+    }
+    if not content_file.exists():
+        return result
+    try:
+        with open(content_file, "r", encoding="utf-8") as file_handle:
+            doc = json.load(file_handle)
+        field_map = Core.bejson_core_get_field_map(doc)
+        idx_parent = field_map.get("Record_Type_Parent", 0)
+        idx_html = field_map.get("html_body", -1)
+        for row in doc.get("Values", []):
+            rec_type = row[idx_parent] if len(row) > idx_parent else ""
+            if rec_type == "Content" and idx_html != -1 and len(row) > idx_html:
+                result["html_body"] = row[idx_html] or ""
+            elif rec_type == "ProjectMeta":
+                for key in ("project_github_url", "project_gemini_notepad_url", "project_featured_links", "project_youtube_links", "project_asset_links"):
+                    idx_key = field_map.get(key, -1)
+                    if idx_key != -1 and len(row) > idx_key:
+                        result[key] = row[idx_key] or ""
+    except Exception:
+        pass
+    return result
+
+
+def _write_project_meta_doc(page_uuid, title, html_body, project_meta):
+    pages_dir = _project_pages_db_dir()
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    content_file = pages_dir / f"{page_uuid}.json"
+    doc = {
+        "Format": "BEJSON",
+        "Format_Version": "104db",
+        "Format_Creator": "Elton Boehnen",
+        "Records_Type": ["PageMeta", "Content", "ProjectMeta"],
+        "Fields": [
+            {"name": "Record_Type_Parent", "type": "string"},
+            {"name": "meta_title", "type": "string"},
+            {"name": "html_body", "type": "string"},
+            {"name": "markdown_body", "type": "string"},
+            {"name": "source_code", "type": "string"},
+            {"name": "project_github_url", "type": "string"},
+            {"name": "project_gemini_notepad_url", "type": "string"},
+            {"name": "project_youtube_links", "type": "string"},
+            {"name": "project_asset_links", "type": "string"},
+            {"name": "project_featured_links", "type": "string"},
+        ],
+        "Values": [
+            ["PageMeta", title, None, None, None, None, None, None, None, None],
+            ["Content", None, html_body, "", "", None, None, None, None, None],
+            [
+                "ProjectMeta",
+                None,
+                None,
+                None,
+                None,
+                project_meta.get("project_github_url", ""),
+                project_meta.get("project_gemini_notepad_url", ""),
+                project_meta.get("project_youtube_links", ""),
+                project_meta.get("project_asset_links", ""),
+                project_meta.get("project_featured_links", ""),
+            ],
+        ],
+    }
+    tmp_path = str(content_file) + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as file_handle:
+        json.dump(doc, file_handle, indent=2)
+    os.replace(tmp_path, content_file)
+
+
+def cmd_project_list(args):
+    db = get_db()
+    projects = [r for r in db.get_records("PageRecord") if r.get("page_type") == "project"]
+    print(f"Projects ({len(projects)}):")
+    for proj in projects:
+        meta = _read_project_meta_doc(proj.get("page_uuid", ""))
+        feat_count = len([l for l in meta.get("project_featured_links", "").splitlines() if l.strip()])
+        print(f" - [{proj.get('page_uuid')}] {proj.get('page_title')} (slug: {proj.get('page_slug')}, featured_links: {feat_count})")
+
+
+def cmd_project_add(args):
+    db = get_db()
+    new_uuid = str(uuid.uuid4())
+    title = args.title.strip()
+    slug = (args.slug or re.sub(r"[^a-z0-9]+", "-", title.lower())).strip("-")
+    category = (args.category or "Projects").strip()
+    body = args.body or f"<h2>{title}</h2><p>Project overview.</p>"
+    if args.body_file and os.path.exists(args.body_file):
+        with open(args.body_file, "r", encoding="utf-8") as file_handle:
+            body = file_handle.read()
+
+    project_meta = {
+        "project_github_url": (args.github or "").strip(),
+        "project_gemini_notepad_url": (args.gemini_notepad or "").strip(),
+        "project_featured_links": "\n".join(args.featured_link or []),
+        "project_youtube_links": "\n".join(args.youtube_link or []),
+        "project_asset_links": "\n".join(args.asset_link or []),
+    }
+    db.add_record("PageRecord", {
+        "page_uuid": new_uuid,
+        "page_title": title,
+        "page_slug": slug,
+        "page_cat_name": category,
+        "page_type": "project",
+        "page_created_at": datetime.now().strftime("%Y-%m-%d"),
+        "page_external_url": None,
+        "page_author_name": args.author or "Elton Boehnen",
+        "page_featured_img": args.featured_img or DEFAULT_FEATURED_IMAGE,
+        "page_featured_video_url": (args.featured_video or "").strip(),
+        "page_featured_diagram": "",
+    })
+    _write_project_meta_doc(new_uuid, title, body, project_meta)
+    print(f"[✓] Created project page '{title}' ({new_uuid})")
+    if getattr(args, "publish", False):
+        cmd_publish(argparse.Namespace(deploy=False, project=None))
+
+
+def cmd_project_update(args):
+    db = get_db()
+    page = next((p for p in db.get_records("PageRecord") if p.get("page_uuid") == args.uuid), None)
+    if not page:
+        print(f"[!] Project page not found: {args.uuid}")
+        return
+
+    updates = {"page_type": "project"}
+    if args.title:
+        updates["page_title"] = args.title.strip()
+    if args.slug:
+        updates["page_slug"] = args.slug.strip()
+    if args.category:
+        updates["page_cat_name"] = args.category.strip()
+    if args.featured_img:
+        updates["page_featured_img"] = args.featured_img.strip()
+    if args.featured_video is not None:
+        updates["page_featured_video_url"] = args.featured_video.strip()
+
+    db.update_record("PageRecord", "page_uuid", args.uuid, updates)
+
+    meta = _read_project_meta_doc(args.uuid)
+    body = meta["html_body"]
+    if args.body:
+        body = args.body
+    elif args.body_file and os.path.exists(args.body_file):
+        with open(args.body_file, "r", encoding="utf-8") as file_handle:
+            body = file_handle.read()
+
+    if args.github is not None:
+        meta["project_github_url"] = args.github.strip()
+    if args.gemini_notepad is not None:
+        meta["project_gemini_notepad_url"] = args.gemini_notepad.strip()
+    if args.featured_link is not None:
+        meta["project_featured_links"] = "\n".join(args.featured_link)
+    if args.youtube_link is not None:
+        meta["project_youtube_links"] = "\n".join(args.youtube_link)
+    if args.asset_link is not None:
+        meta["project_asset_links"] = "\n".join(args.asset_link)
+
+    _write_project_meta_doc(args.uuid, updates.get("page_title", page.get("page_title", "")), body, meta)
+    print(f"[✓] Updated project page {args.uuid}")
+    if getattr(args, "publish", False):
+        cmd_publish(argparse.Namespace(deploy=False, project=None))
+
+
+def cmd_project_add_featured_link(args):
+    db = get_db()
+    page = next((p for p in db.get_records("PageRecord") if p.get("page_uuid") == args.uuid), None)
+    if not page:
+        print(f"[!] Project page not found: {args.uuid}")
+        return
+    meta = _read_project_meta_doc(args.uuid)
+    existing_lines = [line.strip() for line in meta.get("project_featured_links", "").splitlines() if line.strip()]
+    new_entry = f"{args.label.strip()} | {args.url.strip()}" if args.label.strip() else args.url.strip()
+    if new_entry not in existing_lines:
+        existing_lines.append(new_entry)
+    meta["project_featured_links"] = "\n".join(existing_lines)
+    _write_project_meta_doc(args.uuid, page.get("page_title", ""), meta["html_body"], meta)
+    print(f"[✓] Added featured link '{new_entry}' to project {args.uuid}")
+    if getattr(args, "publish", False):
+        cmd_publish(argparse.Namespace(deploy=False, project=None))
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description=f"BEJSON_CMS CLI Toolkit v{VERSION}")
@@ -1582,7 +1864,7 @@ def main():
     p_padd.add_argument("--body-file", help="Path to file containing raw HTML content")
     p_padd.add_argument("--md-file", help="Path to markdown file to convert and insert")
     p_padd.add_argument("--author", help="(default: Anonymous) Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
-    p_padd.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets)")
+    p_padd.add_argument("--image", "--featured-img", dest="featured_img", help="Featured image filename (in storage/mfdb/assets)")
     p_padd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Rendered above the article body on publish.")
     p_padd.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets, e.g. <uuid>.diag.json). Rendered below the Featured Image and above the page body on publish.")
     p_padd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after creation")
@@ -1596,14 +1878,22 @@ def main():
 
     p_pupd = page_sub.add_parser("update", help="Update a page")
     p_pupd.add_argument("uuid", help="Page UUID")
-    p_pupd.add_argument("title", help="Page title")
+    p_pupd.add_argument("title", nargs="?", default=None, help="Page title (optional if unchanged)")
     p_pupd.add_argument("--category", help="Category NAME (not slug) -- must match a live Category's cat_name exactly. Run 'category list' to see valid names.")
     p_pupd.add_argument("--type", help="Page type")
     p_pupd.add_argument("--body", help="HTML body content")
+    p_pupd.add_argument("--body-file", help="Path to file containing raw HTML content")
+    p_pupd.add_argument("--md-file", help="Path to markdown file to convert and insert")
     p_pupd.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
-    p_pupd.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets). Pass an empty string to keep current.")
+    p_pupd.add_argument("--image", "--featured-img", dest="featured_img", help="Featured image filename (in storage/mfdb/assets). Pass an empty string to keep current.")
     p_pupd.add_argument("--featured-video", help="Featured YouTube video -- a full watch URL or bare 11-character video ID. Pass an empty string to clear it.")
     p_pupd.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets). Pass an empty string to clear it.")
+    p_pupd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after update")
+
+    p_pfeed = page_sub.add_parser("feed-image", help="Generate or update minimalist 840x420 feed card image for page(s)")
+    p_pfeed.add_argument("--uuid", help="Page UUID (default: all pages)")
+    p_pfeed.add_argument("--all", action="store_true", help="Generate feed graphics for all pages")
+    p_pfeed.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after generation")
 
     p_psa = page_sub.add_parser("set-author", help="Bulk re-author existing pages to an existing AuthorProfile")
     p_psa.add_argument("author", help="Author NAME (must already exist; see 'author list')")
@@ -1619,6 +1909,7 @@ def main():
 
     p_pdel = page_sub.add_parser("delete", help="Delete a page")
     p_pdel.add_argument("uuid", help="Page UUID")
+    p_pdel.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after deletion")
 
     p_pimp = page_sub.add_parser("import", help="Import a page from HTML or App")
     p_pimp.add_argument("--html", help="HTML file path")
@@ -1628,14 +1919,15 @@ def main():
     p_pimp.add_argument("--category", default="Uncategorized", help="Category NAME (not slug) -- must match a live Category's cat_name exactly, e.g. 'Uncategorized' or 'BEJSON'. Run 'category list' to see valid names.")
     p_pimp.add_argument("--author", help="Author NAME (not UUID) -- must match a live AuthorProfile's author_display_name exactly. Run 'author list' to see valid names.")
     p_pimp.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type (default: blog, e.g. blog, article, page)")
-    p_pimp.add_argument("--featured-img", help="Featured image filename (in storage/mfdb/assets)")
+    p_pimp.add_argument("--image", "--featured-img", dest="featured_img", help="Featured image filename (in storage/mfdb/assets)")
+    p_pimp.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after import")
 
     p_pmd = page_sub.add_parser("md-import", help="Import Markdown file or batch convert directory drops into native CMS articles")
     p_pmd.add_argument("target", help="Markdown (.md) file path or directory containing .md files")
     p_pmd.add_argument("--category", default="Uncategorized", help="Category NAME (default: Uncategorized)")
     p_pmd.add_argument("--author", help="Author NAME (default: Anonymous)")
     p_pmd.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type: blog (default), article, or page")
-    p_pmd.add_argument("--featured-img", default="default_page_image.webp", help="Featured image filename in storage/mfdb/assets")
+    p_pmd.add_argument("--image", "--featured-img", dest="featured_img", default="default_page_image.webp", help="Featured image filename in storage/mfdb/assets")
     p_pmd.add_argument("--recursive", "-r", action="store_true", help="Recursively search directory for .md files")
     p_pmd.add_argument("--publish", action="store_true", help="Trigger immediate static site republish after import")
 
@@ -1761,6 +2053,7 @@ def main():
     
     p_asadd = asset_sub.add_parser("add", help="Add a media asset")
     p_asadd.add_argument("file", help="Path to file")
+    p_asadd.add_argument("--force", action="store_true", help="Force overwrite existing asset and update MediaAsset registry")
     
     p_asdel = asset_sub.add_parser("delete", help="Delete a media asset")
     p_asdel.add_argument("asset_filename", help="Asset filename")
@@ -1771,7 +2064,6 @@ def main():
     asset_sub.add_parser("list", help="List assets")
 
     # ExternalMedia (PDF-embed / linked-media feature, added BEJSON_CMS_Media.py
-    # pkg74) -- previously had no CLI coverage at all.
     p_asaddext = asset_sub.add_parser("add-external", help="Register an externally-hosted media item (e.g. a PDF URL)")
     p_asaddext.add_argument("name", help="Display name")
     p_asaddext.add_argument("url", help="Full URL to the external media")
@@ -1833,7 +2125,7 @@ def main():
     p_qp.add_argument("--body", help="HTML body content string")
     p_qp.add_argument("--body-file", help="Path to file containing raw HTML content")
     p_qp.add_argument("--md-file", help="Path to markdown file to convert and insert")
-    p_qp.add_argument("--featured-img", default=DEFAULT_FEATURED_IMAGE, help="Featured image filename")
+    p_qp.add_argument("--image", "--featured-img", dest="featured_img", default=DEFAULT_FEATURED_IMAGE, help="Featured image filename")
     p_qp.add_argument("--featured-video", help="Featured video watch URL or ID")
     p_qp.add_argument("--featured-diagram", help="Header Diagram asset filename (in storage/mfdb/assets)")
     p_qp.add_argument("--type", default="blog", choices=["blog", "article", "page"], help="Page type (default: blog)")
@@ -1850,6 +2142,50 @@ def main():
     p_dimp.add_argument("file", help="Path to diagram file")
 
     diag_sub.add_parser("list", help="List all imported diagram assets")
+
+    # Project Page Management
+    p_proj = subparsers.add_parser("project", help="Project page operations (page_type='project')")
+    proj_sub = p_proj.add_subparsers(dest="op")
+
+    proj_sub.add_parser("list", help="List all project pages")
+
+    p_proj_add = proj_sub.add_parser("add", help="Create a new project page")
+    p_proj_add.add_argument("title", help="Project title")
+    p_proj_add.add_argument("--category", default="Projects", help="Category name (default: Projects)")
+    p_proj_add.add_argument("--author", default="Elton Boehnen", help="Author name")
+    p_proj_add.add_argument("--slug", help="Custom URL slug")
+    p_proj_add.add_argument("--featured-img", help="Featured image filename in storage/mfdb/assets")
+    p_proj_add.add_argument("--featured-video", help="Featured YouTube video URL or ID")
+    p_proj_add.add_argument("--github", help="GitHub repository URL")
+    p_proj_add.add_argument("--gemini-notepad", help="Public Gemini Notepad URL")
+    p_proj_add.add_argument("--featured-link", action="append", help="Featured link ('Label | URL' or URL), repeatable")
+    p_proj_add.add_argument("--youtube-link", action="append", help="Project YouTube link ('Label | URL' or URL), repeatable")
+    p_proj_add.add_argument("--asset-link", action="append", help="Other asset link ('Label | URL' or URL), repeatable")
+    p_proj_add.add_argument("--body", help="HTML body content")
+    p_proj_add.add_argument("--body-file", help="Path to HTML body file")
+    p_proj_add.add_argument("--publish", action="store_true", help="Trigger static publish after creation")
+
+    p_proj_upd = proj_sub.add_parser("update", help="Update an existing project page")
+    p_proj_upd.add_argument("uuid", help="Project page UUID")
+    p_proj_upd.add_argument("--title", help="Updated title")
+    p_proj_upd.add_argument("--slug", help="Updated slug")
+    p_proj_upd.add_argument("--category", help="Updated category")
+    p_proj_upd.add_argument("--featured-img", help="Featured image filename")
+    p_proj_upd.add_argument("--featured-video", help="Featured YouTube video URL or ID")
+    p_proj_upd.add_argument("--github", help="GitHub repository URL")
+    p_proj_upd.add_argument("--gemini-notepad", help="Public Gemini Notepad URL")
+    p_proj_upd.add_argument("--featured-link", action="append", help="Replace featured links ('Label | URL'), repeatable")
+    p_proj_upd.add_argument("--youtube-link", action="append", help="Replace YouTube links ('Label | URL'), repeatable")
+    p_proj_upd.add_argument("--asset-link", action="append", help="Replace asset links ('Label | URL'), repeatable")
+    p_proj_upd.add_argument("--body", help="HTML body content")
+    p_proj_upd.add_argument("--body-file", help="Path to HTML body file")
+    p_proj_upd.add_argument("--publish", action="store_true", help="Trigger static publish after update")
+
+    p_proj_fl = proj_sub.add_parser("add-featured-link", help="Append a featured link to an existing project page")
+    p_proj_fl.add_argument("uuid", help="Project page UUID")
+    p_proj_fl.add_argument("label", help="Button label")
+    p_proj_fl.add_argument("url", help="Target URL")
+    p_proj_fl.add_argument("--publish", action="store_true", help="Trigger static publish after adding link")
 
     # Static Publish
     p_pub = subparsers.add_parser("publish", help="Compile and publish static site to storage/builds")
@@ -1877,18 +2213,19 @@ def main():
         "publish": cmd_publish,
         "deploy-cf": cmd_deploy_cf,
         "quick-post": cmd_quick_post,
-        "page": lambda a: {"add": cmd_page_add, "append": cmd_page_append, "update": cmd_page_update, "delete": cmd_page_delete, "set-author": cmd_page_set_author, "import": cmd_page_import, "md-import": cmd_page_md_import, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op)(a) if a.op else None,
-        "job": lambda a: {"templates": cmd_job_templates, "list": cmd_job_list, "create": cmd_job_create, "run": cmd_job_run, "merge": cmd_job_merge, "approve": cmd_job_approve}.get(a.op)(a) if a.op else None,
-        "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op)(a) if a.op else None,
-        "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op)(a) if a.op else None,
-        "navlink": lambda a: {"add": cmd_nav_add, "delete": cmd_nav_delete, "list": cmd_nav_list}.get(a.op)(a) if a.op else None,
-        "ad": lambda a: {"add": cmd_ad_add, "update": cmd_ad_update, "delete": cmd_ad_delete, "list": cmd_ad_list}.get(a.op)(a) if a.op else None,
-        "asset": lambda a: {"add": cmd_asset_add, "delete": cmd_asset_delete, "optimize": cmd_asset_optimize, "list": lambda _: cmd_db_list(argparse.Namespace(entity="assets", filter=None)), "add-external": cmd_asset_add_external, "delete-external": cmd_asset_delete_external, "list-external": cmd_asset_list_external}.get(a.op)(a) if a.op else None,
-        "diagram": lambda a: {"validate": cmd_diagram_validate, "import": cmd_diagram_import, "list": cmd_diagram_list}.get(a.op)(a) if a.op else None,
-        "app": lambda a: {"add": cmd_app_add, "delete": cmd_app_delete, "list": cmd_app_list}.get(a.op)(a) if a.op else None,
-        "config": lambda a: {"set": cmd_config_set, "list": cmd_config_list, "delete": cmd_config_delete}.get(a.op)(a) if a.op else None,
+        "project": lambda a: {"list": cmd_project_list, "add": cmd_project_add, "update": cmd_project_update, "add-featured-link": cmd_project_add_featured_link}.get(a.op, lambda _: p_proj.print_help())(a) if a.op else p_proj.print_help(),
+        "page": lambda a: {"add": cmd_page_add, "append": cmd_page_append, "update": cmd_page_update, "delete": cmd_page_delete, "set-author": cmd_page_set_author, "import": cmd_page_import, "md-import": cmd_page_md_import, "feed-image": cmd_page_feed_image, "list": lambda _: cmd_db_list(argparse.Namespace(entity="pages", filter=None))}.get(a.op, lambda _: p_page.print_help())(a) if a.op else p_page.print_help(),
+        "job": lambda a: {"templates": cmd_job_templates, "list": cmd_job_list, "create": cmd_job_create, "run": cmd_job_run, "merge": cmd_job_merge, "approve": cmd_job_approve}.get(a.op, lambda _: p_job.print_help())(a) if a.op else p_job.print_help(),
+        "author": lambda a: {"add": cmd_author_add, "update": cmd_author_update, "delete": cmd_author_delete, "list": cmd_author_list}.get(a.op, lambda _: p_author.print_help())(a) if a.op else p_author.print_help(),
+        "category": lambda a: {"add": cmd_category_add, "update": cmd_category_update, "delete": cmd_category_delete, "list": cmd_category_list}.get(a.op, lambda _: p_cat.print_help())(a) if a.op else p_cat.print_help(),
+        "navlink": lambda a: {"add": cmd_nav_add, "delete": cmd_nav_delete, "list": cmd_nav_list}.get(a.op, lambda _: p_nav.print_help())(a) if a.op else p_nav.print_help(),
+        "ad": lambda a: {"add": cmd_ad_add, "update": cmd_ad_update, "delete": cmd_ad_delete, "list": cmd_ad_list}.get(a.op, lambda _: p_ad.print_help())(a) if a.op else p_ad.print_help(),
+        "asset": lambda a: {"add": cmd_asset_add, "delete": cmd_asset_delete, "optimize": cmd_asset_optimize, "list": lambda _: cmd_db_list(argparse.Namespace(entity="assets", filter=None)), "add-external": cmd_asset_add_external, "delete-external": cmd_asset_delete_external, "list-external": cmd_asset_list_external}.get(a.op, lambda _: p_asset.print_help())(a) if a.op else p_asset.print_help(),
+        "diagram": lambda a: {"validate": cmd_diagram_validate, "import": cmd_diagram_import, "list": cmd_diagram_list}.get(a.op, lambda _: p_diag.print_help())(a) if a.op else p_diag.print_help(),
+        "app": lambda a: {"add": cmd_app_add, "delete": cmd_app_delete, "list": cmd_app_list}.get(a.op, lambda _: p_app.print_help())(a) if a.op else p_app.print_help(),
+        "config": lambda a: {"set": cmd_config_set, "list": cmd_config_list, "delete": cmd_config_delete}.get(a.op, lambda _: p_config.print_help())(a) if a.op else p_config.print_help(),
         "serve": cmd_serve,
-        "db": lambda a: cmd_db_list(a) if a.op == "list" else None
+        "db": lambda a: cmd_db_list(a) if a.op == "list" else p_db.print_help()
     }
 
     func = commands.get(args.command)

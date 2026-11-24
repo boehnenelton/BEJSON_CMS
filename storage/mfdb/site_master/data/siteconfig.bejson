@@ -88,6 +88,22 @@
     [
       "home_bulletin_link_label",
       "Read Leethaxor Disassembly"
+    ],
+    [
+      "github_username",
+      "boehnenelton"
+    ],
+    [
+      "github_token_pointer",
+      "ENV:GITHUB_TOKEN"
+    ],
+    [
+      "github_stats_enabled",
+      "true"
+    ],
+    [
+      "github_post_strip_enabled",
+      "true"
     ]
   ]
 }

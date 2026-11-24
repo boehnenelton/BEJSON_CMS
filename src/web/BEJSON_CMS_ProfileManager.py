@@ -1,3 +1,4 @@
+# Technical Note: Admin blueprint for managing AI author personas and BEJSON 104 AI_Profile records.
 """
 SCRIPT_NAME:    BEJSON_CMS_ProfileManager
 SCRIPT_VERSION: 1.5

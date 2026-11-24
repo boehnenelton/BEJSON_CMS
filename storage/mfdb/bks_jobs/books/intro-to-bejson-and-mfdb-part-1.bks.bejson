@@ -1,0 +1,704 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "Book",
+    "Chapter",
+    "Generation",
+    "Export"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "book_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_title_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_subtitle_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_topic_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_goal_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_booktype_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_booktype_slug_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_author_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_author_name_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_category_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_category_name_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_plan_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_language_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_audience_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_summary_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_cover_path_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_tags_list",
+      "type": "array",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_version_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_status_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_chapter_count",
+      "type": "integer",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_word_count",
+      "type": "integer",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_content_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_schema_version_text",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_created_at",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "book_updated_at",
+      "type": "string",
+      "Record_Type_Parent": "Book"
+    },
+    {
+      "name": "chapter_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_book_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_parent_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_kind_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_order_index",
+      "type": "integer",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_title_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_brief_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_body_md",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_status_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_word_count",
+      "type": "integer",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_audit_enabled_flag",
+      "type": "boolean",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_audit_passed_flag",
+      "type": "boolean",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_audit_fail_reason_text",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_generation_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_created_at",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "chapter_updated_at",
+      "type": "string",
+      "Record_Type_Parent": "Chapter"
+    },
+    {
+      "name": "generation_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_target_kind_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_target_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_provider_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_model_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_author_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_prompt_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_temperature_value",
+      "type": "number",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_max_tokens_count",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_input_tokens_count",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_output_tokens_count",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_attempt_index",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_outcome_text",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_error_code",
+      "type": "integer",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_started_at",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "generation_finished_at",
+      "type": "string",
+      "Record_Type_Parent": "Generation"
+    },
+    {
+      "name": "export_uuid",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_book_uuid_fk",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_format_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_renderer_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_theme_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_path_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_size_bytes_count",
+      "type": "integer",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_source_content_sha256_text",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    },
+    {
+      "name": "export_created_at",
+      "type": "string",
+      "Record_Type_Parent": "Export"
+    }
+  ],
+  "Values": [
+    [
+      "Book",
+      "77d7219f-e99f-4977-b70c-5e4ad8f2a469",
+      "Intro to BEJSON and MFDB Part 1",
+      "Engineering High-Throughput, Serverless Relational Data for AI-Native Systems",
+      "Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each",
+      "Author a comprehensive 4-part technical publication on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each",
+      "745924fa-9b9a-53f8-b159-66e8ff8727bc",
+      "blog_post_4part",
+      null,
+      "Leethaxor69",
+      null,
+      "BEJSON",
+      null,
+      "en",
+      "software engineers and systems architects",
+      null,
+      null,
+      null,
+      "0.1.0",
+      "draft",
+      4,
+      0,
+      "28e0204a1cb51763cc5b77557ed94d40b2b58f5d19d2356bba1165145cc49882",
+      "bks-1.0.0",
+      "2026-11-20T06:08:53Z",
+      "2026-11-20T06:08:53Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "c0ba255f-c27d-4076-824e-c8fed016f340",
+      "77d7219f-e99f-4977-b70c-5e4ad8f2a469",
+      null,
+      "chapter",
+      1,
+      "Part 1: AI Superpowers and the Empirical Verification Gauntlet",
+      "Unleashes the raw capability claims of BEJSON (Boehnen Elton JSON) and MFDB (Multi-File Database) framed as empirical AI superpowers, contrasting sub-50MB flat-file efficiency against bloated enterprise database daemons. Provides battle-tested verification prompt templates designed to challenge frontier LLMs (Large Language Models) to independently audit and verify token reduction, 80x lookup speedups, and zero-hallucination mechanics. Transitions directly into the structural evolution of the specification from its foundational beginnings to the current production standard.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-20T06:08:53Z",
+      "2026-11-20T06:08:53Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "92cac67e-cfc1-43d9-828c-a3d15756cff6",
+      "77d7219f-e99f-4977-b70c-5e4ad8f2a469",
+      null,
+      "chapter",
+      2,
+      "Part 2: The Two Eras: 104 Baseline to 105 Cryptographic Integrity",
+      "Contrasts the foundational 104 format era with the hardened 105 Integrity Era, detailing the tri-format taxonomy across homogeneous tables (104/105), configuration manifests (104a/105a), and single-file bundles (104db/105db). Clarifies the architectural role of MFDB as a multi-file orchestration layer that operates over individual format files rather than existing as an independent container format. Transitions to the physical data layout that underpins BEJSON's deterministic speed and context window compression.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-20T06:08:53Z",
+      "2026-11-20T06:08:53Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "806760f1-4529-42de-8777-1ed13cd33326",
+      "77d7219f-e99f-4977-b70c-5e4ad8f2a469",
+      null,
+      "chapter",
+      3,
+      "Part 3: Positional Field Separation, Matrix Layouts, and Token Economics",
+      "Dissects the mechanics of positional field access, explaining how decoupling schema metadata in the Fields array from row vectors in the Values array eliminates key repetition and token bloat. Explains how deterministic array indexing prevents key-spelling hallucinations while maintaining constant-time field lookups via the in-memory field-map cache. Establishes how these single-file layout optimizations scale into coordinated, multi-table systems governed by relational invariants.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-20T06:08:53Z",
+      "2026-11-20T06:08:53Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Chapter",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "552ee386-da88-4bfc-b176-447d1606fcae",
+      "77d7219f-e99f-4977-b70c-5e4ad8f2a469",
+      null,
+      "chapter",
+      4,
+      "Part 4: MFDB v1.40 Orchestration: Serverless Referential Integrity",
+      "Explores the MFDB v1.40 orchestration layer, breaking down how a centralized 104a manifest coordinates distributed 105 entity tables via bidirectional Parent_Hierarchy links and foreign key relationships. Demonstrates strict referential integrity enforcement across cascade, restrict, and set-null mutation plans with zero-daemon runtime overhead and strict sub-50MB resident memory bounds. Concludes the series with production integration guidelines and real-world deployment patterns for AI agent toolchains.",
+      null,
+      "planned",
+      0,
+      true,
+      null,
+      null,
+      null,
+      "2026-11-20T06:08:53Z",
+      "2026-11-20T06:08:53Z",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ]
+}

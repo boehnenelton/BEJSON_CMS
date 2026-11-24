@@ -1,0 +1,119 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Job Schema",
+  "Schema_Version": "1.0",
+  "Schema_Description": "Custom job schema for the NewAgent task creation and tracking system, managing individual task states and optional auditing. Each task carries its own task_context (embedded, chunked files), task_reference (path-only refs), and task_mandatory (marks a task as a required, built-in step for the job's Job_Type/Job_Subtype). Job_Type/Job_Subtype classify the job; Contextualize_Plan/Contextualize_Last control what each task is injected with at run time. Also reused unmodified as the Template payload shape.",
+  "Job_Goal": "Write the book \"Intro to BEJSON and MFDB Part 1\" for software engineers and systems architects, in English (en). Goal: Author a comprehensive 4-part technical publication on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each\n\n\n\nsuper powers",
+  "Job_Type": "writing",
+  "Job_Subtype": "book",
+  "Contextualize_Plan": true,
+  "Contextualize_Last": true,
+  "Job_Complete": true,
+  "Creation_Date": "2026-11-20",
+  "Completion_Date": "2026-11-20",
+  "Records_Type": [
+    "JobTask"
+  ],
+  "Fields": [
+    {
+      "name": "task_id",
+      "type": "string"
+    },
+    {
+      "name": "task_order",
+      "type": "integer"
+    },
+    {
+      "name": "task_name",
+      "type": "string"
+    },
+    {
+      "name": "task_description",
+      "type": "string"
+    },
+    {
+      "name": "task_completed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_passed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_fail_reason",
+      "type": "string"
+    },
+    {
+      "name": "task_context",
+      "type": "array"
+    },
+    {
+      "name": "task_reference",
+      "type": "array"
+    },
+    {
+      "name": "task_mandatory",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "3cfd5f81-19f5-4b95-980a-6aac1a88f430",
+      1,
+      "Foundations, Context & Problem Statement",
+      "Establish the core engineering problem, architectural motivation, and foundational concepts. Define key terminology inline. Focus specifically on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each\n\n\n\nsuper powers.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "0a932b4e-f7fc-4d89-8c63-af8448d46993",
+      2,
+      "Core Architecture, Schema & Structural Invariants",
+      "Dissect the underlying data structures, schema contracts, state machines, and architectural invariants. Focus specifically on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each\n\n\n\nsuper powers.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "b207a5d7-91e3-4c32-86b4-39457cd73e34",
+      3,
+      "Implementation Mechanics & Code Walkthrough",
+      "Walk through concrete, production-grade implementation patterns, code signatures, and execution flows. Focus specifically on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each\n\n\n\nsuper powers.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "b3875ca9-356a-4676-9982-1ef52f0fd022",
+      4,
+      "Verification, Edge Cases & Operational Takeaways",
+      "Examine verification gates, failure modes, performance characteristics, and key engineering takeaways. Focus specifically on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each\n\n\n\nsuper powers.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ]
+  ]
+}

@@ -1,0 +1,154 @@
+# Standardized_Entities Library Family
+
+## Pitch
+
+Build the **`Standardized_Entities`** library family (`Lib_PY/Standardized_Entities/` inside `libraries_105`) with its own dedicated **Core** and **Validator** modules to deploy and verify standardized BEJSON `105` MFDB entity schemas—aligned 1:1 with the Contextual Registry's 14-field universal schema—into any targeted MFDB v1.40 database. This family formally **deprecates** `Taxonomies` and `Tax_Scaffolds`.
+
+## The Rules
+
+### Two-Module Family Separation
+
+- **Core (`lib_bejson_Standardized_Entities_core.py`):** Owns the canonical 14-field schema template and all write operations—creating MFDB databases, writing schema-templated Format `105` entity files into targeted manifests, and constructing schema-valid rows. Imports `Lib_PY/Core` primitives (`mfdb_core`, `bejson_core`) without modifying `Core`[span_0](start_span)[span_0](end_span).
+- **Validator (`lib_bejson_Standardized_Entities_validator.py`):** Pure read-only verification gate (never writes). Enforces a two-tier barrier of entry: first runs `Lib_PY/Core` validation (`validate_bejson` / `validate_mfdb_database`), then verifies exact 14-field `Standardized_Entities` schema conformance[span_1](start_span)[span_1](end_span).
+
+### Deprecation & Universal Deployment Rules
+
+- **Deprecated Families:** `Lib_PY/Taxonomies` and `Lib_PY/Tax_Scaffolds` are deprecated and moved to historical reference (matching the `PMS_DEPRECATED` governance pattern in `BEJSON/MFDB/data/metadata.bejson`)[span_2](start_span)[span_2](end_span). Do not import or extend them in new work.
+- **Strict Format `105` + `104a` Manifest:** Root manifests remain `104a.mfdb.bejson` (`MFDB_Version: "1.40"`), and every deployed entity is a Format `105` file (`data/<entity_name_lower>.bejson`) with `Parent_Hierarchy: "../104a.mfdb.bejson"`, unique UUIDv4 `field_uuid`s, and native `record_uuid` at row index `0`[span_3](start_span)[span_3](end_span).
+- **Optional Extension Columns:** Targeted databases may append extra domain-specific fields **only at the end** of the 14 base fields (never reordering, retyping, or removing the 14 base fields) so universal tooling always resolves fields via `O(1)` `field_map` lookups[span_4](start_span)[span_4](end_span).
+
+## Entity Schema
+
+Every entity written by `Standardized_Entities` Core and verified by `Standardized_Entities` Validator carries the exact 14-field Contextual Registry schema (with BEJSON `105` reserved `record_uuid` at row index `0`, omitted from `Fields`)[span_5](start_span)[span_5](end_span):
+
+- **`record_uuid`** — BEJSON 105 standard reserved UUIDv4 at row index `0`, managed automatically by `libraries_105`[span_6](start_span)[span_6](end_span).
+- **`key`** (`string`, required) — Deterministic, machine-friendly lookup slug unique within the entity.
+- **`label`** (`string`, required) — Human-readable record label.
+- **`value`** (`string`, required) — Core entry payload (URL, path, env value, secret reference, etc.).
+- **`value_type`** (`string`, default `"string"`) — Hint for parsing/validation (`url`, `path`, `env_var`, `secret_ref`, `json`, `text`).
+- **`domain`** (`string`, required) — Top-level domain the record belongs to (e.g., `URL`, `Environment`).
+- **`category`** (`string`, required) — Entity sub-category (e.g., `Cloudflare_Site`, `Youtube`, `Secure`).
+- **`details`** (`string`, default `null`) — Contextual human- and LLM-friendly notes.
+- **`tags`** (`array`, default `null`) — Semantic keywords for search and grouping.
+- **`flags`** (`array`, default `null`) — Programmatic array of tool-scoped state flags.
+- **`context_mode`** (`string`, default `"inject"`) — Agent visibility policy (`"inject"`, `"reference"`, `"hidden"`).
+- **`is_active`** (`boolean`, default `true`) — Programmatic active/soft-delete toggle.
+- **`created_at`** (`string`, required) — UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`) stamped on creation.
+- **`updated_at`** (`string`, default `null`) — UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`) updated on mutation.
+- **`sender`** (`string`, default `null`) — Optional signature of the entry creator or actor.
+
+### Valid BEJSON 105 Deployed Entity Example
+
+Example file: `data/url_cloudflare_site.bejson`
+
+```json
+{
+  "Format": "BEJSON",
+  "Format_Version": "105",
+  "Format_Creator": "Elton Boehnen",
+  "Parent_Hierarchy": "../104a.mfdb.bejson",
+  "Records_Type": ["URL_Cloudflare_Site"],
+  "Fields": [
+    {"name": "key",          "type": "string",  "field_uuid": "a1b2c3d4-0001-4000-8000-000000000001"},
+    {"name": "label",        "type": "string",  "field_uuid": "a1b2c3d4-0002-4000-8000-000000000002"},
+    {"name": "value",        "type": "string",  "field_uuid": "a1b2c3d4-0003-4000-8000-000000000003"},
+    {"name": "value_type",   "type": "string",  "field_uuid": "a1b2c3d4-0004-4000-8000-000000000004"},
+    {"name": "domain",       "type": "string",  "field_uuid": "a1b2c3d4-0005-4000-8000-000000000005"},
+    {"name": "category",     "type": "string",  "field_uuid": "a1b2c3d4-0006-4000-8000-000000000006"},
+    {"name": "details",      "type": "string",  "field_uuid": "a1b2c3d4-0007-4000-8000-000000000007"},
+    {"name": "tags",         "type": "array",   "field_uuid": "a1b2c3d4-0008-4000-8000-000000000008"},
+    {"name": "flags",        "type": "array",   "field_uuid": "a1b2c3d4-0009-4000-8000-000000000009"},
+    {"name": "context_mode", "type": "string",  "field_uuid": "a1b2c3d4-0010-4000-8000-000000000010"},
+    {"name": "is_active",    "type": "boolean", "field_uuid": "a1b2c3d4-0011-4000-8000-000000000011"},
+    {"name": "created_at",   "type": "string",  "field_uuid": "a1b2c3d4-0012-4000-8000-000000000012"},
+    {"name": "updated_at",   "type": "string",  "field_uuid": "a1b2c3d4-0013-4000-8000-000000000013"},
+    {"name": "sender",       "type": "string",  "field_uuid": "a1b2c3d4-0014-4000-8000-000000000014"}
+  ],
+  "Values": [
+    [
+      "9f8e7d6c-0001-4000-8000-000000000001",
+      "CLOUDFLARE_HOME",
+      "Elton Boehnen Portfolio",
+      "[https://boehnenelton2024.pages.dev](https://boehnenelton2024.pages.dev)",
+      "url",
+      "URL",
+      "Cloudflare_Site",
+      "Primary Cloudflare Pages site and project hub",
+      ["portfolio", "website", "bejson"],
+      null,
+      "inject",
+      true,
+      "2026-11-19T23:00:00Z",
+      null,
+      "elton"
+    ]
+  ]
+}
+```
+
+## Tooling & Library API
+
+### Family Directory Layout
+
+```text
+$ADMIN_LIBRARIES_105/Lib_PY/Standardized_Entities/
+├── __init__.py
+├── lib_bejson_Standardized_Entities_core.py        # Schema template + writers to targeted MFDBs
+├── lib_bejson_Standardized_Entities_validator.py   # Two-tier schema & database validator (read-only)
+└── tests/
+    └── test_standardized_entities.py
+```
+
+### Core Module (`lib_bejson_Standardized_Entities_core.py`)
+
+Owns the canonical 14-field template and writes templated Format `105` entities to targeted MFDB databases:
+
+- **`STANDARDIZED_ENTITY_FIELDS`** — Immutable tuple of the 14 canonical `(name, type, default)` definitions.
+- **`se_core_parse_entity_name(entity_name)`** — Validates `^[A-Za-z0-9]+_[A-Za-z0-9_]+$` and splits on the first `_` into `(domain, category)`.
+- **`se_core_build_fields(extra_fields=None)`** — Emits fresh Format `105` field definitions with newly minted UUIDv4 `field_uuid`s (plus any optional appended `extra_fields`).
+- **`se_core_deploy_database(root_dir, db_name, entities, network_role="Master", extra_fields_map=None)`** — Creates a targeted MFDB v1.40 database (`104a.mfdb.bejson`) via `mfdb_core_create_database`, writes every templated Format `105` entity file, and enables referential integrity (`mfdb_core_enable_ref_integrity`)[span_7](start_span)[span_7](end_span).
+- **`se_core_write_entity(manifest_path, entity_name, description="", extra_fields=None)`** — Writes a single schema-templated Format `105` entity file into an existing targeted MFDB manifest via `mfdb_core_create_entity_file(..., format_version="105")`[span_8](start_span)[span_8](end_span) under lock and atomic write.
+- **`se_core_build_record(entity_name, key, label, value, **kwargs)`** — Builds a schema-valid 14-value row list (auto-deriving `domain`/`category`, defaulting `value_type="string"`, `context_mode="inject"`, `is_active=True`, stamping UTC `created_at`, and setting absent optionals to `null`) ready for `mfdb_core_add_entity_record_105`[span_9](start_span)[span_9](end_span).
+
+### Validator Module (`lib_bejson_Standardized_Entities_validator.py`)
+
+Pure read-only integrity gate (never writes to disk):
+
+- **`se_validator_validate_schema(doc)`** — Verifies that `Fields[0:14]` match `STANDARDIZED_ENTITY_FIELDS` in exact order, `name`, and `type`, and that every field carries a valid unique UUIDv4 `field_uuid`[span_10](start_span)[span_10](end_span).
+- **`se_validator_validate_entity(entity_path_or_doc, is_file=True)`** — Two-tier barrier:
+  1. Runs `Lib_PY/Core` `validate_bejson(...)`[span_11](start_span)[span_11](end_span) to confirm Format `105` structural validity.
+  2. Runs `se_validator_validate_schema(doc)` plus value-level checks (`context_mode` in `{"inject", "reference", "hidden"}`, non-null `key`/`label`/`value`/`domain`/`category`, valid ISO-8601 `created_at`).
+- **`se_validator_validate_database(manifest_path, strict_fk=True)`** — Runs `Lib_PY/Core` `validate_mfdb_database(manifest_path, strict_fk=strict_fk)`[span_12](start_span)[span_12](end_span), then runs `se_validator_validate_entity` on every registered entity and returns `{"passed": bool, "entities": [...], "errors": [...], "warnings": [...]}`.
+
+## `~/.gemini/gemini.md` Context Entry
+
+```markdown
+<!-- STANDARDIZED_ENTITIES_CONTEXT:START -->
+## Standardized_Entities Library (`libraries_105`)
+
+- **Path:** `$ADMIN_LIBRARIES_105/Lib_PY/Standardized_Entities/`
+- **Modules:** `lib_bejson_Standardized_Entities_core.py` (writers) + `lib_bejson_Standardized_Entities_validator.py` (read-only schema/DB validator)
+- **Replaces:** `Taxonomies` and `Tax_Scaffolds` (deprecated — do not use in new projects).
+- **Core Calls:**
+  - `se_core_deploy_database(root_dir, db_name, entities=["URL_Cloudflare_Site", ...])`
+  - `se_core_write_entity(manifest_path, "Domain_Category")`
+  - `se_core_build_record("Domain_Category", key=..., label=..., value=...)`
+- **Validator Calls:**
+  - `se_validator_validate_entity(entity_path, is_file=True)`
+  - `se_validator_validate_database(manifest_path)`
+<!-- STANDARDIZED_ENTITIES_CONTEXT:END -->
+```
+
+## Build Instructions
+
+1. **Create the Family Directory:** Create `$ADMIN_LIBRARIES_105/Lib_PY/Standardized_Entities/` and its `tests/` subfolder.
+2. **Author `lib_bejson_Standardized_Entities_core.py`:** Resolve sibling `Lib_PY/Core` dynamically relative to `__file__`[span_13](start_span)[span_13](end_span). Define `STANDARDIZED_ENTITY_FIELDS`, `se_core_parse_entity_name`, `se_core_build_fields`, `se_core_deploy_database`, `se_core_write_entity`, and `se_core_build_record` using `mfdb_core_create_database`, `mfdb_core_create_entity_file(..., format_version="105")`, `mfdb_core_enable_ref_integrity`, and `bejson_core_atomic_write`[span_14](start_span)[span_14](end_span).
+3. **Author `lib_bejson_Standardized_Entities_validator.py`:** Import `validate_bejson` and `validate_mfdb_database` from `Lib_PY/Core`[span_15](start_span)[span_15](end_span). Implement `se_validator_validate_schema`, `se_validator_validate_entity`, and `se_validator_validate_database` as pure read-only checks.
+4. **Export Public Surface in `__init__.py`:** Re-export all `se_core_*`, `se_validator_*` functions, and `STANDARDIZED_ENTITY_FIELDS`.
+5. **Record Deprecation in Metadata:** Add `TAXONOMIES_DEPRECATED = "true"` (`RECORD_TYPE = "RULE"`) in `BEJSON/MFDB/data/metadata.bejson` and log the change in `BEJSON/MFDB/data/library_changes.bejson`[span_16](start_span)[span_16](end_span).
+6. **Run Verification Suite:**
+   ```bash
+   python3 $ADMIN_LIBRARIES_105/Lib_PY/Standardized_Entities/tests/test_standardized_entities.py
+   ```
+   Confirm tests pass for: deploying a fresh MFDB, writing a templated entity into an existing MFDB, appending optional extension columns, inserting records via `se_core_build_record` + `mfdb_core_add_entity_record_105`, and catching missing/reordered/mistyped fields in `se_validator_validate_database`.
+

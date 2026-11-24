@@ -71,7 +71,6 @@ class MFDB_CMS_Manager:
         self.content_db_root = os.path.join(self.workspace_root, "db_content")
         self.assets_dir = os.path.join(data_root, "assets")
         self.apps_dir = os.path.join(data_root, "standalone_apps")
-        # FIX (LIB-CMS-H3): os.path.dirname(data_root) degrades badly for
         # any non-normalized input. If data_root is relative (e.g. "Data",
         # a very plausible constructor argument for local scripts), dirname
         # returns "" and this silently becomes a CWD-relative path -
@@ -560,11 +559,9 @@ class MFDB_CMS_Manager:
                         img = Image.open(old_path)
                         img.save(new_path, "webp")
 
-                        # FIX (LIB-CMS-H2): img.save() can complete without
                         # raising on a truncated/empty write (e.g. disk full
                         # mid-write on some filesystems), which would then
                         # get registered and have the original deleted out
-                        # from under it with no verification. The "file
                         # exists" and "db record added" failure modes were
                         # already implicitly covered - both raise inside this
                         # same try block, which skips delete_asset() below -

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Technical Note: Process lifecycle manager for CMS Flask admin/publisher services (start/stop/status via PID tracking).
 """
 Name:           server_manager.py
 Description:    Asynchronous server lifecycle manager for BEJSON CMS static build preview

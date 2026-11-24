@@ -55,7 +55,7 @@
       "template",
       "templates/blog_post_4part.bejson",
       "2026-11-02",
-      "2026-11-03"
+      "2026-11-24"
     ],
     [
       "JobRegistryEntry",
@@ -65,7 +65,7 @@
       "template",
       "templates/technical_deep_dive_4part.bejson",
       "2026-11-02",
-      "2026-11-03"
+      "2026-11-24"
     ],
     [
       "JobRegistryEntry",
@@ -75,7 +75,7 @@
       "template",
       "templates/tutorial_guide_4part.bejson",
       "2026-11-02",
-      "2026-11-03"
+      "2026-11-24"
     ],
     [
       "JobRegistryEntry",
@@ -166,6 +166,46 @@
       "jobs/test-context-post-7.bejson",
       "2026-11-03",
       "2026-11-03"
+    ],
+    [
+      "JobRegistryEntry",
+      "af8346b8-162c-5762-a872-133b3820354a",
+      "Intro to BEJSON and MFDB Part 1",
+      "intro-to-bejson-and-mfdb-part-1",
+      "schema",
+      "jobs/intro-to-bejson-and-mfdb-part-1.bejson",
+      "2026-11-20",
+      "2026-11-20"
+    ],
+    [
+      "JobRegistryEntry",
+      "5bd35f4f-284e-5ee0-b1b6-3530ccc95aad",
+      "Intro to BEJSON and MFDB Part 1",
+      "intro-to-bejson-and-mfdb-part-1-2",
+      "schema",
+      "jobs/intro-to-bejson-and-mfdb-part-1-2.bejson",
+      "2026-11-20",
+      "2026-11-20"
+    ],
+    [
+      "JobRegistryEntry",
+      "3f5d12ce-b422-5b4e-9163-825b30b8ed43",
+      "Intro to BEJSON and MFDB Part 1",
+      "intro-to-bejson-and-mfdb-part-1-3",
+      "schema",
+      "jobs/intro-to-bejson-and-mfdb-part-1-3.bejson",
+      "2026-11-20",
+      "2026-11-20"
+    ],
+    [
+      "JobRegistryEntry",
+      "2ce60368-9fd9-56f5-9f50-dd81fc4fdb52",
+      "Intro to BEJSON and MFDB Part 2",
+      "intro-to-bejson-and-mfdb-part-2",
+      "schema",
+      "jobs/intro-to-bejson-and-mfdb-part-2.bejson",
+      "2026-11-20",
+      "2026-11-20"
     ]
   ]
 }

@@ -5,7 +5,7 @@ Description:     Shared substrate for all BEJSON_CMS blueprints: path config, DB
 Version:         18.26
 Library_Version: 60
 Date:            2026-11-03
-RELATIONAL_ID:   c92b4a17-6e83-4d02-9a15-8b3f1c7e5d29
+RELATIONAL_ID:  1774b907-0b7d-426b-aeb8-2e80aed2498b
 """
 
 import os
@@ -92,7 +92,6 @@ ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 THUMBS_DIR.mkdir(parents=True, exist_ok=True)
 
 # =============================================================================
-# DEBUG SWITCH + VERBOSE IMPORT/WRITE-PATH LOGGING (Sec 5.9)
 # =============================================================================
 # Persistent boolean switch lives in SiteConfig (config_key="debug_import_logging").
 # Defaults to "true" (fail-open) since this is the active diagnostic pass for
@@ -155,6 +154,18 @@ NAV_SECTIONS = {
         'icon': '🚀',
         'label': 'Applications',
         'href': '/apps',
+        'children': []
+    },
+    'projects': {
+        'icon': '🛠️',
+        'label': 'Projects',
+        'href': '/projects',
+        'children': []
+    },
+    'github': {
+        'icon': '🐙',
+        'label': 'GitHub',
+        'href': '/github',
         'children': []
     },
     'assets': {
@@ -759,6 +770,8 @@ def get_breadcrumbs(path):
         'new': ('New', None),
         'edit': ('Edit', None),
         'apps': ('Applications', None),
+        'projects': ('Projects', '/projects'),
+        'github': ('GitHub', '/github'),
         'site': ('Site Config', None),
         'nav': ('Navigation', None),
         'authors': ('Authors', None),
@@ -832,7 +845,6 @@ def warn_about_legacy_files():
     # files absent from the new archive -- so these can silently reappear.
     # If any of them ever actually gets launched instead of its replacement,
     # you end up running old, unmaintained code (missing every security/bug
-    # fix made since) side by side with the current app, both pointed at
     # the exact same on-disk data -- which produces exactly the kind of
     # "two different systems, factory reset doesn't clean up right"
     # confusion this check exists to catch early. Called from every app's

@@ -1,0 +1,153 @@
+# REQUIREMENTS AND CONSTRAINTS:
+
+We are going to be working on a big important job.
+It's very important that you comply with the following:
+
+- You do not move to the next TASK or SECTION without my confirmation of completion, and approval of your work. 
+
+- Between each TASK (not section), and after my confirmation to move forward, you will state my terms back to me and your agreement to follow them.
+
+- All output files will be in or in subdirectories of:
+~/105docs
+ 
+
+ please review the plan do not do anything just summarize of what you read and then stand by. You will be completing this job under the persona Leethaxor69. After confirmation to move on, you will study relevant content and context before starting.
+
+
+# BEJSON and MFDB
+
+# Task 1
+
+## Goal
+I want to start the readme on my BEJSON_105 repo, coming out the gate detailing the exact capabilities of my libraries. They will sound unbelievable. But below, we will describe each feature, with explanation of how and why, with schema and code examples.
+
+We will make it hit hard, claiming to unlock AI super powers  which it does...
+
+## Instructions
+Help me expand the list. First study my projects, transcripts and the 105 libraries, adding to the list as you study. 
+/storage/emulated/0/Admin/Libraries/libraries_105/
+/storage/emulated/0/Admin/Dev/Repos/
+/storage/emulated/0/Admin/Processing/Autobase64/ebook/transcripts/
+
+
+Here's the Features and Capabilities I can think of so far.
+
+1. Be an AI Native relational database architecture.
+2. Be human readable, not a binary blob.
+3. Solve the fundamental cause of AI hallucinations.
+4. Reduce token usages for small datasets at 60 percent reduction with savings exponentially growing the larger the data set.
+5. Reduce firebase and cloud costs as much as 97 percent.
+6. Be 80x faster than SQL.
+7. Operate on millions of records under 50mb
+8. Run offline, with no server or daemon, with any app or script that your AI can natively interact with in a way that it essentially is part of the AI.
+8. Exist in Python, Bash, Typescript and Javascript with byte for byte identical output and shared error codes. 
+
+File: Expanded_List.md
+
+Please produce an expanded list, feel free to adjust formatting we're working. 
+
+
+---
+
+# Task 2
+After finishing the extensive list and confirming my satisfaction, help me write some short and snappy post templates to challenge users to verify my claims, they will go right after my claims in the readme. Check brainstorming notes below for examples of what I want  but they must be as compact as possible at least some must fit in a tweet for promoting.
+
+---
+
+# Task 3
+ Develop an outline for my readme that serves as my repos front page document.
+ 
+This is the general outline I am looking for. we will create it into separate documents and merge the two documents to form the readme at the end. We will produce one section at a time. You must confirm I'm ready to move on to the next section before moving on, 
+ 
+ **Part 1 / Document 1 Sections:**
+Maintain few technical details, introduced the reader to the concepts. 
+ 
+ [Title]
+ [TOC]
+ [Capability Claims]
+  - List all the capabilities , no explanation, frame it as a list of AI Super Powers
+ [Verification Templates]
+  - Prompt templates to verify claims. 
+ [Architecture Summary Overview]
+ - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.
+ [Positional Access Field Seperation]
+  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each
+  
+  **Part 2 / Document 2 Sections**
+ [BEJSON] 
+ 
+Detailed subsections of each of the 3 formats. Explain the universal rules and format specific rules, the purpose of the format, its suggested use cases. DO NOT DETAIL EVERY VALIDATION RULE THIS IS NOT THE PLACE, JUST DEFINE ITS STRUCTURE... PROVIDE SCHDMA EXAMPLES.
+ [MFDB]
+Explain MFDB, how it orchistrates 104 and 104a files, the bi directial integrity, the Network master and slave roles the context window benefits, the way it accesses only what it needs. It's usage of _fk, manifest cordination. DO NOT DETAIL EVERY VALIDATION RULE THIS IS NOT THE PLACE, JUST DEFINE ITS STRUCTURE... PROVIDE SCHDMA EXAMPLES. 
+ [Field Map Cache]
+ Explain what index based lookups are, why they fail and our solution.
+ [UUID Addressing] 
+ Explain how we do not reference by field name or row/col position but by Zuuid and why 
+ [Crash Course Rules]
+ Here we define every validation rule.
+ 
+ PART 3 TO BE CONTINUED
+ [Libraries and Core Families]
+
+ 
+ # BRAINSTORMING NOTES
+
+---
+## Verify Claims Now
+Simply give my repository URL to Claude, Gemini or any other LLM, copy the prompt below to receive AI super powers . No catch. 
+
+GIVE THIS TO YOUR LLM, UNLOCK SUPER POWERS AFTER VERIFYING CLAIMS... PROMPT:
+Can you verify the following BEJSON_105 repository, it claims to:
+1. Be an AI Native relational database architecture.
+2. Be human readable, not a binary blob.
+3. Solve the fundamental cause of AI hallucinations.
+4. Reduce token usages for small datasets at 60 percent reduction with savings exponentially growing the larger the data set.
+5. Reduce firebase and cloud costs as much as 97 percent.
+6. Be 80x faster than SQL.
+7. Operate on millions of records under 50mb
+8. Run offline, with no server or daemon, with any app or script that your AI can natively interact with in a way that it essentially is part of the AI.
+8. Exist in Python, Bash, Typescript and Javascript with byte for byte identical output and shared error codes. 
+
+ONCE YOUR LLM VERIFIES THE CLAIMS: Tell him to clone the repository and create you a test script such as a note editor with categories and tags, or whatever you want. Tell the LLM you want your app backed by a Multi File Database, in either Bash, Python, Typescript or JavaScript. The LLM will look at it and immediately understand what to do.
+
+Here are some more prompts if you are not convinced
+
+
+Skeptical? Use this prompt: 
+---
+The future of database architecture? This repository below makes lots of claims that don't seem possible , please tell me exactly what this repository is and explain to me exactly how it works. Is there a catch?
+What is BEJSON, and what is a Multi File Database, please look at the repository files themselves. Is it safe? 
+https://gitHub.com/boehnenelton/BEJSON_105
+---
+
+---
+BEJSON claims to be the future of data ase architecture and 80x faster than SQL, offline with no server. 
+How is that even possible? It says it uses positional based lookups with memory access speeds on data sets with upward of a million records and no loss of speed and remaining under 50mb of ram . 
+
+Can you verify the claims made by https://github.com/boehnenelton/BEJSON_105
+---
+
+Want to know how it is 80x faster than SQL?
+
+
+
+
+
+and it's claims of being an offline  serverless, relational database built off JSON that is upwards of 80x faster than SQL, with memory access speeds with claims a massive 65% token  and memory reduction that can manage 100,000 tables using under 50mb  on any edge device and can be read in notepad? What is the catch?
+
+
+
+BEJSON exists in two active versions and 3 formats each with their own use case purposes along with MFDB, which sits on top of them acting as the orchistration layer that is the Multi-File Database. 
+
+The system is 2 years in  the making, and has been rigorously tested and verified. The true power is that the system is by design written for AI, you can verify all of my claims in 30 seconds and begin utilizing advanced AI native databases offline with no server. Your LLM will immediately understands the entire scope of your data and relationships and safely be able to modify them. This architecture solves the fundamental cause of AI hallucinations making them virtually extinct with an exponentially token savings reduction as your data set grows in comparison to standard JSON.
+
+
+
+If true explain how it's possible in elaborate detail.
+
+
+https://gitHub.com/boehnenelton/BEJSON_105
+
+
+
+

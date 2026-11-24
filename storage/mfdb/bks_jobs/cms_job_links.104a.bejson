@@ -194,6 +194,66 @@
       "merged/test-context-post-7.md",
       "merged/test-context-post-7.html",
       ""
+    ],
+    [
+      "intro-to-bejson-and-mfdb-part-1",
+      "77d7219f-e99f-4977-b70c-5e4ad8f2a469",
+      "blog_post_4part",
+      "",
+      "BEJSON",
+      "Leethaxor69",
+      "blog",
+      "geminirest",
+      "gemini-3.8-flash",
+      "pending",
+      "merged/intro-to-bejson-and-mfdb-part-1.md",
+      "merged/intro-to-bejson-and-mfdb-part-1.html",
+      ""
+    ],
+    [
+      "intro-to-bejson-and-mfdb-part-1-2",
+      "ed81489c-d5e5-4b4b-a13c-febc8b92b97d",
+      "blog_post_4part",
+      "854b97a8-e213-49a9-a00f-a6e21c653c6a",
+      "BEJSON",
+      "Leethaxor69",
+      "blog",
+      "geminirest",
+      "gemini-3.8-flash",
+      "approved",
+      "merged/intro-to-bejson-and-mfdb-part-1-2.md",
+      "merged/intro-to-bejson-and-mfdb-part-1-2.html",
+      "2026-11-20T06:13:26Z"
+    ],
+    [
+      "intro-to-bejson-and-mfdb-part-1-3",
+      "02615bb3-e6e3-4b40-beb9-1b11921f5b4e",
+      "blog_post_4part",
+      "",
+      "BEJSON",
+      "Leethaxor69",
+      "blog",
+      "geminirest",
+      "gemini-3.8-flash",
+      "pending",
+      "merged/intro-to-bejson-and-mfdb-part-1-3.md",
+      "merged/intro-to-bejson-and-mfdb-part-1-3.html",
+      ""
+    ],
+    [
+      "intro-to-bejson-and-mfdb-part-2",
+      "01db1d45-1003-47fc-9446-e84cfa6b36b6",
+      "blog_post_4part",
+      "9c371a60-747c-413f-bfaa-01c0e9c0b1c1",
+      "BEJSON",
+      "boehnenelton2024",
+      "blog",
+      "geminirest",
+      "gemini-3.6-flash",
+      "approved",
+      "merged/intro-to-bejson-and-mfdb-part-2.md",
+      "merged/intro-to-bejson-and-mfdb-part-2.html",
+      "2026-11-20T06:25:20Z"
     ]
   ]
 }

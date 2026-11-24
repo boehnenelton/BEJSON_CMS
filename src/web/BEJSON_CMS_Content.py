@@ -5,7 +5,7 @@ Description:     Content Cube: Page/Link CRUD, Category management, Author profi
 Version:         18.30
 Library_Version: 61
 Date:            2026-11-03
-RELATIONAL_ID:   e83a1d92-4b67-4c18-9f05-7a2b5e8d1c43
+RELATIONAL_ID:  1175f8c1-1b4e-4d70-a1f4-0b616f56cda4
 """
 
 VERSION = 1830
@@ -124,7 +124,7 @@ def page_new():
         featured_diagram = request.form.get('page_featured_diagram', '').strip()
         db.mount()
         db.add_record("PageRecord", {"page_uuid": new_uuid, "page_title": title, "page_slug": slug,
-            "page_cat_name": category, "page_type": "page", "page_created_at": datetime.now().strftime("%Y-%m-%d"),
+            "page_cat_name": category, "page_project_uuid": "", "page_type": "page", "page_created_at": datetime.now().strftime("%Y-%m-%d"),
             "page_external_url": None, "page_author_name": author, "page_featured_img": DEFAULT_FEATURED_IMAGE,
             "page_featured_diagram": featured_diagram})
         
@@ -221,6 +221,7 @@ def edit_content(page_uuid):
         featured_diagram = request.form.get('page_featured_diagram', page.get('page_featured_diagram', ''))
         author = request.form.get('page_author_name', page.get('page_author_name', ''))
         category = request.form.get('page_cat_name', page.get('page_cat_name', ''))
+        linked_project_uuid = request.form.get('page_project_uuid', '').strip()
         page_type = request.form.get('page_type', page.get('page_type', 'page'))
 
         if markdown_content and (convert_md_on_save or not html_content.strip()):
@@ -254,6 +255,7 @@ def edit_content(page_uuid):
             "page_featured_diagram": featured_diagram,
             "page_author_name": author,
             "page_cat_name": category,
+            "page_project_uuid": linked_project_uuid,
             "page_type": page_type,
             "page_is_standalone_flag": (page_type == "page"),
         })
@@ -340,6 +342,7 @@ def edit_content(page_uuid):
                     </select>
                 </div>
                 <div class="form-group"><label class="form-label">Category</label><select name="page_cat_name" class="form-control">{% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name == page.page_cat_name %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label class="form-label">Linked Project (Auto-Injects Link Strip Below Hero)</label><select name="page_project_uuid" class="form-control"><option value="">None</option>{% for prj in all_projects %}<option value="{{ prj.page_uuid }}" {% if prj.page_uuid == page.page_project_uuid %}selected{% endif %}>{{ prj.page_title }}</option>{% endfor %}</select></div>
                 <div class="form-group">
                     <label class="form-label">Page Type</label>
                     <select name="page_type" class="form-control">
@@ -602,7 +605,7 @@ def edit_content(page_uuid):
       </div>
     </div>'''
     breadcrumbs = [{'label': 'Content', 'href': '/content'}, {'label': 'Pages', 'href': '/pages'}, {'label': page['page_title'], 'href': None}]
-    return R(html, page=page, page_uuid=page_uuid, html_content=html_content, markdown_content=markdown_content, media_assets=media_assets,
+    return R(html, page=page, page_uuid=page_uuid, html_content=html_content, markdown_content=markdown_content, media_assets=media_assets, all_projects=[p for p in (db.get_records('PageRecord') or []) if p.get('page_type') == 'project'],
              image_media_assets=image_media_assets, diagram_assets=diagram_assets,
              pdf_assets=pdf_assets, pdf_links=pdf_links, video_links=video_links,
              categories=categories, authors=authors, breadcrumbs=breadcrumbs, active_section='content')
@@ -2694,7 +2697,429 @@ def content_api_bks_approve():
 
 
 # =============================================================================
-# FACTORY RESET  (merged from Cleanup_Tool.py)
+# PROJECT PAGES (page_type = "project")
 # =============================================================================
+
+def _read_project_page_doc(page_uuid):
+    """Reads html_body and ProjectMeta fields from storage/mfdb/pages_db/<uuid>.json."""
+    content_file = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
+    result = {
+        "html_body": "",
+        "project_github_url": "",
+        "project_gemini_notepad_url": "",
+        "project_featured_links": "",
+        "project_youtube_links": "",
+        "project_asset_links": "",
+        "project_bejson_era": "",
+    }
+    if not os.path.exists(content_file):
+        return result
+    try:
+        with open(content_file, "r", encoding="utf-8") as file_handle:
+            doc = json.load(file_handle)
+        field_map = Core.bejson_core_get_field_map(doc)
+        idx_parent = field_map.get("Record_Type_Parent", 0)
+        idx_html = field_map.get("html_body", -1)
+        idx_gh = field_map.get("project_github_url", -1)
+        idx_gem = field_map.get("project_gemini_notepad_url", -1)
+        idx_feat = field_map.get("project_featured_links", -1)
+        idx_yt = field_map.get("project_youtube_links", -1)
+        idx_assets = field_map.get("project_asset_links", -1)
+        idx_era = field_map.get("project_bejson_era", -1)
+
+        for row in doc.get("Values", []):
+            rec_type = row[idx_parent] if len(row) > idx_parent else ""
+            if rec_type == "Content" and idx_html != -1 and len(row) > idx_html:
+                result["html_body"] = row[idx_html] or ""
+            elif rec_type == "ProjectMeta":
+                if idx_gh != -1 and len(row) > idx_gh:
+                    result["project_github_url"] = row[idx_gh] or ""
+                if idx_gem != -1 and len(row) > idx_gem:
+                    result["project_gemini_notepad_url"] = row[idx_gem] or ""
+                if idx_feat != -1 and len(row) > idx_feat:
+                    result["project_featured_links"] = row[idx_feat] or ""
+                if idx_yt != -1 and len(row) > idx_yt:
+                    result["project_youtube_links"] = row[idx_yt] or ""
+                if idx_assets != -1 and len(row) > idx_assets:
+                    result["project_asset_links"] = row[idx_assets] or ""
+                if idx_era != -1 and len(row) > idx_era:
+                    result["project_bejson_era"] = row[idx_era] or ""
+    except Exception:
+        pass
+    return result
+
+
+def _write_project_page_doc(page_uuid, title, html_body, project_meta):
+    """Writes canonical E11-compliant 104db page file with PageMeta, Content, and ProjectMeta rows."""
+    content_file = os.path.join(PAGES_DB_DIR, f"{page_uuid}.json")
+    os.makedirs(PAGES_DB_DIR, exist_ok=True)
+    raw_gh = (project_meta.get("project_github_url", "") or "").strip()
+    clean_gh = re.sub(r"\.git/?$", "", raw_gh, flags=re.IGNORECASE) if raw_gh else ""
+    era_val = (project_meta.get("project_bejson_era", "") or "").strip()
+    if era_val not in ("104", "105"):
+        era_val = ""
+    project_doc = {
+        "Format": "BEJSON",
+        "Format_Version": "104db",
+        "Format_Creator": "Elton Boehnen",
+        "Records_Type": ["PageMeta", "Content", "ProjectMeta"],
+        "Fields": [
+            {"name": "Record_Type_Parent", "type": "string"},
+            {"name": "meta_title", "type": "string", "Record_Type_Parent": "PageMeta"},
+            {"name": "html_body", "type": "string", "Record_Type_Parent": "Content"},
+            {"name": "markdown_body", "type": "string", "Record_Type_Parent": "Content"},
+            {"name": "source_code", "type": "string", "Record_Type_Parent": "Content"},
+            {"name": "project_github_url", "type": "string", "Record_Type_Parent": "ProjectMeta"},
+            {"name": "project_gemini_notepad_url", "type": "string", "Record_Type_Parent": "ProjectMeta"},
+            {"name": "project_youtube_links", "type": "string", "Record_Type_Parent": "ProjectMeta"},
+            {"name": "project_asset_links", "type": "string", "Record_Type_Parent": "ProjectMeta"},
+            {"name": "project_featured_links", "type": "string", "Record_Type_Parent": "ProjectMeta"},
+            {"name": "project_bejson_era", "type": "string", "Record_Type_Parent": "ProjectMeta"},
+        ],
+        "Values": [
+            ["PageMeta", title, None, None, None, None, None, None, None, None, None],
+            ["Content", None, html_body, "", "", None, None, None, None, None, None],
+            [
+                "ProjectMeta",
+                None,
+                None,
+                None,
+                None,
+                clean_gh,
+                project_meta.get("project_gemini_notepad_url", ""),
+                project_meta.get("project_youtube_links", ""),
+                project_meta.get("project_asset_links", ""),
+                project_meta.get("project_featured_links", ""),
+                era_val,
+            ],
+        ],
+    }
+    temp_file = content_file + ".tmp"
+    with open(temp_file, "w", encoding="utf-8") as file_handle:
+        json.dump(project_doc, file_handle, indent=2)
+        file_handle.flush()
+        os.fsync(file_handle.fileno())
+    os.replace(temp_file, content_file)
+
+
+@content_cube.route('/projects')
+def projects_list():
+    db.mount()
+    project_pages = [
+        record for record in db.get_records("PageRecord")
+        if record.get("page_type") == "project"
+    ]
+    enriched_projects = []
+    for proj in project_pages:
+        proj_meta = _read_project_page_doc(proj.get("page_uuid", ""))
+        enriched = dict(proj)
+        enriched.update(proj_meta)
+        enriched_projects.append(enriched)
+
+    html = '''
+    <div class="page-header">
+        <h1>Projects</h1>
+        <p>Dedicated project pages with featured video, GitHub, YouTube, and Gemini Notepad links</p>
+    </div>
+    <div class="toolbar">
+        <a href="/projects/new" class="btn btn-primary">+ New Project Page</a>
+    </div>
+    <div class="card">
+        {% if projects %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Project Title</th>
+                        <th>Category</th>
+                        <th>Resources</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for proj in projects %}
+                    <tr>
+                        <td><strong>{{ proj.page_title }}</strong><br><code style="font-size:0.75rem;color:var(--text-secondary);">/project/{{ proj.page_slug }}</code></td>
+                        <td>{{ proj.page_cat_name or 'Projects' }}</td>
+                        <td>
+                            {% if proj.page_featured_video_url %}<span class="badge" style="background:#7f1d1d;color:#fca5a5;">Video</span> {% endif %}
+                            {% if proj.project_bejson_era %}<span class="badge" style="background:{{ '#DE2626' if proj.project_bejson_era == '105' else '#111111' }};color:#FFFFFF;">{{ proj.project_bejson_era }}</span> {% endif %}{% if proj.project_github_url %}<span class="badge" style="background:#1f2937;color:#e5e7eb;">GitHub</span> {% endif %}
+                            {% if proj.project_gemini_notepad_url %}<span class="badge" style="background:#14532d;color:#86efac;">Gemini Notepad</span> {% endif %}
+                        </td>
+                        <td>{{ proj.page_created_at or '' }}</td>
+                        <td style="white-space:nowrap;">
+                            <a href="/projects/edit/{{ proj.page_uuid }}" class="btn btn-secondary btn-sm">Edit</a>
+                            <form method="post" action="/pages/delete/{{ proj.page_uuid }}" style="display:inline;" onsubmit="return confirm('Delete this project page?')">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>No project pages yet</h3>
+            <p>Create a dedicated project page with featured video, GitHub, YouTube, and Gemini Notepad links.</p>
+            <br>
+            <a href="/projects/new" class="btn btn-primary">+ New Project Page</a>
+        </div>
+        {% endif %}
+    </div>'''
+    return R(html, projects=enriched_projects, breadcrumbs=get_breadcrumbs(request.path), active_section='projects')
+
+
+@content_cube.route('/projects/new', methods=['GET', 'POST'])
+def project_new():
+    db.mount()
+    categories = db.get_records("Category")
+    authors = db.get_records("AuthorProfile")
+    all_media = db.get_records("MediaAsset")
+    image_media_assets = [
+        asset for asset in all_media
+        if (asset.get('asset_mime_type') or '').startswith('image/')
+        or (asset.get('asset_filename') or '').lower().endswith(('.webp', '.png', '.jpg', '.jpeg', '.svg', '.gif'))
+    ]
+
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        category = request.form.get('category', '').strip() or 'Projects'
+        author = request.form.get('author', '').strip()
+        if not title:
+            flash('Project title is required.', 'error')
+            return redirect('/projects/new')
+
+        new_uuid = str(uuid.uuid4())
+        slug_raw = request.form.get('slug', '').strip() or title
+        slug = re.sub(r'[^a-z0-9]+', '-', slug_raw.lower()).strip('-')
+        featured_img = request.form.get('page_featured_img', '').strip() or DEFAULT_FEATURED_IMAGE
+        featured_video_url = request.form.get('page_featured_video_url', '').strip()
+        html_body = request.form.get('html_body', '').strip() or f"<h2>{title}</h2><p>Project overview...</p>"
+
+        project_meta = {
+            "project_github_url": request.form.get('project_github_url', '').strip(),
+            "project_gemini_notepad_url": request.form.get('project_gemini_notepad_url', '').strip(),
+            "project_featured_links": request.form.get('project_featured_links', '').strip(),
+            "project_youtube_links": request.form.get('project_youtube_links', '').strip(),
+            "project_asset_links": request.form.get('project_asset_links', '').strip(),
+            "project_bejson_era": request.form.get('project_bejson_era', '').strip(),
+        }
+
+        db.mount()
+        db.add_record("PageRecord", {
+            "page_uuid": new_uuid,
+            "page_title": title,
+            "page_slug": slug,
+            "page_cat_name": category,
+            "page_type": "project",
+            "page_created_at": datetime.now().strftime("%Y-%m-%d"),
+            "page_external_url": None,
+            "page_author_name": author,
+            "page_featured_img": featured_img,
+            "page_featured_video_url": featured_video_url,
+            "page_featured_diagram": "",
+        })
+        _write_project_page_doc(new_uuid, title, html_body, project_meta)
+        flash('Project page created.', 'success')
+        return redirect(f'/projects/edit/{new_uuid}')
+
+    html = '''
+    <div class="page-header"><h1>New Project Page</h1></div>
+    <form method="POST" class="card" onsubmit="syncFeaturedLinks()">
+        <div class="form-group"><label class="form-label">Project Title *</label><input type="text" name="title" class="form-control" required autofocus></div>
+        <div class="form-group"><label class="form-label">Slug (optional)</label><input type="text" name="slug" class="form-control" placeholder="auto-generated-from-title"></div>
+        <div class="form-group"><label class="form-label">Category</label>
+            <select name="category" class="form-control">
+                {% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name|lower == 'projects' %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-group"><label class="form-label">Author</label>
+            <select name="author" class="form-control">
+                <option value="">-- Default --</option>
+                {% for a in authors %}<option value="{{ a.auth_name }}">{{ a.auth_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-group"><label class="form-label">Featured Image</label>
+            <select name="page_featured_img" class="form-control">
+                <option value="">Default</option>
+                {% for a in image_media_assets %}<option value="{{ a.asset_filename }}">{{ a.asset_original_name or a.asset_filename }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-group"><label class="form-label">Featured Video URL (YouTube)</label><input type="url" name="page_featured_video_url" class="form-control" placeholder="https://www.youtube.com/watch?v=..."></div>
+        <div class="form-group"><label class="form-label">BEJSON Era (104 or 105)</label><select name="project_bejson_era" class="form-control"><option value="">Unspecified</option><option value="105">BEJSON 105 (Integrity Era)</option><option value="104">BEJSON 104 (Foundational Era)</option></select></div>
+        <div class="form-group"><label class="form-label">GitHub Repository URL</label><input type="url" name="project_github_url" class="form-control" placeholder="https://github.com/..."></div>
+        <div class="form-group"><label class="form-label">Public Gemini Notepad URL</label><input type="url" name="project_gemini_notepad_url" class="form-control" placeholder="https://gemini.google.com/..."></div>
+        <div class="form-group">
+            <label class="form-label">Featured Links (Highlighted Action Buttons)</label>
+            <div id="featured_links_rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addFeaturedLinkRow('', '')">+ Add Featured Link</button>
+            <input type="hidden" name="project_featured_links" id="project_featured_links_input" value="">
+        </div>
+        <div class="form-group"><label class="form-label">Project YouTube Links (one per line: Label | URL or URL)</label><textarea name="project_youtube_links" class="form-control" rows="3" placeholder="Demo Walkthrough | https://youtube.com/watch?v=..."></textarea></div>
+        <div class="form-group"><label class="form-label">Other Asset Links (one per line: Label | URL or URL)</label><textarea name="project_asset_links" class="form-control" rows="3" placeholder="Live Demo | https://...&#10;Documentation | https://..."></textarea></div>
+        <div class="form-group"><label class="form-label">Project Overview / Body (HTML)</label><textarea name="html_body" class="form-control" rows="8" placeholder="<h2>Overview</h2><p>...</p>"></textarea></div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button type="submit" class="btn btn-primary">Create Project Page</button>
+            <a href="/projects" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+    <script>
+    function addFeaturedLinkRow(label, url) {
+        var container = document.getElementById('featured_links_rows');
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+        row.innerHTML = '<input type="text" class="form-control feat-lbl" placeholder="Button Label (e.g. Play Live)" style="flex:1;">' +
+                        '<input type="url" class="form-control feat-url" placeholder="https://..." style="flex:2;">' +
+                        '<button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove(); syncFeaturedLinks();">Remove</button>';
+        row.querySelector('.feat-lbl').value = label || '';
+        row.querySelector('.feat-url').value = url || '';
+        container.appendChild(row);
+    }
+    function syncFeaturedLinks() {
+        var rows = document.querySelectorAll('#featured_links_rows > div');
+        var lines = [];
+        rows.forEach(function(r) {
+            var lbl = (r.querySelector('.feat-lbl').value || '').trim();
+            var url = (r.querySelector('.feat-url').value || '').trim();
+            if (url) { lines.push(lbl ? (lbl + ' | ' + url) : url); }
+        });
+        document.getElementById('project_featured_links_input').value = lines.join('\\n');
+    }
+    </script>'''
+    return R(html, categories=categories, authors=authors, image_media_assets=image_media_assets,
+             breadcrumbs=get_breadcrumbs(request.path), active_section='projects')
+
+
+@content_cube.route('/projects/edit/<page_uuid>', methods=['GET', 'POST'])
+def project_edit(page_uuid):
+    db.mount()
+    records = db.get_records("PageRecord")
+    page_rec = next((rec for rec in records if rec.get("page_uuid") == page_uuid), None)
+    if not page_rec:
+        flash('Project page not found.', 'error')
+        return redirect('/projects')
+
+    categories = db.get_records("Category")
+    authors = db.get_records("AuthorProfile")
+    all_media = db.get_records("MediaAsset")
+    image_media_assets = [
+        asset for asset in all_media
+        if (asset.get('asset_mime_type') or '').startswith('image/')
+        or (asset.get('asset_filename') or '').lower().endswith(('.webp', '.png', '.jpg', '.jpeg', '.svg', '.gif'))
+    ]
+
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip() or page_rec.get('page_title', '')
+        category = request.form.get('category', '').strip() or page_rec.get('page_cat_name', 'Projects')
+        author = request.form.get('author', '').strip()
+        slug_raw = request.form.get('slug', '').strip() or page_rec.get('page_slug', '') or title
+        slug = re.sub(r'[^a-z0-9]+', '-', slug_raw.lower()).strip('-')
+        featured_img = request.form.get('page_featured_img', '').strip() or page_rec.get('page_featured_img', '')
+        featured_video_url = request.form.get('page_featured_video_url', '').strip()
+        html_body = request.form.get('html_body', '')
+
+        project_meta = {
+            "project_github_url": request.form.get('project_github_url', '').strip(),
+            "project_gemini_notepad_url": request.form.get('project_gemini_notepad_url', '').strip(),
+            "project_featured_links": request.form.get('project_featured_links', '').strip(),
+            "project_youtube_links": request.form.get('project_youtube_links', '').strip(),
+            "project_asset_links": request.form.get('project_asset_links', '').strip(),
+            "project_bejson_era": request.form.get('project_bejson_era', '').strip(),
+        }
+
+        db.update_record("PageRecord", "page_uuid", page_uuid, {
+            "page_title": title,
+            "page_slug": slug,
+            "page_cat_name": category,
+            "page_type": "project",
+            "page_author_name": author,
+            "page_featured_img": featured_img,
+            "page_featured_video_url": featured_video_url,
+        })
+        _write_project_page_doc(page_uuid, title, html_body, project_meta)
+        flash('Project page updated.', 'success')
+        return redirect(f'/projects/edit/{page_uuid}')
+
+    proj_doc = _read_project_page_doc(page_uuid)
+    html = '''
+    <div class="page-header"><h1>Edit Project Page: {{ page.page_title }}</h1></div>
+    <form method="POST" class="card" onsubmit="syncFeaturedLinks()">
+        <div class="form-group"><label class="form-label">Project Title *</label><input type="text" name="title" class="form-control" value="{{ page.page_title }}" required></div>
+        <div class="form-group"><label class="form-label">Slug</label><input type="text" name="slug" class="form-control" value="{{ page.page_slug }}"></div>
+        <div class="form-group"><label class="form-label">Category</label>
+            <select name="category" class="form-control">
+                {% for c in categories %}<option value="{{ c.cat_name }}" {% if c.cat_name == page.page_cat_name %}selected{% endif %}>{{ c.cat_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-group"><label class="form-label">Author</label>
+            <select name="author" class="form-control">
+                <option value="">-- Default --</option>
+                {% for a in authors %}<option value="{{ a.auth_name }}" {% if a.auth_name == page.page_author_name %}selected{% endif %}>{{ a.auth_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-group"><label class="form-label">Featured Image</label>
+            <select name="page_featured_img" class="form-control">
+                <option value="">Default</option>
+                {% for a in image_media_assets %}<option value="{{ a.asset_filename }}" {% if a.asset_filename == page.page_featured_img %}selected{% endif %}>{{ a.asset_original_name or a.asset_filename }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-group"><label class="form-label">Featured Video URL (YouTube)</label><input type="url" name="page_featured_video_url" class="form-control" value="{{ page.page_featured_video_url or '' }}"></div>
+        <div class="form-group"><label class="form-label">BEJSON Era (104 or 105)</label><select name="project_bejson_era" class="form-control"><option value="">Unspecified</option><option value="105" {% if proj.project_bejson_era == '105' %}selected{% endif %}>BEJSON 105 (Integrity Era)</option><option value="104" {% if proj.project_bejson_era == '104' %}selected{% endif %}>BEJSON 104 (Foundational Era)</option></select></div>
+        <div class="form-group"><label class="form-label">GitHub Repository URL</label><input type="url" name="project_github_url" class="form-control" value="{{ proj.project_github_url }}"></div>
+        <div class="form-group"><label class="form-label">Public Gemini Notepad URL</label><input type="url" name="project_gemini_notepad_url" class="form-control" value="{{ proj.project_gemini_notepad_url }}"></div>
+        <div class="form-group">
+            <label class="form-label">Featured Links (Highlighted Action Buttons)</label>
+            <div id="featured_links_rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addFeaturedLinkRow('', '')">+ Add Featured Link</button>
+            <input type="hidden" name="project_featured_links" id="project_featured_links_input" value="{{ proj.project_featured_links }}">
+        </div>
+        <div class="form-group"><label class="form-label">Project YouTube Links (one per line: Label | URL or URL)</label><textarea name="project_youtube_links" class="form-control" rows="3">{{ proj.project_youtube_links }}</textarea></div>
+        <div class="form-group"><label class="form-label">Other Asset Links (one per line: Label | URL or URL)</label><textarea name="project_asset_links" class="form-control" rows="3">{{ proj.project_asset_links }}</textarea></div>
+        <div class="form-group"><label class="form-label">Project Overview / Body (HTML)</label><textarea name="html_body" class="form-control" rows="10">{{ proj.html_body }}</textarea></div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button type="submit" class="btn btn-primary">Save Project Page</button>
+            <a href="/projects" class="btn btn-secondary">Back to Projects</a>
+        </div>
+    </form>
+    <script>
+    function addFeaturedLinkRow(label, url) {
+        var container = document.getElementById('featured_links_rows');
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+        row.innerHTML = '<input type="text" class="form-control feat-lbl" placeholder="Button Label (e.g. Play Live)" style="flex:1;">' +
+                        '<input type="url" class="form-control feat-url" placeholder="https://..." style="flex:2;">' +
+                        '<button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove(); syncFeaturedLinks();">Remove</button>';
+        row.querySelector('.feat-lbl').value = label || '';
+        row.querySelector('.feat-url').value = url || '';
+        container.appendChild(row);
+    }
+    function syncFeaturedLinks() {
+        var rows = document.querySelectorAll('#featured_links_rows > div');
+        var lines = [];
+        rows.forEach(function(r) {
+            var lbl = (r.querySelector('.feat-lbl').value || '').trim();
+            var url = (r.querySelector('.feat-url').value || '').trim();
+            if (url) { lines.push(lbl ? (lbl + ' | ' + url) : url); }
+        });
+        document.getElementById('project_featured_links_input').value = lines.join('\\n');
+    }
+    (function initFeaturedLinks() {
+        var raw = document.getElementById('project_featured_links_input').value || '';
+        raw.split(/\\r?\\n/).forEach(function(line) {
+            var trimmed = line.trim();
+            if (!trimmed) return;
+            if (trimmed.indexOf('|') !== -1) {
+                var parts = trimmed.split('|');
+                addFeaturedLinkRow(parts[0].trim(), parts.slice(1).join('|').trim());
+            } else {
+                addFeaturedLinkRow(trimmed, trimmed);
+            }
+        });
+    })();
+    </script>'''
+    return R(html, page=page_rec, proj=proj_doc, categories=categories, authors=authors,
+             image_media_assets=image_media_assets, breadcrumbs=get_breadcrumbs(request.path), active_section='projects')
 
 

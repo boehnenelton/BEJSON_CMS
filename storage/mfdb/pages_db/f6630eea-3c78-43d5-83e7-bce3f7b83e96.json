@@ -1,0 +1,107 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content",
+    "ProjectMeta"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string",
+      "Record_Type_Parent": "PageMeta"
+    },
+    {
+      "name": "html_body",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "source_code",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "project_github_url",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_gemini_notepad_url",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_youtube_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_asset_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_featured_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_bejson_era",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "BEJSON_104 (Libraries_104)",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "<h2>BEJSON 104 Foundational Libraries (Libraries_104)</h2><p>Foundational Era BEJSON 104 / 104a / 104db polyglot library suite across Python, JavaScript, TypeScript, and Bash with O(1) Field Map Caching and zero-dependency flat-file persistence.</p><h3>Key Capabilities</h3><ul><li><strong>Schema-First Tabular Storage:</strong> Eliminates repeated JSON key bloat with 95% token compression.</li><li><strong>Multi-File Databases (MFDB v1.31):</strong> Relational flat-file manifests and 104db document payloads.</li><li><strong>Polyglot Parity:</strong> Identical core contracts across Python, JS/TS, and Bash.</li></ul>",
+      "",
+      "",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "ProjectMeta",
+      null,
+      null,
+      null,
+      null,
+      "https://github.com/boehnenelton/BEJSON_104-Libraries",
+      "",
+      "BEJSON - Solving AI Hallucinations & 95% Token Reduction | https://www.youtube.com/watch?v=h7WtEqdrKm8\nBElton YouTube Channel (@BElton2026) | https://www.youtube.com/@belton2026",
+      "The Legacy BEJSON 104 Libraries Polyglot Guide | https://boehnenelton2024.blogspot.com/2026/11/the-legacy-bejson-104-libraries.html\nBEJSON 104 Foundations and Zero-Bloat Architecture | https://boehnenelton2024.blogspot.com/2026/11/bejson-104-foundations-and-zero-bloat.html\nBEJSON 104 Core Polyglot Guide Part 1 | https://boehnenelton2024.blogspot.com/2026/11/bejson-104-core-polyglot-guide-part-1.html\nInside the BEJSON 104 AI Family | https://boehnenelton2024.blogspot.com/2026/11/inside-bejson-104-ai-family.html",
+      "BEJSON Benchmark Suite | https://boehnenelton2024.pages.dev/apps/bejson-benchmark-suite/BEJSON_Interactive_Benchmark_Suite.html",
+      "104"
+    ]
+  ]
+}

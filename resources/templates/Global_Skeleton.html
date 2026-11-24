@@ -23,12 +23,23 @@
                     <ul class="nav-menu" id="main-nav">
                         <li><a href="{{rel_prefix}}index.html">Home</a></li>
                         <li class="nav-dropdown">
-                            <a href="#">Categories <span class="chevron">▼</span></a>
+                            <a href="#" onclick="return toggleNavDropdown(this, event);">Categories <span class="chevron">▼</span></a>
                             <ul class="dropdown-content">
                                 {{sidebar_categories}}
                             </ul>
                         </li>
-                        <li><a href="{{rel_prefix}}apps/index.html">Applications</a></li>
+                        <li class="nav-dropdown">
+                            <a href="#" onclick="return toggleNavDropdown(this, event);">Applications <span class="chevron">▼</span></a>
+                            <ul class="dropdown-content">
+                                {{nav_apps}}
+                            </ul>
+                        </li>
+                        <li class="nav-dropdown">
+                            <a href="#" onclick="return toggleNavDropdown(this, event);">Projects <span class="chevron">▼</span></a>
+                            <ul class="dropdown-content">
+                                {{nav_projects}}
+                            </ul>
+                        </li>
                         {{custom_nav_links}}
                     </ul>
                 </nav>
@@ -53,6 +64,28 @@
                 </div>
             </div>
 
+            <div class="sidebar-collapsible" id="collapse-apps">
+                <button class="collapse-trigger" onclick="toggleCollapse('collapse-apps')">
+                    Applications <span class="chevron">▼</span>
+                </button>
+                <div class="collapse-content">
+                    <ul class="category-list">
+                        {{nav_apps}}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-collapsible" id="collapse-projects">
+                <button class="collapse-trigger" onclick="toggleCollapse('collapse-projects')">
+                    Projects <span class="chevron">▼</span>
+                </button>
+                <div class="collapse-content">
+                    <ul class="category-list">
+                        {{nav_projects}}
+                    </ul>
+                </div>
+            </div>
+
             <div class="sidebar-collapsible" id="collapse-social">
                 <button class="collapse-trigger" onclick="toggleCollapse('collapse-social')">
                     Connect <span class="chevron">▼</span>
@@ -72,11 +105,12 @@
                 <div class="copyright">&copy; {{current_year}} <strong>{{site_title}}</strong></div>
                 <div class="footer-links" style="display:flex; gap:20px;">
                     <a href="{{rel_prefix}}index.html">Home</a>
+                    <a href="{{rel_prefix}}projects/index.html">Projects</a>
                     <a href="{{rel_prefix}}apps/index.html">Apps</a>
                 </div>
             </div>
             <div class="footer-bottom-notice" style="text-align:center; font-size:0.75rem; margin-top:25px; color:var(--text-muted);">
-                Polyglot Non Commercial - <a href="https://github.com/boehnenelton/BEJSON_CMS" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">BEJSON_CMS</a>
+                Polyform Non Commercial - <a href="https://github.com/boehnenelton/BEJSON_CMS" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">BEJSON_CMS</a>
             </div>
         </div>
     </footer>
@@ -88,6 +122,13 @@
         function toggleMenu() {
             const nav = document.getElementById('main-nav');
             nav.classList.toggle('active');
+        }
+
+        function toggleNavDropdown(anchorEl, ev) {
+            if (ev) ev.preventDefault();
+            const parentLi = anchorEl.closest('.nav-dropdown');
+            if (parentLi) parentLi.classList.toggle('open');
+            return false;
         }
 
         function toggleCollapse(id) {

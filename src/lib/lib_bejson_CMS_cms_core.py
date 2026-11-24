@@ -21,10 +21,10 @@ Release_Version: 300
 # AUTHOR:  Elton Boehnen
 # DATE:    2026-06-06
 # CHANGES: - Integrated bejson_core_get_field_map() for O(1) field lookups.
-#          - Refactored add_record/update_record to use cached maps.
-#          - Added robust type checks to prevent 'bool' subscript errors 
-#            on corrupted BEJSON files.
-#          - Updated library imports to align with Lib_PY 2.0.1.
+# - Refactored add_record/update_record to use cached maps.
+# - Added robust type checks to prevent 'bool' subscript errors
+# on corrupted BEJSON files.
+# - Updated library imports to align with Lib_PY 2.0.1.
 # ==============================================================================
 
 import os
@@ -148,7 +148,6 @@ class CMSCore:
                     break
             
             if target_idx != -1:
-                # FIX (LIB-CMS-M1): previously fetched the entity doc twice -
                 # once inside self.get_field_map(entity_name), and again
                 # here immediately after. Fetch once and derive the field
                 # map from the same doc directly.
@@ -180,13 +179,11 @@ class CMSCore:
             if not isinstance(doc, dict): return {}
             return Core.bejson_core_get_field_map(doc)
         except Exception as e:
-            # FIX (LIB-CMS-M2): was a bare print() - invisible in production
             # (stdout, not a log stream) and indistinguishable from a
             # legitimately empty entity. Logged with a real severity level
             # and full traceback instead; still returns {} to preserve the
             # existing return contract for callers, since this method (and
             # its sibling update_record above) already establish "log and
-            # return an empty/falsy default" as this class's error-handling
             # convention throughout - changing the contract here alone would
             # be an inconsistent, wider-reaching API change.
             logging.error(f"[CMSCore] get_field_map Error ({entity_name}): {e}", exc_info=True)

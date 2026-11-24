@@ -96,6 +96,7 @@ style in the file you're editing rather than introducing a new one.
 | `src/web/BEJSON_CMS_PageEditorV2.py` | DEPRECATED and removed from `src/web/`; archived at `dev/archive/BEJSON_CMS_PageEditorV2_Archived.zip`. Do not revive. |
 | `src/web/BEJSON_CMS_ProfileManager.py` | AI Persona Hub (`AI_Profile` records) |
 | `src/web/BEJSON_CMS_Publisher.py` | Static site generator, reads MFDB, writes `storage/builds/` |
+| `src/web/BEJSON_CMS_APIPublisher.py` | Independent API Publisher & syndication lineage tracker (port 5005) |
 | `src/lib/lib_bejson_CMS_cms_core.py` | `CMSCore` — the only DB interface application code should call |
 | `src/lib/lib_bejson_Core_*` | BEJSON/MFDB core: parsing, validation, atomic writes, path guarding |
 | `src/lib/lib_cms_persona_writer.py` | Assembles AI system instructions from `AI_Profile` records |
@@ -149,3 +150,41 @@ python3 src/cms-manage.py publish
 # Compile and immediately deploy to Cloudflare Pages via Wrangler
 python3 src/cms-manage.py publish --deploy --project <cf-pages-project>
 ```
+
+### 4. Independent API Publisher & Syndication Tracking (Google Blogger & Substack)
+Syndication and cross-platform tracking are managed independently via `src/web/BEJSON_CMS_APIPublisher.py` (decoupled from the static publisher), assigning group keys and URL lineage to prevent duplicate posting:
+
+```bash
+# Print 49-column mobile portrait status banner (CMS, Blogger, Substack counts & lineage):
+python3 src/web/BEJSON_CMS_APIPublisher.py --status
+
+# Inspect baseline read of CMS database pages:
+python3 src/web/BEJSON_CMS_APIPublisher.py --read-cms [--json]
+
+# Inspect live read of Google Blogger posts via Blogger v3 API:
+python3 src/web/BEJSON_CMS_APIPublisher.py --read-blogger [--json]
+
+# Inspect live read of Substack published posts and drafts:
+python3 src/web/BEJSON_CMS_APIPublisher.py --read-substack [--json]
+
+# Correlate cross-platform content lineage:
+python3 src/web/BEJSON_CMS_APIPublisher.py --lineage [--json]
+
+# Run independent Flask web dashboard on port 5005:
+python3 src/web/BEJSON_CMS_APIPublisher.py --server
+```
+
+### 5. Automated Syndication Dispatch Scripts (tools/)
+```bash
+# Syndicate all published CMS posts to Google Blogger v3:
+# Reads credentials from secureenv. Token cache persists at ~/.env/blogger_token.json.
+python3 tools/blogger_publisher.py [--draft]
+
+# Syndicate all published CMS posts to Substack:
+# Reads credentials from secureenv. Mandates zero-HTML ProseMirror AST conversion.
+python3 tools/substack_publisher.py
+
+# Publish Substack draft live with tags and 2FA handling:
+python3 ~/setup_tools/substack/publish_post_live.py --draft-id <id> --tags <tags> [--code <code>]
+```
+

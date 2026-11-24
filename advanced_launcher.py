@@ -77,6 +77,8 @@ SERVICES = {
           "port_env": "CMS_PUBLISHER_PORT", "setting_name": "publisher_port"},
     "5": {"key": "profiles", "label": "Persona Hub (Profiles)", "file": "BEJSON_CMS_ProfileManager.py",
           "port_env": "CMS_PROFILES_PORT", "setting_name": "profiles_port"},
+    "6": {"key": "apipublisher", "label": "API Publisher (Blogger/Substack)", "file": "BEJSON_CMS_APIPublisher.py",
+          "port_env": "CMS_APIPUBLISHER_PORT", "setting_name": "apipublisher_port"},
 }
 
 # State: key -> {"pid": int, "port": int, "log_file": str, "started": str, "port_bumped": bool, "proc": Popen}

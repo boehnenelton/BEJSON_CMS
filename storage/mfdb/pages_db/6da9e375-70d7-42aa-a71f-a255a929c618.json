@@ -1,0 +1,99 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104db",
+  "Format_Creator": "Elton Boehnen",
+  "Records_Type": [
+    "PageMeta",
+    "Content",
+    "ProjectMeta"
+  ],
+  "Fields": [
+    {
+      "name": "Record_Type_Parent",
+      "type": "string"
+    },
+    {
+      "name": "meta_title",
+      "type": "string",
+      "Record_Type_Parent": "PageMeta"
+    },
+    {
+      "name": "html_body",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "markdown_body",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "source_code",
+      "type": "string",
+      "Record_Type_Parent": "Content"
+    },
+    {
+      "name": "project_github_url",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_gemini_notepad_url",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_youtube_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_asset_links",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    },
+    {
+      "name": "project_bejson_era",
+      "type": "string",
+      "Record_Type_Parent": "ProjectMeta"
+    }
+  ],
+  "Values": [
+    [
+      "PageMeta",
+      "Shadow Link's Awakening",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Content",
+      null,
+      "<h2>Shadow Link's Awakening (Sword Slasher RPG)</h2>\n<p>Top-down 2D action-RPG simulation and React front-end driven by decoupled BEJSON 105 data schemas and the <strong>Sword_Slasher_Engine_JS</strong> runtime.</p>\n<h3>Architecture Highlights</h3>\n<ul>\n  <li><strong>Data-Driven Engine:</strong> Zero-hardcoded game entities, maps, combat stats, and loot tables powered by BEJSON 105.</li>\n  <li><strong>Multi-Engine Portability:</strong> Shared BEJSON 105 data contract across multiple engine targets.</li>\n  <li><strong>Live Deployment:</strong> Hosted on Cloudflare Pages with companion technical teardowns across CMS, Blogger, and Substack.</li>\n</ul>",
+      "",
+      "",
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "ProjectMeta",
+      null,
+      null,
+      null,
+      null,
+      "https://github.com/boehnenelton/Sword-Slasher-v2",
+      "",
+      "Sword Slasher 2 - 4 Engines 1 Set of Data #BEJSON | https://www.youtube.com/watch?v=MJPcbN8C4lM\nBElton YouTube Channel (@BElton2026) | https://www.youtube.com/@belton2026",
+      "Play Live (Cloudflare App) | https://sword-slasher.pages.dev\nStandalone Game Prototype | https://boehnenelton2024.pages.dev/apps/sword-slasher--shadow-link-s-awakening/standalone-game.html\nSword_Slasher_Engine_JS (GitHub) | https://github.com/boehnenelton/Sword_Slasher_Engine_JS.git\nEngine Architecture Breakdown (CMS) | https://boehnenelton2024.pages.dev/article/bejson/shadow-link-awakening-engine-architecture-breakdown/index.html\nDesigning 2D Action RPGs in BEJSON 105 (CMS) | https://boehnenelton2024.pages.dev/article/projects/designing-2d-action-rpgs-in-bejson-105/index.html\nSubstack: The Shadow Link Action-RPG Engine Architecture | https://leethaxor69.substack.com/p/the-shadow-link-action-rpg-engine\nSubstack: Designing 2D Action RPGs in BEJSON 105 | https://leethaxor69.substack.com/p/designing-2d-action-rpgs-in-bejson\nBlogger: Shadow Link Awakening Disassembly | https://boehnenelton2024.blogspot.com/2026/11/shadow-links-awakening-dissecting-zero.html",
+      "105"
+    ]
+  ]
+}

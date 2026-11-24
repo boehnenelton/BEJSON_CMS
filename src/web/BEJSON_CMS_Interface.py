@@ -1,3 +1,4 @@
+# Technical Note: Shared UI chrome and navigation layout helpers for the CMS admin console.
 """
 Library:         BEJSON_CMS_Interface
 Family:          BEJSON_CMS

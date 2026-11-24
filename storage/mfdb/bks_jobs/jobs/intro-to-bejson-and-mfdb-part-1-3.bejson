@@ -1,0 +1,119 @@
+{
+  "Format": "BEJSON",
+  "Format_Version": "104a",
+  "Format_Creator": "Elton Boehnen",
+  "Schema_Name": "Job Schema",
+  "Schema_Version": "1.0",
+  "Schema_Description": "Custom job schema for the NewAgent task creation and tracking system, managing individual task states and optional auditing. Each task carries its own task_context (embedded, chunked files), task_reference (path-only refs), and task_mandatory (marks a task as a required, built-in step for the job's Job_Type/Job_Subtype). Job_Type/Job_Subtype classify the job; Contextualize_Plan/Contextualize_Last control what each task is injected with at run time. Also reused unmodified as the Template payload shape.",
+  "Job_Goal": "Write the book \"Intro to BEJSON and MFDB Part 1\" for software engineers and systems architects, in English (en). Goal: Author a comprehensive 4-part technical publication on: Intro to BEJSON and ZMFDB\n\n\n [Capability Claims]\n  - List all the capabilities , no explanation, frame it as a list of AI Super Powers\n [Verification Templates]\n  - Prompt templates to verify claims. \n [Architecture Summary Overview]\n - A brief summary of the legacy 104 era and the current 105 era. A short and sweet introduction to the versions, each of their 3 format versions and the MFDB architecture that sits on top, define it as an orchistration layer of the formats  not a format itself. Should be concise with few technical details.\n [Positional Access Field Seperation]\n  - A brief explanation of the fields, how they are separated from the values, define the terms (fields, values  records as rows which hold sets of values). Define Record Types, 104 and 104a being single typed and 104db being multi typed but meant for small data sets, Clarify that it is not MFDB, . Clarify that the purpose of all of this is for AI readability, token,memory and context optimizations. Detail that MFDB orchistrates the formats to managing them as a relational database that enforces cascade referential integrity. Maintain few technical terms in this section , just define things and briefly explain each",
+  "Job_Type": "writing",
+  "Job_Subtype": "book",
+  "Contextualize_Plan": true,
+  "Contextualize_Last": true,
+  "Job_Complete": false,
+  "Creation_Date": "2026-11-20",
+  "Completion_Date": "",
+  "Records_Type": [
+    "JobTask"
+  ],
+  "Fields": [
+    {
+      "name": "task_id",
+      "type": "string"
+    },
+    {
+      "name": "task_order",
+      "type": "integer"
+    },
+    {
+      "name": "task_name",
+      "type": "string"
+    },
+    {
+      "name": "task_description",
+      "type": "string"
+    },
+    {
+      "name": "task_completed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_enabled",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_passed",
+      "type": "boolean"
+    },
+    {
+      "name": "audit_fail_reason",
+      "type": "string"
+    },
+    {
+      "name": "task_context",
+      "type": "array"
+    },
+    {
+      "name": "task_reference",
+      "type": "array"
+    },
+    {
+      "name": "task_mandatory",
+      "type": "boolean"
+    }
+  ],
+  "Values": [
+    [
+      "5f7d0f88-3b2a-4ce7-8438-b816d53747eb",
+      1,
+      "The AI Superpower Matrix and Verification Challenge",
+      "Establishes Elton Boehnen's BEJSON ecosystem as an AI-native, zero-daemon relational database architecture by presenting the raw capability matrix and exposing how legacy enterprise JSON inflates cloud payloads by up to 95 percent. Provides copy-paste empirical verification prompt templates that challenge readers to pit Claude, Gemini, or local models directly against the raw codebase to independently verify speed, offline execution, and sub-50MB RAM claims. Concludes by challenging skeptical engineers to inspect the foundational byte layouts, setting up the structural breakdown of the legacy and modern format specifications.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "814cf448-fbd7-4f3c-8b0a-bf76441c5bd1",
+      2,
+      "Architectural Evolution: The 104 Foundation and 105 Integrity Era",
+      "Introduces the architectural progression from the legacy 104 format family into the 105 Integrity Era, explaining how immutable column-0 record UUIDs and per-field UUIDs bring cryptographic provenance to flat files without altering POSIX simplicity. Deconstructs the three structural variants across both eras\u2014the base homogeneous table (104/105), the primitive-only configuration manifest (104a/105a), and the multi-record single-file bundle (104db/105db)\u2014while defining the Multi-File Database (MFDB) strictly as an orchestration layer rather than a file format. Bridges into the mechanical core of the engine by previewing why decoupling metadata from raw rows unlocks massive token and runtime optimizations.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "722b3f3a-2ea6-4dee-adac-718b10762d6c",
+      3,
+      "Positional Access, Field Separation, and Token Destruction",
+      "Details the technical mechanics of positional access field separation, formally defining fields, values, and record rows to demonstrate how isolating metadata into a single top-level array eliminates repetitive key bloat. Contrasts single-typed tables with discriminator-based multi-typed bundles like 105db to show why structured matrix layouts mathematically eradicate token-weight hallucinations in large language model context windows while maintaining constant-time O(1) field-map memory lookups. Explains how this vector format achieves sub-50MB resident memory bounds on constrained edge hardware, paving the way for relational multi-table orchestration.\n\nTarget length: about 150 words.",
+      false,
+      true,
+      false,
+      "",
+      [],
+      [],
+      true
+    ],
+    [
+      "78bc6763-5d17-4a5c-9448-01066a11b89f",
+      4,
+      "Multi-File Database Orchestration and Cascade Referential Integrity",
+      "Analyzes how the MFDB v1.40 engine federates up to millions of discrete 104 and 105 flat files under a root 104a manifest to deliver full relational database capabilities without spinning up a background server daemon. Explains the two-phase plan-then-commit traversal engine that enforces bidirectional manifest-entity handshakes and foreign key constraints across cascade, restrict, and set-null deletion rules with zero risk of circular lockups. Synthesizes the four-language cross-runtime parity guarantees across Python, JavaScript, TypeScript, and POSIX Bash, concluding with production integration patterns for the BEJSON Content Management System.\n\nTarget length: about 150 words.",
+      true,
+      true,
+      true,
+      "",
+      [],
+      [],
+      true
+    ]
+  ]
+}
